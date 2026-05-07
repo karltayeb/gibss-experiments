@@ -1,0 +1,601 @@
+Assuming unrestricted shared filesystem usage.
+host: Karls-MacBook-Pro.local
+Building DAG of jobs...
+Using shell: /opt/homebrew/bin/bash
+Provided cores: 8
+Rules claiming more threads will be scaled down.
+Job stats:
+job                                                 count
+------------------------------------------------  -------
+materialize_twogroup_experiment_batch                   9
+fit_twogroup_experiment_batch_method                  342
+twogroup_experiments_plot_data                        342
+materialize_twogroup_experiment_collection_alias        1
+total                                                 694
+
+Select jobs to execute...
+Execute 8 jobs...
+[Thu May  7 14:13:09 2026]
+localrule materialize_twogroup_experiment_batch:
+    output: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet
+    jobid: 8
+    reason: Missing output files: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml
+    wildcards: batch_hash=cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:09 2026]
+localrule materialize_twogroup_experiment_batch:
+    output: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    jobid: 3
+    reason: Missing output files: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    wildcards: batch_hash=3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:09 2026]
+localrule materialize_twogroup_experiment_batch:
+    output: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet
+    jobid: 5
+    reason: Missing output files: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet
+    wildcards: batch_hash=0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:09 2026]
+localrule materialize_twogroup_experiment_batch:
+    output: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    jobid: 7
+    reason: Missing output files: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    wildcards: batch_hash=027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:09 2026]
+localrule materialize_twogroup_experiment_batch:
+    output: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet
+    jobid: 9
+    reason: Missing output files: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml
+    wildcards: batch_hash=c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:09 2026]
+localrule materialize_twogroup_experiment_batch:
+    output: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    jobid: 1
+    reason: Missing output files: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    wildcards: batch_hash=93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:09 2026]
+localrule materialize_twogroup_experiment_batch:
+    output: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet
+    jobid: 2
+    reason: Missing output files: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml
+    wildcards: batch_hash=160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:09 2026]
+localrule materialize_twogroup_experiment_batch:
+    output: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet
+    jobid: 4
+    reason: Missing output files: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml
+    wildcards: batch_hash=8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:12 2026]
+Finished jobid: 3 (Rule: materialize_twogroup_experiment_batch)
+1 of 694 steps (0.1%) done
+Execute 1 jobs...
+[Thu May  7 14:13:12 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    output: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/method_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/fits.parquet
+    jobid: 92
+    reason: Missing output files: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/fits.parquet, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/method_spec.yaml; Input files updated by another job: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    wildcards: batch_hash=3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22, method_hash=dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:13 2026]
+Finished jobid: 7 (Rule: materialize_twogroup_experiment_batch)
+2 of 694 steps (0.3%) done
+Select jobs to execute...
+Execute 1 jobs...
+[Thu May  7 14:13:13 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    output: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/method_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/fits.parquet
+    jobid: 91
+    reason: Missing output files: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/fits.parquet, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/method_spec.yaml; Input files updated by another job: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    wildcards: batch_hash=3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22, method_hash=f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:13 2026]
+Finished jobid: 9 (Rule: materialize_twogroup_experiment_batch)
+3 of 694 steps (0.4%) done
+Select jobs to execute...
+Execute 1 jobs...
+[Thu May  7 14:13:13 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    output: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/method_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/fits.parquet
+    jobid: 248
+    reason: Missing output files: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/fits.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/method_spec.yaml; Input files updated by another job: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    wildcards: batch_hash=027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6, method_hash=ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:13 2026]
+Finished jobid: 8 (Rule: materialize_twogroup_experiment_batch)
+4 of 694 steps (1%) done
+[Thu May  7 14:13:13 2026]
+Finished jobid: 5 (Rule: materialize_twogroup_experiment_batch)
+5 of 694 steps (1%) done
+[Thu May  7 14:13:13 2026]
+Finished jobid: 2 (Rule: materialize_twogroup_experiment_batch)
+6 of 694 steps (1%) done
+Select jobs to execute...
+Execute 3 jobs...
+[Thu May  7 14:13:13 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    output: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03/method_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03/fits.parquet
+    jobid: 267
+    reason: Missing output files: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03/fits.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03/method_spec.yaml; Input files updated by another job: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    wildcards: batch_hash=027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6, method_hash=ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:13 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    output: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea/method_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea/fits.parquet
+    jobid: 87
+    reason: Missing output files: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea/fits.parquet, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea/method_spec.yaml; Input files updated by another job: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    wildcards: batch_hash=3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22, method_hash=90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:13 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    output: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6/method_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6/fits.parquet
+    jobid: 238
+    reason: Missing output files: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6/method_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6/fits.parquet; Input files updated by another job: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    wildcards: batch_hash=027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6, method_hash=07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:13 2026]
+Finished jobid: 1 (Rule: materialize_twogroup_experiment_batch)
+7 of 694 steps (1%) done
+[Thu May  7 14:13:13 2026]
+Finished jobid: 4 (Rule: materialize_twogroup_experiment_batch)
+8 of 694 steps (1%) done
+Select jobs to execute...
+Execute 2 jobs...
+[Thu May  7 14:13:13 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    output: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/51ef46b41ffd166c1b507348d896272a19224dc452284db88bbf07cca46f1942/method_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/51ef46b41ffd166c1b507348d896272a19224dc452284db88bbf07cca46f1942/fits.parquet
+    jobid: 27
+    reason: Missing output files: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/51ef46b41ffd166c1b507348d896272a19224dc452284db88bbf07cca46f1942/method_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/51ef46b41ffd166c1b507348d896272a19224dc452284db88bbf07cca46f1942/fits.parquet; Input files updated by another job: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    wildcards: batch_hash=93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55, method_hash=51ef46b41ffd166c1b507348d896272a19224dc452284db88bbf07cca46f1942
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:13 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet
+    output: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba/method_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba/fits.parquet
+    jobid: 147
+    reason: Missing output files: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba/method_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba/fits.parquet; Input files updated by another job: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml
+    wildcards: batch_hash=8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac, method_hash=3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:17 2026]
+Finished jobid: 87 (Rule: fit_twogroup_experiment_batch_method)
+9 of 694 steps (1%) done
+Execute 1 jobs...
+[Thu May  7 14:13:17 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    output: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/57e5b7fa9fc1d4d6679b42a2f2852a05cde1038a10366b660b69b1eb52669f5d/method_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/57e5b7fa9fc1d4d6679b42a2f2852a05cde1038a10366b660b69b1eb52669f5d/fits.parquet
+    jobid: 110
+    reason: Missing output files: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/57e5b7fa9fc1d4d6679b42a2f2852a05cde1038a10366b660b69b1eb52669f5d/fits.parquet, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/57e5b7fa9fc1d4d6679b42a2f2852a05cde1038a10366b660b69b1eb52669f5d/method_spec.yaml; Input files updated by another job: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    wildcards: batch_hash=3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22, method_hash=57e5b7fa9fc1d4d6679b42a2f2852a05cde1038a10366b660b69b1eb52669f5d
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:20 2026]
+Finished jobid: 92 (Rule: fit_twogroup_experiment_batch_method)
+10 of 694 steps (1%) done
+Execute 1 jobs...
+[Thu May  7 14:13:20 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet
+    output: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/0fbdfc24649889288001af795fc1bfdc39a228636f58bada3804e99d2077b7f8/method_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/0fbdfc24649889288001af795fc1bfdc39a228636f58bada3804e99d2077b7f8/fits.parquet
+    jobid: 139
+    reason: Missing output files: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/0fbdfc24649889288001af795fc1bfdc39a228636f58bada3804e99d2077b7f8/fits.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/0fbdfc24649889288001af795fc1bfdc39a228636f58bada3804e99d2077b7f8/method_spec.yaml; Input files updated by another job: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml
+    wildcards: batch_hash=8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac, method_hash=0fbdfc24649889288001af795fc1bfdc39a228636f58bada3804e99d2077b7f8
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+[Thu May  7 14:13:21 2026]
+Finished jobid: 147 (Rule: fit_twogroup_experiment_batch_method)
+11 of 694 steps (2%) done
+Select jobs to execute...
+Execute 1 jobs...
+[Thu May  7 14:13:21 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    output: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e/method_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e/fits.parquet
+    jobid: 19
+    reason: Missing output files: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e/method_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e/fits.parquet; Input files updated by another job: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    wildcards: batch_hash=93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55, method_hash=2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:21 2026]
+Finished jobid: 110 (Rule: fit_twogroup_experiment_batch_method)
+12 of 694 steps (2%) done
+Execute 1 jobs...
+[Thu May  7 14:13:21 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet
+    output: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c/method_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c/fits.parquet
+    jobid: 79
+    reason: Missing output files: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c/fits.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c/method_spec.yaml; Input files updated by another job: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml
+    wildcards: batch_hash=160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c, method_hash=0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:21 2026]
+Finished jobid: 91 (Rule: fit_twogroup_experiment_batch_method)
+13 of 694 steps (2%) done
+Execute 1 jobs...
+[Thu May  7 14:13:21 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet
+    output: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea/method_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea/fits.parquet
+    jobid: 49
+    reason: Missing output files: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea/fits.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea/method_spec.yaml; Input files updated by another job: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml
+    wildcards: batch_hash=160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c, method_hash=90d679cd035bc57dcca9dd941fdaefe804015c7aa7fac3e11f32b3a926982fea
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:25 2026]
+Finished jobid: 267 (Rule: fit_twogroup_experiment_batch_method)
+14 of 694 steps (2%) done
+Execute 1 jobs...
+[Thu May  7 14:13:25 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet
+    output: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c/method_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c/fits.parquet
+    jobid: 199
+    reason: Missing output files: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c/fits.parquet, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c/method_spec.yaml; Input files updated by another job: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml
+    wildcards: batch_hash=0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd, method_hash=9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:31 2026]
+Finished jobid: 49 (Rule: fit_twogroup_experiment_batch_method)
+15 of 694 steps (2%) done
+Execute 1 jobs...
+[Thu May  7 14:13:31 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet
+    output: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/73102f81d920d536c1e13ffeed945fb809b1dd16a8b4ddc86766f8d59d8c793d/method_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/73102f81d920d536c1e13ffeed945fb809b1dd16a8b4ddc86766f8d59d8c793d/fits.parquet
+    jobid: 169
+    reason: Missing output files: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/73102f81d920d536c1e13ffeed945fb809b1dd16a8b4ddc86766f8d59d8c793d/method_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/73102f81d920d536c1e13ffeed945fb809b1dd16a8b4ddc86766f8d59d8c793d/fits.parquet; Input files updated by another job: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml
+    wildcards: batch_hash=0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd, method_hash=73102f81d920d536c1e13ffeed945fb809b1dd16a8b4ddc86766f8d59d8c793d
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:32 2026]
+Finished jobid: 238 (Rule: fit_twogroup_experiment_batch_method)
+16 of 694 steps (2%) done
+Execute 1 jobs...
+[Thu May  7 14:13:32 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet
+    output: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/ae47bc7a4c710b21ca2d74fcc6c2d8365f57dd6333cd03e9805472ced1061503/method_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/ae47bc7a4c710b21ca2d74fcc6c2d8365f57dd6333cd03e9805472ced1061503/fits.parquet
+    jobid: 350
+    reason: Missing output files: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/ae47bc7a4c710b21ca2d74fcc6c2d8365f57dd6333cd03e9805472ced1061503/method_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/ae47bc7a4c710b21ca2d74fcc6c2d8365f57dd6333cd03e9805472ced1061503/fits.parquet; Input files updated by another job: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml
+    wildcards: batch_hash=c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c, method_hash=ae47bc7a4c710b21ca2d74fcc6c2d8365f57dd6333cd03e9805472ced1061503
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:38 2026]
+Finished jobid: 27 (Rule: fit_twogroup_experiment_batch_method)
+17 of 694 steps (2%) done
+Execute 1 jobs...
+[Thu May  7 14:13:38 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet
+    output: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8/method_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8/fits.parquet
+    jobid: 159
+    reason: Missing output files: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8/fits.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8/method_spec.yaml; Input files updated by another job: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml
+    wildcards: batch_hash=8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac, method_hash=a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:45 2026]
+Finished jobid: 79 (Rule: fit_twogroup_experiment_batch_method)
+18 of 694 steps (3%) done
+Execute 1 jobs...
+[Thu May  7 14:13:45 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet
+    output: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88/method_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88/fits.parquet
+    jobid: 279
+    reason: Missing output files: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88/fits.parquet, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88/method_spec.yaml; Input files updated by another job: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml
+    wildcards: batch_hash=cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351, method_hash=fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:48 2026]
+Finished jobid: 350 (Rule: fit_twogroup_experiment_batch_method)
+19 of 694 steps (3%) done
+Execute 1 jobs...
+[Thu May  7 14:13:48 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet
+    output: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/48f513a40c550b752eb325412a59eee64603c5bd9cebde21b9ca24f3985673df/method_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/48f513a40c550b752eb325412a59eee64603c5bd9cebde21b9ca24f3985673df/fits.parquet
+    jobid: 289
+    reason: Missing output files: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/48f513a40c550b752eb325412a59eee64603c5bd9cebde21b9ca24f3985673df/method_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/48f513a40c550b752eb325412a59eee64603c5bd9cebde21b9ca24f3985673df/fits.parquet; Input files updated by another job: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml
+    wildcards: batch_hash=cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351, method_hash=48f513a40c550b752eb325412a59eee64603c5bd9cebde21b9ca24f3985673df
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:13:54 2026]
+Finished jobid: 199 (Rule: fit_twogroup_experiment_batch_method)
+20 of 694 steps (3%) done
+Execute 1 jobs...
+[Thu May  7 14:13:54 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    output: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/c4147916a4deebdba8ced84cfb8dc9c69a5fa0dd5f49554bdf97387b043f7db7/method_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/c4147916a4deebdba8ced84cfb8dc9c69a5fa0dd5f49554bdf97387b043f7db7/fits.parquet
+    jobid: 259
+    reason: Missing output files: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/c4147916a4deebdba8ced84cfb8dc9c69a5fa0dd5f49554bdf97387b043f7db7/fits.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/c4147916a4deebdba8ced84cfb8dc9c69a5fa0dd5f49554bdf97387b043f7db7/method_spec.yaml; Input files updated by another job: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    wildcards: batch_hash=027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6, method_hash=c4147916a4deebdba8ced84cfb8dc9c69a5fa0dd5f49554bdf97387b043f7db7
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:03 2026]
+Finished jobid: 139 (Rule: fit_twogroup_experiment_batch_method)
+21 of 694 steps (3%) done
+Execute 1 jobs...
+[Thu May  7 14:14:03 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet
+    output: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/method_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/fits.parquet
+    jobid: 319
+    reason: Missing output files: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/fits.parquet, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/method_spec.yaml; Input files updated by another job: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml
+    wildcards: batch_hash=c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c, method_hash=f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:08 2026]
+Finished jobid: 159 (Rule: fit_twogroup_experiment_batch_method)
+22 of 694 steps (3%) done
+Execute 1 jobs...
+[Thu May  7 14:14:08 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    output: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba/method_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba/fits.parquet
+    jobid: 109
+    reason: Missing output files: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba/fits.parquet, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/fits/3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba/method_spec.yaml; Input files updated by another job: results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/batch_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulation_spec.yaml, results/by_batch/3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22/simulations.parquet
+    wildcards: batch_hash=3c688125b88df649da18d302a457da61a24ae7490b112c56bf3004c695febf22, method_hash=3d95570cb0b032fd484e9b27197305121c396503371c3d72dcc0dd70afaf8fba
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:09 2026]
+Finished jobid: 279 (Rule: fit_twogroup_experiment_batch_method)
+23 of 694 steps (3%) done
+Execute 1 jobs...
+[Thu May  7 14:14:09 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet
+    output: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e/method_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e/fits.parquet
+    jobid: 171
+    reason: Missing output files: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e/fits.parquet, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e/method_spec.yaml; Input files updated by another job: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml
+    wildcards: batch_hash=0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd, method_hash=2b4907036b942ba334fcf62447c3c6370bc038f487ef18ed90d03d67952f862e
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:14 2026]
+Finished jobid: 109 (Rule: fit_twogroup_experiment_batch_method)
+24 of 694 steps (3%) done
+Execute 1 jobs...
+[Thu May  7 14:14:14 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet
+    output: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8/method_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8/fits.parquet
+    jobid: 349
+    reason: Missing output files: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8/method_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8/fits.parquet; Input files updated by another job: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml
+    wildcards: batch_hash=c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c, method_hash=a0f40c4016bf44e98085143a619b5fa2911a746fc7848ece9148fb58990d94d8
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:27 2026]
+Finished jobid: 248 (Rule: fit_twogroup_experiment_batch_method)
+25 of 694 steps (4%) done
+Execute 1 jobs...
+[Thu May  7 14:14:27 2026]
+localrule twogroup_experiments_plot_data:
+    input: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/fits.parquet
+    output: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/pip_threshold_plot_data.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/causal_pip_plot_data.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/cs_component_plot_data.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/cs_truth_plot_data.parquet
+    jobid: 590
+    reason: Missing output files: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/pip_threshold_plot_data.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/cs_component_plot_data.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/causal_pip_plot_data.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/cs_truth_plot_data.parquet; Input files updated by another job: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3/fits.parquet, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    wildcards: batch_hash=027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6, method_hash=ffde335e4cde30d64a2e4fb8b117918637b83f4ec2327aad0df5ae319d38f2d3
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:29 2026]
+Finished jobid: 259 (Rule: fit_twogroup_experiment_batch_method)
+26 of 694 steps (4%) done
+Execute 1 jobs...
+[Thu May  7 14:14:29 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet
+    output: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/method_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/fits.parquet
+    jobid: 53
+    reason: Missing output files: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/fits.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5/method_spec.yaml; Input files updated by another job: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml
+    wildcards: batch_hash=160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c, method_hash=f2c89144f49939e4270aed7ac4074c95631198f6410edc0e9637e4b1aa600ca5
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:30 2026]
+Finished jobid: 590 (Rule: twogroup_experiments_plot_data)
+27 of 694 steps (4%) done
+Execute 1 jobs...
+[Thu May  7 14:14:30 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet
+    output: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73/method_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73/fits.parquet
+    jobid: 290
+    reason: Missing output files: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73/fits.parquet, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73/method_spec.yaml; Input files updated by another job: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml
+    wildcards: batch_hash=cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351, method_hash=9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:34 2026]
+Finished jobid: 349 (Rule: fit_twogroup_experiment_batch_method)
+28 of 694 steps (4%) done
+Execute 1 jobs...
+[Thu May  7 14:14:34 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    output: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c/method_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c/fits.parquet
+    jobid: 47
+    reason: Missing output files: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c/method_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c/fits.parquet; Input files updated by another job: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    wildcards: batch_hash=93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55, method_hash=9b28ce619585091d6be4d6945b4cbe9a6e052eef6eeb98e8ae2abe7db48ab56c
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:46 2026]
+Finished jobid: 19 (Rule: fit_twogroup_experiment_batch_method)
+29 of 694 steps (4%) done
+Execute 1 jobs...
+[Thu May  7 14:14:46 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet
+    output: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/294d85fcdba09c75f21f11229a212dab16bb57590fcc5dc2cd58162895bd2015/method_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/294d85fcdba09c75f21f11229a212dab16bb57590fcc5dc2cd58162895bd2015/fits.parquet
+    jobid: 288
+    reason: Missing output files: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/294d85fcdba09c75f21f11229a212dab16bb57590fcc5dc2cd58162895bd2015/method_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/fits/294d85fcdba09c75f21f11229a212dab16bb57590fcc5dc2cd58162895bd2015/fits.parquet; Input files updated by another job: results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulation_spec.yaml, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/simulations.parquet, results/by_batch/cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351/batch_spec.yaml
+    wildcards: batch_hash=cc01eaffc204cdfd1a561b644ec2695b48fa84c3d450a4c8b7438edee0477351, method_hash=294d85fcdba09c75f21f11229a212dab16bb57590fcc5dc2cd58162895bd2015
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:14:57 2026]
+Finished jobid: 169 (Rule: fit_twogroup_experiment_batch_method)
+30 of 694 steps (4%) done
+Execute 1 jobs...
+[Thu May  7 14:14:57 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet
+    output: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/method_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/fits.parquet
+    jobid: 168
+    reason: Missing output files: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/method_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/fits.parquet; Input files updated by another job: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml
+    wildcards: batch_hash=0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd, method_hash=dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:15:15 2026]
+Finished jobid: 289 (Rule: fit_twogroup_experiment_batch_method)
+31 of 694 steps (4%) done
+Execute 1 jobs...
+[Thu May  7 14:15:15 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet
+    output: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6/method_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6/fits.parquet
+    jobid: 48
+    reason: Missing output files: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6/method_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6/fits.parquet; Input files updated by another job: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml
+    wildcards: batch_hash=160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c, method_hash=07788e1be8eecb6972ed8aec9332c967ca7c557f32ab4275d1a1baba749f1fa6
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:15:17 2026]
+Finished jobid: 47 (Rule: fit_twogroup_experiment_batch_method)
+32 of 694 steps (5%) done
+Execute 1 jobs...
+[Thu May  7 14:15:17 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    output: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c/method_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c/fits.parquet
+    jobid: 41
+    reason: Missing output files: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c/fits.parquet, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c/method_spec.yaml; Input files updated by another job: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    wildcards: batch_hash=93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55, method_hash=0a292ee781d7c719ace5f0b648f2e89e8f2915273b398887e63244e2118b076c
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:15:42 2026]
+Finished jobid: 48 (Rule: fit_twogroup_experiment_batch_method)
+33 of 694 steps (5%) done
+Execute 1 jobs...
+[Thu May  7 14:15:42 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet
+    output: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538/method_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538/fits.parquet
+    jobid: 170
+    reason: Missing output files: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538/fits.parquet, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538/method_spec.yaml; Input files updated by another job: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml
+    wildcards: batch_hash=0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd, method_hash=d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:15:43 2026]
+Finished jobid: 319 (Rule: fit_twogroup_experiment_batch_method)
+34 of 694 steps (5%) done
+Execute 1 jobs...
+[Thu May  7 14:15:43 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet
+    output: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73/method_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73/fits.parquet
+    jobid: 138
+    reason: Missing output files: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73/fits.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73/method_spec.yaml; Input files updated by another job: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml
+    wildcards: batch_hash=8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac, method_hash=9f2790d8eb40cc49ada8ff9220858e7e95578a5e711983206fdf671d57441a73
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:15:52 2026]
+Finished jobid: 41 (Rule: fit_twogroup_experiment_batch_method)
+35 of 694 steps (5%) done
+Execute 1 jobs...
+[Thu May  7 14:15:52 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    output: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538/method_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538/fits.parquet
+    jobid: 18
+    reason: Missing output files: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538/fits.parquet, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/fits/d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538/method_spec.yaml; Input files updated by another job: results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulation_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/batch_spec.yaml, results/by_batch/93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55/simulations.parquet
+    wildcards: batch_hash=93c41bc26166854e2f5958c0fe6028999608447d83c0661054617dd28b628c55, method_hash=d0528b3e48713b4c08d654218b0d001039844e3e86bff060b0814b72a73bb538
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:15:53 2026]
+Finished jobid: 290 (Rule: fit_twogroup_experiment_batch_method)
+36 of 694 steps (5%) done
+Execute 1 jobs...
+[Thu May  7 14:15:53 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet
+    output: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03/method_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03/fits.parquet
+    jobid: 153
+    reason: Missing output files: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03/fits.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/fits/ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03/method_spec.yaml; Input files updated by another job: results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulations.parquet, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/simulation_spec.yaml, results/by_batch/8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac/batch_spec.yaml
+    wildcards: batch_hash=8f3abddd7ea9d3d6739b3f4793ce767c9f8ec3fcc380eada4c14772568cbd9ac, method_hash=ce56f8a0df307a70d6c512e2aa8e6f0191fbbc56a7be8329644f9fda65f87b03
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:15:57 2026]
+Finished jobid: 171 (Rule: fit_twogroup_experiment_batch_method)
+37 of 694 steps (5%) done
+Execute 1 jobs...
+[Thu May  7 14:15:57 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet
+    output: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/dfb1476dadb1059c87ed2d8f7a5a26e40e4bfcbe4a45aca91f2d04cf6ce9a1f9/method_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/dfb1476dadb1059c87ed2d8f7a5a26e40e4bfcbe4a45aca91f2d04cf6ce9a1f9/fits.parquet
+    jobid: 50
+    reason: Missing output files: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/dfb1476dadb1059c87ed2d8f7a5a26e40e4bfcbe4a45aca91f2d04cf6ce9a1f9/method_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/dfb1476dadb1059c87ed2d8f7a5a26e40e4bfcbe4a45aca91f2d04cf6ce9a1f9/fits.parquet; Input files updated by another job: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml
+    wildcards: batch_hash=160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c, method_hash=dfb1476dadb1059c87ed2d8f7a5a26e40e4bfcbe4a45aca91f2d04cf6ce9a1f9
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:15:59 2026]
+Finished jobid: 53 (Rule: fit_twogroup_experiment_batch_method)
+38 of 694 steps (5%) done
+Execute 1 jobs...
+[Thu May  7 14:16:00 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet
+    output: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/06cc1228fb068e85dd5f3a03c26fba965936eb2cdf2945dac1325aa2ff92fa98/method_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/06cc1228fb068e85dd5f3a03c26fba965936eb2cdf2945dac1325aa2ff92fa98/fits.parquet
+    jobid: 78
+    reason: Missing output files: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/06cc1228fb068e85dd5f3a03c26fba965936eb2cdf2945dac1325aa2ff92fa98/method_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/fits/06cc1228fb068e85dd5f3a03c26fba965936eb2cdf2945dac1325aa2ff92fa98/fits.parquet; Input files updated by another job: results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulations.parquet, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/simulation_spec.yaml, results/by_batch/160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c/batch_spec.yaml
+    wildcards: batch_hash=160dd4d3d55abbdca0eb462f41d7cb2c9590932b565a66ecc96369295b5e663c, method_hash=06cc1228fb068e85dd5f3a03c26fba965936eb2cdf2945dac1325aa2ff92fa98
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:16:08 2026]
+Finished jobid: 50 (Rule: fit_twogroup_experiment_batch_method)
+39 of 694 steps (6%) done
+Execute 1 jobs...
+[Thu May  7 14:16:08 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    output: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/78438c9520f160d4559c9c9f1f7de9c8f7f3e39260efedd61aabc8e335681bd9/method_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/78438c9520f160d4559c9c9f1f7de9c8f7f3e39260efedd61aabc8e335681bd9/fits.parquet
+    jobid: 258
+    reason: Missing output files: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/78438c9520f160d4559c9c9f1f7de9c8f7f3e39260efedd61aabc8e335681bd9/method_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/fits/78438c9520f160d4559c9c9f1f7de9c8f7f3e39260efedd61aabc8e335681bd9/fits.parquet; Input files updated by another job: results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/batch_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulation_spec.yaml, results/by_batch/027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6/simulations.parquet
+    wildcards: batch_hash=027a004a1046a66453a588f34b87d3cf1112986b20dd9ac2e0f9469d00fa53a6, method_hash=78438c9520f160d4559c9c9f1f7de9c8f7f3e39260efedd61aabc8e335681bd9
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:16:13 2026]
+Finished jobid: 153 (Rule: fit_twogroup_experiment_batch_method)
+40 of 694 steps (6%) done
+Execute 1 jobs...
+[Thu May  7 14:16:13 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet
+    output: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88/method_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88/fits.parquet
+    jobid: 165
+    reason: Missing output files: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88/method_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/fits/fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88/fits.parquet; Input files updated by another job: results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulations.parquet, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/batch_spec.yaml, results/by_batch/0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd/simulation_spec.yaml
+    wildcards: batch_hash=0f5a0c51989f797341ba577ca5c20078bab2c8439fa3eaf67ecca43f269634cd, method_hash=fe5a936d28fe7c7d7c4eaf74c2d180436c8a3469974000fa7d503ae3e9605c88
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...
+[Thu May  7 14:16:16 2026]
+Finished jobid: 288 (Rule: fit_twogroup_experiment_batch_method)
+41 of 694 steps (6%) done
+Execute 1 jobs...
+[Thu May  7 14:16:16 2026]
+localrule fit_twogroup_experiment_batch_method:
+    input: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet
+    output: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/method_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/fits.parquet
+    jobid: 320
+    reason: Missing output files: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/fits.parquet, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/fits/dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea/method_spec.yaml; Input files updated by another job: results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulations.parquet, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/batch_spec.yaml, results/by_batch/c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c/simulation_spec.yaml
+    wildcards: batch_hash=c08f6b355daf764151c65d1518a540433f8ba6c6f412692f6adc12f346e7728c, method_hash=dc4a448c0aec3f5ab8e25f17f5847a97e51827a343d8923a0cfe60bdf8e775ea
+    resources: tmpdir=/var/folders/0q/xlv6fxx51c17jf27j1ws0wx40000gn/T
+Select jobs to execute...

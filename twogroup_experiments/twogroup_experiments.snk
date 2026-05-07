@@ -1,0 +1,208 @@
+import sys
+from pathlib import Path
+
+import polars as pl
+
+EXPERIMENT_DIR = Path(workflow.basedir)
+REPO_ROOT = EXPERIMENT_DIR.parent
+SOFTWARE_SRC = Path.home() / "py" / "gibss-mono" / "src"
+RESULTS_ROOT = "results"
+
+sys.path.insert(0, str(REPO_ROOT))
+if SOFTWARE_SRC.exists():
+    sys.path.insert(0, str(SOFTWARE_SRC))
+
+from twogroup_experiments.core import HASH_KEY, rehydrate_node
+from twogroup_experiments.utils import (
+    build_plot_data_frames,
+    fit_batch_method,
+    simulate_batch,
+    symlink_output,
+    symlink_plot_data_outputs,
+    write_parquet,
+    write_text,
+    write_yaml,
+)
+
+
+configfile: RESULTS_ROOT + "/twogroup_experiments_manifest.json"
+
+
+COLLECTION_ALIASES = tuple(config["collections"].keys())
+BATCH_HASH_TO_INFO = config["batches"]
+METHOD_HASH_TO_INFO = config["method_specs"]
+
+
+rule materialize_twogroup_experiment_batch:
+    output:
+        batch_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
+        simulation_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulation_spec.yaml",
+        simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+    run:
+        info = BATCH_HASH_TO_INFO[wildcards.batch_hash]
+        simulation_spec_node = info["simulation_spec"]
+        simulation_spec = rehydrate_node(simulation_spec_node)
+        simulations_df = simulate_batch(
+            simulation_spec,
+            replicates=info["replicates"],
+        )
+        write_parquet(simulations_df, output.simulations)
+        write_yaml(info, output.batch_spec)
+        write_yaml(simulation_spec_node, output.simulation_spec)
+
+
+rule fit_twogroup_experiment_batch_method:
+    input:
+        batch_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
+        simulation_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulation_spec.yaml",
+        simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+    output:
+        method_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/method_spec.yaml",
+        fits=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
+    run:
+        batch_info = BATCH_HASH_TO_INFO[wildcards.batch_hash]
+        simulation_spec_node = batch_info["simulation_spec"]
+        method_spec_node = METHOD_HASH_TO_INFO[wildcards.method_hash]
+        simulation_spec = rehydrate_node(simulation_spec_node)
+        method_spec = rehydrate_node(method_spec_node)
+        fits_df = fit_batch_method(
+            simulation_spec,
+            method_spec=method_spec,
+            replicates=batch_info["replicates"],
+        )
+        write_parquet(fits_df, output.fits)
+        write_yaml(method_spec_node, output.method_spec)
+
+
+rule twogroup_experiments_plot_data:
+    input:
+        simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+        fits=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
+    output:
+        pip_threshold_plot_data=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/pip_threshold_plot_data.parquet",
+        causal_pip_plot_data=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/causal_pip_plot_data.parquet",
+        cs_component_plot_data=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/cs_component_plot_data.parquet",
+        cs_truth_plot_data=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/cs_truth_plot_data.parquet",
+    run:
+        batch_info = BATCH_HASH_TO_INFO[wildcards.batch_hash]
+        plot_frames = build_plot_data_frames(
+            pl.read_parquet(input.fits),
+            pl.read_parquet(input.simulations),
+        )
+        metadata_columns = {
+            "batch_hash": wildcards.batch_hash,
+            "batch_name": batch_info["name"],
+            "simulation_name": batch_info["simulation_spec"]["fields"]["name"],
+        }
+        for output_key, path_text in output.items():
+            frame_key = output_key.removesuffix(".parquet")
+            df = plot_frames[frame_key].with_columns(
+                *(pl.lit(value).alias(name) for name, value in metadata_columns.items())
+            )
+            write_parquet(df, path_text)
+
+
+rule materialize_twogroup_experiment_collection_alias:
+    input:
+        batch_specs=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
+            batch_hash=[
+                batch[HASH_KEY]
+                for batch in config["collections"][wildcards.collection_alias]["batches"]
+            ],
+        ),
+        simulation_specs=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulation_spec.yaml",
+            batch_hash=[
+                batch[HASH_KEY]
+                for batch in config["collections"][wildcards.collection_alias]["batches"]
+            ],
+        ),
+        simulations=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+            batch_hash=[
+                batch[HASH_KEY]
+                for batch in config["collections"][wildcards.collection_alias]["batches"]
+            ],
+        ),
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+        ],
+        method_specs=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/method_spec.yaml"
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+        ],
+        plot_data=lambda wildcards: [
+            path
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+            for path in (
+                f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/pip_threshold_plot_data.parquet",
+                f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/causal_pip_plot_data.parquet",
+                f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/cs_component_plot_data.parquet",
+                f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/cs_truth_plot_data.parquet",
+            )
+        ],
+    output:
+        batch_hashes=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batch_hashes.txt",
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
+        batches_dir=directory(f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batches"),
+    run:
+        from pathlib import Path
+
+        collection = config["collections"][wildcards.collection_alias]
+        batch_hashes = [batch[HASH_KEY] for batch in collection["batches"]]
+        write_text("".join(f"{batch_hash}\n" for batch_hash in batch_hashes), output.batch_hashes)
+        write_yaml(collection, output.collection_spec)
+
+        batches_dir = Path(output.batches_dir)
+        batches_dir.mkdir(parents=True, exist_ok=True)
+        for batch in collection["batches"]:
+            batch_hash = batch[HASH_KEY]
+            batch_root = batches_dir / batch_hash
+            batch_root.mkdir(parents=True, exist_ok=True)
+            symlink_output(
+                f"{RESULTS_ROOT}/by_batch/{batch_hash}/batch_spec.yaml",
+                str(batch_root / "batch_spec.yaml"),
+            )
+            symlink_output(
+                f"{RESULTS_ROOT}/by_batch/{batch_hash}/simulation_spec.yaml",
+                str(batch_root / "simulation_spec.yaml"),
+            )
+            symlink_output(
+                f"{RESULTS_ROOT}/by_batch/{batch_hash}/simulations.parquet",
+                str(batch_root / "simulations.parquet"),
+            )
+            fits_root = batch_root / "fits"
+            fits_root.mkdir(parents=True, exist_ok=True)
+            for method_spec in collection["method_specs"]:
+                method_hash = method_spec[HASH_KEY]
+                method_root = fits_root / method_hash
+                method_root.mkdir(parents=True, exist_ok=True)
+                symlink_output(
+                    f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/method_spec.yaml",
+                    str(method_root / "method_spec.yaml"),
+                )
+                symlink_output(
+                    f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/fits.parquet",
+                    str(method_root / "fits.parquet"),
+                )
+                symlink_plot_data_outputs(
+                    f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}",
+                    method_root,
+                )
+
+
+rule twogroup_experiments_target:
+    input:
+        batch_hashes=expand(
+            f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batch_hashes.txt",
+            collection_alias=COLLECTION_ALIASES,
+        ),
+        collection_spec=expand(
+            f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
+            collection_alias=COLLECTION_ALIASES,
+        ),
