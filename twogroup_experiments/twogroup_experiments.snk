@@ -18,7 +18,7 @@ from utils import (
 )
 
 
-configfile: RESULTS_ROOT + "/twogroup_experiments_manifest.json"
+configfile: RESULTS_ROOT + "/manifest.json"
 
 
 COLLECTION_ALIASES = tuple(config["collections"].keys())
