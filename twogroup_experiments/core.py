@@ -474,7 +474,7 @@ def c4_gene_sets_X(rng: np.random.Generator) -> np.ndarray:
 
 
 def gaussian_markov_X(
-    n: int, p: int, rho: float, rng: np.random.Generator
+    rng: np.random.Generator, *, n: int, p: int, rho: float
 ) -> np.ndarray:
     """
     Generate ``n`` independent Gaussian Markov chains of length ``p``.
@@ -532,7 +532,7 @@ def bernoulli_markov_X(
 
 
 def uniform_markov_X(
-    n: int, p: int, rho: float, rng: np.random.Generator
+    rng: np.random.Generator, *, n: int, p: int, rho: float
 ) -> np.ndarray:
     """
     Generate ``n`` independent uniform Markov chains of length ``p``.
@@ -542,7 +542,7 @@ def uniform_markov_X(
     within-row dependence is induced by a Gaussian copula with latent
     adjacent-column correlation ``rho``.
     """
-    gaussian_X = gaussian_markov_X(n=n, p=p, rho=rho, rng=rng)
+    gaussian_X = gaussian_markov_X(rng, n=n, p=p, rho=rho)
     gaussian_cdf = np.vectorize(
         lambda x: 0.5 * (1.0 + math.erf(float(x) / math.sqrt(2.0))),
         otypes=[float],
