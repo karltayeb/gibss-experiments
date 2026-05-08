@@ -9,9 +9,8 @@ from typing import Any, Iterable
 
 import numpy as np
 import polars as pl
-import yaml
 
-from twogroup_experiments.core import (
+from core import (
     HASH_KEY,
     MethodSpec,
     SimulationSpec,
@@ -51,66 +50,66 @@ PLOT_DATA_FILENAMES = (
 )
 PIP_THRESHOLD_GRID = np.round(np.arange(0.001, 1.0, 0.001), 3)
 CS_BETA_GRID = np.round(np.arange(0.50, 1.00, 0.01), 2)
+PIP_THRESHOLD_PLOT_BASE_SCHEMA: dict[str, pl.DataType] = {
+    "replicate": pl.Int64,
+    "method": pl.String,
+    "threshold": pl.Float64,
+    "method_spec": pl.String,
+    "simulation_spec": pl.String,
+    "pip_threshold": pl.Float64,
+    "selected_total": pl.Int64,
+    "selected_causal": pl.Int64,
+    "power": pl.Float64,
+    "fdp": pl.Float64,
+    "n_exact": pl.Int64,
+    "n_causal_exact": pl.Int64,
+}
+CAUSAL_PIP_PLOT_BASE_SCHEMA: dict[str, pl.DataType] = {
+    "replicate": pl.Int64,
+    "method": pl.String,
+    "threshold": pl.Float64,
+    "method_spec": pl.String,
+    "simulation_spec": pl.String,
+    "causal_variable": pl.Int64,
+    "causal_pip": pl.Float64,
+    "max_pip": pl.Float64,
+}
+CS_COMPONENT_PLOT_BASE_SCHEMA: dict[str, pl.DataType] = {
+    "replicate": pl.Int64,
+    "method": pl.String,
+    "threshold": pl.Float64,
+    "method_spec": pl.String,
+    "simulation_spec": pl.String,
+    "component": pl.Int64,
+    "ordered_pips": pl.List(pl.Float64),
+    "betas": pl.List(pl.Float64),
+    "cs_sizes": pl.List(pl.Int64),
+    "ser_log_bf": pl.Float64,
+}
+CS_TRUTH_PLOT_BASE_SCHEMA: dict[str, pl.DataType] = {
+    "replicate": pl.Int64,
+    "method": pl.String,
+    "threshold": pl.Float64,
+    "method_spec": pl.String,
+    "simulation_spec": pl.String,
+    "causal_variable": pl.Int64,
+    "component": pl.Int64,
+    "causal_rank": pl.Int64,
+    "betas": pl.List(pl.Float64),
+    "covered": pl.List(pl.Boolean),
+}
 
 
 def manifest_dict() -> dict[str, object]:
-    from twogroup_experiments.config import COLLECTION_SPECS
+    from config import manifest_dict as config_manifest_dict
 
-    manifest: dict[str, object] = {
-        "simulation_specs": {},
-        "method_specs": {},
-        "batches": {},
-        "collections": {},
-    }
-    simulation_specs = manifest["simulation_specs"]
-    method_specs = manifest["method_specs"]
-    batches = manifest["batches"]
-    collections = manifest["collections"]
-
-    assert isinstance(simulation_specs, dict)
-    assert isinstance(method_specs, dict)
-    assert isinstance(batches, dict)
-    assert isinstance(collections, dict)
-
-    for collection in COLLECTION_SPECS:
-        collection_batches: list[dict[str, Any]] = []
-        collection_method_specs: list[dict[str, Any]] = []
-
-        for method_spec in collection.method_specs:
-            method_node = dehydrate_hashed(method_spec)
-            method_specs[method_node[HASH_KEY]] = method_node
-            collection_method_specs.append(method_node)
-
-        for batch in collection.batches:
-            simulation_node = dehydrate_hashed(batch.simulation_spec)
-            simulation_specs[simulation_node[HASH_KEY]] = simulation_node
-
-            batch_node = {
-                "name": batch.name,
-                "simulation_spec": simulation_node,
-                "replicates": list(batch.replicates),
-            }
-            batch_record = {**batch_node, HASH_KEY: spec_hash(batch_node)}
-            batches[batch_record[HASH_KEY]] = batch_record
-            collection_batches.append(batch_record)
-
-        collection_node = {
-            "name": collection.name,
-            "batches": collection_batches,
-            "method_specs": collection_method_specs,
-        }
-        collections[collection.name] = {
-            **collection_node,
-            HASH_KEY: spec_hash(collection_node),
-        }
-
-    return manifest
+    return config_manifest_dict()
 
 
 def materialize_manifest(path: str | Path) -> None:
-    destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    destination.write_text(json.dumps(manifest_dict(), indent=2), encoding="utf-8")
+    from config import write_manifest
+
+    write_manifest(path)
 
 
 def simulation_struct_without_x(simulation: TwoGroupSimulation) -> dict[str, Any]:
@@ -181,6 +180,18 @@ def fit_batch_method(
     return pl.from_dicts(rows)
 
 
+def attach_spec_metadata(
+    fits_df: pl.DataFrame,
+    *,
+    method_spec_node: dict[str, Any],
+    simulation_spec_node: dict[str, Any],
+) -> pl.DataFrame:
+    return fits_df.with_columns(
+        pl.lit(json.dumps(method_spec_node, sort_keys=True)).alias("method_spec"),
+        pl.lit(json.dumps(simulation_spec_node, sort_keys=True)).alias("simulation_spec"),
+    )
+
+
 def build_plot_data_frames(
     fits_df: pl.DataFrame,
     simulations_df: pl.DataFrame,
@@ -212,6 +223,8 @@ def build_plot_data_frames(
                     "replicate": int(row["replicate"]),
                     "method": row["method"],
                     "threshold": row["threshold"],
+                    "method_spec": row["method_spec"],
+                    "simulation_spec": row["simulation_spec"],
                     "pip_threshold": float(pip_threshold),
                     "selected_total": selected_total,
                     "selected_causal": selected_causal,
@@ -232,6 +245,8 @@ def build_plot_data_frames(
                     "replicate": int(row["replicate"]),
                     "method": row["method"],
                     "threshold": row["threshold"],
+                    "method_spec": row["method_spec"],
+                    "simulation_spec": row["simulation_spec"],
                     "causal_variable": int(causal_variable),
                     "causal_pip": float(alpha[causal_variable]),
                     "max_pip": float(row["fit_summary"]["max_pip"]),
@@ -250,6 +265,8 @@ def build_plot_data_frames(
                 "replicate": int(row["replicate"]),
                 "method": row["method"],
                 "threshold": row["threshold"],
+                "method_spec": row["method_spec"],
+                "simulation_spec": row["simulation_spec"],
                 "component": 0,
                 "ordered_pips": ordered_pips.tolist(),
                 "betas": CS_BETA_GRID.tolist(),
@@ -267,6 +284,8 @@ def build_plot_data_frames(
                     "replicate": int(row["replicate"]),
                     "method": row["method"],
                     "threshold": row["threshold"],
+                    "method_spec": row["method_spec"],
+                    "simulation_spec": row["simulation_spec"],
                     "causal_variable": int(causal_variable),
                     "component": 0,
                     "causal_rank": causal_rank,
@@ -276,11 +295,25 @@ def build_plot_data_frames(
             )
 
     return {
-        "pip_threshold_plot_data": pl.from_dicts(pip_threshold_rows),
-        "causal_pip_plot_data": pl.from_dicts(causal_pip_rows),
-        "cs_component_plot_data": pl.from_dicts(cs_component_rows),
-        "cs_truth_plot_data": pl.from_dicts(cs_truth_rows),
+        "pip_threshold_plot_data": _plot_frame(
+            pip_threshold_rows, PIP_THRESHOLD_PLOT_BASE_SCHEMA
+        ),
+        "causal_pip_plot_data": _plot_frame(
+            causal_pip_rows, CAUSAL_PIP_PLOT_BASE_SCHEMA
+        ),
+        "cs_component_plot_data": _plot_frame(
+            cs_component_rows, CS_COMPONENT_PLOT_BASE_SCHEMA
+        ),
+        "cs_truth_plot_data": _plot_frame(
+            cs_truth_rows, CS_TRUTH_PLOT_BASE_SCHEMA
+        ),
     }
+
+
+def _plot_frame(
+    rows: list[dict[str, Any]], schema: dict[str, pl.DataType]
+) -> pl.DataFrame:
+    return pl.from_dicts(rows, schema=schema)
 
 
 def write_parquet(df: pl.DataFrame, path_text: str) -> None:
@@ -300,6 +333,8 @@ def _plain_python(value: Any) -> Any:
 
 
 def write_yaml(data: dict[str, object], path_text: str) -> None:
+    import yaml
+
     path = Path(path_text)
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as handle:

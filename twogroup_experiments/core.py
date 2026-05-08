@@ -232,7 +232,7 @@ def _make_fit_summary_struct(
     }
 
 
-def fit_cox_method(simulation: TwoGroupSimulation, *, threshold, time_sign):
+def fit_cox_method(simulation: TwoGroupSimulation, *, threshold, time_sign, L=1):
     score = _score(simulation)
     if threshold is None:
         event_type = np.ones_like(score, dtype=int)
@@ -245,7 +245,7 @@ def fit_cox_method(simulation: TwoGroupSimulation, *, threshold, time_sign):
     )
     state = cox.initialize_state(
         data,
-        L=1,
+        L=L,
         family_state_kwargs={"estimate_prior_variance": False},
     )
     fitted = engine.fit_ibss(data, state, cox.default_schedule())
@@ -262,8 +262,9 @@ def summarize_cox_method(
     *,
     threshold,
     time_sign,
+    L=1,
 ):
-    del time_sign, threshold
+    del time_sign, threshold, L
     state = fit_obj["state"]
     return {
         "threshold": fit_obj["threshold"],
@@ -278,7 +279,7 @@ def summarize_cox_method(
 
 
 def fit_logistic_method(
-    simulation: TwoGroupSimulation, *, response_source, threshold=None
+    simulation: TwoGroupSimulation, *, response_source, threshold=None, L=1
 ):
     if response_source == "z":
         y = np.asarray(simulation.z, dtype=float)
@@ -292,7 +293,7 @@ def fit_logistic_method(
     data = localjj.prep_data(simulation.X, y)
     state = localjj.initialize_state(
         data,
-        L=1,
+        L=L,
         family_state_kwargs={"estimate_prior_variance": False},
     )
     fitted = engine.fit_ibss(data, state, localjj.default_schedule())
@@ -309,8 +310,9 @@ def summarize_logistic_method(
     *,
     response_source,
     threshold=None,
+    L=1,
 ):
-    del response_source, threshold
+    del response_source, threshold, L
     state = fit_obj["state"]
     return {
         "threshold": fit_obj["threshold"],
@@ -324,13 +326,13 @@ def summarize_logistic_method(
     }
 
 
-def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1):
+def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1, L=1):
     resolved_f1 = simulation.f1 if f1 is None else f1
     y0 = np.full(simulation.X.shape[0], 0.5, dtype=float)
     inner_data = localjj.prep_data(simulation.X, y0)
     inner_state = localjj.initialize_state(
         inner_data,
-        L=1,
+        L=L,
         family_state_kwargs={"estimate_prior_variance": False},
     )
     data = twogroup.prep_data(simulation.X, bhat=simulation.thetahat, se=simulation.se)
@@ -349,8 +351,8 @@ def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1):
     }
 
 
-def summarize_twogroup_method(fit_obj, simulation: TwoGroupSimulation, *, f1):
-    del f1
+def summarize_twogroup_method(fit_obj, simulation: TwoGroupSimulation, *, f1, L=1):
+    del f1, L
     state = fit_obj["state"]
     return {
         "threshold": fit_obj["threshold"],
@@ -373,60 +375,66 @@ TWOGROUP_DEFAULT_F1INIT = Normal(
 
 
 COX_HEAVY = MethodSpec(
-    name="cox_heavy",
+    name="cox_heavy_L1",
     fit_function=fit_cox_method,
     summarize_function=summarize_cox_method,
     kwargs={
         "threshold": None,
         "time_sign": 1.0,
+        "L": 1,
     },
 )
 
 LOGISTIC_ORACLE = MethodSpec(
-    name="logistic_oracle",
+    name="logistic_oracle_L1",
     fit_function=fit_logistic_method,
     summarize_function=summarize_logistic_method,
     kwargs={
         "response_source": "z",
         "threshold": None,
+        "L": 1,
     },
 )
 
 TWOGROUP_ORACLE = MethodSpec(
-    name="twogroup_oracle",
+    name="twogroup_oracle_L1",
     fit_function=fit_twogroup_method,
     summarize_function=summarize_twogroup_method,
     kwargs={
         "f1": None,
+        "L": 1,
     },
 )
 
 TWOGROUP = MethodSpec(
-    name="twogroup",
+    name="twogroup_L1",
     fit_function=fit_twogroup_method,
     summarize_function=summarize_twogroup_method,
     kwargs={
         "f1": TWOGROUP_DEFAULT_F1INIT,
+        "L": 1,
     },
 )
 
 LOGISTIC_THRESHOLD_2_0 = MethodSpec(
-    name="logistic_threshold",
+    name="logistic_threshold_L1",
     fit_function=fit_logistic_method,
     summarize_function=summarize_logistic_method,
     kwargs={
         "response_source": "score_threshold",
         "threshold": 2.0,
+        "L": 1,
     },
 )
 
 COX_LIGHT_THRESHOLD_2_0 = MethodSpec(
-    name="cox_light_threshold",
+    name="cox_light_threshold_L1",
     fit_function=fit_cox_method,
     summarize_function=summarize_cox_method,
     kwargs={
         "threshold": 2.0,
         "time_sign": -1.0,
+        "L": 1,
     },
 )
 
