@@ -10,7 +10,7 @@ from utils import BatchSpec
 
 
 def format_float(value: float) -> str:
-    return f"{float(value):.1f}"
+    return f"{float(value):.2f}"
 
 
 def fixed_normal(*, loc: float, scale: float) -> Normal:

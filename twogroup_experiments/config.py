@@ -73,10 +73,10 @@ THRESHOLDS = (
     4.0,
 )
 
-THRESHOLDS_SMALL = (1.0, 2.0, 3.0)
+THRESHOLDS_SMALL = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0)
 HALLMARK_REPLICATES_PER_BATCH = 50
-HALLMARK_N_BATCHES = 1
-C4_REPLICATES_PER_BATCH = 10
+HALLMARK_N_BATCHES = 2
+C4_REPLICATES_PER_BATCH = 20
 C4_N_BATCHES = 5
 BASE_SEED = 20260501
 
@@ -84,8 +84,8 @@ F0 = PointMass(0.0)
 F1INIT = Normal(loc=0.0, scale=1.0, estimate_loc=True, estimate_scale=True)
 
 SEPARATOR = "__"
-LOC_GRID = tuple(step / 2.0 for step in range(1, 11))
-SCALE_GRID = (0.5, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0)
+LOC_GRID = (0.25, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5, 3.0)
+SCALE_GRID = (0.25, 0.5, 1.0, 2.0, 3.0, 4.0, 5.0)
 
 
 def _logistic_threshold_method_spec(threshold: float, *, L: int) -> MethodSpec:
@@ -395,7 +395,7 @@ _register_single_batch_collections(HALLMARK_BATCH_SPECS + C4_BATCH_SPECS)
 
 TINY_TEST_BATCH = BatchSpec(
     name="tiny_test",
-    simulation_spec=SIMULATION_BY_NAME["hallmark__ser_enrich__scale_0.5"],
+    simulation_spec=SIMULATION_BY_NAME["hallmark__ser_enrich__scale_0.50"],
     replicates=(0,),
 )
 REGISTRY.register_collection(
@@ -438,7 +438,7 @@ _register_fit_collections(
 )
 _register_fit_collections(
     collection_prefix="hallmark__ser_enrich__scale_2.0",
-    simulations=_named_simulations("hallmark__ser_enrich__scale_2.0"),
+    simulations=_named_simulations("hallmark__ser_enrich__scale_2.00"),
     ser_methods=DEFAULT_SER_SPECS,
     susie_methods=DEFAULT_SUSIE_SPECS,
     n_batches=HALLMARK_N_BATCHES,
@@ -496,7 +496,7 @@ _register_fit_collection_unions(
 #  Gaussian SER
 ###
 GAUSSIAN_N_BATCHES = 1
-GAUSSIAN_REPLICATES_PER_BATCH = 50
+GAUSSIAN_REPLICATES_PER_BATCH = 100
 make_collection(
     name="gaussian__ser_enrich__loc",
     simulations=_named_simulations(
@@ -535,7 +535,7 @@ make_collection_union(
 #  UNIFORM SER
 ###
 UNIFORM_N_BATCHES = 1
-UNIFORM_REPLICATES_PER_BATCH = 50
+UNIFORM_REPLICATES_PER_BATCH = 100
 _register_fit_collections(
     collection_prefix="uniform__ser_enrich__loc",
     simulations=_named_simulations(
@@ -631,13 +631,15 @@ def manifest_dict() -> dict[str, object]:
 
 
 def write_manifest(path: str | Path | None = None) -> Path:
-    destination = (
-        Path(path)
-        if path is not None
-        else Path(__file__).resolve().parent
-        / "results"
-        / "twogroup_experiments_manifest.json"
-    )
+    if path is not None:
+        destination = Path(path)
+    else:
+        from datetime import date
+
+        today = date.today().strftime("%Y_%m_%d")
+        destination = (
+            Path(__file__).resolve().parent / "results" / f"manifest_{today}.json"
+        )
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(json.dumps(manifest_dict(), indent=2), encoding="utf-8")
     return destination
