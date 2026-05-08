@@ -497,8 +497,8 @@ _register_fit_collection_unions(
 ###
 GAUSSIAN_N_BATCHES = 1
 GAUSSIAN_REPLICATES_PER_BATCH = 100
-make_collection(
-    name="gaussian__ser_enrich__loc",
+_register_fit_collections(
+    collection_prefix="gaussian__ser_enrich__loc",
     simulations=_named_simulations(
         *_simulation_names_for_design_prefix(
             design_prefix="gaussian_",
@@ -506,12 +506,13 @@ make_collection(
             f1_prefix="loc_",
         )
     ),
-    methods=DEFAULT_SER_SPECS,
+    ser_methods=DEFAULT_SER_SPECS,
+    susie_methods=DEFAULT_SUSIE_SPECS,
     n_batches=GAUSSIAN_N_BATCHES,
     replicates_per_batch=GAUSSIAN_REPLICATES_PER_BATCH,
 )
-make_collection(
-    name="gaussian__ser_enrich__scale",
+_register_fit_collections(
+    collection_prefix="gaussian__ser_enrich__scale",
     simulations=_named_simulations(
         *_simulation_names_for_design_prefix(
             design_prefix="gaussian_",
@@ -519,12 +520,13 @@ make_collection(
             f1_prefix="scale_",
         )
     ),
-    methods=DEFAULT_SER_SPECS,
+    ser_methods=DEFAULT_SER_SPECS,
+    susie_methods=DEFAULT_SUSIE_SPECS,
     n_batches=GAUSSIAN_N_BATCHES,
     replicates_per_batch=GAUSSIAN_REPLICATES_PER_BATCH,
 )
-make_collection_union(
-    name="gaussian__ser__all",
+_register_fit_collection_unions(
+    collection_prefix="gaussian__ser__all",
     collections=(
         "gaussian__ser_enrich__loc",
         "gaussian__ser_enrich__scale",
@@ -570,6 +572,29 @@ _register_fit_collection_unions(
         "uniform__ser_enrich__loc",
         "uniform__ser_enrich__scale",
     ),
+)
+
+make_collection_union(
+    name="all__ser_fits",
+    collections=(
+        "hallmark__ser__all__ser_fits",
+        "c4__ser__all__ser_fits",
+        "gaussian__ser__all__ser_fits",
+        "uniform__ser__all__ser_fits",
+    ),
+)
+make_collection_union(
+    name="all__susie_fits",
+    collections=(
+        "hallmark__ser__all__susie_fits",
+        "c4__ser__all__susie_fits",
+        "gaussian__ser__all__susie_fits",
+        "uniform__ser__all__susie_fits",
+    ),
+)
+make_collection_union(
+    name="all",
+    collections=("all__ser_fits", "all__susie_fits"),
 )
 
 
