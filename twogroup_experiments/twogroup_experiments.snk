@@ -1,19 +1,12 @@
 import sys
-from pathlib import Path
 
 import polars as pl
 
-EXPERIMENT_DIR = Path(workflow.basedir)
-REPO_ROOT = EXPERIMENT_DIR.parent
-SOFTWARE_SRC = Path.home() / "py" / "gibss-mono" / "src"
 RESULTS_ROOT = "results"
 
-sys.path.insert(0, str(REPO_ROOT))
-if SOFTWARE_SRC.exists():
-    sys.path.insert(0, str(SOFTWARE_SRC))
-
-from twogroup_experiments.core import HASH_KEY, rehydrate_node
-from twogroup_experiments.utils import (
+from core import HASH_KEY, rehydrate_node
+from utils import (
+    attach_spec_metadata,
     build_plot_data_frames,
     fit_batch_method,
     simulate_batch,
@@ -85,8 +78,14 @@ rule twogroup_experiments_plot_data:
         cs_truth_plot_data=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/cs_truth_plot_data.parquet",
     run:
         batch_info = BATCH_HASH_TO_INFO[wildcards.batch_hash]
-        plot_frames = build_plot_data_frames(
+        method_spec_node = METHOD_HASH_TO_INFO[wildcards.method_hash]
+        fits_df = attach_spec_metadata(
             pl.read_parquet(input.fits),
+            method_spec_node=method_spec_node,
+            simulation_spec_node=batch_info["simulation_spec"],
+        )
+        plot_frames = build_plot_data_frames(
+            fits_df,
             pl.read_parquet(input.simulations),
         )
         metadata_columns = {
