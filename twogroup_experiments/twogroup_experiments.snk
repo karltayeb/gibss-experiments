@@ -166,10 +166,8 @@ rule materialize_twogroup_experiment_collection_alias:
 
         collection = config["collections"][wildcards.collection_alias]
         batch_hashes = [batch[HASH_KEY] for batch in collection["batches"]]
-        write_text(
-            "".join(f"{batch_hash}\n" for batch_hash in batch_hashes),
-            output.batch_hashes,
-        )
+        batch_hashes_text = "".join(f"{batch_hash}\n" for batch_hash in batch_hashes)
+        write_text(batch_hashes_text, output.batch_hashes)
         write_yaml(collection, output.collection_spec)
 
         batches_dir = Path(output.batches_dir)
@@ -489,30 +487,21 @@ rule collection_ser_log_bf_histogram_plot_ready:
 
 rule twogroup_experiments_target:
     input:
-        batch_hashes=expand(
-            f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batch_hashes.txt",
-            collection_alias=COLLECTION_ALIASES,
-        ),
-        collection_spec=expand(
-            f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
-            collection_alias=COLLECTION_ALIASES,
-        ),
+        batch_hashes=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batch_hashes.txt",
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
         plot_ready=expand(
-            [
-                f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/{name}"
-                for name in [
-                    "method_metadata.parquet",
-                    "simulation_metadata.parquet",
-                    "sample_metadata.parquet",
-                    "pip_calibration.parquet",
-                    "power_fdp.parquet",
-                    "causal_pip.parquet",
-                    "cs_summary.parquet",
-                    "cs_size_histogram.parquet",
-                    "ser_log_bf_histogram.parquet",
-                ]
+            f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/{{name}}",
+            name=[
+                "method_metadata.parquet",
+                "simulation_metadata.parquet",
+                "sample_metadata.parquet",
+                "pip_calibration.parquet",
+                "power_fdp.parquet",
+                "causal_pip.parquet",
+                "cs_summary.parquet",
+                "cs_size_histogram.parquet",
+                "ser_log_bf_histogram.parquet",
             ],
-            collection_alias=COLLECTION_ALIASES,
         ),
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/out.txt",
