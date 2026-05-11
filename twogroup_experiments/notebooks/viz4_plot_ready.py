@@ -52,7 +52,7 @@ def bundle_cell(collection_alias_root, collection_dropdown):
 
 
 @app.cell
-def controls_cell(bundle, collection_dropdown):
+def controls_cell(bundle):
     _method_metadata = bundle["method_metadata"]
 
     # Threshold: all distinct non-null thresholds from method_metadata
@@ -81,7 +81,7 @@ def controls_cell(bundle, collection_dropdown):
         label="L",
     )
 
-    mo.hstack([collection_dropdown, method_family_multiselect, L_dropdown, threshold_dropdown])
+    mo.hstack([method_family_multiselect, L_dropdown, threshold_dropdown])
     return L_dropdown, method_family_multiselect, threshold_dropdown
 
 
@@ -118,7 +118,7 @@ def selected_methods_cell(bundle, L_dropdown, method_family_multiselect, thresho
             _bg_filtered["threshold"].to_list(),
         )
     )
-    return background_methods_thresholds, foreground_methods, selected_threshold
+    return background_methods_thresholds, foreground_methods
 
 
 @app.cell(hide_code=True)
@@ -185,13 +185,19 @@ def power_fdp_cell(bundle, background_methods_thresholds, foreground_methods):
     )
 
     # Build background dataframe (is_selected_threshold=False)
-    _bg_rows = list(background_methods_thresholds)
-    if _bg_rows:
-        _bg_methods = [r[0] for r in _bg_rows]
-        _bg_thresholds = [r[1] for r in _bg_rows]
+    _bg_pairs_df = (
+        pl.DataFrame(
+            list(background_methods_thresholds),
+            schema={"method": pl.String, "threshold": pl.Float64},
+            orient="row",
+        )
+        if background_methods_thresholds
+        else pl.DataFrame(schema={"method": pl.String, "threshold": pl.Float64})
+    )
+    if not _bg_pairs_df.is_empty():
+        _bg_df_raw = _power_fdp.join(_bg_pairs_df, on=["method", "threshold"], how="inner")
         _bg_df = (
-            _power_fdp
-            .filter(pl.col("method").is_in(_bg_methods))
+            _bg_df_raw
             .join(
                 _method_meta.select(
                     "method", "threshold", "method_display", "method_family",
@@ -200,7 +206,6 @@ def power_fdp_cell(bundle, background_methods_thresholds, foreground_methods):
                 on=["method", "threshold"],
                 how="left",
             )
-            .filter(pl.col("threshold").is_in(_bg_thresholds))
             .with_columns(pl.lit(False).alias("is_selected_threshold"))
         )
         _combined = pl.concat([_fg_df, _bg_df])
