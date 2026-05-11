@@ -86,7 +86,10 @@ def aggregate_pip_calibration(per_sample: pl.DataFrame) -> pl.DataFrame:
             (pl.col("pip_bin_index") * 0.05).alias("pip_left"),
             ((pl.col("pip_bin_index") + 1) * 0.05).alias("pip_right"),
             ((pl.col("pip_bin_index") + 0.5) * 0.05).alias("pip_mid"),
-            (pl.col("n_causal") / pl.col("n_total")).alias("empirical_rate"),
+            pl.when(pl.col("n_total") > 0)
+                .then(pl.col("n_causal") / pl.col("n_total"))
+                .otherwise(None)
+                .alias("empirical_rate"),
         )
         .select(
             "method",
