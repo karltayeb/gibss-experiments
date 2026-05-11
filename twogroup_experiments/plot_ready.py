@@ -3,9 +3,46 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import numpy as np
 import polars as pl
 
+from utils import attach_spec_metadata
 from viz3_utils import method_metadata_from_method_spec_json, make_method_display_label
+
+
+def load_collection_fits_with_specs(
+    collection: dict[str, Any],
+    results_root: str = "results",
+) -> pl.DataFrame:
+    """Load all fits for a collection, concatenated across batches x method_specs."""
+    frames = []
+    for batch in collection["batches"]:
+        batch_hash = batch["__spec_hash__"]
+        for method_spec in collection["method_specs"]:
+            method_hash = method_spec["__spec_hash__"]
+            fits_path = f"{results_root}/by_batch/{batch_hash}/fits/{method_hash}/fits.parquet"
+            fits_df = attach_spec_metadata(
+                pl.read_parquet(fits_path),
+                method_spec_node=method_spec,
+                simulation_spec_node=batch["simulation_spec"],
+            )
+            fits_df = fits_df.with_columns(pl.lit(batch_hash).alias("batch_hash"))
+            frames.append(fits_df)
+    return pl.concat(frames)
+
+
+def load_collection_simulations(
+    collection: dict[str, Any],
+    results_root: str = "results",
+) -> dict[str, pl.DataFrame]:
+    """Load simulations for each batch in a collection."""
+    result = {}
+    for batch in collection["batches"]:
+        batch_hash = batch["__spec_hash__"]
+        result[batch_hash] = pl.read_parquet(
+            f"{results_root}/by_batch/{batch_hash}/simulations.parquet"
+        )
+    return result
 
 
 def build_method_metadata(fits_df: pl.DataFrame) -> pl.DataFrame:
@@ -69,10 +106,78 @@ def build_sample_metadata(
     return pl.from_dicts(rows)
 
 
-def summarize_pip_calibration_per_sample(fits_df: pl.DataFrame, sample_metadata: pl.DataFrame) -> pl.DataFrame:
-    # Build one row per sample_id x method x threshold x pip_bin_index.
-    # stub — full implementation in per-sample summarizer (leave as NotImplementedError for now)
-    raise NotImplementedError
+def _build_sample_metadata_from_manifest(
+    collection: dict[str, Any],
+    simulations_by_batch: dict[str, pl.DataFrame],
+) -> pl.DataFrame:
+    """Build sample metadata using __spec_hash__ key (for use with real manifest)."""
+    rows = []
+    for batch in collection["batches"]:
+        batch_hash = batch["__spec_hash__"]
+        batch_name = batch["name"]
+        for replicate in simulations_by_batch[batch_hash]["replicate"].to_list():
+            rows.append(
+                {
+                    "sample_id": f"{batch_hash}::{int(replicate)}",
+                    "batch_hash": batch_hash,
+                    "batch_name": batch_name,
+                    "replicate": int(replicate),
+                }
+            )
+    return pl.from_dicts(rows)
+
+
+def summarize_pip_calibration_per_sample(
+    fits_df: pl.DataFrame,
+    sample_metadata: pl.DataFrame,
+    simulations_by_batch: dict[str, pl.DataFrame],
+) -> pl.DataFrame:
+    """Build one row per sample_id x method x threshold x pip_bin_index."""
+    fits_with_sample_id = fits_df.join(
+        sample_metadata.select("sample_id", "batch_hash", "replicate"),
+        on=["batch_hash", "replicate"],
+        how="left",
+    )
+
+    rows: list[dict[str, Any]] = []
+    for row in fits_with_sample_id.iter_rows(named=True):
+        batch_hash = row["batch_hash"]
+        replicate = row["replicate"]
+        alpha = np.asarray(row["ser_posterior"]["alpha"], dtype=float)
+
+        sim_df = simulations_by_batch[batch_hash]
+        sim_row = sim_df.filter(pl.col("replicate") == replicate).row(0, named=True)
+        causal_indices = np.asarray(sim_row["simulation"]["causal_indices"], dtype=int)
+
+        bin_indices = np.clip((alpha * 20).astype(int), 0, 19)
+        is_causal = np.zeros(len(alpha), dtype=bool)
+        is_causal[causal_indices] = True
+
+        for bin_idx in range(20):
+            mask = bin_indices == bin_idx
+            n_exact = int(mask.sum())
+            n_causal_exact = int((mask & is_causal).sum())
+            rows.append(
+                {
+                    "sample_id": row["sample_id"],
+                    "method": row["method"],
+                    "threshold": row["threshold"],
+                    "pip_bin_index": bin_idx,
+                    "n_exact": n_exact,
+                    "n_causal_exact": n_causal_exact,
+                }
+            )
+    return pl.from_dicts(
+        rows,
+        schema={
+            "sample_id": pl.String,
+            "method": pl.String,
+            "threshold": pl.Float64,
+            "pip_bin_index": pl.Int64,
+            "n_exact": pl.Int64,
+            "n_causal_exact": pl.Int64,
+        },
+    )
 
 
 def aggregate_pip_calibration(per_sample: pl.DataFrame) -> pl.DataFrame:
@@ -106,9 +211,61 @@ def aggregate_pip_calibration(per_sample: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def summarize_power_fdp_per_sample(fits_df: pl.DataFrame, sample_metadata: pl.DataFrame) -> pl.DataFrame:
-    # Build one row per sample_id x method x threshold x pip_threshold.
-    raise NotImplementedError
+_PIP_THRESHOLD_GRID = [0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 0.8, 0.9, 0.95, 0.99]
+
+
+def summarize_power_fdp_per_sample(
+    fits_df: pl.DataFrame,
+    sample_metadata: pl.DataFrame,
+    simulations_by_batch: dict[str, pl.DataFrame],
+) -> pl.DataFrame:
+    """Build one row per sample_id x method x threshold x pip_threshold."""
+    fits_with_sample_id = fits_df.join(
+        sample_metadata.select("sample_id", "batch_hash", "replicate"),
+        on=["batch_hash", "replicate"],
+        how="left",
+    )
+
+    rows: list[dict[str, Any]] = []
+    for row in fits_with_sample_id.iter_rows(named=True):
+        batch_hash = row["batch_hash"]
+        replicate = row["replicate"]
+        alpha = np.asarray(row["ser_posterior"]["alpha"], dtype=float)
+
+        sim_df = simulations_by_batch[batch_hash]
+        sim_row = sim_df.filter(pl.col("replicate") == replicate).row(0, named=True)
+        causal_indices = np.asarray(sim_row["simulation"]["causal_indices"], dtype=int)
+        n_causal = max(len(causal_indices), 1)
+
+        for pip_threshold in _PIP_THRESHOLD_GRID:
+            selected = alpha >= pip_threshold
+            selected_causal = selected[causal_indices].sum()
+            selected_total = selected.sum()
+            power = float(selected_causal / n_causal)
+            fdp = float(
+                (selected_total - selected_causal) / max(selected_total, 1)
+            )
+            rows.append(
+                {
+                    "sample_id": row["sample_id"],
+                    "method": row["method"],
+                    "threshold": row["threshold"],
+                    "pip_threshold": float(pip_threshold),
+                    "power": power,
+                    "fdp": fdp,
+                }
+            )
+    return pl.from_dicts(
+        rows,
+        schema={
+            "sample_id": pl.String,
+            "method": pl.String,
+            "threshold": pl.Float64,
+            "pip_threshold": pl.Float64,
+            "power": pl.Float64,
+            "fdp": pl.Float64,
+        },
+    )
 
 
 def aggregate_power_fdp(per_sample: pl.DataFrame) -> pl.DataFrame:
@@ -122,9 +279,22 @@ def aggregate_power_fdp(per_sample: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def summarize_causal_pip_per_sample(fits_df: pl.DataFrame, sample_metadata: pl.DataFrame) -> pl.DataFrame:
-    # Build one row per sample_id x method x threshold with sample-level mean causal PIP.
-    raise NotImplementedError
+def summarize_causal_pip_per_sample(
+    fits_df: pl.DataFrame,
+    sample_metadata: pl.DataFrame,
+) -> pl.DataFrame:
+    """Build one row per sample_id x method x threshold with causal PIP."""
+    fits_with_sample_id = fits_df.join(
+        sample_metadata.select("sample_id", "batch_hash", "replicate"),
+        on=["batch_hash", "replicate"],
+        how="left",
+    )
+    return fits_with_sample_id.select(
+        "sample_id",
+        "method",
+        "threshold",
+        pl.col("fit_summary").struct.field("causal_pip").alias("mean_causal_pip"),
+    )
 
 
 def aggregate_causal_pip(per_sample: pl.DataFrame) -> pl.DataFrame:
@@ -135,9 +305,39 @@ def aggregate_causal_pip(per_sample: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def summarize_cs_metrics_per_sample(fits_df: pl.DataFrame, sample_metadata: pl.DataFrame) -> pl.DataFrame:
-    # Build one row per sample_id x method x threshold x metric.
-    raise NotImplementedError
+def summarize_cs_metrics_per_sample(
+    fits_df: pl.DataFrame,
+    sample_metadata: pl.DataFrame,
+) -> pl.DataFrame:
+    """Build one row per sample_id x method x threshold x metric."""
+    fits_with_sample_id = fits_df.join(
+        sample_metadata.select("sample_id", "batch_hash", "replicate"),
+        on=["batch_hash", "replicate"],
+        how="left",
+    )
+
+    rows: list[dict[str, Any]] = []
+    for row in fits_with_sample_id.iter_rows(named=True):
+        causal_in_cs = bool(row["credible_set"]["causal_in_cs"])
+        cs_size = int(row["credible_set"]["cs_size"])
+        base = {
+            "sample_id": row["sample_id"],
+            "method": row["method"],
+            "threshold": row["threshold"],
+        }
+        rows.append({**base, "metric": "Power", "value": float(causal_in_cs)})
+        rows.append({**base, "metric": "Coverage", "value": float(causal_in_cs)})
+        rows.append({**base, "metric": "CS Size", "value": float(cs_size)})
+    return pl.from_dicts(
+        rows,
+        schema={
+            "sample_id": pl.String,
+            "method": pl.String,
+            "threshold": pl.Float64,
+            "metric": pl.String,
+            "value": pl.Float64,
+        },
+    )
 
 
 def aggregate_cs_summary(per_sample: pl.DataFrame) -> pl.DataFrame:
@@ -152,8 +352,17 @@ def summarize_cs_size_histogram_observations(
     fits_df: pl.DataFrame,
     sample_metadata: pl.DataFrame,
 ) -> pl.DataFrame:
-    # Build raw method x threshold x cs_size observations.
-    raise NotImplementedError
+    """Build raw method x threshold x cs_size observations."""
+    fits_with_sample_id = fits_df.join(
+        sample_metadata.select("sample_id", "batch_hash", "replicate"),
+        on=["batch_hash", "replicate"],
+        how="left",
+    )
+    return fits_with_sample_id.select(
+        "method",
+        "threshold",
+        pl.col("credible_set").struct.field("cs_size").alias("cs_size"),
+    )
 
 
 def finalize_cs_size_histogram(observations: pl.DataFrame) -> pl.DataFrame:
@@ -166,8 +375,17 @@ def summarize_ser_log_bf_histogram_observations(
     fits_df: pl.DataFrame,
     sample_metadata: pl.DataFrame,
 ) -> pl.DataFrame:
-    # Build raw method x threshold x ser_log_bf observations.
-    raise NotImplementedError
+    """Build raw method x threshold x ser_log_bf observations."""
+    fits_with_sample_id = fits_df.join(
+        sample_metadata.select("sample_id", "batch_hash", "replicate"),
+        on=["batch_hash", "replicate"],
+        how="left",
+    )
+    return fits_with_sample_id.select(
+        "method",
+        "threshold",
+        pl.col("ser_posterior").struct.field("ser_log_bf").alias("ser_log_bf"),
+    )
 
 
 def finalize_ser_log_bf_histogram(observations: pl.DataFrame) -> pl.DataFrame:

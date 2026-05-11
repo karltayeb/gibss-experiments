@@ -195,6 +195,231 @@ rule materialize_twogroup_experiment_collection_alias:
                 )
 
 
+rule collection_method_metadata:
+    input:
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+        ],
+    output:
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/method_metadata.parquet",
+    run:
+        from plot_ready import build_method_metadata, load_collection_fits_with_specs
+        collection = config["collections"][wildcards.collection_alias]
+        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
+        write_parquet(build_method_metadata(fits_df), output[0])
+
+
+rule collection_simulation_metadata:
+    input:
+        simulations=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+            batch_hash=[
+                batch[HASH_KEY]
+                for batch in config["collections"][wildcards.collection_alias]["batches"]
+            ],
+        ),
+    output:
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/simulation_metadata.parquet",
+    run:
+        import json
+        import polars as pl
+        collection = config["collections"][wildcards.collection_alias]
+        rows = []
+        for batch in collection["batches"]:
+            rows.append(
+                {
+                    "batch_hash": batch[HASH_KEY],
+                    "batch_name": batch["name"],
+                    "simulation_spec": json.dumps(batch["simulation_spec"], sort_keys=True),
+                    "simulation_name": batch["simulation_spec"]["fields"]["name"],
+                }
+            )
+        write_parquet(pl.from_dicts(rows), output[0])
+
+
+rule collection_sample_metadata:
+    input:
+        simulations=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+            batch_hash=[
+                batch[HASH_KEY]
+                for batch in config["collections"][wildcards.collection_alias]["batches"]
+            ],
+        ),
+    output:
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+    run:
+        from plot_ready import load_collection_simulations, _build_sample_metadata_from_manifest
+        collection = config["collections"][wildcards.collection_alias]
+        simulations_by_batch = load_collection_simulations(collection, results_root=RESULTS_ROOT)
+        sample_metadata = _build_sample_metadata_from_manifest(collection, simulations_by_batch)
+        write_parquet(sample_metadata, output[0])
+
+
+rule collection_pip_calibration_plot_ready:
+    input:
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+        ],
+        simulations=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+            batch_hash=[
+                batch[HASH_KEY]
+                for batch in config["collections"][wildcards.collection_alias]["batches"]
+            ],
+        ),
+        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+    output:
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/pip_calibration.parquet",
+    run:
+        from plot_ready import (
+            load_collection_fits_with_specs,
+            load_collection_simulations,
+            summarize_pip_calibration_per_sample,
+            aggregate_pip_calibration,
+        )
+        import polars as pl
+        collection = config["collections"][wildcards.collection_alias]
+        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
+        simulations_by_batch = load_collection_simulations(collection, results_root=RESULTS_ROOT)
+        sample_metadata = pl.read_parquet(input.sample_metadata)
+        per_sample = summarize_pip_calibration_per_sample(fits_df, sample_metadata, simulations_by_batch)
+        write_parquet(aggregate_pip_calibration(per_sample), output[0])
+
+
+rule collection_power_fdp_plot_ready:
+    input:
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+        ],
+        simulations=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+            batch_hash=[
+                batch[HASH_KEY]
+                for batch in config["collections"][wildcards.collection_alias]["batches"]
+            ],
+        ),
+        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+    output:
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/power_fdp.parquet",
+    run:
+        from plot_ready import (
+            load_collection_fits_with_specs,
+            load_collection_simulations,
+            summarize_power_fdp_per_sample,
+            aggregate_power_fdp,
+        )
+        import polars as pl
+        collection = config["collections"][wildcards.collection_alias]
+        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
+        simulations_by_batch = load_collection_simulations(collection, results_root=RESULTS_ROOT)
+        sample_metadata = pl.read_parquet(input.sample_metadata)
+        per_sample = summarize_power_fdp_per_sample(fits_df, sample_metadata, simulations_by_batch)
+        write_parquet(aggregate_power_fdp(per_sample), output[0])
+
+
+rule collection_causal_pip_plot_ready:
+    input:
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+        ],
+        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+    output:
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/causal_pip.parquet",
+    run:
+        from plot_ready import (
+            load_collection_fits_with_specs,
+            summarize_causal_pip_per_sample,
+            aggregate_causal_pip,
+        )
+        import polars as pl
+        collection = config["collections"][wildcards.collection_alias]
+        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
+        sample_metadata = pl.read_parquet(input.sample_metadata)
+        per_sample = summarize_causal_pip_per_sample(fits_df, sample_metadata)
+        write_parquet(aggregate_causal_pip(per_sample), output[0])
+
+
+rule collection_cs_summary_plot_ready:
+    input:
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+        ],
+        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+    output:
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/cs_summary.parquet",
+    run:
+        from plot_ready import (
+            load_collection_fits_with_specs,
+            summarize_cs_metrics_per_sample,
+            aggregate_cs_summary,
+        )
+        import polars as pl
+        collection = config["collections"][wildcards.collection_alias]
+        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
+        sample_metadata = pl.read_parquet(input.sample_metadata)
+        per_sample = summarize_cs_metrics_per_sample(fits_df, sample_metadata)
+        write_parquet(aggregate_cs_summary(per_sample), output[0])
+
+
+rule collection_cs_size_histogram_plot_ready:
+    input:
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+        ],
+        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+    output:
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/cs_size_histogram.parquet",
+    run:
+        from plot_ready import (
+            load_collection_fits_with_specs,
+            summarize_cs_size_histogram_observations,
+            finalize_cs_size_histogram,
+        )
+        import polars as pl
+        collection = config["collections"][wildcards.collection_alias]
+        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
+        sample_metadata = pl.read_parquet(input.sample_metadata)
+        observations = summarize_cs_size_histogram_observations(fits_df, sample_metadata)
+        write_parquet(finalize_cs_size_histogram(observations), output[0])
+
+
+rule collection_ser_log_bf_histogram_plot_ready:
+    input:
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in config["collections"][wildcards.collection_alias]["batches"]
+            for method_spec in config["collections"][wildcards.collection_alias]["method_specs"]
+        ],
+        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+    output:
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/ser_log_bf_histogram.parquet",
+    run:
+        from plot_ready import (
+            load_collection_fits_with_specs,
+            summarize_ser_log_bf_histogram_observations,
+            finalize_ser_log_bf_histogram,
+        )
+        import polars as pl
+        collection = config["collections"][wildcards.collection_alias]
+        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
+        sample_metadata = pl.read_parquet(input.sample_metadata)
+        observations = summarize_ser_log_bf_histogram_observations(fits_df, sample_metadata)
+        write_parquet(finalize_ser_log_bf_histogram(observations), output[0])
+
+
 rule twogroup_experiments_target:
     input:
         batch_hashes=expand(
@@ -203,5 +428,22 @@ rule twogroup_experiments_target:
         ),
         collection_spec=expand(
             f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
+            collection_alias=COLLECTION_ALIASES,
+        ),
+        plot_ready=expand(
+            [
+                f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/{name}"
+                for name in [
+                    "method_metadata.parquet",
+                    "simulation_metadata.parquet",
+                    "sample_metadata.parquet",
+                    "pip_calibration.parquet",
+                    "power_fdp.parquet",
+                    "causal_pip.parquet",
+                    "cs_summary.parquet",
+                    "cs_size_histogram.parquet",
+                    "ser_log_bf_histogram.parquet",
+                ]
+            ],
             collection_alias=COLLECTION_ALIASES,
         ),

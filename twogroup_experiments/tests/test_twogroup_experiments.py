@@ -577,3 +577,21 @@ def test_uniform_markov_x_shape_support_and_adjacent_spearman_correlation():
     empirical_spearman = np.corrcoef(ranks1, ranks2)[0, 1]
     expected_spearman = 6.0 / np.pi * np.arcsin(rho / 2.0)
     assert abs(empirical_spearman - expected_spearman) < 0.08
+
+
+def test_collection_plot_ready_snakemake_rules_are_declared():
+    """Verify all collection-level plot-ready rules exist in the snk file."""
+    snk_text = Path("twogroup_experiments.snk").read_text()
+    required_rules = [
+        "collection_method_metadata",
+        "collection_simulation_metadata",
+        "collection_sample_metadata",
+        "collection_pip_calibration_plot_ready",
+        "collection_power_fdp_plot_ready",
+        "collection_causal_pip_plot_ready",
+        "collection_cs_summary_plot_ready",
+        "collection_cs_size_histogram_plot_ready",
+        "collection_ser_log_bf_histogram_plot_ready",
+    ]
+    for rule in required_rules:
+        assert f"rule {rule}:" in snk_text, f"Missing rule: {rule}"
