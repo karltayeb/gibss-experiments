@@ -783,26 +783,10 @@ def make_conditional_cs_summary(
     )
 
 
-def render_conditional_cs_summary_chart(
-    cs_summary: pl.DataFrame,
-    *,
-    facet: bool,
-    nominal_coverage: float,
-    max_cs_size: int,
-    min_ser_log_bf: float,
-):
-    if cs_summary.is_empty():
-        return make_placeholder_chart("No credible set summary data")
-    theme = base_chart_theme()
-    observed_thresholds = cs_summary["threshold"].drop_nulls().unique().to_list()
-    x_min = min(observed_thresholds) if observed_thresholds else 0.0
-    x_max = max(observed_thresholds) if observed_thresholds else 1.0
-    x_margin = (x_max - x_min) * 0.1 if x_max > x_min else 0.5
-    metrics = ["Power", "CS Size", "Coverage"]
-    fig, axes = plt.subplots(1, len(metrics), figsize=(theme["width"] * 3, theme["height"]), squeeze=False)
+def _plot_cs_summary_row(ax_row, sim_df, metrics, x_min, x_max, x_margin):
     for idx, metric_name in enumerate(metrics):
-        ax = axes[0, idx]
-        metric_df = cs_summary.filter(pl.col("metric") == metric_name)
+        ax = ax_row[idx]
+        metric_df = sim_df.filter(pl.col("metric") == metric_name)
         for method_name in sorted(metric_df.get_column("method").unique().to_list()):
             method_df = metric_df.filter(pl.col("method") == method_name)
             color = method_color(method_name)
@@ -820,13 +804,46 @@ def render_conditional_cs_summary_chart(
         ax.set_title(metric_name)
         ax.set_xlabel("Threshold")
         ax.set_xlim(x_min - x_margin, x_max + x_margin)
-    axes[0, 0].set_ylabel("Value")
+    ax_row[0].set_ylabel("Value")
+
+
+def render_conditional_cs_summary_chart(
+    cs_summary: pl.DataFrame,
+    *,
+    facet: bool,
+    nominal_coverage: float,
+    max_cs_size: int,
+    min_ser_log_bf: float,
+):
+    if cs_summary.is_empty():
+        return make_placeholder_chart("No credible set summary data")
+    theme = base_chart_theme()
+    observed_thresholds = cs_summary["threshold"].drop_nulls().unique().to_list()
+    x_min = min(observed_thresholds) if observed_thresholds else 0.0
+    x_max = max(observed_thresholds) if observed_thresholds else 1.0
+    x_margin = (x_max - x_min) * 0.1 if x_max > x_min else 0.5
+    metrics = ["Power", "CS Size", "Coverage"]
+
     if facet:
+        simulations = sorted(cs_summary["simulation_name"].unique().to_list())
+        n_sims = len(simulations)
+        fig, axes = plt.subplots(
+            n_sims, len(metrics),
+            figsize=(theme["width"] * 3, theme["height"] * n_sims),
+            squeeze=False,
+        )
+        for row_idx, sim_name in enumerate(simulations):
+            sim_df = cs_summary.filter(pl.col("simulation_name") == sim_name)
+            _plot_cs_summary_row(axes[row_idx], sim_df, metrics, x_min, x_max, x_margin)
+            axes[row_idx, 0].set_ylabel(f"{sim_name}\nValue")
         fig.suptitle("By simulation scenario")
     else:
+        fig, axes = plt.subplots(1, len(metrics), figsize=(theme["width"] * 3, theme["height"]), squeeze=False)
+        _plot_cs_summary_row(axes[0], cs_summary, metrics, x_min, x_max, x_margin)
         fig.suptitle(
             f"Aggregate | nominal={nominal_coverage:.2f} | max size={max_cs_size} | min log BF={min_ser_log_bf:.1f}"
         )
+
     handles, labels = axes[0, 0].get_legend_handles_labels()
     if handles:
         fig.legend(handles, labels, loc="center right", frameon=False)
@@ -953,13 +970,14 @@ def render_conditional_cs_scenario_points_chart(
         return make_placeholder_chart("No scenario-point data")
     theme = base_chart_theme()
     metrics = ["Power", "CS Size", "Coverage"]
-    fig, axes = plt.subplots(1, len(metrics), figsize=(theme["width"] * 3, theme["height"] * 1.35), squeeze=False)
+    fig, axes = plt.subplots(1, len(metrics), figsize=(theme["width"] * 5, theme["height"] * 1.35), squeeze=False)
     sim_names = sorted(scenario_summary.get_column("simulation_name").unique().to_list())
-    x_positions = np.arange(len(sim_names))
-    sim_index = {name: i for i, name in enumerate(sim_names)}
+    scenario_spacing = 3.0
+    x_positions = np.arange(len(sim_names)) * scenario_spacing
+    sim_index = {name: i * scenario_spacing for i, name in enumerate(sim_names)}
     all_methods = sorted(scenario_summary.get_column("method").unique().to_list())
     n_methods = len(all_methods)
-    jitter_step = 0.15
+    jitter_step = 0.2
     method_offset = {m: (i - (n_methods - 1) / 2) * jitter_step for i, m in enumerate(all_methods)}
     for idx, metric_name in enumerate(metrics):
         ax = axes[0, idx]
