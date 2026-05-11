@@ -53,3 +53,54 @@ def test_build_sample_metadata_uses_batch_hash_and_replicate():
 
     assert sample_metadata["sample_id"].to_list() == ["batch-a::0", "batch-a::1"]
     assert sample_metadata["batch_hash"].to_list() == ["batch-a", "batch-a"]
+
+
+def test_build_pip_calibration_returns_collection_level_bins():
+    per_sample = pl.DataFrame(
+        {
+            "sample_id": ["a::0", "a::0", "a::1", "a::1"],
+            "method": ["logistic_threshold_L1"] * 4,
+            "threshold": [1.0] * 4,
+            "pip_bin_index": [0, 1, 0, 1],
+            "n_exact": [10, 5, 8, 7],
+            "n_causal_exact": [1, 2, 1, 3],
+        }
+    )
+
+    result = plot_ready.aggregate_pip_calibration(per_sample)
+
+    assert result.columns == [
+        "method",
+        "threshold",
+        "pip_bin_index",
+        "pip_left",
+        "pip_right",
+        "pip_mid",
+        "n_total",
+        "n_causal",
+        "empirical_rate",
+    ]
+    assert result.height == 2
+
+
+def test_build_power_fdp_returns_collection_level_curve():
+    per_sample = pl.DataFrame(
+        {
+            "sample_id": ["a::0", "a::1"],
+            "method": ["logistic_threshold_L1", "logistic_threshold_L1"],
+            "threshold": [1.0, 1.0],
+            "pip_threshold": [0.5, 0.5],
+            "power": [0.2, 0.4],
+            "fdp": [0.1, 0.3],
+        }
+    )
+
+    result = plot_ready.aggregate_power_fdp(per_sample)
+
+    assert result.height == 1
+    row = result.row(0, named=True)
+    assert row["method"] == "logistic_threshold_L1"
+    assert row["threshold"] == 1.0
+    assert row["pip_threshold"] == 0.5
+    assert abs(row["power"] - 0.3) < 1e-9
+    assert abs(row["fdp"] - 0.2) < 1e-9

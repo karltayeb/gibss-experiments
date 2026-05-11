@@ -67,3 +67,53 @@ def build_sample_metadata(
                 }
             )
     return pl.from_dicts(rows)
+
+
+def summarize_pip_calibration_per_sample(fits_df: pl.DataFrame, sample_metadata: pl.DataFrame) -> pl.DataFrame:
+    # Build one row per sample_id x method x threshold x pip_bin_index.
+    # stub — full implementation in per-sample summarizer (leave as NotImplementedError for now)
+    raise NotImplementedError
+
+
+def aggregate_pip_calibration(per_sample: pl.DataFrame) -> pl.DataFrame:
+    return (
+        per_sample.group_by("method", "threshold", "pip_bin_index")
+        .agg(
+            pl.col("n_exact").sum().alias("n_total"),
+            pl.col("n_causal_exact").sum().alias("n_causal"),
+        )
+        .with_columns(
+            (pl.col("pip_bin_index") * 0.05).alias("pip_left"),
+            ((pl.col("pip_bin_index") + 1) * 0.05).alias("pip_right"),
+            ((pl.col("pip_bin_index") + 0.5) * 0.05).alias("pip_mid"),
+            (pl.col("n_causal") / pl.col("n_total")).alias("empirical_rate"),
+        )
+        .select(
+            "method",
+            "threshold",
+            "pip_bin_index",
+            "pip_left",
+            "pip_right",
+            "pip_mid",
+            "n_total",
+            "n_causal",
+            "empirical_rate",
+        )
+        .sort("method", "threshold", "pip_bin_index")
+    )
+
+
+def summarize_power_fdp_per_sample(fits_df: pl.DataFrame, sample_metadata: pl.DataFrame) -> pl.DataFrame:
+    # Build one row per sample_id x method x threshold x pip_threshold.
+    raise NotImplementedError
+
+
+def aggregate_power_fdp(per_sample: pl.DataFrame) -> pl.DataFrame:
+    return (
+        per_sample.group_by("method", "threshold", "pip_threshold")
+        .agg(
+            pl.col("power").mean().alias("power"),
+            pl.col("fdp").mean().alias("fdp"),
+        )
+        .sort("method", "threshold", "pip_threshold")
+    )
