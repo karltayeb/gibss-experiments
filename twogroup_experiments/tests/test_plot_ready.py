@@ -104,3 +104,40 @@ def test_build_power_fdp_returns_collection_level_curve():
     assert row["pip_threshold"] == 0.5
     assert abs(row["power"] - 0.3) < 1e-9
     assert abs(row["fdp"] - 0.2) < 1e-9
+
+
+def test_build_causal_pip_returns_collection_means():
+    per_sample = pl.DataFrame(
+        {
+            "sample_id": ["a::0", "a::1"],
+            "method": ["logistic_threshold_L1", "logistic_threshold_L1"],
+            "threshold": [1.0, 1.0],
+            "mean_causal_pip": [0.4, 0.6],
+        }
+    )
+
+    result = plot_ready.aggregate_causal_pip(per_sample)
+
+    assert result.rows(named=True) == [
+        {
+            "method": "logistic_threshold_L1",
+            "threshold": 1.0,
+            "mean_causal_pip": 0.5,
+        }
+    ]
+
+
+def test_build_cs_summary_returns_three_metrics():
+    per_sample = pl.DataFrame(
+        {
+            "sample_id": ["a::0", "a::0", "a::0"],
+            "method": ["logistic_threshold_L1"] * 3,
+            "threshold": [1.0] * 3,
+            "metric": ["Power", "CS Size", "Coverage"],
+            "value": [0.5, 4.0, 0.8],
+        }
+    )
+
+    result = plot_ready.aggregate_cs_summary(per_sample)
+
+    assert sorted(result["metric"].to_list()) == ["CS Size", "Coverage", "Power"]

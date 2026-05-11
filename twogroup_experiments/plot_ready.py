@@ -120,3 +120,29 @@ def aggregate_power_fdp(per_sample: pl.DataFrame) -> pl.DataFrame:
         )
         .sort("method", "threshold", "pip_threshold")
     )
+
+
+def summarize_causal_pip_per_sample(fits_df: pl.DataFrame, sample_metadata: pl.DataFrame) -> pl.DataFrame:
+    # Build one row per sample_id x method x threshold with sample-level mean causal PIP.
+    raise NotImplementedError
+
+
+def aggregate_causal_pip(per_sample: pl.DataFrame) -> pl.DataFrame:
+    return (
+        per_sample.group_by("method", "threshold")
+        .agg(pl.col("mean_causal_pip").mean().alias("mean_causal_pip"))
+        .sort("method", "threshold")
+    )
+
+
+def summarize_cs_metrics_per_sample(fits_df: pl.DataFrame, sample_metadata: pl.DataFrame) -> pl.DataFrame:
+    # Build one row per sample_id x method x threshold x metric.
+    raise NotImplementedError
+
+
+def aggregate_cs_summary(per_sample: pl.DataFrame) -> pl.DataFrame:
+    return (
+        per_sample.group_by("method", "threshold", "metric")
+        .agg(pl.col("value").mean().alias("value"))
+        .sort("method", "threshold", "metric")
+    )
