@@ -40,22 +40,23 @@ def collection_selector_cell():
             )
         )
     ]
-    default_collection = (
-        "hallmark__ser_enrich__loc"
-        if "hallmark__ser_enrich__loc" in collections_with_pip_plot_data
-        else collections_with_pip_plot_data[0]
-    )
     collection_dropdown = mo.ui.dropdown(
         options=collections_with_pip_plot_data,
-        value=default_collection,
+        value=None,
+        allow_select_none=True,
         label="collection",
     )
+    collection_dropdown
     return collection_alias_root, collection_dropdown
 
 
 @app.cell
 def collection_bundle_cell(collection_alias_root, collection_dropdown):
     # Load selected collection bundle from alias root.
+    mo.stop(
+        collection_dropdown.value is None,
+        mo.md("Select a collection to load data and render plots."),
+    )
     selected_root = collection_alias_root / collection_dropdown.value
     collection_bundle = viz3_utils.load_collection_bundle(selected_root)
     return (collection_bundle,)
@@ -185,7 +186,12 @@ def pip_calibration_charts_cell(pip_calibration_summary):
     ).with_columns(pl.lit("Aggregate").alias("simulation_name"))
     pip_calibration_by_sim_summary = viz3_utils.summarize_calibration_with_bootstrap(
         pip_calibration_summary,
-        group_cols=["simulation_name", "method_family", "method_display", "series_label"],
+        group_cols=[
+            "simulation_name",
+            "method_family",
+            "method_display",
+            "series_label",
+        ],
     )
     pip_calibration_aggregate_chart = viz3_utils.render_pip_calibration(
         pip_calibration_aggregate_summary,
