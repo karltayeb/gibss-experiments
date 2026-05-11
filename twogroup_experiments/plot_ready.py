@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any
 
 import numpy as np
@@ -392,3 +393,29 @@ def finalize_ser_log_bf_histogram(observations: pl.DataFrame) -> pl.DataFrame:
     return observations.select("method", "threshold", "ser_log_bf").sort(
         "method", "threshold", "ser_log_bf"
     )
+
+
+def available_plot_ready_collections(alias_root: Path) -> list[str]:
+    """Return collection aliases that have a plot_ready/ subdirectory."""
+    return sorted(
+        p.name
+        for p in alias_root.iterdir()
+        if p.is_dir() and (p / "plot_ready").is_dir() and any((p / "plot_ready").glob("*.parquet"))
+    )
+
+
+def load_plot_ready_collection(collection_root: Path) -> dict[str, pl.DataFrame]:
+    """Load all plot_ready parquets for a collection into a dict."""
+    plot_ready_dir = collection_root / "plot_ready"
+    names = [
+        "method_metadata",
+        "simulation_metadata",
+        "sample_metadata",
+        "pip_calibration",
+        "power_fdp",
+        "causal_pip",
+        "cs_summary",
+        "cs_size_histogram",
+        "ser_log_bf_histogram",
+    ]
+    return {name: pl.read_parquet(plot_ready_dir / f"{name}.parquet") for name in names}

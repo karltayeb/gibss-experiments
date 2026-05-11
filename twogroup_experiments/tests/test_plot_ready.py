@@ -169,3 +169,14 @@ def test_build_ser_log_bf_histogram_returns_raw_observations():
     result = plot_ready.finalize_ser_log_bf_histogram(observations)
 
     assert result.rows(named=True) == observations.rows(named=True)
+
+
+def test_viz4_plot_ready_notebook_module_loads():
+    import runpy
+    from pathlib import Path
+
+    globals_dict = runpy.run_path(
+        str(Path("notebooks") / "viz4_plot_ready.py"),
+        run_name="viz4_plot_ready_test",
+    )
+    assert "app" in globals_dict
