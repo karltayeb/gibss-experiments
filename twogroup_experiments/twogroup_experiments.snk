@@ -489,8 +489,8 @@ rule twogroup_experiments_target:
     input:
         batch_hashes=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batch_hashes.txt",
         collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
-        plot_ready=expand(
-            f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/{{name}}",
+        plot_ready=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_alias/{wildcards.collection_alias}/plot_ready/{{name}}",
             name=[
                 "method_metadata.parquet",
                 "simulation_metadata.parquet",
