@@ -141,3 +141,31 @@ def test_build_cs_summary_returns_three_metrics():
     result = plot_ready.aggregate_cs_summary(per_sample)
 
     assert sorted(result["metric"].to_list()) == ["CS Size", "Coverage", "Power"]
+
+
+def test_build_cs_size_histogram_returns_raw_observations():
+    observations = pl.DataFrame(
+        {
+            "method": ["logistic_threshold_L1", "logistic_threshold_L1"],
+            "threshold": [1.0, 1.0],
+            "cs_size": [3, 5],
+        }
+    )
+
+    result = plot_ready.finalize_cs_size_histogram(observations)
+
+    assert result.rows(named=True) == observations.rows(named=True)
+
+
+def test_build_ser_log_bf_histogram_returns_raw_observations():
+    observations = pl.DataFrame(
+        {
+            "method": ["logistic_threshold_L1"],
+            "threshold": [1.0],
+            "ser_log_bf": [2.5],
+        }
+    )
+
+    result = plot_ready.finalize_ser_log_bf_histogram(observations)
+
+    assert result.rows(named=True) == observations.rows(named=True)

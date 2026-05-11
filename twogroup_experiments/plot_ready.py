@@ -146,3 +146,31 @@ def aggregate_cs_summary(per_sample: pl.DataFrame) -> pl.DataFrame:
         .agg(pl.col("value").mean().alias("value"))
         .sort("method", "threshold", "metric")
     )
+
+
+def summarize_cs_size_histogram_observations(
+    fits_df: pl.DataFrame,
+    sample_metadata: pl.DataFrame,
+) -> pl.DataFrame:
+    # Build raw method x threshold x cs_size observations.
+    raise NotImplementedError
+
+
+def finalize_cs_size_histogram(observations: pl.DataFrame) -> pl.DataFrame:
+    return observations.select("method", "threshold", "cs_size").sort(
+        "method", "threshold", "cs_size"
+    )
+
+
+def summarize_ser_log_bf_histogram_observations(
+    fits_df: pl.DataFrame,
+    sample_metadata: pl.DataFrame,
+) -> pl.DataFrame:
+    # Build raw method x threshold x ser_log_bf observations.
+    raise NotImplementedError
+
+
+def finalize_ser_log_bf_histogram(observations: pl.DataFrame) -> pl.DataFrame:
+    return observations.select("method", "threshold", "ser_log_bf").sort(
+        "method", "threshold", "ser_log_bf"
+    )
