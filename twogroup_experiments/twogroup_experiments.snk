@@ -210,13 +210,7 @@ rule materialize_twogroup_experiment_collection_alias:
 
 rule collection_method_metadata:
     input:
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
-        ],
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/method_metadata.parquet",
     run:
@@ -229,15 +223,7 @@ rule collection_method_metadata:
 
 rule collection_simulation_metadata:
     input:
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in config["collections"][wildcards.collection_alias][
-                    "batches"
-                ]
-            ],
-        ),
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/simulation_metadata.parquet",
     run:
@@ -262,15 +248,7 @@ rule collection_simulation_metadata:
 
 rule collection_sample_metadata:
     input:
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in config["collections"][wildcards.collection_alias][
-                    "batches"
-                ]
-            ],
-        ),
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     run:
@@ -291,22 +269,7 @@ rule collection_sample_metadata:
 
 rule collection_pip_calibration_plot_ready:
     input:
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
-        ],
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in config["collections"][wildcards.collection_alias][
-                    "batches"
-                ]
-            ],
-        ),
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
         sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/pip_calibration.parquet",
@@ -333,22 +296,7 @@ rule collection_pip_calibration_plot_ready:
 
 rule collection_power_fdp_plot_ready:
     input:
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
-        ],
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in config["collections"][wildcards.collection_alias][
-                    "batches"
-                ]
-            ],
-        ),
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
         sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/power_fdp.parquet",
@@ -375,13 +323,7 @@ rule collection_power_fdp_plot_ready:
 
 rule collection_causal_pip_plot_ready:
     input:
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
-        ],
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
         sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/causal_pip.parquet",
@@ -402,13 +344,7 @@ rule collection_causal_pip_plot_ready:
 
 rule collection_cs_raw_plot_ready:
     input:
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
-        ],
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
         sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/cs_raw.parquet",
@@ -427,13 +363,7 @@ rule collection_cs_raw_plot_ready:
 
 rule collection_cs_size_histogram_plot_ready:
     input:
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
-        ],
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
         sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/cs_size_histogram.parquet",
@@ -456,13 +386,7 @@ rule collection_cs_size_histogram_plot_ready:
 
 rule collection_ser_log_bf_histogram_plot_ready:
     input:
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
-        ],
+        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
         sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
         f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/ser_log_bf_histogram.parquet",
