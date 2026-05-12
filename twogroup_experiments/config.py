@@ -603,17 +603,14 @@ def manifest_dict() -> dict[str, object]:
         "simulation_specs": {},
         "method_specs": {},
         "batches": {},
-        "collections": {},
     }
     simulation_specs = manifest["simulation_specs"]
     method_specs = manifest["method_specs"]
     batches = manifest["batches"]
-    collections = manifest["collections"]
 
     assert isinstance(simulation_specs, dict)
     assert isinstance(method_specs, dict)
     assert isinstance(batches, dict)
-    assert isinstance(collections, dict)
 
     for simulation_spec in REGISTRY.simulations:
         simulation_node = dehydrate_hashed(simulation_spec)
@@ -623,7 +620,6 @@ def manifest_dict() -> dict[str, object]:
         method_node = dehydrate_hashed(method_spec)
         method_specs[method_node[HASH_KEY]] = method_node
 
-    batch_records_by_name: dict[str, dict[str, object]] = {}
     for batch in REGISTRY.batches:
         simulation_node = dehydrate_hashed(batch.simulation_spec)
         batch_node = {
@@ -633,24 +629,6 @@ def manifest_dict() -> dict[str, object]:
         }
         batch_record = {**batch_node, HASH_KEY: dehydrate_hashed(batch)[HASH_KEY]}
         batches[batch_record[HASH_KEY]] = batch_record
-        batch_records_by_name[batch.name] = batch_record
-
-    for collection in REGISTRY.collections:
-        collection_batches = [
-            batch_records_by_name[batch.name] for batch in collection.batches
-        ]
-        collection_method_specs = [
-            dehydrate_hashed(method_spec) for method_spec in collection.method_specs
-        ]
-        collection_node = {
-            "name": collection.name,
-            "batches": collection_batches,
-            "method_specs": collection_method_specs,
-        }
-        collections[collection.name] = {
-            **collection_node,
-            HASH_KEY: dehydrate_hashed(collection)[HASH_KEY],
-        }
 
     return manifest
 
