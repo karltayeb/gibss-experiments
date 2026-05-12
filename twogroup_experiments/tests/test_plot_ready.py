@@ -182,13 +182,13 @@ def test_build_ser_log_bf_histogram_returns_raw_observations():
     assert result.rows(named=True) == observations.rows(named=True)
 
 
-def test_viz4_plot_ready_notebook_module_loads():
+def test_dashboard_notebook_module_loads():
     import runpy
     from pathlib import Path
 
     globals_dict = runpy.run_path(
-        str(Path("notebooks") / "viz4_plot_ready.py"),
-        run_name="viz4_plot_ready_test",
+        str(Path("notebooks") / "dashboard.py"),
+        run_name="dashboard_test",
     )
     assert "app" in globals_dict
 
