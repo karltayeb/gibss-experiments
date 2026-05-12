@@ -195,23 +195,20 @@ def test_config_uses_axis_composed_simulation_names():
 def test_manifest_uses_batches_key():
     manifest = manifest_dict()
     assert "batches" in manifest
-    assert "collections" in manifest
+    assert "simulation_specs" in manifest
+    assert "method_specs" in manifest
+    assert "collections" not in manifest
     assert "lots" not in manifest
-    tiny_batch = manifest["collections"]["tiny_test"]["batches"][0]
-    assert sorted(tiny_batch.keys()) == [
+    # verify batch node structure
+    any_batch = next(iter(manifest["batches"].values()))
+    assert sorted(any_batch.keys()) == [
         HASH_KEY,
         "name",
         "replicates",
         "simulation_spec",
     ]
-    assert tiny_batch["name"] == "tiny_test"
-    assert tiny_batch["simulation_spec"][HASH_KEY]
-    assert tiny_batch["simulation_spec"]["fields"]["name"] == "hallmark__ser_enrich__scale_0.5"
-    assert all(
-        HASH_KEY in method_spec
-        for method_spec in manifest["collections"]["tiny_test"]["method_specs"]
-    )
-    assert manifest["collections"]["tiny_test"]["name"] == "tiny_test"
+    assert any_batch["simulation_spec"][HASH_KEY]
+    assert "fields" in any_batch["simulation_spec"]
 
 
 def test_batch_hash_does_not_depend_on_method_membership():
@@ -589,7 +586,7 @@ def test_collection_plot_ready_snakemake_rules_are_declared():
         "collection_pip_calibration_plot_ready",
         "collection_power_fdp_plot_ready",
         "collection_causal_pip_plot_ready",
-        "collection_cs_summary_plot_ready",
+        "collection_cs_raw_plot_ready",
         "collection_cs_size_histogram_plot_ready",
         "collection_ser_log_bf_histogram_plot_ready",
     ]

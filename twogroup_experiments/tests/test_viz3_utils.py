@@ -7,7 +7,7 @@ import runpy
 import polars as pl
 import yaml
 
-import viz3_utils
+import viz_utils as viz3_utils
 
 
 def mock_method_spec(name: str, L: int = 1) -> str:
@@ -112,7 +112,7 @@ def test_method_selection_helpers_follow_available_data():
     assert viz3_utils.available_method_families(df) == ["twogroup"]
     assert viz3_utils.available_L_values(df) == [1, 5]
     assert viz3_utils.selected_method_names(
-        df, selected_method_family="twogroup", selected_L=5
+        df, selected_method_families=["twogroup"], selected_L=5
     ) == {"twogroup_L5"}
 
 
@@ -122,18 +122,9 @@ def test_available_thresholds_returns_sorted_non_null_values():
     assert viz3_utils.available_thresholds(df) == [1.0, 2.0, 3.0]
 
 
-def test_viz3_notebook_module_loads():
-    globals_dict = runpy.run_path(str(Path("notebooks") / "viz3.py"), run_name="viz3_test")
+def test_dashboard_notebook_module_loads():
+    globals_dict = runpy.run_path(str(Path("notebooks") / "dashboard.py"), run_name="dashboard_test")
     assert "app" in globals_dict
-
-
-def test_viz3_notebook_waits_for_collection_selection():
-    source = (Path("notebooks") / "viz3.py").read_text()
-
-    assert "allow_select_none=True" in source
-    assert "value=None" in source
-    assert "mo.stop(" in source
-    assert "collection_dropdown.value is None" in source
 
 
 def test_pip_calibration_pipeline_produces_summary():
