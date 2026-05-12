@@ -191,3 +191,54 @@ def test_viz4_plot_ready_notebook_module_loads():
         run_name="viz4_plot_ready_test",
     )
     assert "app" in globals_dict
+
+
+def test_build_collection_yaml_node_roundtrip():
+    import json
+    from pathlib import Path
+
+    manifest = json.loads(
+        (Path(__file__).parent.parent / "results" / "manifest.json").read_text()
+    )
+    batch_hash = next(iter(manifest["batches"]))
+    method_hash = next(iter(manifest["method_specs"]))
+    batch_node = manifest["batches"][batch_hash]
+    method_node = manifest["method_specs"][method_hash]
+
+    result = plot_ready.build_collection_yaml_node(
+        name="test_collection",
+        batch_nodes=[batch_node],
+        method_nodes=[method_node],
+    )
+
+    assert result["name"] == "test_collection"
+    assert len(result["batches"]) == 1
+    assert len(result["method_specs"]) == 1
+    assert "__spec_hash__" in result
+
+
+def test_union_collection_yaml_nodes_deduplicates():
+    import json
+    from pathlib import Path
+
+    manifest = json.loads(
+        (Path(__file__).parent.parent / "results" / "manifest.json").read_text()
+    )
+    batch_hashes = list(manifest["batches"].keys())[:2]
+    method_hash = next(iter(manifest["method_specs"]))
+    batch_nodes = [manifest["batches"][h] for h in batch_hashes]
+    method_node = manifest["method_specs"][method_hash]
+
+    node_a = plot_ready.build_collection_yaml_node(
+        name="a", batch_nodes=batch_nodes[:1], method_nodes=[method_node]
+    )
+    node_b = plot_ready.build_collection_yaml_node(
+        name="b", batch_nodes=batch_nodes, method_nodes=[method_node]
+    )
+
+    result = plot_ready.union_collection_yaml_nodes("union", [node_a, node_b])
+
+    assert result["name"] == "union"
+    assert len(result["batches"]) == 2   # deduped
+    assert len(result["method_specs"]) == 1  # deduped
+    assert "__spec_hash__" in result

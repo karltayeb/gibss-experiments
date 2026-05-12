@@ -7,7 +7,8 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from utils import attach_spec_metadata
+from core import HASH_KEY, rehydrate_node, dehydrate_hashed
+from utils import attach_spec_metadata, CollectionSpec
 from viz_utils import method_metadata_from_method_spec_json, make_method_display_label
 
 
@@ -372,6 +373,48 @@ def summarize_ser_log_bf_histogram_observations(
 def finalize_ser_log_bf_histogram(observations: pl.DataFrame) -> pl.DataFrame:
     return observations.select("method", "threshold", "ser_log_bf").sort(
         "method", "threshold", "ser_log_bf"
+    )
+
+
+def build_collection_yaml_node(
+    name: str,
+    batch_nodes: list[dict],
+    method_nodes: list[dict],
+) -> dict:
+    """Build a dehydrated CollectionSpec dict from manifest batch/method nodes.
+
+    Returns a flat collection node (name, batches, method_specs, __spec_hash__)
+    matching the format written to results/collections/{name}.yaml files.
+    The __spec_hash__ is derived from the full CollectionSpec dehydration.
+    """
+    batches = tuple(rehydrate_node(b) for b in batch_nodes)
+    methods = tuple(rehydrate_node(m) for m in method_nodes)
+    collection = CollectionSpec(name=name, batches=batches, method_specs=methods)
+    collection_hash = dehydrate_hashed(collection)[HASH_KEY]
+    return {
+        "name": name,
+        "batches": batch_nodes,
+        "method_specs": method_nodes,
+        HASH_KEY: collection_hash,
+    }
+
+
+def union_collection_yaml_nodes(
+    name: str,
+    collection_nodes: list[dict],
+) -> dict:
+    """Union multiple dehydrated collection specs, deduplicating by __spec_hash__."""
+    seen_batches: dict[str, dict] = {}
+    seen_methods: dict[str, dict] = {}
+    for node in collection_nodes:
+        for batch in node["batches"]:
+            seen_batches.setdefault(batch[HASH_KEY], batch)
+        for method in node["method_specs"]:
+            seen_methods.setdefault(method[HASH_KEY], method)
+    return build_collection_yaml_node(
+        name=name,
+        batch_nodes=list(seen_batches.values()),
+        method_nodes=list(seen_methods.values()),
     )
 
 
