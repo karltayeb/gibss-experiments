@@ -8,7 +8,7 @@ import numpy as np
 import polars as pl
 
 from utils import attach_spec_metadata
-from viz3_utils import method_metadata_from_method_spec_json, make_method_display_label
+from viz_utils import method_metadata_from_method_spec_json, make_method_display_label
 
 
 def load_collection_fits_with_specs(
@@ -28,8 +28,11 @@ def load_collection_fits_with_specs(
                 simulation_spec_node=batch["simulation_spec"],
             )
             fits_df = fits_df.with_columns(pl.lit(batch_hash).alias("batch_hash"))
-            frames.append(fits_df)
-    return pl.concat(frames)
+            frames.append(fits_df.select(
+                "method", "threshold", "method_spec", "batch_hash", "replicate",
+                "ser_posterior", "fit_summary", "credible_set",
+            ))
+    return pl.concat(frames, how="diagonal_relaxed")
 
 
 def load_collection_simulations(
@@ -306,47 +309,24 @@ def aggregate_causal_pip(per_sample: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def summarize_cs_metrics_per_sample(
+def summarize_cs_raw_per_sample(
     fits_df: pl.DataFrame,
     sample_metadata: pl.DataFrame,
 ) -> pl.DataFrame:
-    """Build one row per sample_id x method x threshold x metric."""
+    """Build one row per sample_id x method x threshold with raw CS data."""
     fits_with_sample_id = fits_df.join(
         sample_metadata.select("sample_id", "batch_hash", "replicate"),
         on=["batch_hash", "replicate"],
         how="left",
     )
-
-    rows: list[dict[str, Any]] = []
-    for row in fits_with_sample_id.iter_rows(named=True):
-        causal_in_cs = bool(row["credible_set"]["causal_in_cs"])
-        cs_size = int(row["credible_set"]["cs_size"])
-        base = {
-            "sample_id": row["sample_id"],
-            "method": row["method"],
-            "threshold": row["threshold"],
-        }
-        rows.append({**base, "metric": "Power", "value": float(causal_in_cs)})
-        rows.append({**base, "metric": "Coverage", "value": float(causal_in_cs)})
-        rows.append({**base, "metric": "CS Size", "value": float(cs_size)})
-    return pl.from_dicts(
-        rows,
-        schema={
-            "sample_id": pl.String,
-            "method": pl.String,
-            "threshold": pl.Float64,
-            "metric": pl.String,
-            "value": pl.Float64,
-        },
-    )
-
-
-def aggregate_cs_summary(per_sample: pl.DataFrame) -> pl.DataFrame:
-    return (
-        per_sample.group_by("method", "threshold", "metric")
-        .agg(pl.col("value").mean().alias("value"))
-        .sort("method", "threshold", "metric")
-    )
+    return fits_with_sample_id.select(
+        "sample_id",
+        "method",
+        "threshold",
+        pl.col("credible_set").struct.field("causal_in_cs").alias("causal_in_cs"),
+        pl.col("credible_set").struct.field("cs_size").alias("cs_size"),
+        pl.col("ser_posterior").struct.field("ser_log_bf").alias("ser_log_bf"),
+    ).cast({"causal_in_cs": pl.Boolean, "cs_size": pl.Int64, "ser_log_bf": pl.Float64})
 
 
 def summarize_cs_size_histogram_observations(
@@ -414,7 +394,7 @@ def load_plot_ready_collection(collection_root: Path) -> dict[str, pl.DataFrame]
         "pip_calibration",
         "power_fdp",
         "causal_pip",
-        "cs_summary",
+        "cs_raw",
         "cs_size_histogram",
         "ser_log_bf_histogram",
     ]

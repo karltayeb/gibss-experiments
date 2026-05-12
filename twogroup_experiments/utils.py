@@ -366,4 +366,5 @@ def symlink_plot_data_outputs(
     source = Path(source_root)
     target = Path(target_root)
     for filename in PLOT_DATA_FILENAMES:
-        symlink_output(str(source / filename), str(target / filename))
+        if (source / filename).exists():
+            symlink_output(str(source / filename), str(target / filename))

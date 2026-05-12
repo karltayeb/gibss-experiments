@@ -144,19 +144,19 @@ rule materialize_twogroup_experiment_collection_alias:
                 "method_specs"
             ]
         ],
-        plot_data=lambda wildcards: [
-            path
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
-            for path in (
-                f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/pip_threshold_plot_data.parquet",
-                f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/causal_pip_plot_data.parquet",
-                f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/cs_component_plot_data.parquet",
-                f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/cs_truth_plot_data.parquet",
-            )
-        ],
+        # plot_data=lambda wildcards: [
+        #     path
+        #     for batch in config["collections"][wildcards.collection_alias]["batches"]
+        #     for method_spec in config["collections"][wildcards.collection_alias][
+        #         "method_specs"
+        #     ]
+        #     for path in (
+        #         f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/pip_threshold_plot_data.parquet",
+        #         f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/causal_pip_plot_data.parquet",
+        #         f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/cs_component_plot_data.parquet",
+        #         f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/cs_truth_plot_data.parquet",
+        #     )
+        # ],
     output:
         batch_hashes=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batch_hashes.txt",
         collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
@@ -400,7 +400,7 @@ rule collection_causal_pip_plot_ready:
         write_parquet(aggregate_causal_pip(per_sample), output[0])
 
 
-rule collection_cs_summary_plot_ready:
+rule collection_cs_raw_plot_ready:
     input:
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
@@ -411,20 +411,18 @@ rule collection_cs_summary_plot_ready:
         ],
         sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/cs_summary.parquet",
+        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/cs_raw.parquet",
     run:
         from plot_ready import (
             load_collection_fits_with_specs,
-            summarize_cs_metrics_per_sample,
-            aggregate_cs_summary,
+            summarize_cs_raw_per_sample,
         )
         import polars as pl
 
         collection = config["collections"][wildcards.collection_alias]
         fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
         sample_metadata = pl.read_parquet(input.sample_metadata)
-        per_sample = summarize_cs_metrics_per_sample(fits_df, sample_metadata)
-        write_parquet(aggregate_cs_summary(per_sample), output[0])
+        write_parquet(summarize_cs_raw_per_sample(fits_df, sample_metadata), output[0])
 
 
 rule collection_cs_size_histogram_plot_ready:
@@ -498,7 +496,7 @@ rule twogroup_experiments_target:
                 "pip_calibration.parquet",
                 "power_fdp.parquet",
                 "causal_pip.parquet",
-                "cs_summary.parquet",
+                "cs_raw.parquet",
                 "cs_size_histogram.parquet",
                 "ser_log_bf_histogram.parquet",
             ],
