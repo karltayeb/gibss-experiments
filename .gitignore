@@ -1,4 +1,6 @@
-*/results/
+*/results/*
+!*/results/collections/
+!*/results/collections/*.yaml
 **/__pycache__/
 *.py[cod]
 *$py.class
