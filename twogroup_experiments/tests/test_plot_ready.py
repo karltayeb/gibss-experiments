@@ -127,20 +127,31 @@ def test_build_causal_pip_returns_collection_means():
     ]
 
 
-def test_build_cs_summary_returns_three_metrics():
-    per_sample = pl.DataFrame(
+def test_summarize_cs_raw_per_sample_columns():
+    fits_df = pl.DataFrame(
         {
-            "sample_id": ["a::0", "a::0", "a::0"],
-            "method": ["logistic_threshold_L1"] * 3,
-            "threshold": [1.0] * 3,
-            "metric": ["Power", "CS Size", "Coverage"],
-            "value": [0.5, 4.0, 0.8],
+            "method": ["logistic_threshold_L1"],
+            "threshold": [1.0],
+            "batch_hash": ["abc"],
+            "replicate": [0],
+            "credible_set": [{"causal_in_cs": True, "cs_size": 3}],
+            "ser_posterior": [{"alpha": [0.9, 0.1], "ser_log_bf": 2.5}],
+        }
+    )
+    sample_metadata = pl.DataFrame(
+        {
+            "sample_id": ["abc::0"],
+            "batch_hash": ["abc"],
+            "replicate": [0],
         }
     )
 
-    result = plot_ready.aggregate_cs_summary(per_sample)
+    result = plot_ready.summarize_cs_raw_per_sample(fits_df, sample_metadata)
 
-    assert sorted(result["metric"].to_list()) == ["CS Size", "Coverage", "Power"]
+    assert set(result.columns) >= {"sample_id", "method", "threshold", "causal_in_cs", "cs_size", "ser_log_bf"}
+    assert result["causal_in_cs"].dtype == pl.Boolean
+    assert result["cs_size"].dtype == pl.Int64
+    assert result["ser_log_bf"].dtype == pl.Float64
 
 
 def test_build_cs_size_histogram_returns_raw_observations():
