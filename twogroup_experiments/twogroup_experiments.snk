@@ -21,7 +21,14 @@ from utils import (
 configfile: RESULTS_ROOT + "/manifest.json"
 
 
-COLLECTION_ALIASES = tuple(config["collections"].keys())
+COLLECTION_ALIASES = glob_wildcards(f"{RESULTS_ROOT}/collections/{{name}}.yaml").name
+
+
+def load_collection_yaml(collection_alias: str) -> dict:
+    import yaml
+    path = f"{RESULTS_ROOT}/collections/{collection_alias}.yaml"
+    with open(path) as fh:
+        return yaml.safe_load(fh)
 BATCH_HASH_TO_INFO = config["batches"]
 METHOD_HASH_TO_INFO = config["method_specs"]
 
@@ -107,42 +114,32 @@ rule materialize_twogroup_experiment_collection_alias:
             f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
             batch_hash=[
                 batch[HASH_KEY]
-                for batch in config["collections"][wildcards.collection_alias][
-                    "batches"
-                ]
+                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
             ],
         ),
         simulation_specs=lambda wildcards: expand(
             f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulation_spec.yaml",
             batch_hash=[
                 batch[HASH_KEY]
-                for batch in config["collections"][wildcards.collection_alias][
-                    "batches"
-                ]
+                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
             ],
         ),
         simulations=lambda wildcards: expand(
             f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
             batch_hash=[
                 batch[HASH_KEY]
-                for batch in config["collections"][wildcards.collection_alias][
-                    "batches"
-                ]
+                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
             ],
         ),
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
+            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
+            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
         ],
         method_specs=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/method_spec.yaml"
-            for batch in config["collections"][wildcards.collection_alias]["batches"]
-            for method_spec in config["collections"][wildcards.collection_alias][
-                "method_specs"
-            ]
+            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
+            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
         ],
         # plot_data=lambda wildcards: [
         #     path
@@ -164,11 +161,14 @@ rule materialize_twogroup_experiment_collection_alias:
     run:
         from pathlib import Path
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         batch_hashes = [batch[HASH_KEY] for batch in collection["batches"]]
         batch_hashes_text = "".join(f"{batch_hash}\n" for batch_hash in batch_hashes)
         write_text(batch_hashes_text, output.batch_hashes)
-        write_yaml(collection, output.collection_spec)
+        symlink_output(
+            f"{RESULTS_ROOT}/collections/{wildcards.collection_alias}.yaml",
+            output.collection_spec,
+        )
 
         batches_dir = Path(output.batches_dir)
         batches_dir.mkdir(parents=True, exist_ok=True)
@@ -216,7 +216,7 @@ rule collection_method_metadata:
     run:
         from plot_ready import build_method_metadata, load_collection_fits_with_specs
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
         write_parquet(build_method_metadata(fits_df), output[0])
 
@@ -230,7 +230,7 @@ rule collection_simulation_metadata:
         import json
         import polars as pl
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         rows = []
         for batch in collection["batches"]:
             rows.append(
@@ -257,7 +257,7 @@ rule collection_sample_metadata:
             _build_sample_metadata_from_manifest,
         )
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         simulations_by_batch = load_collection_simulations(
             collection, results_root=RESULTS_ROOT
         )
@@ -282,7 +282,7 @@ rule collection_pip_calibration_plot_ready:
         )
         import polars as pl
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
         simulations_by_batch = load_collection_simulations(
             collection, results_root=RESULTS_ROOT
@@ -309,7 +309,7 @@ rule collection_power_fdp_plot_ready:
         )
         import polars as pl
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
         simulations_by_batch = load_collection_simulations(
             collection, results_root=RESULTS_ROOT
@@ -335,7 +335,7 @@ rule collection_causal_pip_plot_ready:
         )
         import polars as pl
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
         sample_metadata = pl.read_parquet(input.sample_metadata)
         per_sample = summarize_causal_pip_per_sample(fits_df, sample_metadata)
@@ -355,7 +355,7 @@ rule collection_cs_raw_plot_ready:
         )
         import polars as pl
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
         sample_metadata = pl.read_parquet(input.sample_metadata)
         write_parquet(summarize_cs_raw_per_sample(fits_df, sample_metadata), output[0])
@@ -375,7 +375,7 @@ rule collection_cs_size_histogram_plot_ready:
         )
         import polars as pl
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
         sample_metadata = pl.read_parquet(input.sample_metadata)
         observations = summarize_cs_size_histogram_observations(
@@ -398,7 +398,7 @@ rule collection_ser_log_bf_histogram_plot_ready:
         )
         import polars as pl
 
-        collection = config["collections"][wildcards.collection_alias]
+        collection = load_collection_yaml(wildcards.collection_alias)
         fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
         sample_metadata = pl.read_parquet(input.sample_metadata)
         observations = summarize_ser_log_bf_histogram_observations(
