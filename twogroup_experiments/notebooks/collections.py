@@ -168,7 +168,16 @@ def build_write_cell(manifest, method_table, mode_tabs, sim_table, sim_to_batche
         mo.md(f"**{len(_selected_batch_hashes)} batches × {len(_selected_method_hashes)} method specs**"),
         write_btn,
     ])
-    return (write_btn,)
+    return collection_name_input, write_btn
+
+
+@app.cell
+def build_snakemake_cmd_cell(collection_name_input, mode_tabs):
+    mo.stop(mode_tabs.value != "Build")
+    mo.stop(not collection_name_input.value.strip())
+    _name = collection_name_input.value.strip()
+    _cmd = f"uv run snakemake --snakefile twogroup_experiments.snk results/by_alias/{_name}/plot_ready/out.txt"
+    mo.md(f"```bash\n{_cmd}\n```")
 
 
 @app.cell
