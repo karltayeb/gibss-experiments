@@ -257,24 +257,34 @@ def batchgen_write_cell(batchgen_method_table, batchgen_suffix_input, manifest, 
 @app.cell
 def compose_cell(mode_tabs):
     mo.stop(mode_tabs.value != "Compose")
+    import yaml as _yaml
+    import polars as _pl
 
     _collections_dir = Path(__file__).parent.parent / "results" / "collections"
-    _existing = {p.stem: str(p) for p in sorted(_collections_dir.glob("*.yaml"))}
+    _rows = []
+    for _p in sorted(_collections_dir.glob("*.yaml")):
+        _c = _yaml.safe_load(_p.read_text())
+        _rows.append({
+            "name":      _c.get("name", _p.stem),
+            "n_batches": len(_c.get("batches", [])),
+            "n_methods": len(_c.get("method_specs", [])),
+            "path":      str(_p),
+        })
 
-    compose_select = mo.ui.multiselect(options=_existing, label="Collections to union")
+    compose_table = mo.ui.table(_pl.DataFrame(_rows) if _rows else _pl.DataFrame({"name": [], "n_batches": [], "n_methods": [], "path": []}), selection="multi")
     compose_name_input = mo.ui.text(placeholder="my_union_collection", label="Union collection name")
 
-    mo.vstack([compose_select, compose_name_input])
-    return compose_name_input, compose_select
+    mo.vstack([compose_table, compose_name_input])
+    return compose_name_input, compose_table
 
 
 @app.cell
-def compose_preview_cell(compose_select, mode_tabs):
+def compose_preview_cell(compose_table, mode_tabs):
     mo.stop(mode_tabs.value != "Compose")
+    import yaml as _yaml
 
-    if compose_select.value:
-        import yaml as _yaml
-        _nodes = [_yaml.safe_load(open(p)) for p in compose_select.value]
+    if len(compose_table.value):
+        _nodes = [_yaml.safe_load(open(p)) for p in compose_table.value["path"].to_list()]
         _all_batches = {b["__spec_hash__"] for n in _nodes for b in n["batches"]}
         _all_methods = {m["__spec_hash__"] for n in _nodes for m in n["method_specs"]}
         mo.md(f"Union: **{len(_all_batches)} batches**, **{len(_all_methods)} methods** (after dedup)")
@@ -283,16 +293,16 @@ def compose_preview_cell(compose_select, mode_tabs):
 
 
 @app.cell
-def compose_write_cell(compose_name_input, compose_select, mode_tabs):
+def compose_write_cell(compose_name_input, compose_table, mode_tabs):
     mo.stop(mode_tabs.value != "Compose")
     mo.stop(not compose_name_input.value.strip())
-    mo.stop(not compose_select.value)
+    mo.stop(not len(compose_table.value))
 
     import yaml as _yaml
     _collections_dir = Path(__file__).parent.parent / "results" / "collections"
 
     def _do_compose(_btn):
-        _nodes = [_yaml.safe_load(open(p)) for p in compose_select.value]
+        _nodes = [_yaml.safe_load(open(p)) for p in compose_table.value["path"].to_list()]
         _union_node = plot_ready.union_collection_yaml_nodes(
             name=compose_name_input.value.strip(),
             collection_nodes=_nodes,
