@@ -92,78 +92,95 @@ def mode_cell():
 
 
 @app.cell
-def build_filters_cell(batch_index, method_index, mode_tabs):
+def build_sim_selector_cell(batch_index, mode_tabs):
     mo.stop(mode_tabs.value != "Build")
 
-    _all_designs = sorted({v["sim_dims"].get("design", "") for v in batch_index.values() if v["sim_dims"].get("design")})
-    _all_regimes = sorted({v["sim_dims"].get("regime", "") for v in batch_index.values() if v["sim_dims"].get("regime")})
-    _all_params = sorted({v["sim_dims"].get("parameter", "") for v in batch_index.values() if v["sim_dims"].get("parameter")})
-    _all_families = sorted({v["family"] for v in method_index.values()})
+    # sim spec name → list of batch hashes
+    sim_to_batches: dict[str, list[str]] = {}
+    for _bh, _bv in batch_index.items():
+        _sname = _bv["simulation_spec"]["fields"]["name"]
+        sim_to_batches.setdefault(_sname, []).append(_bh)
 
-    design_filter = mo.ui.multiselect(options=_all_designs, value=_all_designs, label="Design")
-    regime_filter = mo.ui.multiselect(options=_all_regimes, value=_all_regimes, label="Regime")
-    param_filter = mo.ui.multiselect(options=_all_params, value=_all_params, label="Parameter")
-    family_filter = mo.ui.multiselect(options=_all_families, value=_all_families, label="Method family")
+    _sim_names = sorted(sim_to_batches.keys())
 
-    mo.hstack([design_filter, regime_filter, param_filter, family_filter])
-    return design_filter, family_filter, param_filter, regime_filter
+    sim_spec_select = mo.ui.multiselect(
+        options=_sim_names,
+        value=_sim_names,
+        label="Simulation specs",
+    )
+
+    _all_btn  = mo.ui.button(label="All",  on_click=lambda _: sim_spec_select.set_value(_sim_names))
+    _none_btn = mo.ui.button(label="None", on_click=lambda _: sim_spec_select.set_value([]))
+
+    _n_batches = sum(len(sim_to_batches[s]) for s in sim_spec_select.value)
+    mo.vstack([
+        mo.hstack([_all_btn, _none_btn]),
+        sim_spec_select,
+        mo.md(f"**{len(sim_spec_select.value)} sim specs → {_n_batches} batches**"),
+    ])
+    return sim_spec_select, sim_to_batches
 
 
 @app.cell
-def build_selectors_cell(batch_index, design_filter, family_filter, method_index, mode_tabs, param_filter, regime_filter):
+def build_method_selector_cell(method_index, mode_tabs):
     mo.stop(mode_tabs.value != "Build")
 
-    _filtered_batches = {
-        bh: bv for bh, bv in batch_index.items()
-        if bv["sim_dims"].get("design") in design_filter.value
-        and bv["sim_dims"].get("regime", "") in (regime_filter.value or [""])
-        and bv["sim_dims"].get("parameter", "") in (param_filter.value or [""])
-    }
-    _filtered_methods = {
-        mh: mv for mh, mv in method_index.items()
-        if mv["family"] in family_filter.value
-    }
+    def _method_label(mv: dict) -> str:
+        if mv["threshold"] is not None:
+            return f"{mv['name']} (L={mv['L']}, @{mv['threshold']})"
+        return f"{mv['name']} (L={mv['L']})"
 
-    _batch_options = {bh: bv["name"] for bh, bv in _filtered_batches.items()}
-    _method_options = {mh: f"{mv['name']} (L={mv['L']})" for mh, mv in _filtered_methods.items()}
+    _all_hashes = sorted(method_index.keys(), key=lambda h: _method_label(method_index[h]))
+    _method_options = {h: _method_label(method_index[h]) for h in _all_hashes}
+    _nothresh_hashes = [h for h in _all_hashes if method_index[h]["threshold"] is None]
 
-    batch_multiselect = mo.ui.multiselect(
-        options=_batch_options, value=list(_batch_options.keys()), label="Batches"
+    method_spec_select = mo.ui.multiselect(
+        options=_method_options,
+        value=_all_hashes,
+        label="Method specs",
     )
-    method_multiselect = mo.ui.multiselect(
-        options=_method_options, value=list(_method_options.keys()), label="Methods"
-    )
-    collection_name_input = mo.ui.text(placeholder="my_collection_name", label="Collection name")
+
+    _all_btn      = mo.ui.button(label="All",          on_click=lambda _: method_spec_select.set_value(_all_hashes))
+    _nothresh_btn = mo.ui.button(label="No threshold", on_click=lambda _: method_spec_select.set_value(_nothresh_hashes))
+    _none_btn     = mo.ui.button(label="None",         on_click=lambda _: method_spec_select.set_value([]))
 
     mo.vstack([
-        mo.hstack([batch_multiselect, method_multiselect]),
-        collection_name_input,
-        mo.md(f"**{len(batch_multiselect.value)} batches × {len(method_multiselect.value)} methods selected**"),
+        mo.hstack([_all_btn, _nothresh_btn, _none_btn]),
+        method_spec_select,
+        mo.md(f"**{len(method_spec_select.value)} method specs selected**"),
     ])
-    return batch_multiselect, collection_name_input, method_multiselect
+    return (method_spec_select,)
 
 
 @app.cell
-def build_write_cell(batch_multiselect, collection_name_input, manifest, method_multiselect, mode_tabs):
+def build_write_cell(sim_spec_select, sim_to_batches, method_spec_select, manifest, mode_tabs):
     mo.stop(mode_tabs.value != "Build")
-    mo.stop(not collection_name_input.value.strip())
 
+    collection_name_input = mo.ui.text(placeholder="my_collection_name", label="Collection name")
+
+    _selected_batch_hashes = [
+        bh for sname in sim_spec_select.value for bh in sim_to_batches[sname]
+    ]
     _collections_dir = Path(__file__).parent.parent / "results" / "collections"
-    _collections_dir.mkdir(parents=True, exist_ok=True)
-    _out_path = _collections_dir / f"{collection_name_input.value.strip()}.yaml"
 
     def _do_write(_btn):
-        _batch_nodes = [manifest["batches"][h] for h in batch_multiselect.value]
-        _method_nodes = [manifest["method_specs"][h] for h in method_multiselect.value]
+        mo.stop(not collection_name_input.value.strip())
+        _batch_nodes = [manifest["batches"][h] for h in _selected_batch_hashes]
+        _method_nodes = [manifest["method_specs"][h] for h in method_spec_select.value]
         _node = plot_ready.build_collection_yaml_node(
             name=collection_name_input.value.strip(),
             batch_nodes=_batch_nodes,
             method_nodes=_method_nodes,
         )
-        write_yaml(_node, str(_out_path))
+        _collections_dir.mkdir(parents=True, exist_ok=True)
+        write_yaml(_node, str(_collections_dir / f"{collection_name_input.value.strip()}.yaml"))
 
-    write_btn = mo.ui.button(label=f"Write {_out_path.name}", on_click=_do_write)
-    write_btn
+    write_btn = mo.ui.button(label="Write collection", on_click=_do_write)
+    mo.vstack([
+        collection_name_input,
+        mo.md(f"**{len(_selected_batch_hashes)} batches × {len(method_spec_select.value)} method specs**"),
+        write_btn,
+    ])
     return (write_btn,)
 
 
