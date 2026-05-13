@@ -260,18 +260,52 @@ def compose_cell(mode_tabs):
     import yaml as _yaml
     import polars as _pl
 
+    def _sim_dims(name: str) -> dict:
+        parts = name.split("__")
+        d = {"design": parts[0] if parts else ""}
+        if len(parts) > 1:
+            d["regime"] = parts[1]
+        if len(parts) > 2:
+            param_part = parts[2]
+            idx = param_part.rfind("_")
+            if idx > 0:
+                d["parameter"] = param_part[:idx]
+                try:
+                    d["value"] = float(param_part[idx + 1:])
+                except ValueError:
+                    d["parameter"] = param_part
+        return d
+
     _collections_dir = Path(__file__).parent.parent / "results" / "collections"
     _rows = []
     for _p in sorted(_collections_dir.glob("*.yaml")):
         _c = _yaml.safe_load(_p.read_text())
+        _batches = _c.get("batches", [])
+        _sim_names = list({b["simulation_spec"]["fields"]["name"] for b in _batches})
+        if len(_sim_names) == 1:
+            _sd = _sim_dims(_sim_names[0])
+            _sim_col   = _sim_names[0]
+            _design    = _sd.get("design", "")
+            _regime    = _sd.get("regime", "")
+            _parameter = _sd.get("parameter", "")
+            _value     = _sd.get("value", "")
+        else:
+            _sim_col   = f"mixed ({len(_sim_names)})"
+            _design = _regime = _parameter = _value = ""
         _rows.append({
             "name":      _c.get("name", _p.stem),
-            "n_batches": len(_c.get("batches", [])),
+            "sim_spec":  _sim_col,
+            "design":    _design,
+            "regime":    _regime,
+            "parameter": _parameter,
+            "value":     _value,
+            "n_batches": len(_batches),
             "n_methods": len(_c.get("method_specs", [])),
             "path":      str(_p),
         })
 
-    compose_table = mo.ui.table(_pl.DataFrame(_rows) if _rows else _pl.DataFrame({"name": [], "n_batches": [], "n_methods": [], "path": []}), selection="multi")
+    _empty = _pl.DataFrame({"name": [], "sim_spec": [], "design": [], "regime": [], "parameter": [], "value": [], "n_batches": [], "n_methods": [], "path": []})
+    compose_table = mo.ui.table(_pl.DataFrame(_rows) if _rows else _empty, selection="multi")
     compose_name_input = mo.ui.text(placeholder="my_union_collection", label="Union collection name")
 
     mo.vstack([compose_table, compose_name_input])
