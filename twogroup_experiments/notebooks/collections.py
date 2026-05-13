@@ -259,30 +259,27 @@ def compose_cell(mode_tabs):
     mo.stop(mode_tabs.value != "Compose")
 
     _collections_dir = Path(__file__).parent.parent / "results" / "collections"
-    _existing = {
-        p.stem: str(p)
-        for p in sorted(_collections_dir.glob("*.yaml"))
-    }
+    _existing = {p.stem: str(p) for p in sorted(_collections_dir.glob("*.yaml"))}
 
-    compose_select = mo.ui.multiselect(
-        options=_existing,
-        label="Collections to union",
-    )
+    compose_select = mo.ui.multiselect(options=_existing, label="Collections to union")
     compose_name_input = mo.ui.text(placeholder="my_union_collection", label="Union collection name")
+
+    mo.vstack([compose_select, compose_name_input])
+    return compose_name_input, compose_select
+
+
+@app.cell
+def compose_preview_cell(compose_select, mode_tabs):
+    mo.stop(mode_tabs.value != "Compose")
 
     if compose_select.value:
         import yaml as _yaml
         _nodes = [_yaml.safe_load(open(p)) for p in compose_select.value]
         _all_batches = {b["__spec_hash__"] for n in _nodes for b in n["batches"]}
         _all_methods = {m["__spec_hash__"] for n in _nodes for m in n["method_specs"]}
-        _preview_md = mo.md(
-            f"Union: **{len(_all_batches)} batches**, **{len(_all_methods)} methods** (after dedup)"
-        )
+        mo.md(f"Union: **{len(_all_batches)} batches**, **{len(_all_methods)} methods** (after dedup)")
     else:
-        _preview_md = mo.md("Select collections above to preview the union.")
-
-    mo.vstack([compose_select, compose_name_input, _preview_md])
-    return compose_name_input, compose_select
+        mo.md("Select collections above to preview the union.")
 
 
 @app.cell
