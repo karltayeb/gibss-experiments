@@ -28,34 +28,54 @@ def title_cell():
 @app.cell
 def collection_selector_cell():
     collection_alias_root = Path(__file__).parent.parent / "results" / "collections"
-    collections = plot_ready.available_plot_ready_collections(
-        collection_alias_root
+    _names = plot_ready.available_plot_ready_collections(collection_alias_root)
+    collection_table = mo.ui.table(
+        pl.DataFrame({"name": _names}),
+        selection="multi",
     )
-    collection_dropdown = mo.ui.dropdown(
-        options=collections,
-        value=None,
-        allow_select_none=True,
-        label="collection",
-    )
-    collection_dropdown
-    return collection_alias_root, collection_dropdown
+    collection_table
+    return collection_alias_root, collection_table
 
 
 @app.cell
-def bundle_cell(collection_alias_root, collection_dropdown):
+def bundles_cell(collection_alias_root, collection_table):
     mo.stop(
-        collection_dropdown.value is None,
-        mo.md("Select a collection to load plot-ready data."),
+        len(collection_table.value) == 0,
+        mo.md("Select one or more collections above."),
     )
-    bundle = plot_ready.load_plot_ready_collection(
-        collection_alias_root / collection_dropdown.value
+    _selected = collection_table.value["name"].to_list()
+    _bundles = {
+        name: plot_ready.load_plot_ready_collection(collection_alias_root / name)
+        for name in _selected
+    }
+
+    combined_method_metadata = (
+        pl.concat([b["method_metadata"] for b in _bundles.values()])
+        .unique(subset=["method", "threshold"])
     )
-    return (bundle,)
+
+    def _tag(key):
+        return pl.concat([
+            b[key].with_columns(pl.lit(name).alias("collection_name"))
+            for name, b in _bundles.items()
+        ])
+
+    combined_data = {
+        "method_metadata": combined_method_metadata,
+        "collection_names": _selected,
+        "pip_calibration": _tag("pip_calibration"),
+        "power_fdp": _tag("power_fdp"),
+        "causal_pip": _tag("causal_pip"),
+        "cs_raw": _tag("cs_raw"),
+        "cs_size_histogram": _tag("cs_size_histogram"),
+        "ser_log_bf_histogram": _tag("ser_log_bf_histogram"),
+    }
+    return (combined_data,)
 
 
 @app.cell
-def controls_cell(bundle):
-    _method_metadata = bundle["method_metadata"]
+def controls_cell(combined_data):
+    _method_metadata = combined_data["method_metadata"]
 
     _all_thresholds = sorted(
         _method_metadata.filter(pl.col("threshold").is_not_null())["threshold"]
@@ -97,11 +117,11 @@ def controls_cell(bundle):
 @app.cell
 def selected_methods_cell(
     L_dropdown,
-    bundle,
+    combined_data,
     method_family_multiselect,
     threshold_dropdown,
 ):
-    _method_metadata = bundle["method_metadata"]
+    _method_metadata = combined_data["method_metadata"]
     selected_threshold = threshold_dropdown.value
 
     _fg_mask = (
@@ -128,54 +148,44 @@ def selected_methods_cell(
             _bg_filtered["threshold"].to_list(),
         )
     )
-    return (
-        background_methods_thresholds,
-        foreground_methods,
-        selected_threshold,
-    )
+    return background_methods_thresholds, foreground_methods, selected_threshold
 
 
 @app.cell(hide_code=True)
 def pip_calibration_heading_cell():
-    _pip_calibration_heading_md = mo.md("## PIP Calibration")
-    _pip_calibration_heading_md
+    mo.md("## PIP Calibration")
     return
 
 
 @app.cell
-def pip_calibration_cell(bundle, foreground_methods, threshold_dropdown):
-    _pip_cal = bundle["pip_calibration"]
-    _method_meta = bundle["method_metadata"]
+def pip_calibration_cell(combined_data, foreground_methods, threshold_dropdown):
+    _pip_cal = combined_data["pip_calibration"]
+    _method_meta = combined_data["method_metadata"]
     _selected_threshold = threshold_dropdown.value
 
-    _pip_cal_filtered = _pip_cal.filter(
-        pl.col("threshold").is_null()
-        | (pl.col("threshold") == _selected_threshold)
-    )
-
     _enriched = (
-        _pip_cal_filtered.filter(pl.col("method").is_in(foreground_methods))
+        _pip_cal.filter(
+            pl.col("threshold").is_null()
+            | (pl.col("threshold") == _selected_threshold)
+        )
+        .filter(pl.col("method").is_in(foreground_methods))
         .join(
-            _method_meta.select(
-                "method", "threshold", "method_display", "method_family"
-            ),
+            _method_meta.select("method", "threshold", "method_display", "method_family"),
             on=["method", "threshold"],
             how="left",
             nulls_equal=True,
         )
         .with_columns(
             pl.col("method_display").alias("series_label"),
-            pl.lit("Aggregate").alias("simulation_name"),
+            pl.col("collection_name").alias("simulation_name"),
         )
     )
 
     if _enriched.is_empty():
-        pip_cal_chart = viz_utils.make_placeholder_chart(
-            "No PIP calibration data"
-        )
+        pip_cal_chart = viz_utils.make_placeholder_chart("No PIP calibration data")
     else:
         pip_cal_chart = viz_utils.render_pip_calibration(
-            _enriched, facet_by_simulation=False
+            _enriched, facet_by_simulation=True
         )
 
     pip_cal_chart
@@ -184,22 +194,21 @@ def pip_calibration_cell(bundle, foreground_methods, threshold_dropdown):
 
 @app.cell(hide_code=True)
 def power_fdp_heading_cell():
-    _power_fdp_heading_md = mo.md("## Power vs FDP")
-    _power_fdp_heading_md
+    mo.md("## Power vs FDP")
     return
 
 
 @app.cell
 def power_fdp_cell(
     background_methods_thresholds,
-    bundle,
-    collection_dropdown,
+    combined_data,
     foreground_methods,
     max_fdp_slider,
     selected_threshold,
 ):
-    _power_fdp = bundle["power_fdp"]
-    _method_meta = bundle["method_metadata"]
+    _power_fdp = combined_data["power_fdp"]
+    _method_meta = combined_data["method_metadata"]
+    _meta_cols = ["method", "threshold", "method_display", "method_family", "method_label_base", "is_thresholded"]
 
     _fg_df = (
         _power_fdp.filter(
@@ -207,14 +216,7 @@ def power_fdp_cell(
             & (pl.col("threshold").is_null() | (pl.col("threshold") == selected_threshold))
         )
         .join(
-            _method_meta.select(
-                "method",
-                "threshold",
-                "method_display",
-                "method_family",
-                "method_label_base",
-                "is_thresholded",
-            ),
+            _method_meta.select(_meta_cols),
             on=["method", "threshold"],
             how="left",
             nulls_equal=True,
@@ -232,37 +234,32 @@ def power_fdp_cell(
         else pl.DataFrame(schema={"method": pl.String, "threshold": pl.Float64})
     )
     if not _bg_pairs_df.is_empty():
-        _bg_df_raw = _power_fdp.join(
-            _bg_pairs_df, on=["method", "threshold"], how="inner", nulls_equal=True
+        _bg_df = (
+            _power_fdp.join(
+                _bg_pairs_df, on=["method", "threshold"], how="inner", nulls_equal=True
+            )
+            .join(
+                _method_meta.select(_meta_cols),
+                on=["method", "threshold"],
+                how="left",
+                nulls_equal=True,
+            )
+            .with_columns(pl.lit(False).alias("is_selected_threshold"))
         )
-        _bg_df = _bg_df_raw.join(
-            _method_meta.select(
-                "method",
-                "threshold",
-                "method_display",
-                "method_family",
-                "method_label_base",
-                "is_thresholded",
-            ),
-            on=["method", "threshold"],
-            how="left",
-            nulls_equal=True,
-        ).with_columns(pl.lit(False).alias("is_selected_threshold"))
         _combined = pl.concat([_fg_df, _bg_df])
     else:
         _combined = _fg_df
 
     _combined = _combined.with_columns(
         pl.when(pl.col("is_thresholded"))
-        .then(
-            pl.format("{} (@{})", pl.col("method_label_base"), pl.col("threshold"))
-        )
+        .then(pl.format("{} (@{})", pl.col("method_label_base"), pl.col("threshold")))
         .otherwise(pl.col("method_display"))
         .alias("trace_label"),
         pl.when(pl.col("is_selected_threshold"))
         .then(pl.col("method_display"))
         .otherwise(None)
         .alias("legend_label"),
+        pl.col("collection_name").alias("simulation_name"),
     )
 
     if _combined.is_empty():
@@ -270,32 +267,27 @@ def power_fdp_cell(
     else:
         power_fdp_chart = viz_utils.render_power_fdp_chart(
             _combined,
-            facet=False,
+            facet=True,
             max_fdp=max_fdp_slider.value,
             fixed_y_scale=True,
-            title=collection_dropdown.value,
             legend_outside=True,
             square_axes=True,
         )
 
     power_fdp_chart
-    # the plot axes themselves should be square, the legend on the side. right now the axes and legend are all squished into one square.
-    # also, you have not addressed I only want on instance of Cox Light SER (@ current_threshold) and Logistic SER (@ current_threshold). For the threshold methods we should only highlight the selected threshold. the others should be faint background lines.
-    # you can make the entire plot larger also.
     return
 
 
 @app.cell(hide_code=True)
 def causal_pip_heading_cell():
-    _causal_pip_heading_md = mo.md("## Causal PIP vs Threshold")
-    _causal_pip_heading_md
+    mo.md("## Causal PIP vs Threshold")
     return
 
 
 @app.cell
-def causal_pip_cell(bundle, collection_dropdown, foreground_methods):
-    _causal_pip = bundle["causal_pip"]
-    _method_meta = bundle["method_metadata"]
+def causal_pip_cell(combined_data, foreground_methods):
+    _causal_pip = combined_data["causal_pip"]
+    _method_meta = combined_data["method_metadata"]
 
     _enriched = (
         _causal_pip.filter(pl.col("method").is_in(foreground_methods))
@@ -312,10 +304,9 @@ def causal_pip_cell(bundle, collection_dropdown, foreground_methods):
             how="left",
             nulls_equal=True,
         )
-        .with_columns(pl.lit(collection_dropdown.value).alias("simulation_name"))
+        .with_columns(pl.col("collection_name").alias("simulation_name"))
     )
 
-    # Non-thresholded methods first (False < True), then alphabetical within group
     _method_order = (
         _method_meta.filter(pl.col("method").is_in(foreground_methods))
         .select("method", "is_thresholded")
@@ -329,29 +320,26 @@ def causal_pip_cell(bundle, collection_dropdown, foreground_methods):
     else:
         causal_pip_chart = viz_utils.render_causal_pip_chart(
             _enriched,
-            facet=False,
-            title=collection_dropdown.value,
+            facet=True,
             legend_outside=True,
             square_axes=True,
             method_order=_method_order,
         )
 
     causal_pip_chart
-    # again, make the chart square, the legend to the right of the square. you can make the entire plot larger also.
     return
 
 
 @app.cell(hide_code=True)
 def cs_summary_heading_cell():
-    _cs_summary_heading_md = mo.md("## Credible Set Summary")
-    _cs_summary_heading_md
+    mo.md("## Credible Set Summary")
     return
 
 
 @app.cell
-def histogram_controls_cell(bundle):
-    _cs_size_hist = bundle["cs_size_histogram"]
-    _ser_log_bf_hist = bundle["ser_log_bf_histogram"]
+def histogram_controls_cell(combined_data):
+    _cs_size_hist = combined_data["cs_size_histogram"]
+    _ser_log_bf_hist = combined_data["ser_log_bf_histogram"]
 
     _max_cs = (
         int(_cs_size_hist["cs_size"].max())
@@ -386,14 +374,12 @@ def histogram_controls_cell(bundle):
     )
 
     mo.hstack([max_cs_size_slider, min_log_bf_slider])
-
-    # these controls should also influence what is counted as a discovery when computing cs power and coverage and cs size!
     return max_cs_size_slider, min_log_bf_slider
 
 
 @app.cell
 def cs_summary_cell(
-    bundle,
+    combined_data,
     foreground_methods,
     max_cs_size_slider,
     min_log_bf_slider,
@@ -401,8 +387,9 @@ def cs_summary_cell(
 ):
     import matplotlib.pyplot as _plt
 
-    _cs_raw = bundle["cs_raw"]
-    _method_meta = bundle["method_metadata"]
+    _cs_raw = combined_data["cs_raw"]
+    _method_meta = combined_data["method_metadata"]
+    _collection_names = combined_data["collection_names"]
     _max_cs = max_cs_size_slider.value
     _min_lbf = min_log_bf_slider.value
 
@@ -423,7 +410,7 @@ def cs_summary_cell(
     )
 
     _agg = (
-        _raw.group_by("method", "threshold", "method_display", "is_thresholded")
+        _raw.group_by("collection_name", "method", "threshold", "method_display", "is_thresholded")
         .agg(
             (pl.col("causal_in_cs") & pl.col("valid_cs")).cast(pl.Float64).mean().alias("Power"),
             pl.when(pl.col("valid_cs")).then(pl.col("causal_in_cs").cast(pl.Float64)).mean().alias("Coverage"),
@@ -436,34 +423,40 @@ def cs_summary_cell(
     else:
         _theme = viz_utils.base_chart_theme()
         _metrics = ["Power", "Coverage", "CS Size"]
-        _method_order = (
-            _agg.select("method_display", "is_thresholded")
-            .unique()
-            .drop_nulls(subset=["method_display"])
-            .sort(["is_thresholded", "method_display"])["method_display"]
-            .to_list()
-        )
+        _n_coll = len(_collection_names)
         _h = _theme["height"]
         _fig, _axes = _plt.subplots(
-            1,
+            _n_coll,
             len(_metrics),
-            figsize=(_h * len(_metrics), _h),
+            figsize=(_h * len(_metrics), _h * _n_coll),
             squeeze=False,
         )
-        for _col_idx, _metric in enumerate(_metrics):
-            _ax = _axes[0, _col_idx]
-            for _i, _md in enumerate(_method_order):
-                _row_df = _agg.filter(pl.col("method_display") == _md)
-                if _row_df.height > 0:
-                    _color = viz_utils.method_color(_row_df["method"][0])
-                    _val = _row_df[_metric][0]
-                    if _val is not None:
-                        _ax.scatter([_i], [_val], color=_color, zorder=3, s=60, label=_md)
-            _ax.set_title(_metric)
-            _ax.set_xticks(range(len(_method_order)))
-            _ax.set_xticklabels(_method_order, rotation=45, ha="right", fontsize=7)
-            _ax.set_xlim(-0.5, len(_method_order) - 0.5)
-            _ax.set_box_aspect(1)
+        for _row_idx, _coll in enumerate(_collection_names):
+            _coll_agg = _agg.filter(pl.col("collection_name") == _coll)
+            _method_order = (
+                _coll_agg.select("method_display", "is_thresholded")
+                .unique()
+                .drop_nulls(subset=["method_display"])
+                .sort(["is_thresholded", "method_display"])["method_display"]
+                .to_list()
+            )
+            for _col_idx, _metric in enumerate(_metrics):
+                _ax = _axes[_row_idx, _col_idx]
+                for _i, _md in enumerate(_method_order):
+                    _row_df = _coll_agg.filter(pl.col("method_display") == _md)
+                    if _row_df.height > 0:
+                        _color = viz_utils.method_color(_row_df["method"][0])
+                        _val = _row_df[_metric][0]
+                        if _val is not None:
+                            _ax.scatter([_i], [_val], color=_color, zorder=3, s=60, label=_md)
+                if _row_idx == 0:
+                    _ax.set_title(_metric)
+                _ax.set_xticks(range(len(_method_order)))
+                _ax.set_xticklabels(_method_order, rotation=45, ha="right", fontsize=7)
+                _ax.set_xlim(-0.5, len(_method_order) - 0.5)
+                _ax.set_box_aspect(1)
+                if _col_idx == 0:
+                    _ax.set_ylabel(_coll, fontsize=7)
         _fig.tight_layout()
         cs_summary_chart = _fig
 
@@ -473,24 +466,23 @@ def cs_summary_cell(
 
 @app.cell(hide_code=True)
 def cs_power_fdp_heading_cell():
-    _cs_power_fdp_heading_md = mo.md("## CS Power vs FDP (log BF threshold)")
-    _cs_power_fdp_heading_md
+    mo.md("## CS Power vs FDP (log BF threshold)")
     return
 
 
 @app.cell
 def cs_power_fdp_cell(
-    bundle,
-    collection_dropdown,
+    combined_data,
     foreground_methods,
     max_fdp_slider,
     selected_threshold,
 ):
-    import matplotlib.pyplot as _plt
+    import matplotlib.pyplot as _plt2
     import numpy as _np
 
-    _cs_raw2 = bundle["cs_raw"]
-    _method_meta2 = bundle["method_metadata"]
+    _cs_raw2 = combined_data["cs_raw"]
+    _method_meta2 = combined_data["method_metadata"]
+    _collection_names2 = combined_data["collection_names"]
 
     _raw2 = (
         _cs_raw2.filter(
@@ -511,7 +503,6 @@ def cs_power_fdp_cell(
         _lbf_lo2 = float(_raw2["ser_log_bf"].min())
         _lbf_hi2 = float(_raw2["ser_log_bf"].max())
         _lbf_grid2 = _np.linspace(_lbf_lo2, _lbf_hi2, 60)[::-1]
-
         _method_groups2 = (
             _raw2.select("method", "threshold", "method_display", "is_thresholded")
             .unique()
@@ -519,36 +510,42 @@ def cs_power_fdp_cell(
         )
 
         _rows2 = []
-        for _mg in _method_groups2.iter_rows(named=True):
-            _thresh_filter = (
-                pl.col("threshold").is_null()
-                if _mg["threshold"] is None
-                else (pl.col("threshold") == _mg["threshold"])
-            )
-            _m_data = _raw2.filter(
-                (pl.col("method") == _mg["method"]) & _thresh_filter
-            )
-            _n_total2 = _m_data.height
-            _causal2 = _m_data["causal_in_cs"].to_numpy()
-            _lbf2 = _m_data["ser_log_bf"].to_numpy()
-            for _t in _lbf_grid2:
-                _disc = _lbf2 >= _t
-                _hit = _disc & _causal2
-                _n_disc = int(_disc.sum())
-                _n_hit = int(_hit.sum())
-                _rows2.append({
-                    "method": _mg["method"],
-                    "threshold": _mg["threshold"],
-                    "method_display": _mg["method_display"],
-                    "is_thresholded": _mg["is_thresholded"],
-                    "pip_threshold": float(_t),
-                    "power": float(_n_hit / max(_n_total2, 1)),
-                    "fdp": float((_n_disc - _n_hit) / max(_n_disc, 1)),
-                })
+        for _coll_name in _collection_names2:
+            _coll_raw = _raw2.filter(pl.col("collection_name") == _coll_name)
+            for _mg in _method_groups2.iter_rows(named=True):
+                _thresh_filter = (
+                    pl.col("threshold").is_null()
+                    if _mg["threshold"] is None
+                    else (pl.col("threshold") == _mg["threshold"])
+                )
+                _m_data = _coll_raw.filter(
+                    (pl.col("method") == _mg["method"]) & _thresh_filter
+                )
+                if _m_data.is_empty():
+                    continue
+                _n_total2 = _m_data.height
+                _causal2 = _m_data["causal_in_cs"].to_numpy()
+                _lbf2 = _m_data["ser_log_bf"].to_numpy()
+                for _t in _lbf_grid2:
+                    _disc = _lbf2 >= _t
+                    _hit = _disc & _causal2
+                    _n_disc = int(_disc.sum())
+                    _n_hit = int(_hit.sum())
+                    _rows2.append({
+                        "collection_name": _coll_name,
+                        "method": _mg["method"],
+                        "threshold": _mg["threshold"],
+                        "method_display": _mg["method_display"],
+                        "is_thresholded": _mg["is_thresholded"],
+                        "pip_threshold": float(_t),
+                        "power": float(_n_hit / max(_n_total2, 1)),
+                        "fdp": float((_n_disc - _n_hit) / max(_n_disc, 1)),
+                    })
 
         _cs_pf = pl.from_dicts(
             _rows2,
             schema={
+                "collection_name": pl.String,
                 "method": pl.String,
                 "threshold": pl.Float64,
                 "method_display": pl.String,
@@ -561,14 +558,14 @@ def cs_power_fdp_cell(
             pl.col("method_display").alias("trace_label"),
             pl.col("method_display").alias("legend_label"),
             pl.lit(True).alias("is_selected_threshold"),
+            pl.col("collection_name").alias("simulation_name"),
         )
 
         cs_power_fdp_chart = viz_utils.render_power_fdp_chart(
             _cs_pf,
-            facet=False,
+            facet=True,
             max_fdp=max_fdp_slider.value,
             fixed_y_scale=True,
-            title=collection_dropdown.value,
             legend_outside=True,
             square_axes=True,
         )
@@ -579,51 +576,41 @@ def cs_power_fdp_cell(
 
 @app.cell(hide_code=True)
 def histograms_heading_cell():
-    _histograms_heading_md = mo.md("## Credible Set Histograms")
-    _histograms_heading_md
+    mo.md("## Credible Set Histograms")
     return
 
 
 @app.cell
 def histograms_cell(
-    bundle,
+    combined_data,
     foreground_methods,
     max_cs_size_slider,
     min_log_bf_slider,
     threshold_dropdown,
 ):
-    import matplotlib.pyplot as _plt
-    import numpy as _np
+    import matplotlib.pyplot as _plt3
+    import numpy as _np3
 
-    _cs_size_hist = bundle["cs_size_histogram"]
-    _ser_log_bf_hist = bundle["ser_log_bf_histogram"]
-    _method_meta = bundle["method_metadata"]
+    _cs_size_hist = combined_data["cs_size_histogram"]
+    _ser_log_bf_hist = combined_data["ser_log_bf_histogram"]
+    _method_meta = combined_data["method_metadata"]
+    _collection_names = combined_data["collection_names"]
     _selected_threshold = threshold_dropdown.value
 
     _cs_filtered = _cs_size_hist.filter(
         pl.col("method").is_in(foreground_methods)
-        & (
-            pl.col("threshold").is_null()
-            | (pl.col("threshold") == _selected_threshold)
-        )
+        & (pl.col("threshold").is_null() | (pl.col("threshold") == _selected_threshold))
     ).join(
-        _method_meta.select(
-            "method", "threshold", "method_display", "is_thresholded"
-        ),
+        _method_meta.select("method", "threshold", "method_display", "is_thresholded"),
         on=["method", "threshold"],
         how="left",
         nulls_equal=True,
     )
     _lbf_filtered = _ser_log_bf_hist.filter(
         pl.col("method").is_in(foreground_methods)
-        & (
-            pl.col("threshold").is_null()
-            | (pl.col("threshold") == _selected_threshold)
-        )
+        & (pl.col("threshold").is_null() | (pl.col("threshold") == _selected_threshold))
     ).join(
-        _method_meta.select(
-            "method", "threshold", "method_display", "is_thresholded"
-        ),
+        _method_meta.select("method", "threshold", "method_display", "is_thresholded"),
         on=["method", "threshold"],
         how="left",
         nulls_equal=True,
@@ -640,92 +627,77 @@ def histograms_cell(
             )
         )
         _n = len(_all_displays)
+        _n_coll = len(_collection_names)
         _theme = viz_utils.base_chart_theme()
         _per_w = max(2.5, _theme["width"] / 3)
-        _fig, _axes = _plt.subplots(
-            2,
-            _n,
-            figsize=(_per_w * _n, _theme["height"] * 2),
-            squeeze=False,
-        )
 
         _cs_max_val = (
             int(_cs_filtered["cs_size"].max()) + 1
             if not _cs_filtered.is_empty()
             else 100
         )
-        _lbf_lo = (
-            float(_lbf_filtered["ser_log_bf"].min())
-            if not _lbf_filtered.is_empty()
-            else -10.0
-        )
-        _lbf_hi = (
-            float(_lbf_filtered["ser_log_bf"].max())
-            if not _lbf_filtered.is_empty()
-            else 10.0
-        )
-        _cs_bins = _np.linspace(0, _cs_max_val, 21)
-        _lbf_bins = _np.linspace(_lbf_lo, _lbf_hi, 21)
-
+        _lbf_lo = float(_lbf_filtered["ser_log_bf"].min()) if not _lbf_filtered.is_empty() else -10.0
+        _lbf_hi = float(_lbf_filtered["ser_log_bf"].max()) if not _lbf_filtered.is_empty() else 10.0
+        _cs_bins = _np3.linspace(0, _cs_max_val, 21)
+        _lbf_bins = _np3.linspace(_lbf_lo, _lbf_hi, 21)
         _max_cs = max_cs_size_slider.value
         _min_lbf = min_log_bf_slider.value
 
-        for _j, _md in enumerate(_all_displays):
-            # Row 0: CS size
-            _ax0 = _axes[0, _j]
-            _cs_rows = _cs_filtered.filter(pl.col("method_display") == _md)
-            if not _cs_rows.is_empty():
-                _color = viz_utils.method_color(_cs_rows["method"][0])
-                _cs_data = _cs_rows["cs_size"].to_numpy()
-                _pass = _cs_data[_cs_data <= _max_cs]
-                _fail = _cs_data[_cs_data > _max_cs]
-                if len(_pass) > 0:
-                    _ax0.hist(_pass, bins=_cs_bins, color=_color, alpha=0.8)
-                if len(_fail) > 0:
-                    _ax0.hist(
-                        _fail,
-                        bins=_cs_bins,
-                        facecolor="none",
-                        edgecolor=_color,
-                        linewidth=0.8,
-                    )
-            _ax0.set_xlim(0, _cs_max_val)
-            _ax0.set_title(_md, fontsize=7)
-            _ax0.set_xlabel("CS Size" if _j == _n // 2 else "")
-            if _j == 0:
-                _ax0.set_ylabel("Count")
-            _ax0.set_box_aspect(1)
+        # 2 rows per collection (CS size, log BF), N method columns
+        _fig, _axes = _plt3.subplots(
+            2 * _n_coll,
+            _n,
+            figsize=(_per_w * _n, _theme["height"] * 2 * _n_coll),
+            squeeze=False,
+        )
 
-            # Row 1: SER log BF
-            _ax1 = _axes[1, _j]
-            _lbf_rows = _lbf_filtered.filter(pl.col("method_display") == _md)
-            if not _lbf_rows.is_empty():
-                _color = viz_utils.method_color(_lbf_rows["method"][0])
-                _lbf_data = _lbf_rows["ser_log_bf"].to_numpy()
-                _pass_l = _lbf_data[_lbf_data >= _min_lbf]
-                _fail_l = _lbf_data[_lbf_data < _min_lbf]
-                if len(_pass_l) > 0:
-                    _ax1.hist(_pass_l, bins=_lbf_bins, color=_color, alpha=0.8)
-                if len(_fail_l) > 0:
-                    _ax1.hist(
-                        _fail_l,
-                        bins=_lbf_bins,
-                        facecolor="none",
-                        edgecolor=_color,
-                        linewidth=0.8,
-                    )
-            _ax1.set_xlim(_lbf_lo, _lbf_hi)
-            _ax1.set_xlabel("SER log BF" if _j == _n // 2 else "")
-            if _j == 0:
-                _ax1.set_ylabel("Count")
-            _ax1.set_box_aspect(1)
+        for _ci, _coll in enumerate(_collection_names):
+            _cs_coll = _cs_filtered.filter(pl.col("collection_name") == _coll)
+            _lbf_coll = _lbf_filtered.filter(pl.col("collection_name") == _coll)
+            _row_cs = 2 * _ci
+            _row_lbf = 2 * _ci + 1
+
+            for _j, _md in enumerate(_all_displays):
+                # CS size row
+                _ax0 = _axes[_row_cs, _j]
+                _cs_rows = _cs_coll.filter(pl.col("method_display") == _md)
+                if not _cs_rows.is_empty():
+                    _color = viz_utils.method_color(_cs_rows["method"][0])
+                    _cs_data = _cs_rows["cs_size"].to_numpy()
+                    _pass = _cs_data[_cs_data <= _max_cs]
+                    _fail = _cs_data[_cs_data > _max_cs]
+                    if len(_pass) > 0:
+                        _ax0.hist(_pass, bins=_cs_bins, color=_color, alpha=0.8)
+                    if len(_fail) > 0:
+                        _ax0.hist(_fail, bins=_cs_bins, facecolor="none", edgecolor=_color, linewidth=0.8)
+                _ax0.set_xlim(0, _cs_max_val)
+                if _ci == 0:
+                    _ax0.set_title(_md, fontsize=7)
+                if _j == 0:
+                    _ax0.set_ylabel(f"{_coll}\nCS Size", fontsize=6)
+                _ax0.set_box_aspect(1)
+
+                # Log BF row
+                _ax1 = _axes[_row_lbf, _j]
+                _lbf_rows = _lbf_coll.filter(pl.col("method_display") == _md)
+                if not _lbf_rows.is_empty():
+                    _color = viz_utils.method_color(_lbf_rows["method"][0])
+                    _lbf_data = _lbf_rows["ser_log_bf"].to_numpy()
+                    _pass_l = _lbf_data[_lbf_data >= _min_lbf]
+                    _fail_l = _lbf_data[_lbf_data < _min_lbf]
+                    if len(_pass_l) > 0:
+                        _ax1.hist(_pass_l, bins=_lbf_bins, color=_color, alpha=0.8)
+                    if len(_fail_l) > 0:
+                        _ax1.hist(_fail_l, bins=_lbf_bins, facecolor="none", edgecolor=_color, linewidth=0.8)
+                _ax1.set_xlim(_lbf_lo, _lbf_hi)
+                if _j == 0:
+                    _ax1.set_ylabel(f"{_coll}\nlog BF", fontsize=6)
+                _ax1.set_box_aspect(1)
 
         _fig.tight_layout()
         hist_chart = _fig
 
     hist_chart
-
-    # make each panel more square
     return
 
 
