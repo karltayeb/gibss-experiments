@@ -1,6 +1,6 @@
 */results/*
 !*/results/collections/
-!*/results/collections/*.yaml
+!*/results/collections/*/collection_spec.yaml
 **/__pycache__/
 *.py[cod]
 *$py.class

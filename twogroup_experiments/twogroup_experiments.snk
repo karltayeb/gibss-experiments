@@ -21,12 +21,12 @@ from utils import (
 configfile: RESULTS_ROOT + "/manifest.json"
 
 
-COLLECTION_ALIASES = glob_wildcards(f"{RESULTS_ROOT}/collections/{{name}}.yaml").name
+COLLECTION_ALIASES = glob_wildcards(f"{RESULTS_ROOT}/collections/{{name}}/collection_spec.yaml").name
 
 
 def load_collection_yaml(collection_alias: str) -> dict:
     import yaml
-    path = f"{RESULTS_ROOT}/collections/{collection_alias}.yaml"
+    path = f"{RESULTS_ROOT}/collections/{collection_alias}/collection_spec.yaml"
     with open(path) as fh:
         return yaml.safe_load(fh)
 BATCH_HASH_TO_INFO = config["batches"]
@@ -110,6 +110,7 @@ rule twogroup_experiments_plot_data:
 
 rule materialize_twogroup_experiment_collection_alias:
     input:
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
         batch_specs=lambda wildcards: expand(
             f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
             batch_hash=[
@@ -155,9 +156,8 @@ rule materialize_twogroup_experiment_collection_alias:
         #     )
         # ],
     output:
-        batch_hashes=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batch_hashes.txt",
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
-        batches_dir=directory(f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batches"),
+        batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
+        batches_dir=directory(f"{RESULTS_ROOT}/collections/{{collection_alias}}/batches"),
     run:
         from pathlib import Path
 
@@ -165,10 +165,6 @@ rule materialize_twogroup_experiment_collection_alias:
         batch_hashes = [batch[HASH_KEY] for batch in collection["batches"]]
         batch_hashes_text = "".join(f"{batch_hash}\n" for batch_hash in batch_hashes)
         write_text(batch_hashes_text, output.batch_hashes)
-        symlink_output(
-            f"{RESULTS_ROOT}/collections/{wildcards.collection_alias}.yaml",
-            output.collection_spec,
-        )
 
         batches_dir = Path(output.batches_dir)
         batches_dir.mkdir(parents=True, exist_ok=True)
@@ -210,9 +206,9 @@ rule materialize_twogroup_experiment_collection_alias:
 
 rule collection_method_metadata:
     input:
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/method_metadata.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/method_metadata.parquet",
     run:
         from plot_ready import build_method_metadata, load_collection_fits_with_specs
 
@@ -223,9 +219,9 @@ rule collection_method_metadata:
 
 rule collection_simulation_metadata:
     input:
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/simulation_metadata.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/simulation_metadata.parquet",
     run:
         import json
         import polars as pl
@@ -248,9 +244,9 @@ rule collection_simulation_metadata:
 
 rule collection_sample_metadata:
     input:
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     run:
         from plot_ready import (
             load_collection_simulations,
@@ -269,10 +265,10 @@ rule collection_sample_metadata:
 
 rule collection_pip_calibration_plot_ready:
     input:
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/pip_calibration.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/pip_calibration.parquet",
     run:
         from plot_ready import (
             load_collection_fits_with_specs,
@@ -296,10 +292,10 @@ rule collection_pip_calibration_plot_ready:
 
 rule collection_power_fdp_plot_ready:
     input:
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/power_fdp.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/power_fdp.parquet",
     run:
         from plot_ready import (
             load_collection_fits_with_specs,
@@ -323,10 +319,10 @@ rule collection_power_fdp_plot_ready:
 
 rule collection_causal_pip_plot_ready:
     input:
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/causal_pip.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/causal_pip.parquet",
     run:
         from plot_ready import (
             load_collection_fits_with_specs,
@@ -344,10 +340,10 @@ rule collection_causal_pip_plot_ready:
 
 rule collection_cs_raw_plot_ready:
     input:
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/cs_raw.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/cs_raw.parquet",
     run:
         from plot_ready import (
             load_collection_fits_with_specs,
@@ -363,10 +359,10 @@ rule collection_cs_raw_plot_ready:
 
 rule collection_cs_size_histogram_plot_ready:
     input:
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/cs_size_histogram.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/cs_size_histogram.parquet",
     run:
         from plot_ready import (
             load_collection_fits_with_specs,
@@ -386,10 +382,10 @@ rule collection_cs_size_histogram_plot_ready:
 
 rule collection_ser_log_bf_histogram_plot_ready:
     input:
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/ser_log_bf_histogram.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/ser_log_bf_histogram.parquet",
     run:
         from plot_ready import (
             load_collection_fits_with_specs,
@@ -409,10 +405,10 @@ rule collection_ser_log_bf_histogram_plot_ready:
 
 rule twogroup_experiments_target:
     input:
-        batch_hashes=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/batch_hashes.txt",
-        collection_spec=f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/collection_spec.yaml",
+        batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
+        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
         plot_ready=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_alias/{wildcards.collection_alias}/plot_ready/{{name}}",
+            f"{RESULTS_ROOT}/collections/{wildcards.collection_alias}/plot_ready/{{name}}",
             name=[
                 "method_metadata.parquet",
                 "simulation_metadata.parquet",
@@ -426,6 +422,6 @@ rule twogroup_experiments_target:
             ],
         ),
     output:
-        f"{RESULTS_ROOT}/by_alias/{{collection_alias}}/plot_ready/out.txt",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/out.txt",
     shell:
         "echo ran > {output[0]}"

@@ -1,0 +1,444 @@
+__spec_hash__: ccd4f17c012c573ffd28ed863ccfd50cd419994c002176fda5fcec69f3f931f8
+batches:
+- __spec_hash__: 266fe00fa25b2b7286c07d0af29346f66b4a0282e32a93ed909a80e7464f7a92
+  name: c4__ser_enrich__scale_0.50__batch0
+  replicates:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  simulation_spec:
+    __spec_hash__: e319d717015b02989200021f109850f9ba6e5f715007c8778dfbad71e1e80f0d
+    fields:
+      base_seed: 20260501
+      design_sampler:
+        path: core:c4_gene_sets_X
+        type: callable
+      effect_sampler:
+        args:
+          items: []
+          type: tuple
+        func:
+          path: core:uniform_single_effect
+          type: callable
+        kwargs:
+          causal_effect: 2.0
+        type: partial
+      f0:
+        fields:
+          estimate_value: false
+          value: 0.0
+        path: gibss.distributions:PointMass
+        type: dataclass
+      f1:
+        fields:
+          estimate_loc: false
+          estimate_scale: false
+          loc: 0.0
+          scale: 0.5
+        path: gibss.distributions:Normal
+        type: dataclass
+      intercept: -2.0
+      name: c4__ser_enrich__scale_0.50
+    path: core:SimulationSpec
+    type: dataclass
+- __spec_hash__: bd38f7c12a6289c65996a65bc2a5fd16d4439c3dcd35da8ab4e513a8a1e7750b
+  name: c4__ser_enrich__scale_0.50__batch1
+  replicates:
+  - 20
+  - 21
+  - 22
+  - 23
+  - 24
+  - 25
+  - 26
+  - 27
+  - 28
+  - 29
+  - 30
+  - 31
+  - 32
+  - 33
+  - 34
+  - 35
+  - 36
+  - 37
+  - 38
+  - 39
+  simulation_spec:
+    __spec_hash__: e319d717015b02989200021f109850f9ba6e5f715007c8778dfbad71e1e80f0d
+    fields:
+      base_seed: 20260501
+      design_sampler:
+        path: core:c4_gene_sets_X
+        type: callable
+      effect_sampler:
+        args:
+          items: []
+          type: tuple
+        func:
+          path: core:uniform_single_effect
+          type: callable
+        kwargs:
+          causal_effect: 2.0
+        type: partial
+      f0:
+        fields:
+          estimate_value: false
+          value: 0.0
+        path: gibss.distributions:PointMass
+        type: dataclass
+      f1:
+        fields:
+          estimate_loc: false
+          estimate_scale: false
+          loc: 0.0
+          scale: 0.5
+        path: gibss.distributions:Normal
+        type: dataclass
+      intercept: -2.0
+      name: c4__ser_enrich__scale_0.50
+    path: core:SimulationSpec
+    type: dataclass
+- __spec_hash__: d22de8d237c6066b5afed99199a91e1f3715c329439401be99c95f1e0ba3332e
+  name: c4__ser_enrich__scale_0.50__batch2
+  replicates:
+  - 40
+  - 41
+  - 42
+  - 43
+  - 44
+  - 45
+  - 46
+  - 47
+  - 48
+  - 49
+  - 50
+  - 51
+  - 52
+  - 53
+  - 54
+  - 55
+  - 56
+  - 57
+  - 58
+  - 59
+  simulation_spec:
+    __spec_hash__: e319d717015b02989200021f109850f9ba6e5f715007c8778dfbad71e1e80f0d
+    fields:
+      base_seed: 20260501
+      design_sampler:
+        path: core:c4_gene_sets_X
+        type: callable
+      effect_sampler:
+        args:
+          items: []
+          type: tuple
+        func:
+          path: core:uniform_single_effect
+          type: callable
+        kwargs:
+          causal_effect: 2.0
+        type: partial
+      f0:
+        fields:
+          estimate_value: false
+          value: 0.0
+        path: gibss.distributions:PointMass
+        type: dataclass
+      f1:
+        fields:
+          estimate_loc: false
+          estimate_scale: false
+          loc: 0.0
+          scale: 0.5
+        path: gibss.distributions:Normal
+        type: dataclass
+      intercept: -2.0
+      name: c4__ser_enrich__scale_0.50
+    path: core:SimulationSpec
+    type: dataclass
+- __spec_hash__: c884850dfef8700090dbeecf63b3b5b53a559050951af7a1505ce209b3dec1f4
+  name: c4__ser_enrich__scale_0.50__batch3
+  replicates:
+  - 60
+  - 61
+  - 62
+  - 63
+  - 64
+  - 65
+  - 66
+  - 67
+  - 68
+  - 69
+  - 70
+  - 71
+  - 72
+  - 73
+  - 74
+  - 75
+  - 76
+  - 77
+  - 78
+  - 79
+  simulation_spec:
+    __spec_hash__: e319d717015b02989200021f109850f9ba6e5f715007c8778dfbad71e1e80f0d
+    fields:
+      base_seed: 20260501
+      design_sampler:
+        path: core:c4_gene_sets_X
+        type: callable
+      effect_sampler:
+        args:
+          items: []
+          type: tuple
+        func:
+          path: core:uniform_single_effect
+          type: callable
+        kwargs:
+          causal_effect: 2.0
+        type: partial
+      f0:
+        fields:
+          estimate_value: false
+          value: 0.0
+        path: gibss.distributions:PointMass
+        type: dataclass
+      f1:
+        fields:
+          estimate_loc: false
+          estimate_scale: false
+          loc: 0.0
+          scale: 0.5
+        path: gibss.distributions:Normal
+        type: dataclass
+      intercept: -2.0
+      name: c4__ser_enrich__scale_0.50
+    path: core:SimulationSpec
+    type: dataclass
+- __spec_hash__: 89d6492f92df4bc00a930711d403cc4729bf9e2c09190b15029d5eec809e50e4
+  name: c4__ser_enrich__scale_0.50__batch4
+  replicates:
+  - 80
+  - 81
+  - 82
+  - 83
+  - 84
+  - 85
+  - 86
+  - 87
+  - 88
+  - 89
+  - 90
+  - 91
+  - 92
+  - 93
+  - 94
+  - 95
+  - 96
+  - 97
+  - 98
+  - 99
+  simulation_spec:
+    __spec_hash__: e319d717015b02989200021f109850f9ba6e5f715007c8778dfbad71e1e80f0d
+    fields:
+      base_seed: 20260501
+      design_sampler:
+        path: core:c4_gene_sets_X
+        type: callable
+      effect_sampler:
+        args:
+          items: []
+          type: tuple
+        func:
+          path: core:uniform_single_effect
+          type: callable
+        kwargs:
+          causal_effect: 2.0
+        type: partial
+      f0:
+        fields:
+          estimate_value: false
+          value: 0.0
+        path: gibss.distributions:PointMass
+        type: dataclass
+      f1:
+        fields:
+          estimate_loc: false
+          estimate_scale: false
+          loc: 0.0
+          scale: 0.5
+        path: gibss.distributions:Normal
+        type: dataclass
+      intercept: -2.0
+      name: c4__ser_enrich__scale_0.50
+    path: core:SimulationSpec
+    type: dataclass
+method_specs:
+- __spec_hash__: f422c56af47e95152124b7fc2d2f799a707af5e38a73f6911f9678c3eff6a445
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: null
+      time_sign: 1.0
+    name: cox_heavy_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 4ace2ec897ecad29308cb0e50a3b42585163f750bb30b10beceae2a973176871
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 0.0
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: b99e644f5ef07c6d1dfd01c62fe17e82aef3e0272d98318b1fb7a128cf4f37d4
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 0.25
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 8de906432c1e02a135e430e7ea49c4048d51b6f2570ecd8b789bae1f2ae8871c
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 0.5
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 8a970b4e9a3c6a83adccb7122f56dfb3f19b3821f9f0b28b7f8b846a13609bab
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 0.75
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 72649e98d72272b80c90881ebd28ff73bc47d1d735bb9c9d0d275d661c56b4eb
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 1.0
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 181b5ec8a7ac82378adb277973ecea8eb3a1dde28e09b733562e52bd2a9d7c03
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 1.25
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 14a65c258bdc5848af67acd28d8fdc79681ad2ab040645736f5b5e42f8004a97
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 1.5
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 7e4daeb1685de54acc99ba179ec75b6fd2d2b27ec506f63f0d60d1418d6147e1
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 1.75
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: edae3398636c87c89e655f41dce2c875d7706ca4a97b57587718eed9341690a5
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 2.0
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+name: c4__ser_enrich__scale_0.50_ser

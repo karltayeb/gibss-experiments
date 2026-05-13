@@ -1,0 +1,301 @@
+__spec_hash__: 41428fb394e059bdc401faaa3b123b9d4c48531c291c445f2e7e999cba209317
+batches:
+- __spec_hash__: 0cc57529248e3c52bb79261d39d9911be83fe226f565d68a681169c6de7d9f1d
+  name: uniform_markov_0.00__ser_enrich__loc_3.00__batch0
+  replicates:
+  - 0
+  - 1
+  - 2
+  - 3
+  - 4
+  - 5
+  - 6
+  - 7
+  - 8
+  - 9
+  - 10
+  - 11
+  - 12
+  - 13
+  - 14
+  - 15
+  - 16
+  - 17
+  - 18
+  - 19
+  - 20
+  - 21
+  - 22
+  - 23
+  - 24
+  - 25
+  - 26
+  - 27
+  - 28
+  - 29
+  - 30
+  - 31
+  - 32
+  - 33
+  - 34
+  - 35
+  - 36
+  - 37
+  - 38
+  - 39
+  - 40
+  - 41
+  - 42
+  - 43
+  - 44
+  - 45
+  - 46
+  - 47
+  - 48
+  - 49
+  - 50
+  - 51
+  - 52
+  - 53
+  - 54
+  - 55
+  - 56
+  - 57
+  - 58
+  - 59
+  - 60
+  - 61
+  - 62
+  - 63
+  - 64
+  - 65
+  - 66
+  - 67
+  - 68
+  - 69
+  - 70
+  - 71
+  - 72
+  - 73
+  - 74
+  - 75
+  - 76
+  - 77
+  - 78
+  - 79
+  - 80
+  - 81
+  - 82
+  - 83
+  - 84
+  - 85
+  - 86
+  - 87
+  - 88
+  - 89
+  - 90
+  - 91
+  - 92
+  - 93
+  - 94
+  - 95
+  - 96
+  - 97
+  - 98
+  - 99
+  simulation_spec:
+    __spec_hash__: 73f4b8025c3261b4f0dcbf17eb92e85f06acdd910083bad9cb4d06c28966fae8
+    fields:
+      base_seed: 20260501
+      design_sampler:
+        args:
+          items: []
+          type: tuple
+        func:
+          path: core:uniform_markov_X
+          type: callable
+        kwargs:
+          n: 500
+          p: 100
+          rho: 0.0
+        type: partial
+      effect_sampler:
+        args:
+          items: []
+          type: tuple
+        func:
+          path: core:uniform_single_effect
+          type: callable
+        kwargs:
+          causal_effect: 2.0
+        type: partial
+      f0:
+        fields:
+          estimate_value: false
+          value: 0.0
+        path: gibss.distributions:PointMass
+        type: dataclass
+      f1:
+        fields:
+          estimate_loc: false
+          estimate_scale: false
+          loc: 3.0
+          scale: 0.1
+        path: gibss.distributions:Normal
+        type: dataclass
+      intercept: -2.0
+      name: uniform_markov_0.00__ser_enrich__loc_3.00
+    path: core:SimulationSpec
+    type: dataclass
+method_specs:
+- __spec_hash__: f422c56af47e95152124b7fc2d2f799a707af5e38a73f6911f9678c3eff6a445
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: null
+      time_sign: 1.0
+    name: cox_heavy_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 4ace2ec897ecad29308cb0e50a3b42585163f750bb30b10beceae2a973176871
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 0.0
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: b99e644f5ef07c6d1dfd01c62fe17e82aef3e0272d98318b1fb7a128cf4f37d4
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 0.25
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 8de906432c1e02a135e430e7ea49c4048d51b6f2570ecd8b789bae1f2ae8871c
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 0.5
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 8a970b4e9a3c6a83adccb7122f56dfb3f19b3821f9f0b28b7f8b846a13609bab
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 0.75
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 72649e98d72272b80c90881ebd28ff73bc47d1d735bb9c9d0d275d661c56b4eb
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 1.0
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 181b5ec8a7ac82378adb277973ecea8eb3a1dde28e09b733562e52bd2a9d7c03
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 1.25
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 14a65c258bdc5848af67acd28d8fdc79681ad2ab040645736f5b5e42f8004a97
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 1.5
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: 7e4daeb1685de54acc99ba179ec75b6fd2d2b27ec506f63f0d60d1418d6147e1
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 1.75
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+- __spec_hash__: edae3398636c87c89e655f41dce2c875d7706ca4a97b57587718eed9341690a5
+  fields:
+    fit_function:
+      path: core:fit_cox_method
+      type: callable
+    kwargs:
+      L: 1
+      threshold: 2.0
+      time_sign: -1.0
+    name: cox_light_threshold_L1
+    summarize_function:
+      path: core:summarize_cox_method
+      type: callable
+  path: core:MethodSpec
+  type: dataclass
+name: uniform_markov_0.00__ser_enrich__loc_3.00_l5

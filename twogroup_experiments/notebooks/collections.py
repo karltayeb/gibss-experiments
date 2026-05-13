@@ -159,8 +159,9 @@ def build_write_cell(manifest, method_table, mode_tabs, sim_table, sim_to_batche
             batch_nodes=[manifest["batches"][h] for h in _selected_batch_hashes],
             method_nodes=[manifest["method_specs"][h] for h in _selected_method_hashes],
         )
-        _collections_dir.mkdir(parents=True, exist_ok=True)
-        write_yaml(_node, str(_collections_dir / f"{collection_name_input.value.strip()}.yaml"))
+        _coll_dir = _collections_dir / collection_name_input.value.strip()
+        _coll_dir.mkdir(parents=True, exist_ok=True)
+        write_yaml(_node, str(_coll_dir / "collection_spec.yaml"))
 
     write_btn = mo.ui.button(label="Write collection", on_click=_do_write)
     mo.vstack([
@@ -176,7 +177,7 @@ def build_snakemake_cmd_cell(collection_name_input, mode_tabs):
     mo.stop(mode_tabs.value != "Build")
     mo.stop(not collection_name_input.value.strip())
     _name = collection_name_input.value.strip()
-    _cmd = f"uv run snakemake --snakefile twogroup_experiments.snk results/by_alias/{_name}/plot_ready/out.txt"
+    _cmd = f"uv run snakemake --snakefile twogroup_experiments.snk results/collections/{_name}/plot_ready/out.txt"
     mo.md(f"```bash\n{_cmd}\n```")
 
 
@@ -235,16 +236,18 @@ def batchgen_write_cell(batchgen_method_table, batchgen_suffix_input, manifest, 
     _n_methods = len(batchgen_method_table.value)
 
     def _do_batchgen(_btn):
-        _collections_dir.mkdir(parents=True, exist_ok=True)
         _method_nodes = [manifest["method_specs"][h] for h in batchgen_method_table.value["hash"].to_list()]
         for _sim_name, _batch_hashes in sim_to_batches.items():
+            _coll_name = _sim_name + _suffix
+            _coll_dir = _collections_dir / _coll_name
+            _coll_dir.mkdir(parents=True, exist_ok=True)
             _batch_nodes = [manifest["batches"][h] for h in _batch_hashes]
             _node = plot_ready.build_collection_yaml_node(
-                name=_sim_name + _suffix,
+                name=_coll_name,
                 batch_nodes=_batch_nodes,
                 method_nodes=_method_nodes,
             )
-            write_yaml(_node, str(_collections_dir / f"{_sim_name + _suffix}.yaml"))
+            write_yaml(_node, str(_coll_dir / "collection_spec.yaml"))
 
     batchgen_write_btn = mo.ui.button(
         label=f"Generate {len(sim_to_batches)} yamls ({_n_methods} methods each)",
@@ -278,7 +281,7 @@ def compose_cell(mode_tabs):
 
     _collections_dir = Path(__file__).parent.parent / "results" / "collections"
     _rows = []
-    for _p in sorted(_collections_dir.glob("*.yaml")):
+    for _p in sorted(_collections_dir.glob("*/collection_spec.yaml")):
         _c = _yaml.safe_load(_p.read_text())
         _batches = _c.get("batches", [])
         _sim_names = list({b["simulation_spec"]["fields"]["name"] for b in _batches})
@@ -293,7 +296,7 @@ def compose_cell(mode_tabs):
             _sim_col   = f"mixed ({len(_sim_names)})"
             _design = _regime = _parameter = _value = ""
         _rows.append({
-            "name":      _c.get("name", _p.stem),
+            "name":      _c.get("name", _p.parent.name),
             "sim_spec":  _sim_col,
             "design":    _design,
             "regime":    _regime,
@@ -341,11 +344,12 @@ def compose_write_cell(compose_name_input, compose_table, mode_tabs):
             name=compose_name_input.value.strip(),
             collection_nodes=_nodes,
         )
-        _out = _collections_dir / f"{compose_name_input.value.strip()}.yaml"
-        write_yaml(_union_node, str(_out))
+        _coll_dir = _collections_dir / compose_name_input.value.strip()
+        _coll_dir.mkdir(parents=True, exist_ok=True)
+        write_yaml(_union_node, str(_coll_dir / "collection_spec.yaml"))
 
     compose_write_btn = mo.ui.button(
-        label=f"Write union to {compose_name_input.value.strip()}.yaml",
+        label=f"Write union to {compose_name_input.value.strip()}/collection_spec.yaml",
         on_click=_do_compose,
     )
     compose_write_btn
