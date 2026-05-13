@@ -204,23 +204,26 @@ def batchgen_method_table_cell(method_index, mode_tabs):
 
 
 @app.cell
-def batchgen_cell(batchgen_method_table, manifest, mode_tabs, sim_to_batches):
+def batchgen_cell(batchgen_method_table, mode_tabs):
+    mo.stop(mode_tabs.value != "Batch-generate")
+    batchgen_suffix_input = mo.ui.text(placeholder="e.g. _ser or _L5  (optional)", label="Collection name suffix")
+    batchgen_suffix_input
+    return (batchgen_suffix_input,)
+
+
+@app.cell
+def batchgen_preview_cell(batchgen_method_table, batchgen_suffix_input, mode_tabs, sim_to_batches):
     mo.stop(mode_tabs.value != "Batch-generate")
     import polars as _pl
-
-    batchgen_suffix_input = mo.ui.text(placeholder="e.g. _ser or _L5  (optional)", label="Collection name suffix")
 
     _preview_rows = [
         {"collection_name": sim_name + batchgen_suffix_input.value, "n_batches": len(batch_hashes)}
         for sim_name, batch_hashes in sorted(sim_to_batches.items())
     ]
-
     mo.vstack([
-        batchgen_suffix_input,
         mo.md(f"Will generate **{len(sim_to_batches)} collection yamls**, **{len(batchgen_method_table.value)} method specs** each."),
         mo.ui.table(_pl.DataFrame(_preview_rows), selection=None),
     ])
-    return (batchgen_suffix_input,)
 
 
 @app.cell
