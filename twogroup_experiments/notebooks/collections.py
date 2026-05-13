@@ -77,7 +77,12 @@ def sim_index_cell(manifest):
         for mh, mn in manifest["method_specs"].items()
     }
 
-    return batch_index, method_index
+    # sim spec name → list of batch hashes (shared by Build and Batch-generate)
+    sim_to_batches: dict[str, list[str]] = {}
+    for _bh, _bv in batch_index.items():
+        sim_to_batches.setdefault(_bv["simulation_spec"]["fields"]["name"], []).append(_bh)
+
+    return batch_index, method_index, sim_to_batches
 
 
 @app.cell
@@ -92,14 +97,8 @@ def mode_cell():
 
 
 @app.cell
-def build_sim_selector_cell(batch_index, mode_tabs):
+def build_sim_selector_cell(mode_tabs, sim_to_batches):
     mo.stop(mode_tabs.value != "Build")
-
-    # sim spec name → list of batch hashes
-    sim_to_batches: dict[str, list[str]] = {}
-    for _bh, _bv in batch_index.items():
-        _sname = _bv["simulation_spec"]["fields"]["name"]
-        sim_to_batches.setdefault(_sname, []).append(_bh)
 
     _sim_names = sorted(sim_to_batches.keys())
 
@@ -118,7 +117,7 @@ def build_sim_selector_cell(batch_index, mode_tabs):
         sim_spec_select,
         mo.md(f"**{len(sim_spec_select.value)} sim specs → {_n_batches} batches**"),
     ])
-    return sim_spec_select, sim_to_batches
+    return (sim_spec_select,)
 
 
 @app.cell
@@ -185,7 +184,7 @@ def build_write_cell(sim_spec_select, sim_to_batches, method_spec_select, manife
 
 
 @app.cell
-def batchgen_cell(batch_index, manifest, method_index, mode_tabs):
+def batchgen_cell(manifest, method_index, mode_tabs, sim_to_batches):
     mo.stop(mode_tabs.value != "Batch-generate")
 
     _all_method_options = {
@@ -198,12 +197,6 @@ def batchgen_cell(batch_index, manifest, method_index, mode_tabs):
         value=list(_all_method_options.keys()),
         label="Methods to include in every generated collection",
     )
-
-    # one collection per unique simulation name (grouping all its batches)
-    sim_to_batches: dict[str, list[str]] = {}
-    for _bh, _bv in batch_index.items():
-        _sname = _bv["simulation_spec"]["fields"]["name"]
-        sim_to_batches.setdefault(_sname, []).append(_bh)
 
     _preview_rows = [
         {"collection": sim_name, "n_batches": len(batch_hashes)}
