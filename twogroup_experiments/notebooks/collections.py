@@ -181,56 +181,70 @@ def build_snakemake_cmd_cell(collection_name_input, mode_tabs):
 
 
 @app.cell
-def batchgen_cell(manifest, method_index, mode_tabs, sim_to_batches):
+def batchgen_method_table_cell(method_index, mode_tabs):
     mo.stop(mode_tabs.value != "Batch-generate")
-
-    _all_method_options = {
-        mh: f"{mv['name']} (L={mv['L']})"
-        for mh, mv in method_index.items()
-    }
-
-    batchgen_method_select = mo.ui.multiselect(
-        options=_all_method_options,
-        value=list(_all_method_options.keys()),
-        label="Methods to include in every generated collection",
-    )
-
-    _preview_rows = [
-        {"collection": sim_name, "n_batches": len(batch_hashes)}
-        for sim_name, batch_hashes in sorted(sim_to_batches.items())
-    ]
-
     import polars as _pl
-    _preview_df = _pl.from_dicts(_preview_rows)
 
-    mo.vstack([
-        batchgen_method_select,
-        mo.md(f"Will generate **{len(sim_to_batches)} collection yamls**, one per simulation."),
-        mo.ui.table(_preview_df, selection=None),
-    ])
-    return batchgen_method_select, sim_to_batches
+    _rows = [
+        {
+            "hash":      h,
+            "name":      mv["name"],
+            "family":    mv["family"],
+            "L":         mv["L"],
+            "threshold": mv["threshold"],
+        }
+        for h, mv in sorted(
+            method_index.items(),
+            key=lambda x: (x[1]["family"], x[1]["L"] or 0, x[1]["threshold"] or -1),
+        )
+    ]
+    batchgen_method_table = mo.ui.table(_pl.DataFrame(_rows), selection="multi")
+    batchgen_method_table
+    return (batchgen_method_table,)
 
 
 @app.cell
-def batchgen_write_cell(batchgen_method_select, manifest, mode_tabs, sim_to_batches):
+def batchgen_cell(batchgen_method_table, manifest, mode_tabs, sim_to_batches):
+    mo.stop(mode_tabs.value != "Batch-generate")
+    import polars as _pl
+
+    batchgen_suffix_input = mo.ui.text(placeholder="e.g. _ser or _L5  (optional)", label="Collection name suffix")
+
+    _preview_rows = [
+        {"collection_name": sim_name + batchgen_suffix_input.value, "n_batches": len(batch_hashes)}
+        for sim_name, batch_hashes in sorted(sim_to_batches.items())
+    ]
+
+    mo.vstack([
+        batchgen_suffix_input,
+        mo.md(f"Will generate **{len(sim_to_batches)} collection yamls**, **{len(batchgen_method_table.value)} method specs** each."),
+        mo.ui.table(_pl.DataFrame(_preview_rows), selection=None),
+    ])
+    return (batchgen_suffix_input,)
+
+
+@app.cell
+def batchgen_write_cell(batchgen_method_table, batchgen_suffix_input, manifest, mode_tabs, sim_to_batches):
     mo.stop(mode_tabs.value != "Batch-generate")
 
     _collections_dir = Path(__file__).parent.parent / "results" / "collections"
+    _suffix = batchgen_suffix_input.value
+    _n_methods = len(batchgen_method_table.value)
 
     def _do_batchgen(_btn):
         _collections_dir.mkdir(parents=True, exist_ok=True)
-        _method_nodes = [manifest["method_specs"][h] for h in batchgen_method_select.value]
+        _method_nodes = [manifest["method_specs"][h] for h in batchgen_method_table.value["hash"].to_list()]
         for _sim_name, _batch_hashes in sim_to_batches.items():
             _batch_nodes = [manifest["batches"][h] for h in _batch_hashes]
             _node = plot_ready.build_collection_yaml_node(
-                name=_sim_name,
+                name=_sim_name + _suffix,
                 batch_nodes=_batch_nodes,
                 method_nodes=_method_nodes,
             )
-            write_yaml(_node, str(_collections_dir / f"{_sim_name}.yaml"))
+            write_yaml(_node, str(_collections_dir / f"{_sim_name + _suffix}.yaml"))
 
     batchgen_write_btn = mo.ui.button(
-        label=f"Generate {len(sim_to_batches)} collection yamls",
+        label=f"Generate {len(sim_to_batches)} yamls ({_n_methods} methods each)",
         on_click=_do_batchgen,
     )
     batchgen_write_btn
