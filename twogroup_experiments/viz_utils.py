@@ -26,9 +26,7 @@ def method_family_label_map() -> dict[str, str]:
 
 
 def method_family_oracle_label_map() -> dict[str, str]:
-    return {
-        "twogroup_oracle": "oracle f1",
-    }
+    return {}
 
 
 def method_family_color_map() -> dict[str, str]:
@@ -626,7 +624,7 @@ def _plot_causal_pip_on_ax(
     for method_name in _methods:
         method_df = panel_df.filter(pl.col("method") == method_name)
         color = method_color(method_name)
-        label = method_df["method_display"][0]
+        label = method_df["method_display_base"][0]
         if method_df["threshold"].is_null().all():
             y_val = float(method_df["mean_causal_pip"].mean())
             ls = _NOTHRESH_LINESTYLES[_nothresh_idx % len(_NOTHRESH_LINESTYLES)]

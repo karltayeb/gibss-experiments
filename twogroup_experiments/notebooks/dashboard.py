@@ -27,7 +27,7 @@ def title_cell():
 
 @app.cell
 def collection_selector_cell():
-    collection_alias_root = Path(__file__).parent.parent / "results" / "by_alias"
+    collection_alias_root = Path(__file__).parent.parent / "results" / "collections"
     collections = plot_ready.available_plot_ready_collections(
         collection_alias_root
     )
@@ -304,6 +304,7 @@ def causal_pip_cell(bundle, collection_dropdown, foreground_methods):
                 "method",
                 "threshold",
                 "method_display",
+                "method_display_base",
                 "method_family",
                 "is_thresholded",
             ),

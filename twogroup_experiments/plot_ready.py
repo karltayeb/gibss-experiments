@@ -72,6 +72,13 @@ def build_method_metadata(fits_df: pl.DataFrame) -> pl.DataFrame:
                     is_oracle=bool(metadata["is_oracle"]),
                     oracle_label=str(metadata["oracle_label"]),
                 ),
+                "method_display_base": make_method_display_label(
+                    method_label_base=str(metadata["method_label_base"]),
+                    threshold=None,
+                    is_thresholded=False,
+                    is_oracle=bool(metadata["is_oracle"]),
+                    oracle_label=str(metadata["oracle_label"]),
+                ),
             }
         )
     return pl.from_dicts(rows)
