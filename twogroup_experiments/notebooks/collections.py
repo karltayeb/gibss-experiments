@@ -111,11 +111,9 @@ def build_sim_selector_cell(mode_tabs, sim_to_batches):
     _all_btn  = mo.ui.button(label="All",  on_click=lambda _: sim_spec_select.set_value(_sim_names))
     _none_btn = mo.ui.button(label="None", on_click=lambda _: sim_spec_select.set_value([]))
 
-    _n_batches = sum(len(sim_to_batches[s]) for s in sim_spec_select.value)
     mo.vstack([
         mo.hstack([_all_btn, _none_btn]),
         sim_spec_select,
-        mo.md(f"**{len(sim_spec_select.value)} sim specs → {_n_batches} batches**"),
     ])
     return (sim_spec_select,)
 
@@ -146,7 +144,6 @@ def build_method_selector_cell(method_index, mode_tabs):
     mo.vstack([
         mo.hstack([_all_btn, _nothresh_btn, _none_btn]),
         method_spec_select,
-        mo.md(f"**{len(method_spec_select.value)} method specs selected**"),
     ])
     return (method_spec_select,)
 
