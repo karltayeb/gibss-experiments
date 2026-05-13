@@ -394,7 +394,7 @@ def render_pip_calibration(
                     & (pl.col("method_display") == method_name)
                 )
                 _plot_calibration_on_ax(axes[row_idx, col_idx], panel_df, color=method_color_lookup.get(method_name))
-            axes[row_idx, 0].set_ylabel(f"{sim_name}\nEmpirical causal freq.", fontsize=7)
+            axes[row_idx, 0].set_ylabel(f"{sim_name}\nEmpirical causal freq.", fontsize=9)
     else:
         fig, axes = plt.subplots(
             1, n_cols,
@@ -542,7 +542,7 @@ def _plot_power_fdp_on_ax(
     ax.set_xlim(0.0, max_fdp)
     if fixed_y_scale:
         ax.set_ylim(0.0, 1.05)
-    ax.set_title(title, fontsize=9)
+    ax.set_title(title, fontsize=11)
 
 
 def render_power_fdp_chart(
@@ -563,9 +563,12 @@ def render_power_fdp_chart(
     if facet:
         simulations = sorted(x for x in visible.get_column("simulation_name").unique().to_list() if x is not None)
         n_cols = len(simulations)
+        _legend_w = 2.0
+        _fig_w = theme["width"] * n_cols + _legend_w
+        _plot_frac = (theme["width"] * n_cols) / _fig_w
         fig, axes = plt.subplots(
             1, n_cols,
-            figsize=(theme["width"] * n_cols, theme["height"]),
+            figsize=(_fig_w, theme["height"]),
             squeeze=False,
         )
         for col_idx, sim_name in enumerate(simulations):
@@ -580,7 +583,12 @@ def render_power_fdp_chart(
         axes[0, 0].set_ylabel("Power")
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
-            fig.legend(handles, labels, loc="center right", frameon=False)
+            fig.legend(handles, labels, frameon=False, fontsize=8,
+                       loc="center left", bbox_to_anchor=(_plot_frac + 0.02, 0.5))
+            fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+        else:
+            fig.tight_layout()
+        return fig
     else:
         _h = theme["height"]
         _w = _h * 2.2 if square_axes else theme["width"] * 1.45
@@ -641,7 +649,7 @@ def _plot_causal_pip_on_ax(
             )
     ax.set_xlabel("Threshold")
     ax.set_ylim(0.0, 1.05)
-    ax.set_title(title, fontsize=9)
+    ax.set_title(title, fontsize=11)
 
 
 def render_causal_pip_chart(
@@ -660,9 +668,12 @@ def render_causal_pip_chart(
     if facet:
         simulations = sorted(x for x in causal_pip_summary.get_column("simulation_name").unique().to_list() if x is not None)
         n_cols = len(simulations)
+        _legend_w = 2.0
+        _fig_w = theme["width"] * n_cols + _legend_w
+        _plot_frac = (theme["width"] * n_cols) / _fig_w
         fig, axes = plt.subplots(
             1, n_cols,
-            figsize=(theme["width"] * n_cols, theme["height"]),
+            figsize=(_fig_w, theme["height"]),
             squeeze=False,
         )
         for col_idx, sim_name in enumerate(simulations):
@@ -670,11 +681,17 @@ def render_causal_pip_chart(
                 axes[0, col_idx],
                 causal_pip_summary.filter(pl.col("simulation_name") == sim_name),
                 title=sim_name,
+                method_order=method_order,
             )
         axes[0, 0].set_ylabel("Mean causal PIP")
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
-            fig.legend(handles, labels, loc="center right", frameon=False)
+            fig.legend(handles, labels, frameon=False, fontsize=8,
+                       loc="center left", bbox_to_anchor=(_plot_frac + 0.02, 0.5))
+            fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+        else:
+            fig.tight_layout()
+        return fig
     else:
         _h = theme["height"]
         _w = _h * 2.2 if square_axes else theme["width"] * 1.6

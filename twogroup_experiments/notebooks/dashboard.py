@@ -456,7 +456,7 @@ def cs_summary_cell(
                 _ax.set_xlim(-0.5, len(_method_order) - 0.5)
                 _ax.set_box_aspect(1)
                 if _col_idx == 0:
-                    _ax.set_ylabel(_coll, fontsize=7)
+                    _ax.set_ylabel(_coll, fontsize=10, fontweight='bold')
         _fig.tight_layout()
         cs_summary_chart = _fig
 
@@ -651,15 +651,11 @@ def histograms_cell(
             squeeze=False,
         )
 
+        # CS size block: rows 0 to N_coll-1
         for _ci, _coll in enumerate(_collection_names):
             _cs_coll = _cs_filtered.filter(pl.col("collection_name") == _coll)
-            _lbf_coll = _lbf_filtered.filter(pl.col("collection_name") == _coll)
-            _row_cs = 2 * _ci
-            _row_lbf = 2 * _ci + 1
-
             for _j, _md in enumerate(_all_displays):
-                # CS size row
-                _ax0 = _axes[_row_cs, _j]
+                _ax = _axes[_ci, _j]
                 _cs_rows = _cs_coll.filter(pl.col("method_display") == _md)
                 if not _cs_rows.is_empty():
                     _color = viz_utils.method_color(_cs_rows["method"][0])
@@ -667,18 +663,21 @@ def histograms_cell(
                     _pass = _cs_data[_cs_data <= _max_cs]
                     _fail = _cs_data[_cs_data > _max_cs]
                     if len(_pass) > 0:
-                        _ax0.hist(_pass, bins=_cs_bins, color=_color, alpha=0.8)
+                        _ax.hist(_pass, bins=_cs_bins, color=_color, alpha=0.8)
                     if len(_fail) > 0:
-                        _ax0.hist(_fail, bins=_cs_bins, facecolor="none", edgecolor=_color, linewidth=0.8)
-                _ax0.set_xlim(0, _cs_max_val)
+                        _ax.hist(_fail, bins=_cs_bins, facecolor="none", edgecolor=_color, linewidth=0.8)
+                _ax.set_xlim(0, _cs_max_val)
                 if _ci == 0:
-                    _ax0.set_title(_md, fontsize=7)
+                    _ax.set_title(_md, fontsize=7)
                 if _j == 0:
-                    _ax0.set_ylabel(f"{_coll}\nCS Size", fontsize=6)
-                _ax0.set_box_aspect(1)
+                    _ax.set_ylabel(_coll, fontsize=10, fontweight='bold')
+                _ax.set_box_aspect(1)
 
-                # Log BF row
-                _ax1 = _axes[_row_lbf, _j]
+        # Log BF block: rows N_coll to 2*N_coll-1
+        for _ci, _coll in enumerate(_collection_names):
+            _lbf_coll = _lbf_filtered.filter(pl.col("collection_name") == _coll)
+            for _j, _md in enumerate(_all_displays):
+                _ax = _axes[_n_coll + _ci, _j]
                 _lbf_rows = _lbf_coll.filter(pl.col("method_display") == _md)
                 if not _lbf_rows.is_empty():
                     _color = viz_utils.method_color(_lbf_rows["method"][0])
@@ -686,13 +685,15 @@ def histograms_cell(
                     _pass_l = _lbf_data[_lbf_data >= _min_lbf]
                     _fail_l = _lbf_data[_lbf_data < _min_lbf]
                     if len(_pass_l) > 0:
-                        _ax1.hist(_pass_l, bins=_lbf_bins, color=_color, alpha=0.8)
+                        _ax.hist(_pass_l, bins=_lbf_bins, color=_color, alpha=0.8)
                     if len(_fail_l) > 0:
-                        _ax1.hist(_fail_l, bins=_lbf_bins, facecolor="none", edgecolor=_color, linewidth=0.8)
-                _ax1.set_xlim(_lbf_lo, _lbf_hi)
+                        _ax.hist(_fail_l, bins=_lbf_bins, facecolor="none", edgecolor=_color, linewidth=0.8)
+                _ax.set_xlim(_lbf_lo, _lbf_hi)
+                if _ci == 0:
+                    _ax.set_title(_md, fontsize=7)
                 if _j == 0:
-                    _ax1.set_ylabel(f"{_coll}\nlog BF", fontsize=6)
-                _ax1.set_box_aspect(1)
+                    _ax.set_ylabel(_coll, fontsize=10, fontweight='bold')
+                _ax.set_box_aspect(1)
 
         _fig.tight_layout()
         hist_chart = _fig
