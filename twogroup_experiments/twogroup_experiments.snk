@@ -207,6 +207,7 @@ rule materialize_twogroup_experiment_collection_alias:
 rule collection_method_metadata:
     input:
         collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/method_metadata.parquet",
     run:
@@ -245,6 +246,7 @@ rule collection_simulation_metadata:
 rule collection_sample_metadata:
     input:
         collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     run:
