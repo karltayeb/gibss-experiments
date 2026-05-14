@@ -27,7 +27,9 @@ def title_cell():
 
 @app.cell(hide_code=True)
 def prepare_heading_cell():
-    mo.md("## Prepare Collections")
+    mo.md("""
+    ## Prepare Collections
+    """)
     return
 
 
@@ -45,13 +47,15 @@ def unprepared_cell():
         pl.DataFrame({"name": _not_ready}),
         selection="multi",
     )
-    if _not_ready:
+    _display = (
         mo.vstack([
             mo.md(f"**{len(_not_ready)} collections not yet plot-ready:**"),
             unprepared_table,
         ])
-    else:
-        mo.md("All collections are plot-ready.")
+        if _not_ready
+        else mo.md("All collections are plot-ready.")
+    )
+    _display
     return (unprepared_table,)
 
 
@@ -87,7 +91,9 @@ def snakemake_prepare_cell(unprepared_table):
 
 @app.cell(hide_code=True)
 def view_heading_cell():
-    mo.md("## View Collections")
+    mo.md("""
+    ## View Collections
+    """)
     return
 
 
@@ -177,7 +183,12 @@ def controls_cell(combined_data):
     )
 
     mo.hstack([method_family_multiselect, L_dropdown, threshold_dropdown, max_fdp_slider])
-    return L_dropdown, max_fdp_slider, method_family_multiselect, threshold_dropdown
+    return (
+        L_dropdown,
+        max_fdp_slider,
+        method_family_multiselect,
+        threshold_dropdown,
+    )
 
 
 @app.cell
@@ -214,17 +225,27 @@ def selected_methods_cell(
             _bg_filtered["threshold"].to_list(),
         )
     )
-    return background_methods_thresholds, foreground_methods, selected_threshold
+    return (
+        background_methods_thresholds,
+        foreground_methods,
+        selected_threshold,
+    )
 
 
 @app.cell(hide_code=True)
 def pip_calibration_heading_cell():
-    mo.md("## PIP Calibration")
+    mo.md("""
+    ## PIP Calibration
+    """)
     return
 
 
 @app.cell
-def pip_calibration_cell(combined_data, foreground_methods, threshold_dropdown):
+def pip_calibration_cell(
+    combined_data,
+    foreground_methods,
+    threshold_dropdown,
+):
     _pip_cal = combined_data["pip_calibration"]
     _method_meta = combined_data["method_metadata"]
     _selected_threshold = threshold_dropdown.value
@@ -260,7 +281,9 @@ def pip_calibration_cell(combined_data, foreground_methods, threshold_dropdown):
 
 @app.cell(hide_code=True)
 def power_fdp_heading_cell():
-    mo.md("## Power vs FDP")
+    mo.md("""
+    ## Power vs FDP
+    """)
     return
 
 
@@ -346,7 +369,9 @@ def power_fdp_cell(
 
 @app.cell(hide_code=True)
 def causal_pip_heading_cell():
-    mo.md("## Causal PIP vs Threshold")
+    mo.md("""
+    ## Causal PIP vs Threshold
+    """)
     return
 
 
@@ -398,7 +423,9 @@ def causal_pip_cell(combined_data, foreground_methods):
 
 @app.cell(hide_code=True)
 def cs_summary_heading_cell():
-    mo.md("## Credible Set Summary")
+    mo.md("""
+    ## Credible Set Summary
+    """)
     return
 
 
@@ -532,7 +559,9 @@ def cs_summary_cell(
 
 @app.cell(hide_code=True)
 def cs_power_fdp_heading_cell():
-    mo.md("## CS Power vs FDP (log BF threshold)")
+    mo.md("""
+    ## CS Power vs FDP (log BF threshold)
+    """)
     return
 
 
@@ -642,7 +671,9 @@ def cs_power_fdp_cell(
 
 @app.cell(hide_code=True)
 def histograms_heading_cell():
-    mo.md("## Credible Set Histograms")
+    mo.md("""
+    ## Credible Set Histograms
+    """)
     return
 
 
