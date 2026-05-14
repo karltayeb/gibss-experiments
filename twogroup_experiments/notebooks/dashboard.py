@@ -59,8 +59,15 @@ def unprepared_cell():
     return (unprepared_table,)
 
 
+@app.cell(hide_code=True)
+def snakemake_cores_cell():
+    cores_input = mo.ui.number(value=1, start=1, stop=64, label="Cores (-c)")
+    return (cores_input,)
+
+
 @app.cell
-def snakemake_prepare_cell(unprepared_table):
+def snakemake_prepare_cell(unprepared_table, cores_input):
+    import re as _re
     import subprocess as _subprocess
 
     _selected = unprepared_table.value["name"].to_list() if len(unprepared_table.value) else []
@@ -72,19 +79,72 @@ def snakemake_prepare_cell(unprepared_table):
     _targets = [
         f"results/collections/{n}/plot_ready/out.txt" for n in _selected
     ]
-    _cmd = ["uv", "run", "snakemake", "--snakefile", "twogroup_experiments.snk"] + _targets
-    _cmd_str = " \\\n    ".join(_cmd)
+    _base_cmd = ["uv", "run", "snakemake", "--snakefile", "twogroup_experiments.snk"] + _targets
+    _cores = int(cores_input.value)
 
-    def _run(_btn):
-        _subprocess.Popen(_cmd, cwd=_cwd, start_new_session=True)
+    def _parse_dry_run(text):
+        if "Nothing to be done" in text:
+            return "Nothing to be done (all up to date)."
+        lines = text.splitlines()
+        in_stats = False
+        rows = []
+        for line in lines:
+            if _re.search(r"[Jj]ob\s+(stats|counts)", line):
+                in_stats = True
+                continue
+            if in_stats:
+                stripped = line.strip()
+                if not stripped or _re.match(r"^-+", stripped):
+                    continue
+                if _re.match(r"^job\s+count", stripped, _re.I):
+                    continue
+                parts = stripped.split()
+                if len(parts) == 2:
+                    try:
+                        count = int(parts[1])
+                        rule = parts[0]
+                    except ValueError:
+                        try:
+                            count = int(parts[0])
+                            rule = parts[1]
+                        except ValueError:
+                            continue
+                    if rule.lower() != "total":
+                        rows.append(f"- {rule}: {count}")
+                elif len(parts) == 1 and parts[0].isdigit():
+                    break
+        if rows:
+            return "\n".join(rows)
+        return text[:400].strip() or "No output."
 
+    def _do_dry_run(_):
+        result = _subprocess.run(
+            _base_cmd + ["--dry-run"],
+            cwd=_cwd, capture_output=True, text=True,
+        )
+        return _parse_dry_run(result.stdout + result.stderr)
+
+    def _do_run(_):
+        _subprocess.Popen(
+            _base_cmd + [f"-c{_cores}"],
+            cwd=_cwd, start_new_session=True,
+        )
+
+    dry_run_btn = mo.ui.button(label="Dry run", on_click=_do_dry_run, value="")
     run_btn = mo.ui.button(
-        label=f"Run snakemake ({len(_selected)} collections)",
-        on_click=_run,
+        label=f"Run ({len(_selected)} collections, -c{_cores})",
+        on_click=_do_run,
+    )
+    _cmd_str = " \\\n    ".join(_base_cmd + [f"-c{_cores}"])
+    _dry_output = (
+        mo.md(f"**Job summary:**\n{dry_run_btn.value}")
+        if dry_run_btn.value
+        else mo.md("")
     )
     mo.vstack([
         mo.md(f"```bash\n{_cmd_str}\n```"),
-        run_btn,
+        mo.hstack([cores_input, dry_run_btn, run_btn]),
+        _dry_output,
     ])
     return
 
