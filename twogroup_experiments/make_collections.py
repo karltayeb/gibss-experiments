@@ -36,7 +36,9 @@ df = build_manifest_table(manifest).pipe(add_sim_metadata).pipe(add_method_metad
 
 def _add_f1_metadata(df: pl.DataFrame) -> pl.DataFrame:
     """Add loc and scale columns parsed from sim_spec f1 field."""
-    parsed = [yaml.safe_load(s)["fields"]["f1"]["fields"] for s in df["sim_spec"].to_list()]
+    parsed = [
+        yaml.safe_load(s)["fields"]["f1"]["fields"] for s in df["sim_spec"].to_list()
+    ]
     return df.with_columns(
         pl.Series("loc", [float(p["loc"]) for p in parsed], dtype=pl.Float64),
         pl.Series("scale", [float(p["scale"]) for p in parsed], dtype=pl.Float64),
@@ -74,8 +76,7 @@ _method_mask = (
 
 for row in (
     df.filter(
-        pl.col("design").is_in(TARGET_DESIGNS)
-        & (pl.col("enrichment") == "ser_enrich")
+        pl.col("design").is_in(TARGET_DESIGNS) & (pl.col("enrichment") == "ser_enrich")
     )
     .select("design", "enrichment", "loc", "scale")
     .unique()
