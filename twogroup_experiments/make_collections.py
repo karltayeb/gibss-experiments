@@ -102,6 +102,21 @@ for row in (
         manifest,
     )
 
+# add a "master collection" that is the union of all of these.
+
+write_collection(
+    df.filter(
+        pl.col("design").is_in(TARGET_DESIGNS)
+        & (pl.col("enrichment") == "ser_enrich")
+        & _method_mask
+    ),
+    collection_name(
+        design="main", enrichment="ser_enrich", method="main", prefix="000"
+    ),
+    COLLECTIONS_DIR,
+    manifest,
+)
+
 
 # ── Example collections ───────────────────────────────────────────────────────
 
