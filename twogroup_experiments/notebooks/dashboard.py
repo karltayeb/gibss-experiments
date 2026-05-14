@@ -159,12 +159,38 @@ def collection_selector_cell():
 
 
 @app.cell
-def bundles_cell(collection_alias_root, collection_table):
+def alias_cell(collection_table):
     mo.stop(
         len(collection_table.value) == 0,
         mo.md("Select one or more collections above."),
     )
     _selected = collection_table.value["name"].to_list()
+
+    def _default_alias(name: str) -> str:
+        for part in name.split("__"):
+            if part.startswith("signal_"):
+                return part[len("signal_"):]
+        return name.split("__")[0]
+
+    alias_inputs = mo.ui.dictionary(
+        {name: mo.ui.text(value=_default_alias(name), label="") for name in _selected}
+    )
+    mo.ui.table(
+        [{"collection": name, "alias": alias_inputs[name]} for name in _selected],
+        selection=None,
+    )
+    return (alias_inputs,)
+
+
+@app.cell
+def bundles_cell(collection_alias_root, collection_table, alias_inputs):
+    mo.stop(
+        len(collection_table.value) == 0,
+        mo.md("Select one or more collections above."),
+    )
+    _selected = collection_table.value["name"].to_list()
+    _aliases: dict[str, str] = alias_inputs.value
+
     _bundles = {
         name: plot_ready.load_plot_ready_collection(collection_alias_root / name)
         for name in _selected
@@ -177,13 +203,15 @@ def bundles_cell(collection_alias_root, collection_table):
 
     def _tag(key):
         return pl.concat([
-            b[key].with_columns(pl.lit(name).alias("collection_name"))
+            b[key].with_columns(
+                pl.lit(_aliases.get(name, name)).alias("collection_name")
+            )
             for name, b in _bundles.items()
         ])
 
     combined_data = {
         "method_metadata": combined_method_metadata,
-        "collection_names": _selected,
+        "collection_names": [_aliases.get(n, n) for n in _selected],
         "pip_calibration": _tag("pip_calibration"),
         "power_fdp": _tag("power_fdp"),
         "causal_pip": _tag("causal_pip"),
