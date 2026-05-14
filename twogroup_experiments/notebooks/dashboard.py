@@ -87,34 +87,17 @@ def snakemake_prepare_cell(unprepared_table, cores_input):
             return "Nothing to be done (all up to date)."
         lines = text.splitlines()
         in_stats = False
-        rows = []
+        table_lines = []
         for line in lines:
             if _re.search(r"[Jj]ob\s+(stats|counts)", line):
                 in_stats = True
                 continue
             if in_stats:
-                stripped = line.strip()
-                if not stripped or _re.match(r"^-+", stripped):
-                    continue
-                if _re.match(r"^job\s+count", stripped, _re.I):
-                    continue
-                parts = stripped.split()
-                if len(parts) == 2:
-                    try:
-                        count = int(parts[1])
-                        rule = parts[0]
-                    except ValueError:
-                        try:
-                            count = int(parts[0])
-                            rule = parts[1]
-                        except ValueError:
-                            continue
-                    if rule.lower() != "total":
-                        rows.append(f"- {rule}: {count}")
-                elif len(parts) == 1 and parts[0].isdigit():
+                if not line.strip() and table_lines:
                     break
-        if rows:
-            return "\n".join(rows)
+                table_lines.append(line)
+        if table_lines:
+            return "\n".join(table_lines)
         return text[:400].strip() or "No output."
 
     def _do_dry_run(_):
@@ -145,7 +128,7 @@ def snakemake_prepare_cell(unprepared_table, cores_input):
 
 @app.cell(hide_code=True)
 def dry_run_output_cell(dry_run_btn):
-    mo.md(f"**Job summary:**\n{dry_run_btn.value}") if dry_run_btn.value else mo.md("")
+    mo.md(f"```\n{dry_run_btn.value}\n```") if dry_run_btn.value else mo.md("")
 
 
 @app.cell(hide_code=True)
