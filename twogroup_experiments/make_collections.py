@@ -102,8 +102,7 @@ for row in (
         manifest,
     )
 
-# add a "master collection" that is the union of all of these.
-
+# 000: master collection — all 4 designs × all signals × selected methods
 write_collection(
     df.filter(
         pl.col("design").is_in(TARGET_DESIGNS)
@@ -116,6 +115,68 @@ write_collection(
     COLLECTIONS_DIR,
     manifest,
 )
+
+# 000-000 to 000-007: per-design × per-f1-family subsets of 000
+# prefix index: design order × 2 + (0=loc, 1=scale)
+_PREFIXED = [
+    ("c4",                  "000-000", "000-001"),
+    ("hallmark",            "000-002", "000-003"),
+    ("gaussian_markov_0.90","000-004", "000-005"),
+    ("uniform_markov_0.90", "000-006", "000-007"),
+]
+
+for design, loc_prefix, scale_prefix in _PREFIXED:
+    _base = (
+        pl.col("design") == design
+    ) & (pl.col("enrichment") == "ser_enrich") & _method_mask
+
+    # loc family: one collection per loc value
+    for row in (
+        df.filter(_base & (pl.col("loc") != 0))
+        .select("loc", "scale")
+        .unique()
+        .sort("loc")
+        .iter_rows(named=True)
+    ):
+        write_collection(
+            df.filter(
+                _base
+                & (pl.col("loc") == row["loc"])
+                & (pl.col("scale") == row["scale"])
+            ),
+            collection_name(
+                design=design,
+                enrichment="ser_enrich",
+                signal=f"loc{row['loc']:g}",
+                prefix=loc_prefix,
+            ),
+            COLLECTIONS_DIR,
+            manifest,
+        )
+
+    # scale family: one collection per scale value
+    for row in (
+        df.filter(_base & (pl.col("loc") == 0))
+        .select("loc", "scale")
+        .unique()
+        .sort("scale")
+        .iter_rows(named=True)
+    ):
+        write_collection(
+            df.filter(
+                _base
+                & (pl.col("loc") == row["loc"])
+                & (pl.col("scale") == row["scale"])
+            ),
+            collection_name(
+                design=design,
+                enrichment="ser_enrich",
+                signal=f"scale{row['scale']:g}",
+                prefix=scale_prefix,
+            ),
+            COLLECTIONS_DIR,
+            manifest,
+        )
 
 
 # ── Example collections ───────────────────────────────────────────────────────
