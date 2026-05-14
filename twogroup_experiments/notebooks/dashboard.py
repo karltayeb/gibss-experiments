@@ -175,20 +175,36 @@ def alias_cell(collection_table):
     alias_inputs = mo.ui.dictionary(
         {name: mo.ui.text(value=_default_alias(name), label="") for name in _selected}
     )
+    order_inputs = mo.ui.dictionary(
+        {name: mo.ui.text(value=str(i + 1), label="") for i, name in enumerate(_selected)}
+    )
     mo.ui.table(
-        [{"collection": name, "alias": alias_inputs[name]} for name in _selected],
+        [
+            {"order": order_inputs[name], "collection": name, "alias": alias_inputs[name]}
+            for name in _selected
+        ],
         selection=None,
     )
-    return (alias_inputs,)
+    return alias_inputs, order_inputs
 
 
 @app.cell
-def bundles_cell(collection_alias_root, collection_table, alias_inputs):
+def bundles_cell(collection_alias_root, collection_table, alias_inputs, order_inputs):
     mo.stop(
         len(collection_table.value) == 0,
         mo.md("Select one or more collections above."),
     )
-    _selected = collection_table.value["name"].to_list()
+
+    def _parse_order(v: str) -> float:
+        try:
+            return float(v)
+        except ValueError:
+            return float("inf")
+
+    _selected = sorted(
+        collection_table.value["name"].to_list(),
+        key=lambda n: _parse_order(order_inputs.value.get(n, "")),
+    )
     _aliases: dict[str, str] = alias_inputs.value
 
     _bundles = {
