@@ -136,17 +136,16 @@ def snakemake_prepare_cell(unprepared_table, cores_input):
         on_click=_do_run,
     )
     _cmd_str = " \\\n    ".join(_base_cmd + [f"-c{_cores}"])
-    _dry_output = (
-        mo.md(f"**Job summary:**\n{dry_run_btn.value}")
-        if dry_run_btn.value
-        else mo.md("")
-    )
     mo.vstack([
         mo.md(f"```bash\n{_cmd_str}\n```"),
         mo.hstack([cores_input, dry_run_btn, run_btn]),
-        _dry_output,
     ])
-    return
+    return (dry_run_btn,)
+
+
+@app.cell(hide_code=True)
+def dry_run_output_cell(dry_run_btn):
+    mo.md(f"**Job summary:**\n{dry_run_btn.value}") if dry_run_btn.value else mo.md("")
 
 
 @app.cell(hide_code=True)
