@@ -172,40 +172,60 @@ def alias_cell(collection_table):
                 return part[len("signal_"):]
         return name.split("__")[0]
 
-    alias_inputs = mo.ui.dictionary(
-        {name: mo.ui.text(value=_default_alias(name), label="") for name in _selected}
-    )
-    order_inputs = mo.ui.dictionary(
-        {name: mo.ui.text(value=str(i + 1), label="") for i, name in enumerate(_selected)}
-    )
-    mo.ui.table(
-        [
-            {"order": order_inputs[name], "collection": name, "alias": alias_inputs[name]}
-            for name in _selected
-        ],
-        selection=None,
-    )
-    return alias_inputs, order_inputs
-
-
-@app.cell
-def bundles_cell(collection_alias_root, collection_table, alias_inputs, order_inputs):
-    mo.stop(
-        len(collection_table.value) == 0,
-        mo.md("Select one or more collections above."),
-    )
-
     def _parse_order(v: str) -> float:
         try:
             return float(v)
         except ValueError:
             return float("inf")
 
-    _selected = sorted(
-        collection_table.value["name"].to_list(),
-        key=lambda n: _parse_order(order_inputs.value.get(n, "")),
-    )
-    _aliases: dict[str, str] = alias_inputs.value
+    _alias_els = {name: mo.ui.text(value=_default_alias(name), label="") for name in _selected}
+    _order_els = {name: mo.ui.text(value=str(i + 1), label="") for i, name in enumerate(_selected)}
+    alias_inputs = mo.ui.dictionary(_alias_els)
+    order_inputs = mo.ui.dictionary(_order_els)
+
+    _initial = {
+        "selected": _selected,
+        "aliases": {n: _default_alias(n) for n in _selected},
+    }
+
+    def _apply(_):
+        return {
+            "selected": sorted(
+                _selected,
+                key=lambda n: _parse_order(order_inputs.value.get(n, "")),
+            ),
+            "aliases": alias_inputs.value,
+        }
+
+    apply_btn = mo.ui.button(label="Apply", on_click=_apply, value=_initial)
+
+    # Header + rows using hstack for width control
+    _col_widths = {"order": "60px", "name": "520px", "alias": "200px"}
+    def _header():
+        return mo.hstack([
+            mo.Html(f'<div style="width:{_col_widths["order"]};font-weight:bold">order</div>'),
+            mo.Html(f'<div style="width:{_col_widths["name"]};font-weight:bold">collection</div>'),
+            mo.Html(f'<div style="width:{_col_widths["alias"]};font-weight:bold">alias</div>'),
+        ], gap="0.5rem")
+
+    def _row(name):
+        return mo.hstack([
+            mo.Html(f'<div style="width:{_col_widths["order"]}">{mo.as_html(order_inputs[name]).text}</div>'),
+            mo.Html(f'<div style="width:{_col_widths["name"]};font-family:monospace;font-size:11px;overflow:hidden;text-overflow:ellipsis">{name}</div>'),
+            mo.Html(f'<div style="width:{_col_widths["alias"]}">{mo.as_html(alias_inputs[name]).text}</div>'),
+        ], gap="0.5rem")
+
+    mo.vstack([_header(), *[_row(n) for n in _selected], apply_btn])
+    return (apply_btn,)
+
+
+@app.cell
+def bundles_cell(collection_alias_root, apply_btn):
+    _settings = apply_btn.value
+    _selected = _settings["selected"]
+    _aliases: dict[str, str] = _settings["aliases"]
+
+    mo.stop(not _selected, mo.md("Select collections above."))
 
     _bundles = {
         name: plot_ready.load_plot_ready_collection(collection_alias_root / name)
