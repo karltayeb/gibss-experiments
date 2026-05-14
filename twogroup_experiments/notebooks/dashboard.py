@@ -205,12 +205,13 @@ def alias_cell(collection_table, set_dirty, active_config):
     _cfg = active_config()
 
     if _cfg is not None:
-        _coll_cfg: dict = _cfg["data"].get("collections", {})
-        _selected = list(_coll_cfg.keys())
+        _coll_list: list = _cfg["data"].get("collections", [])
+        _selected = [item["name"] for item in _coll_list]
+        _alias_map = {item["name"]: item.get("alias", item["name"]) for item in _coll_list}
         def _default_alias(name: str) -> str:
-            return str(_coll_cfg.get(name, {}).get("alias", name))
+            return str(_alias_map.get(name, name))
         def _default_order_val(i: int, name: str) -> str:
-            return str(_coll_cfg.get(name, {}).get("order", i + 1))
+            return str(i + 1)
     else:
         mo.stop(
             len(collection_table.value) == 0,
@@ -301,10 +302,10 @@ def config_save_cell(apply_btn, active_config):
             _existing = _yaml.safe_load(_config_path.read_text()) or {}
         if _name in _existing and current_val != "confirm":
             return "confirm"
-        _coll_entry = {
-            n: {"alias": _settings["aliases"].get(n, n), "order": i + 1}
-            for i, n in enumerate(_settings["selected"])
-        }
+        _coll_entry = [
+            {"name": n, "alias": _settings["aliases"].get(n, n)}
+            for n in _settings["selected"]
+        ]
         _existing[_name] = {
             "collections": _coll_entry,
             "controls": _settings.get("controls", {}),
