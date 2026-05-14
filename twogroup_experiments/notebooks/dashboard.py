@@ -25,6 +25,72 @@ def title_cell():
     return
 
 
+@app.cell(hide_code=True)
+def prepare_heading_cell():
+    mo.md("## Prepare Collections")
+    return
+
+
+@app.cell
+def unprepared_cell():
+    _collections_root = Path(__file__).parent.parent / "results" / "collections"
+    _not_ready = sorted(
+        p.name
+        for p in _collections_root.iterdir()
+        if p.is_dir()
+        and (p / "collection_spec.yaml").exists()
+        and not (p / "plot_ready" / "out.txt").exists()
+    )
+    unprepared_table = mo.ui.table(
+        pl.DataFrame({"name": _not_ready}),
+        selection="multi",
+    )
+    if _not_ready:
+        mo.vstack([
+            mo.md(f"**{len(_not_ready)} collections not yet plot-ready:**"),
+            unprepared_table,
+        ])
+    else:
+        mo.md("All collections are plot-ready.")
+    return (unprepared_table,)
+
+
+@app.cell
+def snakemake_prepare_cell(unprepared_table):
+    import subprocess as _subprocess
+
+    _selected = unprepared_table.value["name"].to_list() if len(unprepared_table.value) else []
+
+    if not _selected:
+        mo.stop(True, mo.md("Select collections above to prepare."))
+
+    _cwd = str(Path(__file__).parent.parent)
+    _targets = [
+        f"results/collections/{n}/plot_ready/out.txt" for n in _selected
+    ]
+    _cmd = ["uv", "run", "snakemake", "--snakefile", "twogroup_experiments.snk"] + _targets
+    _cmd_str = " \\\n    ".join(_cmd)
+
+    def _run(_btn):
+        _subprocess.Popen(_cmd, cwd=_cwd, start_new_session=True)
+
+    run_btn = mo.ui.button(
+        label=f"Run snakemake ({len(_selected)} collections)",
+        on_click=_run,
+    )
+    mo.vstack([
+        mo.md(f"```bash\n{_cmd_str}\n```"),
+        run_btn,
+    ])
+    return
+
+
+@app.cell(hide_code=True)
+def view_heading_cell():
+    mo.md("## View Collections")
+    return
+
+
 @app.cell
 def collection_selector_cell():
     collection_alias_root = Path(__file__).parent.parent / "results" / "collections"

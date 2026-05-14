@@ -21,7 +21,7 @@ def _parse_sim_name(sim_name: str) -> dict[str, Any]:
         idx = param_part.rfind("_")
         if idx > 0:
             try:
-                signal = float(param_part[idx + 1:])
+                signal = float(param_part[idx + 1 :])
             except ValueError:
                 pass
     return {"design": design, "enrichment": enrichment, "signal": signal}
@@ -60,24 +60,28 @@ def build_manifest_table(manifest: dict[str, Any]) -> pl.DataFrame:
     for sim_hash, sim_node in sim_hash_to_node.items():
         sim_name = sim_node["fields"]["name"]
         for method_hash, method_node in manifest["method_specs"].items():
-            rows.append({
-                "sim_hash": sim_hash,
-                "method_hash": method_hash,
-                "sim_spec": json.dumps(sim_node, sort_keys=True),
-                "method_spec": json.dumps(method_node, sort_keys=True),
-                "batch_hashes": sim_hash_to_batches[sim_hash],
-                "sim_name": sim_name,
-            })
+            rows.append(
+                {
+                    "sim_hash": sim_hash,
+                    "method_hash": method_hash,
+                    "sim_spec": json.dumps(sim_node, sort_keys=True),
+                    "method_spec": json.dumps(method_node, sort_keys=True),
+                    "batch_hashes": sim_hash_to_batches[sim_hash],
+                    "sim_name": sim_name,
+                }
+            )
 
     if not rows:
-        return pl.DataFrame(schema={
-            "sim_hash": pl.String,
-            "method_hash": pl.String,
-            "sim_spec": pl.String,
-            "method_spec": pl.String,
-            "batch_hashes": pl.List(pl.String),
-            "sim_name": pl.String,
-        })
+        return pl.DataFrame(
+            schema={
+                "sim_hash": pl.String,
+                "method_hash": pl.String,
+                "sim_spec": pl.String,
+                "method_spec": pl.String,
+                "batch_hashes": pl.List(pl.String),
+                "sim_name": pl.String,
+            }
+        )
 
     return pl.from_dicts(rows)
 
@@ -97,10 +101,14 @@ def add_method_metadata(df: pl.DataFrame) -> pl.DataFrame:
     parsed = [_parse_method_spec(ms) for ms in df["method_spec"].to_list()]
     return df.with_columns(
         pl.Series("method_name", [p["method_name"] for p in parsed], dtype=pl.String),
-        pl.Series("method_family", [p["method_family"] for p in parsed], dtype=pl.String),
+        pl.Series(
+            "method_family", [p["method_family"] for p in parsed], dtype=pl.String
+        ),
         pl.Series("L", [p["L"] for p in parsed], dtype=pl.Int64),
         pl.Series("is_oracle", [p["is_oracle"] for p in parsed], dtype=pl.Boolean),
-        pl.Series("is_thresholded", [p["is_thresholded"] for p in parsed], dtype=pl.Boolean),
+        pl.Series(
+            "is_thresholded", [p["is_thresholded"] for p in parsed], dtype=pl.Boolean
+        ),
         pl.Series("threshold", [p["threshold"] for p in parsed], dtype=pl.Float64),
     )
 
@@ -111,8 +119,15 @@ def collection_name(
     enrichment: str = "all",
     signal: str = "all",
     method: str = "all",
+    prefix: str | None = None,
+    suffix: str | None = None,
 ) -> str:
-    return f"design_{design}__enrichment_{enrichment}__signal_{signal}__method_{method}"
+    name = f"design_{design}__enrichment_{enrichment}__signal_{signal}__method_{method}"
+    if prefix is not None:
+        name = prefix + "__" + name
+    if suffix is not None:
+        name = name + "__" + suffix
+    return name
 
 
 def write_collection(
@@ -142,5 +157,7 @@ def write_collection(
     coll_dir.mkdir(parents=True, exist_ok=True)
     out_path = coll_dir / "collection_spec.yaml"
     write_yaml(node, str(out_path))
-    print(f"wrote {out_path}  ({len(batch_nodes)} batches × {len(method_nodes)} methods)")
+    print(
+        f"wrote {out_path}  ({len(batch_nodes)} batches × {len(method_nodes)} methods)"
+    )
     return out_path
