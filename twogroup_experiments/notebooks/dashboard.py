@@ -147,6 +147,36 @@ def view_heading_cell():
 
 
 @app.cell
+def config_io_cell(set_active_config):
+    import yaml as _yaml
+    _config_path = Path(__file__).parent / "plot_config.yaml"
+    _all_configs: dict = {}
+    if _config_path.exists():
+        _all_configs = _yaml.safe_load(_config_path.read_text()) or {}
+
+    _names = list(_all_configs.keys())
+    _config_dropdown = mo.ui.dropdown(
+        options=_names,
+        value=_names[0] if _names else None,
+        label="config",
+    )
+
+    def _load(_):
+        name = _config_dropdown.value
+        if name and name in _all_configs:
+            set_active_config({"name": name, "data": _all_configs[name]})
+
+    def _clear(_):
+        set_active_config(None)
+
+    load_btn = mo.ui.button(label="Load", on_click=_load)
+    clear_btn = mo.ui.button(label="Clear", on_click=_clear)
+
+    mo.hstack([_config_dropdown, load_btn, clear_btn])
+    return
+
+
+@app.cell
 def collection_selector_cell():
     collection_alias_root = Path(__file__).parent.parent / "results" / "collections"
     _names = plot_ready.available_plot_ready_collections(collection_alias_root)
@@ -165,18 +195,35 @@ def dirty_state_cell():
 
 
 @app.cell
-def alias_cell(collection_table, set_dirty):
-    mo.stop(
-        len(collection_table.value) == 0,
-        mo.md("Select one or more collections above."),
-    )
-    _selected = collection_table.value["name"].to_list()
+def config_state_cell():
+    active_config, set_active_config = mo.state(None)
+    return active_config, set_active_config
 
-    def _default_alias(name: str) -> str:
-        for part in name.split("__"):
-            if part.startswith("signal_"):
-                return part[len("signal_"):]
-        return name.split("__")[0]
+
+@app.cell
+def alias_cell(collection_table, set_dirty, active_config):
+    _cfg = active_config()
+
+    if _cfg is not None:
+        _coll_cfg: dict = _cfg["data"].get("collections", {})
+        _selected = list(_coll_cfg.keys())
+        def _default_alias(name: str) -> str:
+            return str(_coll_cfg.get(name, {}).get("alias", name))
+        def _default_order_val(i: int, name: str) -> str:
+            return str(_coll_cfg.get(name, {}).get("order", i + 1))
+    else:
+        mo.stop(
+            len(collection_table.value) == 0,
+            mo.md("Select one or more collections above."),
+        )
+        _selected = collection_table.value["name"].to_list()
+        def _default_alias(name: str) -> str:
+            for part in name.split("__"):
+                if part.startswith("signal_"):
+                    return part[len("signal_"):]
+            return name.split("__")[0]
+        def _default_order_val(i: int, name: str) -> str:
+            return str(i + 1)
 
     def _parse_order(v: str) -> float:
         try:
@@ -189,13 +236,15 @@ def alias_cell(collection_table, set_dirty):
         for name in _selected
     }
     _order_els = {
-        name: mo.ui.text(value=str(i + 1), label="", on_change=lambda _: set_dirty(True))
+        name: mo.ui.text(value=_default_order_val(i, name), label="", on_change=lambda _: set_dirty(True))
         for i, name in enumerate(_selected)
     }
 
+    _controls_defaults: dict = {} if _cfg is None else _cfg["data"].get("controls", {})
     _initial = {
         "selected": _selected,
         "aliases": {n: _default_alias(n) for n in _selected},
+        "controls": _controls_defaults,
     }
 
     def _apply(_):
@@ -206,19 +255,24 @@ def alias_cell(collection_table, set_dirty):
                 key=lambda n: _parse_order(_order_els[n].value),
             ),
             "aliases": {n: _alias_els[n].value for n in _selected},
+            "controls": _controls_defaults,
         }
 
     apply_btn = mo.ui.button(label="Apply", on_click=_apply, value=_initial)
 
-    def _row(name):
+    def _row(name: str):
         return mo.hstack([
             _order_els[name],
             mo.Html(f'<span style="font-family:monospace;font-size:11px">{name}</span>'),
             _alias_els[name],
         ])
 
+    _mode_label = (
+        mo.md(f"*Config loaded: **{_cfg['name']}***") if _cfg
+        else mo.md("*Manual mode — select collections above*")
+    )
     _header = mo.hstack([mo.md("**#**"), mo.md("**collection**"), mo.md("**alias**")])
-    mo.vstack([_header, *[_row(n) for n in _selected], apply_btn])
+    mo.vstack([_mode_label, _header, *[_row(n) for n in _selected], apply_btn])
     return (apply_btn,)
 
 
@@ -226,6 +280,50 @@ def alias_cell(collection_table, set_dirty):
 def apply_status_cell(apply_btn, dirty):
     _ = apply_btn  # depend on apply_btn so status clears on new selection
     mo.md("⚠️ **Modified** — click Apply") if dirty() else mo.md("✅ Applied")
+
+
+@app.cell
+def config_save_cell(apply_btn, active_config):
+    import yaml as _yaml
+    _config_path = Path(__file__).parent / "plot_config.yaml"
+    _cfg = active_config()
+    _default_name = _cfg["name"] if _cfg else ""
+    _settings = apply_btn.value
+
+    name_input = mo.ui.text(value=_default_name, label="config name")
+
+    def _save(current_val: str):
+        _name = name_input.value.strip()
+        if not _name:
+            return "no_name"
+        _existing: dict = {}
+        if _config_path.exists():
+            _existing = _yaml.safe_load(_config_path.read_text()) or {}
+        if _name in _existing and current_val != "confirm":
+            return "confirm"
+        _coll_entry = {
+            n: {"alias": _settings["aliases"].get(n, n), "order": i + 1}
+            for i, n in enumerate(_settings["selected"])
+        }
+        _existing[_name] = {
+            "collections": _coll_entry,
+            "controls": _settings.get("controls", {}),
+        }
+        _config_path.write_text(_yaml.dump(_existing, default_flow_style=False, allow_unicode=True))
+        return "saved"
+
+    save_btn = mo.ui.button(label="Save", on_click=_save, value="")
+    mo.hstack([name_input, save_btn])
+    return (save_btn,)
+
+
+@app.cell
+def config_save_status_cell(save_btn):
+    {
+        "confirm": mo.md("⚠️ Config exists — click **Save** again to overwrite"),
+        "saved": mo.md("✅ Saved to plot_config.yaml"),
+        "no_name": mo.md("⚠️ Enter a config name first"),
+    }.get(save_btn.value, mo.md(""))
 
 
 @app.cell
@@ -268,8 +366,9 @@ def bundles_cell(collection_alias_root, apply_btn):
 
 
 @app.cell
-def controls_cell(combined_data):
+def controls_cell(combined_data, apply_btn):
     _method_metadata = combined_data["method_metadata"]
+    _controls_cfg: dict = apply_btn.value.get("controls", {})
 
     _all_thresholds = sorted(
         _method_metadata.filter(pl.col("threshold").is_not_null())["threshold"]
@@ -278,21 +377,21 @@ def controls_cell(combined_data):
     )
     threshold_dropdown = mo.ui.dropdown(
         options=_all_thresholds,
-        value=_all_thresholds[0] if _all_thresholds else None,
+        value=_controls_cfg.get("threshold", _all_thresholds[0] if _all_thresholds else None),
         label="threshold",
     )
 
     _all_families = sorted(_method_metadata["method_family"].unique().to_list())
     method_family_multiselect = mo.ui.multiselect(
         options=_all_families,
-        value=_all_families,
+        value=_controls_cfg.get("method_families", _all_families),
         label="method family",
     )
 
     _all_L = sorted(_method_metadata["L"].unique().to_list())
     L_dropdown = mo.ui.dropdown(
         options=_all_L,
-        value=_all_L[0] if _all_L else 1,
+        value=_controls_cfg.get("L", _all_L[0] if _all_L else 1),
         label="L",
     )
 
@@ -300,7 +399,7 @@ def controls_cell(combined_data):
         start=0.05,
         stop=1.0,
         step=0.05,
-        value=0.5,
+        value=_controls_cfg.get("max_fdp", 0.5),
         label="max FDP",
     )
 
