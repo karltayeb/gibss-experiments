@@ -192,8 +192,6 @@ def alias_cell(collection_table, set_dirty):
         name: mo.ui.text(value=str(i + 1), label="", on_change=lambda _: set_dirty(True))
         for i, name in enumerate(_selected)
     }
-    alias_inputs = mo.ui.dictionary(_alias_els)
-    order_inputs = mo.ui.dictionary(_order_els)
 
     _initial = {
         "selected": _selected,
@@ -205,18 +203,18 @@ def alias_cell(collection_table, set_dirty):
         return {
             "selected": sorted(
                 _selected,
-                key=lambda n: _parse_order(order_inputs.value.get(n, "")),
+                key=lambda n: _parse_order(_order_els[n].value),
             ),
-            "aliases": alias_inputs.value,
+            "aliases": {n: _alias_els[n].value for n in _selected},
         }
 
     apply_btn = mo.ui.button(label="Apply", on_click=_apply, value=_initial)
 
     def _row(name):
         return mo.hstack([
-            order_inputs[name],
+            _order_els[name],
             mo.Html(f'<span style="font-family:monospace;font-size:11px">{name}</span>'),
-            alias_inputs[name],
+            _alias_els[name],
         ])
 
     _header = mo.hstack([mo.md("**#**"), mo.md("**collection**"), mo.md("**alias**")])
