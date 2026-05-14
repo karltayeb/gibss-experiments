@@ -159,7 +159,13 @@ def collection_selector_cell():
 
 
 @app.cell
-def alias_cell(collection_table):
+def dirty_state_cell():
+    dirty, set_dirty = mo.state(False)
+    return dirty, set_dirty
+
+
+@app.cell
+def alias_cell(collection_table, set_dirty):
     mo.stop(
         len(collection_table.value) == 0,
         mo.md("Select one or more collections above."),
@@ -178,8 +184,14 @@ def alias_cell(collection_table):
         except ValueError:
             return float("inf")
 
-    _alias_els = {name: mo.ui.text(value=_default_alias(name), label="") for name in _selected}
-    _order_els = {name: mo.ui.text(value=str(i + 1), label="") for i, name in enumerate(_selected)}
+    _alias_els = {
+        name: mo.ui.text(value=_default_alias(name), label="", on_change=lambda _: set_dirty(True))
+        for name in _selected
+    }
+    _order_els = {
+        name: mo.ui.text(value=str(i + 1), label="", on_change=lambda _: set_dirty(True))
+        for i, name in enumerate(_selected)
+    }
     alias_inputs = mo.ui.dictionary(_alias_els)
     order_inputs = mo.ui.dictionary(_order_els)
 
@@ -189,6 +201,7 @@ def alias_cell(collection_table):
     }
 
     def _apply(_):
+        set_dirty(False)
         return {
             "selected": sorted(
                 _selected,
@@ -209,6 +222,12 @@ def alias_cell(collection_table):
     _header = mo.hstack([mo.md("**#**"), mo.md("**collection**"), mo.md("**alias**")])
     mo.vstack([_header, *[_row(n) for n in _selected], apply_btn])
     return (apply_btn,)
+
+
+@app.cell
+def apply_status_cell(apply_btn, dirty):
+    _ = apply_btn  # depend on apply_btn so status clears on new selection
+    mo.md("⚠️ **Modified** — click Apply") if dirty() else mo.md("✅ Applied")
 
 
 @app.cell
