@@ -488,18 +488,6 @@ def histogram_controls_cell(combined_data):
         if not _cs_size_hist.is_empty()
         else 100
     )
-    _lbf_min = (
-        float(_ser_log_bf_hist["ser_log_bf"].min())
-        if not _ser_log_bf_hist.is_empty()
-        else -10.0
-    )
-    _lbf_max = (
-        float(_ser_log_bf_hist["ser_log_bf"].max())
-        if not _ser_log_bf_hist.is_empty()
-        else 10.0
-    )
-    _lbf_step = round((_lbf_max - _lbf_min) / 100, 2) or 0.1
-
     max_cs_size_slider = mo.ui.slider(
         start=1,
         stop=_max_cs,
@@ -508,10 +496,10 @@ def histogram_controls_cell(combined_data):
         label="max CS size",
     )
     min_log_bf_slider = mo.ui.slider(
-        start=round(_lbf_min, 2),
-        stop=round(_lbf_max, 2),
-        value=round(_lbf_min, 2),
-        step=_lbf_step,
+        start=-1,
+        stop=50,
+        value=2,
+        step=0.1,
         label="min log BF",
     )
 
