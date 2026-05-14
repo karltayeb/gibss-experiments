@@ -199,23 +199,15 @@ def alias_cell(collection_table):
 
     apply_btn = mo.ui.button(label="Apply", on_click=_apply, value=_initial)
 
-    # Header + rows using hstack for width control
-    _col_widths = {"order": "60px", "name": "520px", "alias": "200px"}
-    def _header():
-        return mo.hstack([
-            mo.Html(f'<div style="width:{_col_widths["order"]};font-weight:bold">order</div>'),
-            mo.Html(f'<div style="width:{_col_widths["name"]};font-weight:bold">collection</div>'),
-            mo.Html(f'<div style="width:{_col_widths["alias"]};font-weight:bold">alias</div>'),
-        ], gap="0.5rem")
-
     def _row(name):
         return mo.hstack([
-            mo.Html(f'<div style="width:{_col_widths["order"]}">{mo.as_html(order_inputs[name]).text}</div>'),
-            mo.Html(f'<div style="width:{_col_widths["name"]};font-family:monospace;font-size:11px;overflow:hidden;text-overflow:ellipsis">{name}</div>'),
-            mo.Html(f'<div style="width:{_col_widths["alias"]}">{mo.as_html(alias_inputs[name]).text}</div>'),
-        ], gap="0.5rem")
+            order_inputs[name],
+            mo.Html(f'<span style="font-family:monospace;font-size:11px">{name}</span>'),
+            alias_inputs[name],
+        ])
 
-    mo.vstack([_header(), *[_row(n) for n in _selected], apply_btn])
+    _header = mo.hstack([mo.md("**#**"), mo.md("**collection**"), mo.md("**alias**")])
+    mo.vstack([_header, *[_row(n) for n in _selected], apply_btn])
     return (apply_btn,)
 
 
