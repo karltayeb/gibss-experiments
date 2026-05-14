@@ -113,15 +113,22 @@ def snakemake_prepare_cell(unprepared_table, cores_input):
             cwd=_cwd, start_new_session=True,
         )
 
+    def _do_touch(_):
+        _subprocess.Popen(
+            _base_cmd + ["--touch"],
+            cwd=_cwd, start_new_session=True,
+        )
+
     dry_run_btn = mo.ui.button(label="Dry run", on_click=_do_dry_run, value="")
     run_btn = mo.ui.button(
         label=f"Run ({len(_selected)} collections, -c{_cores})",
         on_click=_do_run,
     )
+    touch_btn = mo.ui.button(label="Touch", on_click=_do_touch)
     _cmd_str = " \\\n    ".join(_base_cmd + [f"-c{_cores}"])
     mo.vstack([
         mo.md(f"```bash\n{_cmd_str}\n```"),
-        mo.hstack([cores_input, dry_run_btn, run_btn]),
+        mo.hstack([cores_input, dry_run_btn, run_btn, touch_btn]),
     ])
     return (dry_run_btn,)
 
