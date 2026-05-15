@@ -372,6 +372,14 @@ rule collection_ser_log_bf_histogram_plot_ready:
         write_parquet(finalize_ser_log_bf_histogram(observations), output[0])
 
 
+rule all_collections:
+    input:
+        expand(
+            f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/out.txt",
+            collection_alias=COLLECTION_ALIASES,
+        ),
+
+
 rule twogroup_experiments_target:
     input:
         batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
