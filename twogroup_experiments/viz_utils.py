@@ -873,7 +873,7 @@ def make_conditional_cs_summary(
     )
 
 
-def _plot_cs_summary_row(ax_row, sim_df, metrics, x_min, x_max, x_margin):
+def _plot_cs_summary_row(ax_row, sim_df, metrics, x_min, x_max, x_margin, nominal_coverage: float | None = None):
     for idx, metric_name in enumerate(metrics):
         ax = ax_row[idx]
         metric_df = sim_df.filter(pl.col("metric") == metric_name)
@@ -891,6 +891,9 @@ def _plot_cs_summary_row(ax_row, sim_df, metrics, x_min, x_max, x_margin):
                     method_df["value"].to_numpy(),
                     marker="o", color=color, label=display_label,
                 )
+        if metric_name == "Coverage" and nominal_coverage is not None:
+            ax.axhline(y=nominal_coverage, color="black", linestyle="--", linewidth=1.2,
+                       label=f"nominal ({nominal_coverage:.2f})")
         ax.set_title(metric_name)
         ax.set_xlabel("Threshold")
         ax.set_xlim(x_min - x_margin, x_max + x_margin)
@@ -924,12 +927,12 @@ def render_conditional_cs_summary_chart(
         )
         for row_idx, sim_name in enumerate(simulations):
             sim_df = cs_summary.filter(pl.col("simulation_name") == sim_name)
-            _plot_cs_summary_row(axes[row_idx], sim_df, metrics, x_min, x_max, x_margin)
+            _plot_cs_summary_row(axes[row_idx], sim_df, metrics, x_min, x_max, x_margin, nominal_coverage=nominal_coverage)
             axes[row_idx, 0].set_ylabel(f"{sim_name}\nValue")
         fig.suptitle("By simulation scenario")
     else:
         fig, axes = plt.subplots(1, len(metrics), figsize=(theme["width"] * 3, theme["height"]), squeeze=False)
-        _plot_cs_summary_row(axes[0], cs_summary, metrics, x_min, x_max, x_margin)
+        _plot_cs_summary_row(axes[0], cs_summary, metrics, x_min, x_max, x_margin, nominal_coverage=nominal_coverage)
         fig.suptitle(
             f"Aggregate | nominal={nominal_coverage:.2f} | max size={max_cs_size} | min log BF={min_ser_log_bf:.1f}"
         )
