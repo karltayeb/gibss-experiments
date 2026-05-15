@@ -518,6 +518,11 @@ def make_power_fdp_summary(plot_data: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+_PIP_MARKER_THRESHOLDS = [0.5, 0.9, 0.99]
+_PIP_MARKER_COLORS = ["#e377c2", "#ff7f0e", "#d62728"]  # pink, orange, red
+_PIP_MARKER_STYLES = ["D", "s", "^"]  # diamond, square, triangle
+
+
 def _plot_power_fdp_on_ax(
     ax: "plt.Axes",
     panel_df: pl.DataFrame,
@@ -526,18 +531,40 @@ def _plot_power_fdp_on_ax(
     fixed_y_scale: bool,
     title: str,
 ) -> None:
+    marker_legend_added: set[float] = set()
     for trace_label in sorted(x for x in panel_df.get_column("trace_label").unique().to_list() if x is not None):
         trace_df = panel_df.filter(pl.col("trace_label") == trace_label).sort("pip_threshold")
         is_selected = bool(trace_df["is_selected_threshold"][0])
         legend_label = trace_df["legend_label"][0]
+        color = method_color(trace_df["method"][0])
         ax.plot(
             trace_df["fdp"].to_numpy(),
             trace_df["power"].to_numpy(),
-            color=method_color(trace_df["method"][0]),
+            color=color,
             linewidth=2.0 if is_selected else 1.0,
             alpha=1.0 if is_selected else 0.2,
             label=legend_label if legend_label is not None else "_nolegend_",
         )
+        if is_selected:
+            pip_arr = trace_df["pip_threshold"].to_numpy()
+            fdp_arr = trace_df["fdp"].to_numpy()
+            pwr_arr = trace_df["power"].to_numpy()
+            for thresh, mcolor, mstyle in zip(
+                _PIP_MARKER_THRESHOLDS, _PIP_MARKER_COLORS, _PIP_MARKER_STYLES
+            ):
+                idx = int(round(thresh * 1000)) - 1  # threshold_grid[i] = (i+1)/1000
+                if 0 <= idx < len(pip_arr):
+                    mlabel = f"PIP={thresh:g}" if thresh not in marker_legend_added else "_nolegend_"
+                    ax.scatter(
+                        fdp_arr[idx],
+                        pwr_arr[idx],
+                        color=mcolor,
+                        marker=mstyle,
+                        s=60,
+                        zorder=5,
+                        label=mlabel,
+                    )
+                    marker_legend_added.add(thresh)
     ax.set_xlabel("FDP")
     ax.set_xlim(0.0, max_fdp)
     if fixed_y_scale:
