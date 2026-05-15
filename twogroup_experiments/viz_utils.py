@@ -1172,3 +1172,122 @@ def render_cs_histograms(
 
     fig.tight_layout()
     return fig
+
+
+def make_cs_beta_trace_summary(
+    cs_beta_trace: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_threshold: float,
+    max_cs_size: int,
+    min_ser_log_bf: float,
+) -> pl.DataFrame:
+    """Summarize cs_beta_trace across all betas for each (collection_name, method, threshold, beta)."""
+    if cs_beta_trace.is_empty():
+        return pl.DataFrame(schema={
+            "collection_name": pl.String,
+            "method": pl.String,
+            "method_display": pl.String,
+            "threshold": pl.Float64,
+            "is_thresholded": pl.Boolean,
+            "is_selected_threshold": pl.Boolean,
+            "beta": pl.Float64,
+            "power": pl.Float64,
+            "coverage": pl.Float64,
+            "cs_size": pl.Float64,
+        })
+    meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+    filtered = (
+        cs_beta_trace
+        .filter(pl.col("method").is_in(list(selected_methods)))
+        .with_columns(
+            ((pl.col("cs_size") <= max_cs_size) & (pl.col("ser_log_bf") >= min_ser_log_bf)).alias("valid_cs")
+        )
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(
+            (
+                ~pl.col("is_thresholded") | (pl.col("threshold") == selected_threshold)
+            ).alias("is_selected_threshold")
+        )
+    )
+    return (
+        filtered
+        .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
+        .agg(
+            (pl.col("covered") & pl.col("valid_cs")).cast(pl.Float64).mean().alias("power"),
+            pl.when(pl.col("valid_cs")).then(pl.col("covered").cast(pl.Float64)).mean().alias("coverage"),
+            pl.when(pl.col("valid_cs")).then(pl.col("cs_size").cast(pl.Float64)).mean().alias("cs_size"),
+        )
+        .sort("collection_name", "method_display", "threshold", "beta")
+    )
+
+
+def render_cs_beta_trace_chart(
+    summary: pl.DataFrame,
+    *,
+    collection_names: list[str],
+    selected_threshold: float,
+) -> "plt.Figure":
+    if summary.is_empty():
+        return make_placeholder_chart("No CS beta trace data")
+
+    metrics = [("power", "Power"), ("cs_size", "CS Size"), ("coverage", "Coverage")]
+    theme = base_chart_theme()
+    n_rows = len(collection_names)
+    fig, axes = plt.subplots(
+        n_rows, len(metrics),
+        figsize=(theme["width"] * len(metrics), theme["height"] * n_rows),
+        squeeze=False,
+    )
+
+    for row_idx, coll_name in enumerate(collection_names):
+        coll_df = summary.filter(pl.col("collection_name") == coll_name)
+        for col_idx, (metric_col, metric_title) in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
+            trace_labels = (
+                coll_df.select("method", "threshold", "method_display", "is_thresholded", "is_selected_threshold")
+                .unique()
+                .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
+            )
+            for trow in trace_labels.iter_rows(named=True):
+                thresh_filter = (
+                    pl.col("threshold").is_null() if trow["threshold"] is None
+                    else (pl.col("threshold") == trow["threshold"])
+                )
+                trace_df = (
+                    coll_df.filter(
+                        (pl.col("method") == trow["method"]) & thresh_filter
+                    ).sort("beta")
+                )
+                if trace_df.is_empty():
+                    continue
+                is_selected = bool(trow["is_selected_threshold"])
+                color = method_color(trow["method"])
+                if trow["is_thresholded"]:
+                    label = f"{trow['method_display']} (@{trow['threshold']:g})" if is_selected else "_nolegend_"
+                else:
+                    label = trow["method_display"] if is_selected else "_nolegend_"
+                ax.plot(
+                    trace_df["beta"].to_numpy(),
+                    trace_df[metric_col].to_numpy(),
+                    color=color,
+                    linewidth=2.0 if is_selected else 0.8,
+                    alpha=1.0 if is_selected else 0.15,
+                    label=label,
+                )
+            if metric_col == "coverage":
+                betas = coll_df["beta"].unique().sort().to_numpy()
+                if len(betas):
+                    ax.plot(betas, betas, color="black", linestyle="--", linewidth=1.0, label="y=x (ideal)")
+            if row_idx == 0:
+                ax.set_title(metric_title)
+            ax.set_xlabel("Nominal coverage (β)")
+            if col_idx == 0:
+                ax.set_ylabel(coll_name, fontsize=9, fontweight="bold")
+
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    if handles:
+        fig.legend(handles, labels, loc="center right", frameon=False, fontsize=8)
+    fig.tight_layout()
+    return fig

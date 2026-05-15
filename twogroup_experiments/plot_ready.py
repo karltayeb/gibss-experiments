@@ -337,6 +337,52 @@ def summarize_cs_raw_per_sample(
     ).cast({"causal_in_cs": pl.Boolean, "cs_size": pl.Int64, "ser_log_bf": pl.Float64})
 
 
+def summarize_cs_beta_trace(
+    fits_df: pl.DataFrame,
+    sample_metadata: pl.DataFrame,
+) -> pl.DataFrame:
+    """One row per (sample_id, method, threshold, beta) for all betas in CS_BETA_GRID."""
+    from utils import CS_BETA_GRID
+
+    empty_schema = {
+        "sample_id": pl.String,
+        "method": pl.String,
+        "threshold": pl.Float64,
+        "beta": pl.Float64,
+        "cs_size": pl.Int64,
+        "covered": pl.Boolean,
+        "ser_log_bf": pl.Float64,
+    }
+    fits_with_sid = fits_df.join(
+        sample_metadata.select("sample_id", "batch_hash", "replicate"),
+        on=["batch_hash", "replicate"],
+        how="left",
+    )
+    rows: list[dict] = []
+    for row in fits_with_sid.iter_rows(named=True):
+        alpha = np.asarray(row["ser_posterior"]["alpha"], dtype=float)
+        causal_set = set(row["credible_set"]["causal_indices"])
+        ser_log_bf = float(row["ser_posterior"]["ser_log_bf"])
+        order = np.argsort(-alpha)
+        cumulative = np.cumsum(alpha[order])
+        ordered_features = order.tolist()
+        for beta in CS_BETA_GRID:
+            cs_size = int(np.searchsorted(cumulative, beta, side="left") + 1)
+            covered = bool(set(ordered_features[:cs_size]) & causal_set)
+            rows.append({
+                "sample_id": row["sample_id"],
+                "method": row["method"],
+                "threshold": row["threshold"],
+                "beta": float(beta),
+                "cs_size": cs_size,
+                "covered": covered,
+                "ser_log_bf": ser_log_bf,
+            })
+    if not rows:
+        return pl.DataFrame(schema=empty_schema)
+    return pl.from_dicts(rows).cast({"threshold": pl.Float64, "cs_size": pl.Int64, "ser_log_bf": pl.Float64})
+
+
 def summarize_cs_size_histogram_observations(
     fits_df: pl.DataFrame,
     sample_metadata: pl.DataFrame,
@@ -445,6 +491,7 @@ def load_plot_ready_collection(collection_root: Path) -> dict[str, pl.DataFrame]
         "power_fdp",
         "causal_pip",
         "cs_raw",
+        "cs_beta_trace",
         "cs_size_histogram",
         "ser_log_bf_histogram",
     ]

@@ -360,6 +360,7 @@ def bundles_cell(collection_alias_root, apply_btn):
         "power_fdp": _tag("power_fdp"),
         "causal_pip": _tag("causal_pip"),
         "cs_raw": _tag("cs_raw"),
+        "cs_beta_trace": _tag("cs_beta_trace"),
         "cs_size_histogram": _tag("cs_size_histogram"),
         "ser_log_bf_histogram": _tag("ser_log_bf_histogram"),
     }
@@ -876,6 +877,48 @@ def cs_power_fdp_cell(
         )
 
     cs_power_fdp_chart
+    return
+
+
+@app.cell(hide_code=True)
+def cs_beta_trace_heading_cell():
+    mo.md("""
+    ## Power / Coverage / CS Size vs Nominal Coverage (β sweep)
+    """)
+    return
+
+
+@app.cell
+def cs_beta_trace_cell(
+    combined_data,
+    foreground_methods,
+    max_cs_size_slider,
+    min_log_bf_slider,
+    threshold_dropdown,
+    selected_threshold,
+):
+    _cs_beta = combined_data["cs_beta_trace"]
+    _method_meta = combined_data["method_metadata"]
+    _collection_names = combined_data["collection_names"]
+
+    if _cs_beta.is_empty():
+        cs_beta_trace_chart = viz_utils.make_placeholder_chart("No CS beta trace data")
+    else:
+        _beta_summary = viz_utils.make_cs_beta_trace_summary(
+            _cs_beta,
+            _method_meta,
+            selected_methods=set(foreground_methods),
+            selected_threshold=selected_threshold,
+            max_cs_size=max_cs_size_slider.value,
+            min_ser_log_bf=min_log_bf_slider.value,
+        )
+        cs_beta_trace_chart = viz_utils.render_cs_beta_trace_chart(
+            _beta_summary,
+            collection_names=_collection_names,
+            selected_threshold=selected_threshold,
+        )
+
+    cs_beta_trace_chart
     return
 
 
