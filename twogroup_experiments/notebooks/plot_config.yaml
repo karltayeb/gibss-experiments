@@ -18,12 +18,12 @@ c4-loc:
     name: 000-000__design_c4__enrichment_ser_enrich__signal_loc3__method_all
 c4-scale:
   collections:
-  - alias: c4 | scale=0.25
-    name: 000-001__design_c4__enrichment_ser_enrich__signal_scale0.25__method_all
-  - alias: c4 | scale=0.5
-    name: 000-001__design_c4__enrichment_ser_enrich__signal_scale0.5__method_all
-  - alias: c4 | scale=1
-    name: 000-001__design_c4__enrichment_ser_enrich__signal_scale1__method_all
+  # - alias: c4 | scale=0.25
+  #   name: 000-001__design_c4__enrichment_ser_enrich__signal_scale0.25__method_all
+  # - alias: c4 | scale=0.5
+  #   name: 000-001__design_c4__enrichment_ser_enrich__signal_scale0.5__method_all
+  # - alias: c4 | scale=1
+  #   name: 000-001__design_c4__enrichment_ser_enrich__signal_scale1__method_all
   - alias: c4 | scale=2
     name: 000-001__design_c4__enrichment_ser_enrich__signal_scale2__method_all
   - alias: c4 | scale=3
@@ -34,10 +34,10 @@ c4-scale:
     name: 000-001__design_c4__enrichment_ser_enrich__signal_scale5__method_all
 hallmark-loc:
   collections:
-  - alias: hallmark | loc=0.25
-    name: 000-002__design_hallmark__enrichment_ser_enrich__signal_loc0.25__method_all
-  - alias: hallmark | loc=0.5
-    name: 000-002__design_hallmark__enrichment_ser_enrich__signal_loc0.5__method_all
+  # - alias: hallmark | loc=0.25
+  #   name: 000-002__design_hallmark__enrichment_ser_enrich__signal_loc0.25__method_all
+  # - alias: hallmark | loc=0.5
+  #   name: 000-002__design_hallmark__enrichment_ser_enrich__signal_loc0.5__method_all
   - alias: hallmark | loc=0.75
     name: 000-002__design_hallmark__enrichment_ser_enrich__signal_loc0.75__method_all
   - alias: hallmark | loc=1
@@ -52,10 +52,10 @@ hallmark-loc:
     name: 000-002__design_hallmark__enrichment_ser_enrich__signal_loc3__method_all
 hallmark-scale:
   collections:
-  - alias: hallmark | scale=0.25
-    name: 000-003__design_hallmark__enrichment_ser_enrich__signal_scale0.25__method_all
-  - alias: hallmark | scale=0.5
-    name: 000-003__design_hallmark__enrichment_ser_enrich__signal_scale0.5__method_all
+  # - alias: hallmark | scale=0.25
+  #   name: 000-003__design_hallmark__enrichment_ser_enrich__signal_scale0.25__method_all
+  # - alias: hallmark | scale=0.5
+  #   name: 000-003__design_hallmark__enrichment_ser_enrich__signal_scale0.5__method_all
   - alias: hallmark | scale=1
     name: 000-003__design_hallmark__enrichment_ser_enrich__signal_scale1__method_all
   - alias: hallmark | scale=2
