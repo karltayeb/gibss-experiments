@@ -1,11 +1,11 @@
-000-000:
+c4-loc:
   collections:
-  - alias: c4 | loc=0.25
-    name: 000-000__design_c4__enrichment_ser_enrich__signal_loc0.25__method_all
-  - alias: c4 | loc=0.5
-    name: 000-000__design_c4__enrichment_ser_enrich__signal_loc0.5__method_all
-  - alias: c4 | loc=0.75
-    name: 000-000__design_c4__enrichment_ser_enrich__signal_loc0.75__method_all
+  # - alias: c4 | loc=0.25
+  #   name: 000-000__design_c4__enrichment_ser_enrich__signal_loc0.25__method_all
+  # - alias: c4 | loc=0.5
+  #   name: 000-000__design_c4__enrichment_ser_enrich__signal_loc0.5__method_all
+  # - alias: c4 | loc=0.75
+  #   name: 000-000__design_c4__enrichment_ser_enrich__signal_loc0.75__method_all
   - alias: c4 | loc=1
     name: 000-000__design_c4__enrichment_ser_enrich__signal_loc1__method_all
   - alias: c4 | loc=1.5
@@ -16,7 +16,7 @@
     name: 000-000__design_c4__enrichment_ser_enrich__signal_loc2.5__method_all
   - alias: c4 | loc=3
     name: 000-000__design_c4__enrichment_ser_enrich__signal_loc3__method_all
-000-001:
+c4-scale:
   collections:
   - alias: c4 | scale=0.25
     name: 000-001__design_c4__enrichment_ser_enrich__signal_scale0.25__method_all
@@ -32,7 +32,7 @@
     name: 000-001__design_c4__enrichment_ser_enrich__signal_scale4__method_all
   - alias: c4 | scale=5
     name: 000-001__design_c4__enrichment_ser_enrich__signal_scale5__method_all
-000-002:
+hallmark-loc:
   collections:
   - alias: hallmark | loc=0.25
     name: 000-002__design_hallmark__enrichment_ser_enrich__signal_loc0.25__method_all
@@ -50,7 +50,7 @@
     name: 000-002__design_hallmark__enrichment_ser_enrich__signal_loc2.5__method_all
   - alias: hallmark | loc=3
     name: 000-002__design_hallmark__enrichment_ser_enrich__signal_loc3__method_all
-000-003:
+hallmark-scale:
   collections:
   - alias: hallmark | scale=0.25
     name: 000-003__design_hallmark__enrichment_ser_enrich__signal_scale0.25__method_all
@@ -66,7 +66,7 @@
     name: 000-003__design_hallmark__enrichment_ser_enrich__signal_scale4__method_all
   - alias: hallmark | scale=5
     name: 000-003__design_hallmark__enrichment_ser_enrich__signal_scale5__method_all
-000-004:
+gaussian-loc:
   collections:
   - alias: gaussian | loc=0.25
     name: 000-004__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_loc0.25__method_all
@@ -84,7 +84,7 @@
     name: 000-004__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_loc2.5__method_all
   - alias: gaussian | loc=3
     name: 000-004__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_loc3__method_all
-000-005:
+gaussian-scale:
   collections:
   - alias: gaussian | scale=0.25
     name: 000-005__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_scale0.25__method_all
@@ -100,7 +100,7 @@
     name: 000-005__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_scale4__method_all
   - alias: gaussian | scale=5
     name: 000-005__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_scale5__method_all
-000-006:
+uniform-loc:
   collections:
   - alias: uniform | loc=0.25
     name: 000-006__design_uniform_markov_0.90__enrichment_ser_enrich__signal_loc0.25__method_all
@@ -118,7 +118,7 @@
     name: 000-006__design_uniform_markov_0.90__enrichment_ser_enrich__signal_loc2.5__method_all
   - alias: uniform | loc=3
     name: 000-006__design_uniform_markov_0.90__enrichment_ser_enrich__signal_loc3__method_all
-000-007:
+uniform-scale:
   collections:
   - alias: uniform | scale=0.25
     name: 000-007__design_uniform_markov_0.90__enrichment_ser_enrich__signal_scale0.25__method_all
