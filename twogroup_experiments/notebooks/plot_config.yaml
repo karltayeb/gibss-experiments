@@ -1,3 +1,171 @@
+001__gaussian_loc_low:
+  collections:
+  - alias: gaussian ρ=0.00 | loc low
+    name: 001-000__design_gaussian_markov_0.00__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: gaussian ρ=0.50 | loc low
+    name: 001-001__design_gaussian_markov_0.50__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: gaussian ρ=0.80 | loc low
+    name: 001-002__design_gaussian_markov_0.80__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: gaussian ρ=0.90 | loc low
+    name: 001-003__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: gaussian ρ=0.95 | loc low
+    name: 001-004__design_gaussian_markov_0.95__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: gaussian ρ=0.99 | loc low
+    name: 001-005__design_gaussian_markov_0.99__enrichment_ser_enrich__signal_loc_low__method_all
+002__gaussian_loc_med:
+  collections:
+  - alias: gaussian ρ=0.00 | loc med
+    name: 002-000__design_gaussian_markov_0.00__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: gaussian ρ=0.50 | loc med
+    name: 002-001__design_gaussian_markov_0.50__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: gaussian ρ=0.80 | loc med
+    name: 002-002__design_gaussian_markov_0.80__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: gaussian ρ=0.90 | loc med
+    name: 002-003__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: gaussian ρ=0.95 | loc med
+    name: 002-004__design_gaussian_markov_0.95__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: gaussian ρ=0.99 | loc med
+    name: 002-005__design_gaussian_markov_0.99__enrichment_ser_enrich__signal_loc_med__method_all
+003__gaussian_loc_high:
+  collections:
+  - alias: gaussian ρ=0.00 | loc high
+    name: 003-000__design_gaussian_markov_0.00__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: gaussian ρ=0.50 | loc high
+    name: 003-001__design_gaussian_markov_0.50__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: gaussian ρ=0.80 | loc high
+    name: 003-002__design_gaussian_markov_0.80__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: gaussian ρ=0.90 | loc high
+    name: 003-003__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: gaussian ρ=0.95 | loc high
+    name: 003-004__design_gaussian_markov_0.95__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: gaussian ρ=0.99 | loc high
+    name: 003-005__design_gaussian_markov_0.99__enrichment_ser_enrich__signal_loc_high__method_all
+004__uniform_loc_low:
+  collections:
+  - alias: uniform ρ=0.00 | loc low
+    name: 004-000__design_uniform_markov_0.00__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: uniform ρ=0.50 | loc low
+    name: 004-001__design_uniform_markov_0.50__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: uniform ρ=0.80 | loc low
+    name: 004-002__design_uniform_markov_0.80__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: uniform ρ=0.90 | loc low
+    name: 004-003__design_uniform_markov_0.90__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: uniform ρ=0.95 | loc low
+    name: 004-004__design_uniform_markov_0.95__enrichment_ser_enrich__signal_loc_low__method_all
+  - alias: uniform ρ=0.99 | loc low
+    name: 004-005__design_uniform_markov_0.99__enrichment_ser_enrich__signal_loc_low__method_all
+005__uniform_loc_med:
+  collections:
+  - alias: uniform ρ=0.00 | loc med
+    name: 005-000__design_uniform_markov_0.00__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: uniform ρ=0.50 | loc med
+    name: 005-001__design_uniform_markov_0.50__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: uniform ρ=0.80 | loc med
+    name: 005-002__design_uniform_markov_0.80__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: uniform ρ=0.90 | loc med
+    name: 005-003__design_uniform_markov_0.90__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: uniform ρ=0.95 | loc med
+    name: 005-004__design_uniform_markov_0.95__enrichment_ser_enrich__signal_loc_med__method_all
+  - alias: uniform ρ=0.99 | loc med
+    name: 005-005__design_uniform_markov_0.99__enrichment_ser_enrich__signal_loc_med__method_all
+006__uniform_loc_high:
+  collections:
+  - alias: uniform ρ=0.00 | loc high
+    name: 006-000__design_uniform_markov_0.00__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: uniform ρ=0.50 | loc high
+    name: 006-001__design_uniform_markov_0.50__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: uniform ρ=0.80 | loc high
+    name: 006-002__design_uniform_markov_0.80__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: uniform ρ=0.90 | loc high
+    name: 006-003__design_uniform_markov_0.90__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: uniform ρ=0.95 | loc high
+    name: 006-004__design_uniform_markov_0.95__enrichment_ser_enrich__signal_loc_high__method_all
+  - alias: uniform ρ=0.99 | loc high
+    name: 006-005__design_uniform_markov_0.99__enrichment_ser_enrich__signal_loc_high__method_all
+007__gaussian_scale_low:
+  collections:
+  - alias: gaussian ρ=0.00 | scale low
+    name: 007-000__design_gaussian_markov_0.00__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: gaussian ρ=0.50 | scale low
+    name: 007-001__design_gaussian_markov_0.50__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: gaussian ρ=0.80 | scale low
+    name: 007-002__design_gaussian_markov_0.80__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: gaussian ρ=0.90 | scale low
+    name: 007-003__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: gaussian ρ=0.95 | scale low
+    name: 007-004__design_gaussian_markov_0.95__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: gaussian ρ=0.99 | scale low
+    name: 007-005__design_gaussian_markov_0.99__enrichment_ser_enrich__signal_scale_low__method_all
+008__gaussian_scale_med:
+  collections:
+  - alias: gaussian ρ=0.00 | scale med
+    name: 008-000__design_gaussian_markov_0.00__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: gaussian ρ=0.50 | scale med
+    name: 008-001__design_gaussian_markov_0.50__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: gaussian ρ=0.80 | scale med
+    name: 008-002__design_gaussian_markov_0.80__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: gaussian ρ=0.90 | scale med
+    name: 008-003__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: gaussian ρ=0.95 | scale med
+    name: 008-004__design_gaussian_markov_0.95__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: gaussian ρ=0.99 | scale med
+    name: 008-005__design_gaussian_markov_0.99__enrichment_ser_enrich__signal_scale_med__method_all
+009__gaussian_scale_high:
+  collections:
+  - alias: gaussian ρ=0.00 | scale high
+    name: 009-000__design_gaussian_markov_0.00__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: gaussian ρ=0.50 | scale high
+    name: 009-001__design_gaussian_markov_0.50__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: gaussian ρ=0.80 | scale high
+    name: 009-002__design_gaussian_markov_0.80__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: gaussian ρ=0.90 | scale high
+    name: 009-003__design_gaussian_markov_0.90__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: gaussian ρ=0.95 | scale high
+    name: 009-004__design_gaussian_markov_0.95__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: gaussian ρ=0.99 | scale high
+    name: 009-005__design_gaussian_markov_0.99__enrichment_ser_enrich__signal_scale_high__method_all
+010__uniform_scale_low:
+  collections:
+  - alias: uniform ρ=0.00 | scale low
+    name: 010-000__design_uniform_markov_0.00__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: uniform ρ=0.50 | scale low
+    name: 010-001__design_uniform_markov_0.50__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: uniform ρ=0.80 | scale low
+    name: 010-002__design_uniform_markov_0.80__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: uniform ρ=0.90 | scale low
+    name: 010-003__design_uniform_markov_0.90__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: uniform ρ=0.95 | scale low
+    name: 010-004__design_uniform_markov_0.95__enrichment_ser_enrich__signal_scale_low__method_all
+  - alias: uniform ρ=0.99 | scale low
+    name: 010-005__design_uniform_markov_0.99__enrichment_ser_enrich__signal_scale_low__method_all
+011__uniform_scale_med:
+  collections:
+  - alias: uniform ρ=0.00 | scale med
+    name: 011-000__design_uniform_markov_0.00__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: uniform ρ=0.50 | scale med
+    name: 011-001__design_uniform_markov_0.50__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: uniform ρ=0.80 | scale med
+    name: 011-002__design_uniform_markov_0.80__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: uniform ρ=0.90 | scale med
+    name: 011-003__design_uniform_markov_0.90__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: uniform ρ=0.95 | scale med
+    name: 011-004__design_uniform_markov_0.95__enrichment_ser_enrich__signal_scale_med__method_all
+  - alias: uniform ρ=0.99 | scale med
+    name: 011-005__design_uniform_markov_0.99__enrichment_ser_enrich__signal_scale_med__method_all
+012__uniform_scale_high:
+  collections:
+  - alias: uniform ρ=0.00 | scale high
+    name: 012-000__design_uniform_markov_0.00__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: uniform ρ=0.50 | scale high
+    name: 012-001__design_uniform_markov_0.50__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: uniform ρ=0.80 | scale high
+    name: 012-002__design_uniform_markov_0.80__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: uniform ρ=0.90 | scale high
+    name: 012-003__design_uniform_markov_0.90__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: uniform ρ=0.95 | scale high
+    name: 012-004__design_uniform_markov_0.95__enrichment_ser_enrich__signal_scale_high__method_all
+  - alias: uniform ρ=0.99 | scale high
+    name: 012-005__design_uniform_markov_0.99__enrichment_ser_enrich__signal_scale_high__method_all
 c4-loc:
   collections:
   - alias: c4 | loc=1

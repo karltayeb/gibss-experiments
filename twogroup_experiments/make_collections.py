@@ -68,6 +68,28 @@ INCLUDE_THRESHOLDS = [0.0, 1.0, 2.0, 3.0, 4.0]
 
 TARGET_DESIGNS = ["c4", "hallmark", "gaussian_markov_0.90", "uniform_markov_0.90"]
 
+GAUSSIAN_DESIGNS = [
+    "gaussian_markov_0.00",
+    "gaussian_markov_0.50",
+    "gaussian_markov_0.80",
+    "gaussian_markov_0.90",
+    "gaussian_markov_0.95",
+    "gaussian_markov_0.99",
+]
+UNIFORM_DESIGNS = [
+    "uniform_markov_0.00",
+    "uniform_markov_0.50",
+    "uniform_markov_0.80",
+    "uniform_markov_0.90",
+    "uniform_markov_0.95",
+    "uniform_markov_0.99",
+]
+CORRELATION_DESIGNS = GAUSSIAN_DESIGNS + UNIFORM_DESIGNS
+
+# correlation index: design → sub-prefix (000–005)
+_CORR_IDX: dict[str, str] = {d: f"{i:03d}" for i, d in enumerate(GAUSSIAN_DESIGNS)}
+_CORR_IDX.update({d: f"{i:03d}" for i, d in enumerate(UNIFORM_DESIGNS)})
+
 _method_mask = (
     pl.col("is_oracle")
     | (~pl.col("is_oracle") & ~pl.col("is_thresholded"))
@@ -173,6 +195,59 @@ for design, loc_prefix, scale_prefix in _PREFIXED:
                 enrichment="ser_enrich",
                 signal=f"scale{row['scale']:g}",
                 prefix=scale_prefix,
+            ),
+            COLLECTIONS_DIR,
+            manifest,
+        )
+
+
+# ── Correlation sweep collections (001-012) ───────────────────────────────────
+#
+# Prefix scheme (outer-inner):
+#   001: gaussian loc low    002: gaussian loc med    003: gaussian loc high
+#   004: uniform  loc low    005: uniform  loc med    006: uniform  loc high
+#   007: gaussian scale low  008: gaussian scale med  009: gaussian scale high
+#   010: uniform  scale low  011: uniform  scale med  012: uniform  scale high
+#
+# Sub-prefix (inner): 000=0.00, 001=0.50, 002=0.80, 003=0.90, 004=0.95, 005=0.99
+#
+# Bucket filters:
+#   loc:   low  loc < 1    med  1 ≤ loc < 2    high  loc ≥ 2
+#   scale: low  scale ≤ 0.5   med  1 ≤ scale ≤ 2   high  scale ≥ 3
+
+_CORR_SWEEP = [
+    # (outer_prefix, design_list, family, bucket_label, bucket_filter)
+    ("001", GAUSSIAN_DESIGNS, "loc",   "low",  pl.col("loc") < 1),
+    ("002", GAUSSIAN_DESIGNS, "loc",   "med",  (pl.col("loc") >= 1) & (pl.col("loc") < 2)),
+    ("003", GAUSSIAN_DESIGNS, "loc",   "high", pl.col("loc") >= 2),
+    ("004", UNIFORM_DESIGNS,  "loc",   "low",  pl.col("loc") < 1),
+    ("005", UNIFORM_DESIGNS,  "loc",   "med",  (pl.col("loc") >= 1) & (pl.col("loc") < 2)),
+    ("006", UNIFORM_DESIGNS,  "loc",   "high", pl.col("loc") >= 2),
+    ("007", GAUSSIAN_DESIGNS, "scale", "low",  pl.col("scale") <= 0.5),
+    ("008", GAUSSIAN_DESIGNS, "scale", "med",  (pl.col("scale") >= 1) & (pl.col("scale") <= 2)),
+    ("009", GAUSSIAN_DESIGNS, "scale", "high", pl.col("scale") >= 3),
+    ("010", UNIFORM_DESIGNS,  "scale", "low",  pl.col("scale") <= 0.5),
+    ("011", UNIFORM_DESIGNS,  "scale", "med",  (pl.col("scale") >= 1) & (pl.col("scale") <= 2)),
+    ("012", UNIFORM_DESIGNS,  "scale", "high", pl.col("scale") >= 3),
+]
+
+for outer, designs, family, bucket, bucket_filter in _CORR_SWEEP:
+    _family_filter = (pl.col("loc") != 0) if family == "loc" else (pl.col("loc") == 0)
+    for design in designs:
+        inner = _CORR_IDX[design]
+        write_collection(
+            df.filter(
+                (pl.col("design") == design)
+                & (pl.col("enrichment") == "ser_enrich")
+                & _family_filter
+                & bucket_filter
+                & _method_mask
+            ),
+            collection_name(
+                design=design,
+                enrichment="ser_enrich",
+                signal=f"{family}_{bucket}",
+                prefix=f"{outer}-{inner}",
             ),
             COLLECTIONS_DIR,
             manifest,
