@@ -241,11 +241,11 @@ def alias_cell(collection_table, set_dirty, active_config):
         for i, name in enumerate(_selected)
     }
 
-    _controls_defaults: dict = {} if _cfg is None else _cfg["data"].get("controls", {})
+    _settings_defaults: dict = {} if _cfg is None else _cfg["data"].get("settings", {})
     _initial = {
         "selected": _selected,
         "aliases": {n: _default_alias(n) for n in _selected},
-        "controls": _controls_defaults,
+        "settings": _settings_defaults,
     }
 
     def _apply(_):
@@ -256,7 +256,7 @@ def alias_cell(collection_table, set_dirty, active_config):
                 key=lambda n: _parse_order(_order_els[n].value),
             ),
             "aliases": {n: _alias_els[n].value for n in _selected},
-            "controls": _controls_defaults,
+            "settings": _settings_defaults,
         }
 
     apply_btn = mo.ui.button(label="Apply", on_click=_apply, value=_initial)
@@ -284,7 +284,7 @@ def apply_status_cell(apply_btn, dirty):
 
 
 @app.cell
-def config_save_cell(apply_btn, active_config):
+def config_save_cell(apply_btn, active_config, max_cs_size_slider, min_log_bf_slider):
     import yaml as _yaml
     _config_path = Path(__file__).parent / "plot_config.yaml"
     _cfg = active_config()
@@ -306,9 +306,12 @@ def config_save_cell(apply_btn, active_config):
             {"name": n, "alias": _settings["aliases"].get(n, n)}
             for n in _settings["selected"]
         ]
+        _saved_settings = dict(_settings.get("settings", {}))
+        _saved_settings["max_cs_size"] = max_cs_size_slider.value
+        _saved_settings["min_log_bf"] = min_log_bf_slider.value
         _existing[_name] = {
             "collections": _coll_entry,
-            "controls": _settings.get("controls", {}),
+            "settings": _saved_settings,
         }
         _config_path.write_text(_yaml.dump(_existing, default_flow_style=False, allow_unicode=True))
         return "saved"
@@ -370,7 +373,7 @@ def bundles_cell(collection_alias_root, apply_btn):
 @app.cell
 def controls_cell(combined_data, apply_btn):
     _method_metadata = combined_data["method_metadata"]
-    _controls_cfg: dict = apply_btn.value.get("controls", {})
+    _settings_cfg: dict = apply_btn.value.get("settings", {})
 
     _all_thresholds = sorted(
         _method_metadata.filter(pl.col("threshold").is_not_null())["threshold"]
@@ -379,21 +382,21 @@ def controls_cell(combined_data, apply_btn):
     )
     threshold_dropdown = mo.ui.dropdown(
         options=_all_thresholds,
-        value=_controls_cfg.get("threshold", _all_thresholds[0] if _all_thresholds else None),
+        value=_settings_cfg.get("threshold", _all_thresholds[0] if _all_thresholds else None),
         label="threshold",
     )
 
     _all_families = sorted(_method_metadata["method_family"].unique().to_list())
     method_family_multiselect = mo.ui.multiselect(
         options=_all_families,
-        value=_controls_cfg.get("method_families", _all_families),
+        value=_settings_cfg.get("method_families", _all_families),
         label="method family",
     )
 
     _all_L = sorted(_method_metadata["L"].unique().to_list())
     L_dropdown = mo.ui.dropdown(
         options=_all_L,
-        value=_controls_cfg.get("L", _all_L[0] if _all_L else 1),
+        value=_settings_cfg.get("L", _all_L[0] if _all_L else 1),
         label="L",
     )
 
@@ -401,7 +404,7 @@ def controls_cell(combined_data, apply_btn):
         start=0.05,
         stop=1.0,
         step=0.05,
-        value=_controls_cfg.get("max_fdp", 0.5),
+        value=_settings_cfg.get("max_fdp", 0.5),
         label="max FDP",
     )
 
@@ -653,9 +656,10 @@ def cs_summary_heading_cell():
 
 
 @app.cell
-def histogram_controls_cell(combined_data):
+def histogram_controls_cell(combined_data, apply_btn):
     _cs_size_hist = combined_data["cs_size_histogram"]
     _ser_log_bf_hist = combined_data["ser_log_bf_histogram"]
+    _settings_cfg: dict = apply_btn.value.get("settings", {})
 
     _max_cs = (
         int(_cs_size_hist["cs_size"].max())
@@ -665,14 +669,14 @@ def histogram_controls_cell(combined_data):
     max_cs_size_slider = mo.ui.slider(
         start=1,
         stop=_max_cs,
-        value=_max_cs,
+        value=_settings_cfg.get("max_cs_size", _max_cs),
         step=1,
         label="max CS size",
     )
     min_log_bf_slider = mo.ui.slider(
         start=-1,
         stop=50,
-        value=2,
+        value=_settings_cfg.get("min_log_bf", 2),
         step=0.1,
         label="min log BF",
     )
