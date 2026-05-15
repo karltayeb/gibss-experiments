@@ -22,11 +22,29 @@ configfile: RESULTS_ROOT + "/manifest.json"
 COLLECTION_ALIASES = glob_wildcards(f"{RESULTS_ROOT}/collections/{{name}}/collection_spec.yaml").name
 
 
+wildcard_constraints:
+    batch_hash       = r"[0-9a-f]{64}",
+    method_hash      = r"[0-9a-f]{64}",
+    collection_alias = r"[A-Za-z0-9_\-\.]+",
+
+
+import yaml as _yaml
+
+def _load_all_collection_yamls() -> dict:
+    result = {}
+    for alias in COLLECTION_ALIASES:
+        path = f"{RESULTS_ROOT}/collections/{alias}/collection_spec.yaml"
+        with open(path) as fh:
+            result[alias] = _yaml.safe_load(fh)
+    return result
+
+_COLLECTION_YAMLS: dict = _load_all_collection_yamls()
+
+
 def load_collection_yaml(collection_alias: str) -> dict:
-    import yaml
-    path = f"{RESULTS_ROOT}/collections/{collection_alias}/collection_spec.yaml"
-    with open(path) as fh:
-        return yaml.safe_load(fh)
+    return _COLLECTION_YAMLS[collection_alias]
+
+
 BATCH_HASH_TO_INFO = config["batches"]
 METHOD_HASH_TO_INFO = config["method_specs"]
 
