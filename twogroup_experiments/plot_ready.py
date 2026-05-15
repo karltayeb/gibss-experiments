@@ -495,4 +495,9 @@ def load_plot_ready_collection(collection_root: Path) -> dict[str, pl.DataFrame]
         "cs_size_histogram",
         "ser_log_bf_histogram",
     ]
-    return {name: pl.read_parquet(plot_ready_dir / f"{name}.parquet") for name in names}
+    result = {}
+    for name in names:
+        path = plot_ready_dir / f"{name}.parquet"
+        if path.exists():
+            result[name] = pl.read_parquet(path)
+    return result
