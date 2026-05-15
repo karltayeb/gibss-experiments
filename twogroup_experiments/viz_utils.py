@@ -1202,7 +1202,7 @@ def make_cs_beta_trace_summary(
         cs_beta_trace
         .filter(pl.col("method").is_in(list(selected_methods)))
         .with_columns(
-            ((pl.col("cs_size") <= max_cs_size) & (pl.col("ser_log_bf") >= min_ser_log_bf)).alias("valid_cs")
+            (pl.col("cs_size") <= max_cs_size).alias("valid_cs")
         )
         .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
         .with_columns(
