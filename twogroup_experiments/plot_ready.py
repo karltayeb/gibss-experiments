@@ -380,7 +380,7 @@ def summarize_cs_beta_trace(
             })
     if not rows:
         return pl.DataFrame(schema=empty_schema)
-    return pl.from_dicts(rows).cast({"threshold": pl.Float64, "cs_size": pl.Int64, "ser_log_bf": pl.Float64})
+    return pl.from_dicts(rows, schema=empty_schema)
 
 
 def summarize_cs_size_histogram_observations(
