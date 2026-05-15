@@ -7,11 +7,9 @@ RESULTS_ROOT = "results"
 from core import HASH_KEY, rehydrate_node
 from utils import (
     attach_spec_metadata,
-    build_plot_data_frames,
     fit_batch_method,
     simulate_batch,
     symlink_output,
-    symlink_plot_data_outputs,
     write_parquet,
     write_text,
     write_yaml,
@@ -74,39 +72,6 @@ rule fit_twogroup_experiment_batch_method:
         write_yaml(method_spec_node, output.method_spec)
 
 
-rule twogroup_experiments_plot_data:
-    input:
-        simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-        fits=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
-    output:
-        pip_threshold_plot_data=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/pip_threshold_plot_data.parquet",
-        causal_pip_plot_data=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/causal_pip_plot_data.parquet",
-        cs_component_plot_data=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/cs_component_plot_data.parquet",
-        cs_truth_plot_data=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/cs_truth_plot_data.parquet",
-    run:
-        batch_info = BATCH_HASH_TO_INFO[wildcards.batch_hash]
-        method_spec_node = METHOD_HASH_TO_INFO[wildcards.method_hash]
-        fits_df = attach_spec_metadata(
-            pl.read_parquet(input.fits),
-            method_spec_node=method_spec_node,
-            simulation_spec_node=batch_info["simulation_spec"],
-        )
-        plot_frames = build_plot_data_frames(
-            fits_df,
-            pl.read_parquet(input.simulations),
-        )
-        metadata_columns = {
-            "batch_hash": wildcards.batch_hash,
-            "batch_name": batch_info["name"],
-            "simulation_name": batch_info["simulation_spec"]["fields"]["name"],
-        }
-        for output_key, path_text in output.items():
-            frame_key = output_key.removesuffix(".parquet")
-            df = plot_frames[frame_key].with_columns(
-                *(pl.lit(value).alias(name) for name, value in metadata_columns.items())
-            )
-            write_parquet(df, path_text)
-
 
 rule materialize_twogroup_experiment_collection_alias:
     input:
@@ -142,19 +107,6 @@ rule materialize_twogroup_experiment_collection_alias:
             for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
             for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
         ],
-        # plot_data=lambda wildcards: [
-        #     path
-        #     for batch in config["collections"][wildcards.collection_alias]["batches"]
-        #     for method_spec in config["collections"][wildcards.collection_alias][
-        #         "method_specs"
-        #     ]
-        #     for path in (
-        #         f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/pip_threshold_plot_data.parquet",
-        #         f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/causal_pip_plot_data.parquet",
-        #         f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/cs_component_plot_data.parquet",
-        #         f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/cs_truth_plot_data.parquet",
-        #     )
-        # ],
     output:
         batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
         batches_dir=directory(f"{RESULTS_ROOT}/collections/{{collection_alias}}/batches"),
@@ -197,10 +149,6 @@ rule materialize_twogroup_experiment_collection_alias:
                 symlink_output(
                     f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/fits.parquet",
                     str(method_root / "fits.parquet"),
-                )
-                symlink_plot_data_outputs(
-                    f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}",
-                    method_root,
                 )
 
 
