@@ -1303,6 +1303,10 @@ def render_cs_dot_summary_chart(
                     legend_labels.append(trow["method_display"])
                     seen_labels.add(trow["method_display"])
 
+        for ci, _ in enumerate(collection_names):
+            if ci % 2 == 1:
+                ax.axvspan(ci - 0.5, ci + 0.5, color="lightgrey", alpha=0.35, zorder=0, linewidth=0)
+
         if metric_col == "coverage":
             ax.axhline(y=selected_beta, color="black", linestyle="--", linewidth=1.0)
 
