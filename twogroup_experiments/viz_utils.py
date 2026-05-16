@@ -1305,16 +1305,18 @@ def render_cs_dot_summary_chart(
         ax.set_xlim(-0.5, len(collection_names) - 0.5)
 
     annotation = f"β={selected_beta:.2f}  |  max_cs={max_cs_size}  |  min_log_bf={min_ser_log_bf:.1f}"
-    fig.legend(
+    leg = fig.legend(
         legend_handles,
         legend_labels,
-        loc="upper right",
+        loc="center left",
+        bbox_to_anchor=(1.01, 0.5),
         frameon=False,
         fontsize=8,
         title=annotation,
         title_fontsize=7,
     )
     fig.tight_layout()
+    fig.subplots_adjust(right=0.82)
     return fig
 
 
