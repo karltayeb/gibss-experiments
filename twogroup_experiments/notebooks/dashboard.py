@@ -651,6 +651,50 @@ def causal_pip_cell(combined_data, foreground_methods):
 
 
 @app.cell(hide_code=True)
+def causal_rank_heading_cell():
+    mo.md("""
+    ## Mean Causal Rank
+    """)
+    return
+
+
+@app.cell
+def causal_rank_cell(combined_data, foreground_methods):
+    _cs_beta = combined_data.get("cs_beta_trace", pl.DataFrame())
+    _method_meta = combined_data["method_metadata"]
+
+    _method_order = (
+        _method_meta.filter(pl.col("method").is_in(foreground_methods))
+        .select("method", "is_thresholded")
+        .unique()
+        .sort(["is_thresholded", "method"])["method"]
+        .to_list()
+    )
+
+    if _cs_beta.is_empty():
+        causal_rank_chart = viz_utils.make_placeholder_chart("No CS beta trace data")
+    else:
+        _rank_summary = viz_utils.make_causal_rank_summary(
+            _cs_beta,
+            _method_meta,
+            selected_methods=set(foreground_methods),
+        )
+        if _rank_summary.is_empty():
+            causal_rank_chart = viz_utils.make_placeholder_chart("No causal rank data")
+        else:
+            causal_rank_chart = viz_utils.render_causal_rank_chart(
+                _rank_summary,
+                facet=True,
+                legend_outside=True,
+                square_axes=True,
+                method_order=_method_order,
+            )
+
+    causal_rank_chart
+    return
+
+
+@app.cell(hide_code=True)
 def cs_summary_heading_cell():
     mo.md("""
     ## Credible Set Summary

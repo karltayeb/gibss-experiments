@@ -742,6 +742,142 @@ def render_causal_pip_chart(
     return fig
 
 
+def make_causal_rank_summary(
+    cs_beta_trace: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+) -> pl.DataFrame:
+    """Mean causal rank per (collection_name, method, threshold).
+
+    Causal rank = minimum cs_size where covered=True for a sample.
+    Computed from cs_beta_trace — no extra snakemake output required.
+    """
+    empty_schema = {
+        "simulation_name": pl.String,
+        "method": pl.String,
+        "threshold": pl.Float64,
+        "method_display": pl.String,
+        "method_display_base": pl.String,
+        "mean_causal_rank": pl.Float64,
+    }
+    if cs_beta_trace.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    meta = method_metadata.select(
+        "method", "threshold", "method_display", "method_display_base", "is_thresholded"
+    )
+    per_sample = (
+        cs_beta_trace
+        .filter(pl.col("method").is_in(list(selected_methods)) & pl.col("covered"))
+        .group_by("collection_name", "sample_id", "method", "threshold")
+        .agg(pl.col("cs_size").min().alias("causal_rank"))
+    )
+    if per_sample.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+    return (
+        per_sample
+        .group_by("collection_name", "method", "threshold")
+        .agg(pl.col("causal_rank").mean().alias("mean_causal_rank"))
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(pl.col("collection_name").alias("simulation_name"))
+        .sort("simulation_name", "method_display", "threshold")
+    )
+
+
+def _plot_causal_rank_on_ax(
+    ax: "plt.Axes",
+    panel_df: pl.DataFrame,
+    *,
+    title: str,
+    method_order: list[str] | None = None,
+) -> None:
+    _all = set(x for x in panel_df.get_column("method").unique().to_list() if x is not None)
+    _methods = [m for m in method_order if m in _all] if method_order is not None else sorted(_all)
+    _nothresh_idx = 0
+    for method_name in _methods:
+        method_df = panel_df.filter(pl.col("method") == method_name)
+        color = method_color(method_name)
+        label = method_df["method_display_base"][0]
+        if method_df["threshold"].is_null().all():
+            y_val = float(method_df["mean_causal_rank"].mean())
+            ls = _NOTHRESH_LINESTYLES[_nothresh_idx % len(_NOTHRESH_LINESTYLES)]
+            ax.axhline(y=y_val, color=color, linestyle=ls, linewidth=1.5, label=label)
+            _nothresh_idx += 1
+        else:
+            method_df = method_df.sort("threshold")
+            ax.plot(
+                method_df["threshold"].drop_nulls().to_numpy(),
+                method_df["mean_causal_rank"].to_numpy(),
+                marker="o",
+                color=color,
+                label=label,
+            )
+    ax.set_xlabel("Threshold")
+    ax.set_ylim(bottom=1)
+    ax.set_title(title, fontsize=11)
+
+
+def render_causal_rank_chart(
+    causal_rank_summary: pl.DataFrame,
+    *,
+    facet: bool,
+    title: str | None = None,
+    legend_outside: bool = False,
+    square_axes: bool = False,
+    method_order: list[str] | None = None,
+):
+    if causal_rank_summary.is_empty():
+        return make_placeholder_chart("No causal rank data")
+    theme = base_chart_theme()
+
+    if facet:
+        simulations = sorted(
+            x for x in causal_rank_summary.get_column("simulation_name").unique().to_list() if x is not None
+        )
+        n_cols = len(simulations)
+        _legend_w = 2.0
+        _fig_w = theme["width"] * n_cols + _legend_w
+        _plot_frac = (theme["width"] * n_cols) / _fig_w
+        fig, axes = plt.subplots(1, n_cols, figsize=(_fig_w, theme["height"]), squeeze=False)
+        for col_idx, sim_name in enumerate(simulations):
+            _plot_causal_rank_on_ax(
+                axes[0, col_idx],
+                causal_rank_summary.filter(pl.col("simulation_name") == sim_name),
+                title=sim_name,
+                method_order=method_order,
+            )
+        axes[0, 0].set_ylabel("Mean causal rank")
+        handles, labels = axes[0, 0].get_legend_handles_labels()
+        if handles:
+            fig.legend(handles, labels, frameon=False, fontsize=8,
+                       loc="center left", bbox_to_anchor=(_plot_frac + 0.02, 0.5))
+            fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+        else:
+            fig.tight_layout()
+        return fig
+    else:
+        _h = theme["height"]
+        _w = _h * 2.2 if square_axes else theme["width"] * 1.6
+        fig, ax = plt.subplots(figsize=(_w, _h))
+        if square_axes:
+            ax.set_box_aspect(1)
+        _plot_causal_rank_on_ax(
+            ax, causal_rank_summary,
+            title=title if title is not None else "Aggregate",
+            method_order=method_order,
+        )
+        ax.set_ylabel("Mean causal rank")
+        handles, labels = ax.get_legend_handles_labels()
+        if handles:
+            if legend_outside:
+                ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), borderaxespad=0, frameon=False, fontsize=8)
+            else:
+                ax.legend(frameon=False)
+        fig.tight_layout()
+        return fig
+
+
 def explode_cs_component_beta_rows(cs_component_plot_data: pl.DataFrame) -> pl.DataFrame:
     if cs_component_plot_data.is_empty():
         return cs_component_plot_data
