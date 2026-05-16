@@ -1223,6 +1223,101 @@ def make_cs_beta_trace_summary(
     )
 
 
+def render_cs_dot_summary_chart(
+    summary: pl.DataFrame,
+    *,
+    collection_names: list[str],
+    selected_beta: float,
+    max_cs_size: int,
+    min_ser_log_bf: float,
+) -> "plt.Figure":
+    """Grouped dot plot: X=collection, dots per method, 3 metric subplots in one row."""
+    if summary.is_empty():
+        return make_placeholder_chart("No CS beta trace data")
+
+    beta_df = summary.filter(pl.col("beta") == selected_beta)
+    if beta_df.is_empty():
+        return make_placeholder_chart(f"No data at β={selected_beta:.2f}")
+
+    theme = base_chart_theme()
+    metrics = [("power", "Power"), ("coverage", "Coverage"), ("cs_size", "CS Size")]
+    fig, axes = plt.subplots(
+        1, len(metrics),
+        figsize=(theme["width"] * len(metrics), theme["height"]),
+        squeeze=False,
+    )
+    axes = axes[0]
+
+    method_order = (
+        beta_df.select("method", "method_display", "is_thresholded")
+        .unique()
+        .sort(["is_thresholded", "method_display"])
+        ["method_display"].to_list()
+    )
+    n_methods = len(method_order)
+    offsets = np.linspace(-0.35, 0.35, n_methods) if n_methods > 1 else np.array([0.0])
+    method_offset = {m: float(offsets[i]) for i, m in enumerate(method_order)}
+    coll_to_x = {c: i for i, c in enumerate(collection_names)}
+
+    legend_handles = []
+    legend_labels = []
+    seen_labels: set[str] = set()
+
+    for col_idx, (metric_col, metric_title) in enumerate(metrics):
+        ax = axes[col_idx]
+        for trow in (
+            beta_df.select("method", "method_display", "threshold", "is_thresholded")
+            .unique()
+            .sort(["is_thresholded", "method_display"])
+            .iter_rows(named=True)
+        ):
+            thresh_filter = (
+                pl.col("threshold").is_null() if trow["threshold"] is None
+                else (pl.col("threshold") == trow["threshold"])
+            )
+            m_df = beta_df.filter(
+                (pl.col("method") == trow["method"]) & thresh_filter
+            )
+            color = method_color(trow["method"])
+            offset = method_offset.get(trow["method_display"], 0.0)
+            xs, ys = [], []
+            for coll in collection_names:
+                coll_row = m_df.filter(pl.col("collection_name") == coll)
+                if coll_row.is_empty():
+                    continue
+                val = coll_row[metric_col][0]
+                if val is not None:
+                    xs.append(coll_to_x[coll] + offset)
+                    ys.append(float(val))
+            if xs:
+                sc = ax.scatter(xs, ys, color=color, s=60, zorder=3, label=trow["method_display"])
+                if trow["method_display"] not in seen_labels:
+                    legend_handles.append(sc)
+                    legend_labels.append(trow["method_display"])
+                    seen_labels.add(trow["method_display"])
+
+        if metric_col == "coverage":
+            ax.axhline(y=selected_beta, color="black", linestyle="--", linewidth=1.0)
+
+        ax.set_title(metric_title)
+        ax.set_xticks(list(range(len(collection_names))))
+        ax.set_xticklabels(collection_names, rotation=45, ha="right", fontsize=7)
+        ax.set_xlim(-0.5, len(collection_names) - 0.5)
+
+    annotation = f"β={selected_beta:.2f}  |  max_cs={max_cs_size}  |  min_log_bf={min_ser_log_bf:.1f}"
+    fig.legend(
+        legend_handles,
+        legend_labels,
+        loc="upper right",
+        frameon=False,
+        fontsize=8,
+        title=annotation,
+        title_fontsize=7,
+    )
+    fig.tight_layout()
+    return fig
+
+
 def render_cs_beta_trace_chart(
     summary: pl.DataFrame,
     *,

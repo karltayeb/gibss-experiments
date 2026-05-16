@@ -284,7 +284,7 @@ def apply_status_cell(apply_btn, dirty):
 
 
 @app.cell
-def config_save_cell(apply_btn, active_config, max_cs_size_slider, min_log_bf_slider):
+def config_save_cell(apply_btn, active_config, max_cs_size_slider, min_log_bf_slider, cs_beta_slider):
     import yaml as _yaml
     _config_path = Path(__file__).parent / "plot_config.yaml"
     _cfg = active_config()
@@ -309,6 +309,7 @@ def config_save_cell(apply_btn, active_config, max_cs_size_slider, min_log_bf_sl
         _saved_settings = dict(_settings.get("settings", {}))
         _saved_settings["max_cs_size"] = max_cs_size_slider.value
         _saved_settings["min_log_bf"] = min_log_bf_slider.value
+        _saved_settings["cs_beta"] = cs_beta_slider.value
         _existing[_name] = {
             "collections": _coll_entry,
             "settings": _saved_settings,
@@ -683,8 +684,16 @@ def histogram_controls_cell(combined_data, apply_btn):
         label="min log BF",
     )
 
-    mo.hstack([max_cs_size_slider, min_log_bf_slider])
-    return max_cs_size_slider, min_log_bf_slider
+    cs_beta_slider = mo.ui.slider(
+        start=0.50,
+        stop=0.99,
+        step=0.01,
+        value=_settings_cfg.get("cs_beta", 0.95),
+        label="nominal coverage (β)",
+    )
+
+    mo.hstack([max_cs_size_slider, min_log_bf_slider, cs_beta_slider])
+    return max_cs_size_slider, min_log_bf_slider, cs_beta_slider
 
 
 @app.cell
@@ -693,82 +702,34 @@ def cs_summary_cell(
     foreground_methods,
     max_cs_size_slider,
     min_log_bf_slider,
+    cs_beta_slider,
     selected_threshold,
 ):
-    import matplotlib.pyplot as _plt
-
-    _cs_raw = combined_data["cs_raw"]
+    _cs_beta = combined_data.get("cs_beta_trace", pl.DataFrame())
     _method_meta = combined_data["method_metadata"]
     _collection_names = combined_data["collection_names"]
     _max_cs = max_cs_size_slider.value
     _min_lbf = min_log_bf_slider.value
+    _selected_beta = round(cs_beta_slider.value, 2)
 
-    _raw = (
-        _cs_raw.filter(
-            pl.col("method").is_in(foreground_methods)
-            & (pl.col("threshold").is_null() | (pl.col("threshold") == selected_threshold))
-        )
-        .join(
-            _method_meta.select("method", "threshold", "method_display", "is_thresholded"),
-            on=["method", "threshold"],
-            how="left",
-            nulls_equal=True,
-        )
-        .with_columns(
-            ((pl.col("cs_size") <= _max_cs) & (pl.col("ser_log_bf") >= _min_lbf)).alias("valid_cs")
-        )
-    )
-
-    _agg = (
-        _raw.group_by("collection_name", "method", "threshold", "method_display", "is_thresholded")
-        .agg(
-            (pl.col("causal_in_cs") & pl.col("valid_cs")).cast(pl.Float64).mean().alias("Power"),
-            pl.when(pl.col("valid_cs")).then(pl.col("causal_in_cs").cast(pl.Float64)).mean().alias("Coverage"),
-            pl.when(pl.col("valid_cs")).then(pl.col("cs_size").cast(pl.Float64)).mean().alias("CS Size"),
-        )
-    )
-
-    if _agg.is_empty():
-        cs_summary_chart = viz_utils.make_placeholder_chart("No CS summary data")
+    if _cs_beta.is_empty():
+        cs_summary_chart = viz_utils.make_placeholder_chart("No CS beta trace data")
     else:
-        _theme = viz_utils.base_chart_theme()
-        _metrics = ["Power", "Coverage", "CS Size"]
-        _n_coll = len(_collection_names)
-        _h = _theme["height"]
-        _fig, _axes = _plt.subplots(
-            _n_coll,
-            len(_metrics),
-            figsize=(_h * len(_metrics), _h * _n_coll),
-            squeeze=False,
+        _summary = viz_utils.make_cs_beta_trace_summary(
+            _cs_beta,
+            _method_meta,
+            selected_methods=set(foreground_methods),
+            selected_threshold=selected_threshold,
+            max_cs_size=_max_cs,
+            min_ser_log_bf=_min_lbf,
         )
-        for _row_idx, _coll in enumerate(_collection_names):
-            _coll_agg = _agg.filter(pl.col("collection_name") == _coll)
-            _method_order = (
-                _coll_agg.select("method_display", "is_thresholded")
-                .unique()
-                .drop_nulls(subset=["method_display"])
-                .sort(["is_thresholded", "method_display"])["method_display"]
-                .to_list()
-            )
-            for _col_idx, _metric in enumerate(_metrics):
-                _ax = _axes[_row_idx, _col_idx]
-                for _i, _md in enumerate(_method_order):
-                    _row_df = _coll_agg.filter(pl.col("method_display") == _md)
-                    if _row_df.height > 0:
-                        _color = viz_utils.method_color(_row_df["method"][0])
-                        _val = _row_df[_metric][0]
-                        if _val is not None:
-                            _ax.scatter([_i], [_val], color=_color, zorder=3, s=60, label=_md)
-                if _row_idx == 0:
-                    _ax.set_title(_metric)
-                _ax.set_xticks(range(len(_method_order)))
-                _ax.set_xticklabels(_method_order, rotation=45, ha="right", fontsize=7)
-                _ax.set_xlim(-0.5, len(_method_order) - 0.5)
-                _ax.set_box_aspect(1)
-                if _col_idx == 0:
-                    _ax.set_ylabel(_coll, fontsize=10, fontweight='bold')
-        _fig.tight_layout()
-        cs_summary_chart = _fig
+        cs_summary_chart = viz_utils.render_cs_dot_summary_chart(
+            _summary,
+            collection_names=_collection_names,
+            selected_beta=_selected_beta,
+            max_cs_size=_max_cs,
+            min_ser_log_bf=_min_lbf,
+        )
 
     cs_summary_chart
     return
