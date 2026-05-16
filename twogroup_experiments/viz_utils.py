@@ -1244,9 +1244,13 @@ def render_cs_dot_summary_chart(
 
     theme = base_chart_theme()
     metrics = [("power", "Power"), ("coverage", "Coverage"), ("cs_size", "CS Size")]
+    _legend_w = 2.5
+    _plot_w = theme["width"] * len(metrics)
+    _fig_w = _plot_w + _legend_w
+    _plot_frac = _plot_w / _fig_w
     fig, axes = plt.subplots(
         1, len(metrics),
-        figsize=(theme["width"] * len(metrics), theme["height"]),
+        figsize=(_fig_w, theme["height"]),
         squeeze=False,
     )
     axes = axes[0]
@@ -1307,18 +1311,20 @@ def render_cs_dot_summary_chart(
         ax.set_xticklabels(collection_names, rotation=45, ha="right", fontsize=7)
         ax.set_xlim(-0.5, len(collection_names) - 0.5)
 
-    fig.subplots_adjust(right=0.78)
-    fig.legend(
-        legend_handles, legend_labels,
-        loc="upper left", bbox_to_anchor=(0.80, 0.98),
-        frameon=False, fontsize=8,
-    )
     settings_text = f"β = {selected_beta:.2f}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.95),
+        )
     fig.text(
-        0.80, 0.35, settings_text,
+        _plot_frac + 0.03, 0.30, settings_text,
         fontsize=7, verticalalignment="top",
         bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
+        transform=fig.transFigure,
     )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
     return fig
 
 
@@ -1339,9 +1345,13 @@ def render_cs_beta_trace_chart(
     metrics = [("power", "Power"), ("cs_size", "CS Size"), ("coverage", "Coverage")]
     theme = base_chart_theme()
     n_rows = len(collection_names)
+    _legend_w = 2.5
+    _plot_w = theme["width"] * len(metrics)
+    _fig_w = _plot_w + _legend_w
+    _plot_frac = _plot_w / _fig_w
     fig, axes = plt.subplots(
         n_rows, len(metrics),
-        figsize=(theme["width"] * len(metrics), theme["height"] * n_rows),
+        figsize=(_fig_w, theme["height"] * n_rows),
         squeeze=False,
     )
 
@@ -1393,17 +1403,18 @@ def render_cs_beta_trace_chart(
             if col_idx == 0:
                 ax.set_ylabel(coll_name, fontsize=9, fontweight="bold")
 
-    fig.subplots_adjust(right=0.78)
     if legend_handles:
         fig.legend(
             legend_handles, legend_labels,
-            loc="upper left", bbox_to_anchor=(0.80, 0.98),
             frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
         )
     settings_text = f"threshold = {selected_threshold:g}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
     fig.text(
-        0.80, 0.35, settings_text,
+        _plot_frac + 0.03, 0.35, settings_text,
         fontsize=7, verticalalignment="top",
         bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
+        transform=fig.transFigure,
     )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
     return fig
