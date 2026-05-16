@@ -1239,6 +1239,9 @@ def render_cs_dot_summary_chart(
     if beta_df.is_empty():
         return make_placeholder_chart(f"No data at β={selected_beta:.2f}")
 
+    # only show selected threshold for thresholded methods
+    beta_df = beta_df.filter(pl.col("is_selected_threshold"))
+
     theme = base_chart_theme()
     metrics = [("power", "Power"), ("coverage", "Coverage"), ("cs_size", "CS Size")]
     fig, axes = plt.subplots(
@@ -1290,7 +1293,7 @@ def render_cs_dot_summary_chart(
                     xs.append(coll_to_x[coll] + offset)
                     ys.append(float(val))
             if xs:
-                sc = ax.scatter(xs, ys, color=color, s=60, zorder=3, label=trow["method_display"])
+                sc = ax.scatter(xs, ys, color=color, s=60, zorder=3)
                 if trow["method_display"] not in seen_labels:
                     legend_handles.append(sc)
                     legend_labels.append(trow["method_display"])
@@ -1304,19 +1307,18 @@ def render_cs_dot_summary_chart(
         ax.set_xticklabels(collection_names, rotation=45, ha="right", fontsize=7)
         ax.set_xlim(-0.5, len(collection_names) - 0.5)
 
-    annotation = f"β={selected_beta:.2f}  |  max_cs={max_cs_size}  |  min_log_bf={min_ser_log_bf:.1f}"
-    leg = fig.legend(
-        legend_handles,
-        legend_labels,
-        loc="center left",
-        bbox_to_anchor=(1.01, 0.5),
-        frameon=False,
-        fontsize=8,
-        title=annotation,
-        title_fontsize=7,
+    fig.subplots_adjust(right=0.78)
+    fig.legend(
+        legend_handles, legend_labels,
+        loc="upper left", bbox_to_anchor=(0.80, 0.98),
+        frameon=False, fontsize=8,
     )
-    fig.tight_layout()
-    fig.subplots_adjust(right=0.82)
+    settings_text = f"β = {selected_beta:.2f}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
+    fig.text(
+        0.80, 0.35, settings_text,
+        fontsize=7, verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
+    )
     return fig
 
 
@@ -1325,9 +1327,14 @@ def render_cs_beta_trace_chart(
     *,
     collection_names: list[str],
     selected_threshold: float,
+    max_cs_size: int,
+    min_ser_log_bf: float,
 ) -> "plt.Figure":
     if summary.is_empty():
         return make_placeholder_chart("No CS beta trace data")
+
+    # only show selected threshold for thresholded methods
+    summary = summary.filter(pl.col("is_selected_threshold"))
 
     metrics = [("power", "Power"), ("cs_size", "CS Size"), ("coverage", "Coverage")]
     theme = base_chart_theme()
@@ -1338,12 +1345,16 @@ def render_cs_beta_trace_chart(
         squeeze=False,
     )
 
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
     for row_idx, coll_name in enumerate(collection_names):
         coll_df = summary.filter(pl.col("collection_name") == coll_name)
         for col_idx, (metric_col, metric_title) in enumerate(metrics):
             ax = axes[row_idx, col_idx]
             trace_labels = (
-                coll_df.select("method", "threshold", "method_display", "is_thresholded", "is_selected_threshold")
+                coll_df.select("method", "threshold", "method_display", "is_thresholded")
                 .unique()
                 .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
             )
@@ -1352,39 +1363,47 @@ def render_cs_beta_trace_chart(
                     pl.col("threshold").is_null() if trow["threshold"] is None
                     else (pl.col("threshold") == trow["threshold"])
                 )
-                trace_df = (
-                    coll_df.filter(
-                        (pl.col("method") == trow["method"]) & thresh_filter
-                    ).sort("beta")
-                )
+                trace_df = coll_df.filter(
+                    (pl.col("method") == trow["method"]) & thresh_filter
+                ).sort("beta")
                 if trace_df.is_empty():
                     continue
-                is_selected = bool(trow["is_selected_threshold"])
                 color = method_color(trow["method"])
                 if trow["is_thresholded"]:
-                    label = f"{trow['method_display']} (@{trow['threshold']:g})" if is_selected else "_nolegend_"
+                    label = f"{trow['method_display']} (@{trow['threshold']:g})"
                 else:
-                    label = trow["method_display"] if is_selected else "_nolegend_"
-                ax.plot(
+                    label = trow["method_display"]
+                line, = ax.plot(
                     trace_df["beta"].to_numpy(),
                     trace_df[metric_col].to_numpy(),
                     color=color,
-                    linewidth=2.0 if is_selected else 0.8,
-                    alpha=1.0 if is_selected else 0.15,
-                    label=label,
+                    linewidth=2.0,
                 )
+                if label not in seen_labels:
+                    legend_handles.append(line)
+                    legend_labels.append(label)
+                    seen_labels.add(label)
             if metric_col == "coverage":
                 betas = coll_df["beta"].unique().sort().to_numpy()
                 if len(betas):
-                    ax.plot(betas, betas, color="black", linestyle="--", linewidth=1.0, label="y=x (ideal)")
+                    ax.plot(betas, betas, color="black", linestyle="--", linewidth=1.0)
             if row_idx == 0:
                 ax.set_title(metric_title)
             ax.set_xlabel("Nominal coverage (β)")
             if col_idx == 0:
                 ax.set_ylabel(coll_name, fontsize=9, fontweight="bold")
 
-    handles, labels = axes[0, 0].get_legend_handles_labels()
-    if handles:
-        fig.legend(handles, labels, loc="center right", frameon=False, fontsize=8)
-    fig.tight_layout()
+    fig.subplots_adjust(right=0.78)
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            loc="upper left", bbox_to_anchor=(0.80, 0.98),
+            frameon=False, fontsize=8,
+        )
+    settings_text = f"threshold = {selected_threshold:g}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
+    fig.text(
+        0.80, 0.35, settings_text,
+        fontsize=7, verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
+    )
     return fig

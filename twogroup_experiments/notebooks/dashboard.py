@@ -883,6 +883,8 @@ def cs_beta_trace_cell(
             _beta_summary,
             collection_names=_collection_names,
             selected_threshold=selected_threshold,
+            max_cs_size=max_cs_size_slider.value,
+            min_ser_log_bf=min_log_bf_slider.value,
         )
 
     cs_beta_trace_chart
