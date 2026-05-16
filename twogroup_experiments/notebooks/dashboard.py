@@ -387,9 +387,11 @@ def controls_cell(combined_data, apply_btn):
     )
 
     _all_families = sorted(_method_metadata["method_family"].unique().to_list())
+    _saved_families = _settings_cfg.get("method_families", _all_families)
+    _valid_families = [f for f in _saved_families if f in _all_families]
     method_family_multiselect = mo.ui.multiselect(
         options=_all_families,
-        value=_settings_cfg.get("method_families", _all_families),
+        value=_valid_families if _valid_families else _all_families,
         label="method family",
     )
 
@@ -669,7 +671,7 @@ def histogram_controls_cell(combined_data, apply_btn):
     max_cs_size_slider = mo.ui.slider(
         start=1,
         stop=_max_cs,
-        value=_settings_cfg.get("max_cs_size", _max_cs),
+        value=min(_settings_cfg.get("max_cs_size", _max_cs), _max_cs),
         step=1,
         label="max CS size",
     )
