@@ -450,9 +450,9 @@ def expand_causal_pip_from_compact(
         return pl.DataFrame(schema={
             "collection_name": pl.String, "simulation_name": pl.String,
             "method": pl.String, "method_display": pl.String,
-            "causal_pip": pl.Float64,
+            "method_display_base": pl.String, "causal_pip": pl.Float64,
         })
-    meta = method_metadata.select("method", "threshold", "method_display")
+    meta = method_metadata.select("method", "threshold", "method_display", "method_display_base")
     rows = []
     for row in pip_plot_data.iter_rows(named=True):
         for pip in row["causal_pips"]:
@@ -806,7 +806,7 @@ def render_power_fdp_chart(
 
 def make_causal_pip_summary(plot_data: pl.DataFrame) -> pl.DataFrame:
     return (
-        plot_data.group_by("simulation_name", "method", "method_display", "threshold")
+        plot_data.group_by("simulation_name", "method", "method_display", "method_display_base", "threshold")
         .agg(pl.col("causal_pip").mean().alias("mean_causal_pip"))
         .sort("simulation_name", "method_display", "threshold")
     )
