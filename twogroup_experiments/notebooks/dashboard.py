@@ -360,13 +360,8 @@ def bundles_cell(collection_alias_root, apply_btn):
     combined_data = {
         "method_metadata": combined_method_metadata,
         "collection_names": [_aliases.get(n, n) for n in _selected],
-        "pip_calibration": _tag("pip_calibration"),
-        "power_fdp": _tag("power_fdp"),
-        "causal_pip": _tag("causal_pip"),
-        "cs_raw": _tag("cs_raw"),
-        "cs_beta_trace": _tag("cs_beta_trace"),
-        "cs_size_histogram": _tag("cs_size_histogram"),
-        "ser_log_bf_histogram": _tag("ser_log_bf_histogram"),
+        "pip_plot_data": _tag("pip_plot_data"),
+        "cs_plot_data": _tag("cs_plot_data"),
     }
     return (combined_data,)
 
@@ -473,37 +468,17 @@ def pip_calibration_heading_cell():
 def pip_calibration_cell(
     combined_data,
     foreground_methods,
-    threshold_dropdown,
 ):
-    _pip_cal = combined_data["pip_calibration"]
+    _pip_plot = combined_data["pip_plot_data"]
     _method_meta = combined_data["method_metadata"]
-    _selected_threshold = threshold_dropdown.value
-
-    _enriched = (
-        _pip_cal.filter(
-            pl.col("threshold").is_null()
-            | (pl.col("threshold") == _selected_threshold)
-        )
-        .filter(pl.col("method").is_in(foreground_methods))
-        .join(
-            _method_meta.select("method", "threshold", "method_display", "method_family"),
-            on=["method", "threshold"],
-            how="left",
-            nulls_equal=True,
-        )
-        .with_columns(
-            pl.col("method_display").alias("series_label"),
-            pl.col("collection_name").alias("simulation_name"),
-        )
-    )
-
-    if _enriched.is_empty():
+    _pip_filtered = _pip_plot.filter(pl.col("method").is_in(foreground_methods))
+    _pip_cal_summary = viz_utils.expand_pip_calibration_from_compact(_pip_filtered, _method_meta)
+    if _pip_cal_summary.is_empty():
         pip_cal_chart = viz_utils.make_placeholder_chart("No PIP calibration data")
     else:
         pip_cal_chart = viz_utils.render_pip_calibration(
-            _enriched, facet_by_simulation=True
+            _pip_cal_summary, facet_by_simulation=True
         )
-
     pip_cal_chart
     return
 
@@ -524,74 +499,27 @@ def power_fdp_cell(
     max_fdp_slider,
     selected_threshold,
 ):
-    _power_fdp = combined_data["power_fdp"]
+    _pip_plot = combined_data["pip_plot_data"]
     _method_meta = combined_data["method_metadata"]
-    _meta_cols = ["method", "threshold", "method_display", "method_family", "method_label_base", "is_thresholded"]
-
-    _fg_df = (
-        _power_fdp.filter(
-            pl.col("method").is_in(foreground_methods)
-            & (pl.col("threshold").is_null() | (pl.col("threshold") == selected_threshold))
-        )
-        .join(
-            _method_meta.select(_meta_cols),
-            on=["method", "threshold"],
-            how="left",
-            nulls_equal=True,
-        )
-        .with_columns(pl.lit(True).alias("is_selected_threshold"))
+    _all_methods = set(foreground_methods) | {m for m, _ in background_methods_thresholds}
+    _power_fdp = viz_utils.expand_power_fdp_from_compact(
+        _pip_plot, _method_meta,
+        selected_methods=_all_methods,
+        selected_threshold=selected_threshold,
+        show_background_threshold_traces=bool(background_methods_thresholds),
     )
-
-    _bg_pairs_df = (
-        pl.DataFrame(
-            list(background_methods_thresholds),
-            schema={"method": pl.String, "threshold": pl.Float64},
-            orient="row",
-        )
-        if background_methods_thresholds
-        else pl.DataFrame(schema={"method": pl.String, "threshold": pl.Float64})
-    )
-    if not _bg_pairs_df.is_empty():
-        _bg_df = (
-            _power_fdp.join(
-                _bg_pairs_df, on=["method", "threshold"], how="inner", nulls_equal=True
-            )
-            .join(
-                _method_meta.select(_meta_cols),
-                on=["method", "threshold"],
-                how="left",
-                nulls_equal=True,
-            )
-            .with_columns(pl.lit(False).alias("is_selected_threshold"))
-        )
-        _combined = pl.concat([_fg_df, _bg_df])
-    else:
-        _combined = _fg_df
-
-    _combined = _combined.with_columns(
-        pl.when(pl.col("is_thresholded"))
-        .then(pl.format("{} (@{})", pl.col("method_label_base"), pl.col("threshold")))
-        .otherwise(pl.col("method_display"))
-        .alias("trace_label"),
-        pl.when(pl.col("is_selected_threshold"))
-        .then(pl.col("method_display"))
-        .otherwise(None)
-        .alias("legend_label"),
-        pl.col("collection_name").alias("simulation_name"),
-    )
-
-    if _combined.is_empty():
+    if _power_fdp.is_empty():
         power_fdp_chart = viz_utils.make_placeholder_chart("No power/FDP data")
     else:
+        _summary = viz_utils.make_power_fdp_summary(_power_fdp)
         power_fdp_chart = viz_utils.render_power_fdp_chart(
-            _combined,
+            _summary,
             facet=True,
             max_fdp=max_fdp_slider.value,
             fixed_y_scale=True,
             legend_outside=True,
             square_axes=True,
         )
-
     power_fdp_chart
     return
 
@@ -606,27 +534,10 @@ def causal_pip_heading_cell():
 
 @app.cell
 def causal_pip_cell(combined_data, foreground_methods):
-    _causal_pip = combined_data["causal_pip"]
+    _pip_plot = combined_data["pip_plot_data"]
     _method_meta = combined_data["method_metadata"]
-
-    _enriched = (
-        _causal_pip.filter(pl.col("method").is_in(foreground_methods))
-        .join(
-            _method_meta.select(
-                "method",
-                "threshold",
-                "method_display",
-                "method_display_base",
-                "method_family",
-                "is_thresholded",
-            ),
-            on=["method", "threshold"],
-            how="left",
-            nulls_equal=True,
-        )
-        .with_columns(pl.col("collection_name").alias("simulation_name"))
-    )
-
+    _causal_pip = viz_utils.expand_causal_pip_from_compact(_pip_plot, _method_meta)
+    _filtered = _causal_pip.filter(pl.col("method").is_in(foreground_methods))
     _method_order = (
         _method_meta.filter(pl.col("method").is_in(foreground_methods))
         .select("method", "is_thresholded")
@@ -634,18 +545,17 @@ def causal_pip_cell(combined_data, foreground_methods):
         .sort(["is_thresholded", "method"])["method"]
         .to_list()
     )
-
-    if _enriched.is_empty():
+    if _filtered.is_empty():
         causal_pip_chart = viz_utils.make_placeholder_chart("No causal PIP data")
     else:
+        _summary = viz_utils.make_causal_pip_summary(_filtered)
         causal_pip_chart = viz_utils.render_causal_pip_chart(
-            _enriched,
+            _summary,
             facet=True,
             legend_outside=True,
             square_axes=True,
             method_order=_method_order,
         )
-
     causal_pip_chart
     return
 
@@ -660,7 +570,7 @@ def causal_rank_heading_cell():
 
 @app.cell
 def causal_rank_cell(combined_data, foreground_methods):
-    _cs_beta = combined_data.get("cs_beta_trace", pl.DataFrame())
+    _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     _method_meta = combined_data["method_metadata"]
 
     _method_order = (
@@ -671,11 +581,11 @@ def causal_rank_cell(combined_data, foreground_methods):
         .to_list()
     )
 
-    if _cs_beta.is_empty():
+    if _cs_data.is_empty():
         causal_rank_chart = viz_utils.make_placeholder_chart("No CS beta trace data")
     else:
         _rank_summary = viz_utils.make_causal_rank_summary(
-            _cs_beta,
+            _cs_data,
             _method_meta,
             selected_methods=set(foreground_methods),
         )
@@ -704,13 +614,15 @@ def cs_summary_heading_cell():
 
 @app.cell
 def histogram_controls_cell(combined_data, apply_btn):
-    _cs_size_hist = combined_data["cs_size_histogram"]
-    _ser_log_bf_hist = combined_data["ser_log_bf_histogram"]
+    _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     _settings_cfg: dict = apply_btn.value.get("settings", {})
 
+    _BETA_095_IDX = 45  # CS_BETA_GRID[45] == 0.95
     _max_cs = (
-        int(_cs_size_hist["cs_size"].max())
-        if not _cs_size_hist.is_empty()
+        int(_cs_data.with_columns(
+            pl.col("cs_sizes").list.get(_BETA_095_IDX).alias("_cs95")
+        )["_cs95"].max())
+        if not _cs_data.is_empty()
         else 100
     )
     max_cs_size_slider = mo.ui.slider(
@@ -749,18 +661,18 @@ def cs_summary_cell(
     cs_beta_slider,
     selected_threshold,
 ):
-    _cs_beta = combined_data.get("cs_beta_trace", pl.DataFrame())
+    _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     _method_meta = combined_data["method_metadata"]
     _collection_names = combined_data["collection_names"]
     _max_cs = max_cs_size_slider.value
     _min_lbf = min_log_bf_slider.value
     _selected_beta = round(cs_beta_slider.value, 2)
 
-    if _cs_beta.is_empty():
+    if _cs_data.is_empty():
         cs_summary_chart = viz_utils.make_placeholder_chart("No CS beta trace data")
     else:
         _summary = viz_utils.make_cs_beta_trace_summary(
-            _cs_beta,
+            _cs_data,
             _method_meta,
             selected_methods=set(foreground_methods),
             selected_threshold=selected_threshold,
@@ -797,7 +709,22 @@ def cs_power_fdp_cell(
     import matplotlib.pyplot as _plt2
     import numpy as _np
 
-    _cs_raw2 = combined_data["cs_raw"]
+    _BETA_095_IDX = 45  # CS_BETA_GRID[45] == 0.95
+    _cs_data2 = combined_data.get("cs_plot_data", pl.DataFrame())
+    if not _cs_data2.is_empty():
+        _cs_raw2 = _cs_data2.with_columns(
+            pl.col("cs_sizes").list.get(_BETA_095_IDX).alias("cs_size"),
+            pl.when(pl.col("rank_of_causal").list.len() > 0)
+            .then(pl.col("rank_of_causal").list.min() < pl.col("cs_sizes").list.get(_BETA_095_IDX))
+            .otherwise(False)
+            .alias("causal_in_cs"),
+        ).select("collection_name", "sample_id", "method", "threshold", "l", "cs_size", "causal_in_cs", "ser_log_bf")
+    else:
+        _cs_raw2 = pl.DataFrame(schema={
+            "collection_name": pl.String, "sample_id": pl.String,
+            "method": pl.String, "threshold": pl.Float64,
+            "l": pl.Int64, "cs_size": pl.Int64, "causal_in_cs": pl.Boolean, "ser_log_bf": pl.Float64,
+        })
     _method_meta2 = combined_data["method_metadata"]
     _collection_names2 = combined_data["collection_names"]
 
@@ -908,15 +835,15 @@ def cs_beta_trace_cell(
     threshold_dropdown,
     selected_threshold,
 ):
-    _cs_beta = combined_data["cs_beta_trace"]
+    _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     _method_meta = combined_data["method_metadata"]
     _collection_names = combined_data["collection_names"]
 
-    if _cs_beta.is_empty():
+    if _cs_data.is_empty():
         cs_beta_trace_chart = viz_utils.make_placeholder_chart("No CS beta trace data")
     else:
         _beta_summary = viz_utils.make_cs_beta_trace_summary(
-            _cs_beta,
+            _cs_data,
             _method_meta,
             selected_methods=set(foreground_methods),
             selected_threshold=selected_threshold,
@@ -954,8 +881,22 @@ def histograms_cell(
     import matplotlib.pyplot as _plt3
     import numpy as _np3
 
-    _cs_size_hist = combined_data["cs_size_histogram"]
-    _ser_log_bf_hist = combined_data["ser_log_bf_histogram"]
+    _BETA_095_IDX = 45  # CS_BETA_GRID[45] == 0.95
+    _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    if not _cs_data.is_empty():
+        _cs_size_hist = _cs_data.with_columns(
+            pl.col("cs_sizes").list.get(_BETA_095_IDX).alias("cs_size")
+        ).select("collection_name", "method", "threshold", "l", "cs_size", "ser_log_bf")
+        _ser_log_bf_hist = _cs_data.select("collection_name", "method", "threshold", "l", "ser_log_bf")
+    else:
+        _cs_size_hist = pl.DataFrame(schema={
+            "collection_name": pl.String, "method": pl.String, "threshold": pl.Float64,
+            "l": pl.Int64, "cs_size": pl.Int64, "ser_log_bf": pl.Float64,
+        })
+        _ser_log_bf_hist = pl.DataFrame(schema={
+            "collection_name": pl.String, "method": pl.String, "threshold": pl.Float64,
+            "l": pl.Int64, "ser_log_bf": pl.Float64,
+        })
     _method_meta = combined_data["method_metadata"]
     _collection_names = combined_data["collection_names"]
     _selected_threshold = threshold_dropdown.value
