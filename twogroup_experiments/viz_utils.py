@@ -743,15 +743,15 @@ def render_causal_pip_chart(
 
 
 def make_causal_rank_summary(
-    cs_beta_trace: pl.DataFrame,
+    cs_plot_data: pl.DataFrame,
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
 ) -> pl.DataFrame:
     """Mean causal rank per (collection_name, method, threshold).
 
-    Causal rank = minimum cs_size where covered=True for a sample.
-    Computed from cs_beta_trace — no extra snakemake output required.
+    Causal rank = minimum cs_size required to include any causal = min(rank_of_causal) + 1.
+    Takes the minimum across all L effects per sample, then averages across samples.
     """
     empty_schema = {
         "simulation_name": pl.String,
@@ -761,20 +761,27 @@ def make_causal_rank_summary(
         "method_display_base": pl.String,
         "mean_causal_rank": pl.Float64,
     }
-    if cs_beta_trace.is_empty():
+    if cs_plot_data.is_empty():
         return pl.DataFrame(schema=empty_schema)
 
     meta = method_metadata.select(
         "method", "threshold", "method_display", "method_display_base", "is_thresholded"
     )
-    per_sample = (
-        cs_beta_trace
-        .filter(pl.col("method").is_in(list(selected_methods)) & pl.col("covered"))
-        .group_by("collection_name", "sample_id", "method", "threshold")
-        .agg(pl.col("cs_size").min().alias("causal_rank"))
+    per_effect = (
+        cs_plot_data
+        .filter(pl.col("method").is_in(list(selected_methods)))
+        .filter(pl.col("rank_of_causal").list.len() > 0)
+        .with_columns(
+            (pl.col("rank_of_causal").list.min() + 1).alias("causal_rank")
+        )
     )
-    if per_sample.is_empty():
+    if per_effect.is_empty():
         return pl.DataFrame(schema=empty_schema)
+    per_sample = (
+        per_effect
+        .group_by("collection_name", "sample_id", "method", "threshold")
+        .agg(pl.col("causal_rank").min())
+    )
     return (
         per_sample
         .group_by("collection_name", "method", "threshold")
@@ -1310,8 +1317,49 @@ def render_cs_histograms(
     return fig
 
 
+def _expand_cs_to_beta_rows(cs_plot_data: pl.DataFrame) -> pl.DataFrame:
+    """Expand compact cs_plot_data to one row per (sample_id, method, threshold, l, beta).
+
+    covered = any causal in CS_l at this beta.
+    power = fraction of causals in CS_l at this beta.
+    """
+    from utils import CS_BETA_GRID
+
+    rows: list[dict] = []
+    for row in cs_plot_data.iter_rows(named=True):
+        ranks = row["rank_of_causal"]
+        n_causal = max(len(ranks), 1)
+        for beta, cs_size in zip(CS_BETA_GRID.tolist(), row["cs_sizes"]):
+            n_covered = sum(1 for r in ranks if r < cs_size)
+            rows.append({
+                "collection_name": row["collection_name"],
+                "sample_id": row["sample_id"],
+                "method": row["method"],
+                "threshold": row["threshold"],
+                "l": row["l"],
+                "beta": float(beta),
+                "cs_size": cs_size,
+                "covered": n_covered > 0,
+                "power": float(n_covered / n_causal),
+                "ser_log_bf": row["ser_log_bf"],
+            })
+    if not rows:
+        return pl.DataFrame(schema={
+            "collection_name": pl.String, "sample_id": pl.String,
+            "method": pl.String, "threshold": pl.Float64, "l": pl.Int64,
+            "beta": pl.Float64, "cs_size": pl.Int64, "covered": pl.Boolean,
+            "power": pl.Float64, "ser_log_bf": pl.Float64,
+        })
+    return pl.from_dicts(rows, schema={
+        "collection_name": pl.String, "sample_id": pl.String,
+        "method": pl.String, "threshold": pl.Float64, "l": pl.Int64,
+        "beta": pl.Float64, "cs_size": pl.Int64, "covered": pl.Boolean,
+        "power": pl.Float64, "ser_log_bf": pl.Float64,
+    })
+
+
 def make_cs_beta_trace_summary(
-    cs_beta_trace: pl.DataFrame,
+    cs_plot_data: pl.DataFrame,
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
@@ -1319,24 +1367,24 @@ def make_cs_beta_trace_summary(
     max_cs_size: int,
     min_ser_log_bf: float,
 ) -> pl.DataFrame:
-    """Summarize cs_beta_trace across all betas for each (collection_name, method, threshold, beta)."""
-    if cs_beta_trace.is_empty():
-        return pl.DataFrame(schema={
-            "collection_name": pl.String,
-            "method": pl.String,
-            "method_display": pl.String,
-            "threshold": pl.Float64,
-            "is_thresholded": pl.Boolean,
-            "is_selected_threshold": pl.Boolean,
-            "beta": pl.Float64,
-            "power": pl.Float64,
-            "coverage": pl.Float64,
-            "cs_size": pl.Float64,
-        })
+    """Summarize cs_plot_data across all betas for each (collection_name, method, threshold, beta)."""
+    empty_schema = {
+        "collection_name": pl.String, "method": pl.String, "method_display": pl.String,
+        "threshold": pl.Float64, "is_thresholded": pl.Boolean,
+        "is_selected_threshold": pl.Boolean, "beta": pl.Float64,
+        "power": pl.Float64, "coverage": pl.Float64, "cs_size": pl.Float64,
+    }
+    if cs_plot_data.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
     meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+    expanded = _expand_cs_to_beta_rows(
+        cs_plot_data.filter(pl.col("method").is_in(list(selected_methods)))
+    )
+    if expanded.is_empty():
+        return pl.DataFrame(schema=empty_schema)
     filtered = (
-        cs_beta_trace
-        .filter(pl.col("method").is_in(list(selected_methods)))
+        expanded
         .with_columns(
             ((pl.col("cs_size") <= max_cs_size) & (pl.col("ser_log_bf") >= min_ser_log_bf)).alias("valid_cs")
         )
