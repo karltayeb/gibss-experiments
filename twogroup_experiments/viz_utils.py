@@ -308,6 +308,172 @@ def filter_selected_methods(plot_data: pl.DataFrame, selected_methods: set[str])
     return plot_data.filter(pl.col("method").is_in(list(selected_methods)))
 
 
+def expand_pip_calibration_from_compact(
+    pip_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+) -> pl.DataFrame:
+    """Expand pip_plot_data to per-bin rows for render_pip_calibration."""
+    if pip_plot_data.is_empty():
+        return pl.DataFrame(schema={
+            "collection_name": pl.String, "simulation_name": pl.String,
+            "method": pl.String, "method_display": pl.String,
+            "method_family": pl.String, "series_label": pl.String,
+            "pip_bin_index": pl.Int64, "pip_left": pl.Float64, "pip_right": pl.Float64,
+            "pip_mid": pl.Float64, "n_total": pl.Int64, "n_causal": pl.Int64,
+            "empirical_rate": pl.Float64,
+        })
+    meta = method_metadata.select(
+        "method", "threshold", "method_display", "method_display_base",
+        "method_label_base", "is_thresholded", "is_oracle",
+    ).with_columns(
+        pl.col("method_display").alias("series_label"),
+        pl.col("method_display_base").alias("method_family"),
+    )
+    rows = []
+    for row in pip_plot_data.iter_rows(named=True):
+        counts = row["pip_bin_counts"]
+        causal_counts = row["pip_bin_causal_counts"]
+        for b in range(20):
+            rows.append({
+                "collection_name": row.get("collection_name", ""),
+                "method": row["method"],
+                "threshold": row["threshold"],
+                "pip_bin_index": b,
+                "pip_left": b * 0.05,
+                "pip_right": (b + 1) * 0.05,
+                "pip_mid": (b + 0.5) * 0.05,
+                "n_total": counts[b],
+                "n_causal": causal_counts[b],
+            })
+    expanded = pl.from_dicts(rows, schema={
+        "collection_name": pl.String, "method": pl.String, "threshold": pl.Float64,
+        "pip_bin_index": pl.Int64, "pip_left": pl.Float64, "pip_right": pl.Float64,
+        "pip_mid": pl.Float64, "n_total": pl.Int64, "n_causal": pl.Int64,
+    })
+    return (
+        expanded
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .group_by(
+            "collection_name", "method", "method_display", "method_family",
+            "series_label", "pip_bin_index", "pip_left", "pip_right", "pip_mid",
+        )
+        .agg(pl.col("n_total").sum(), pl.col("n_causal").sum())
+        .with_columns(
+            pl.when(pl.col("n_total") > 0)
+            .then(pl.col("n_causal") / pl.col("n_total"))
+            .otherwise(None)
+            .alias("empirical_rate"),
+            pl.col("collection_name").alias("simulation_name"),
+        )
+        .sort("collection_name", "method_display", "pip_mid")
+    )
+
+
+def expand_power_fdp_from_compact(
+    pip_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_threshold: float,
+    show_background_threshold_traces: bool,
+) -> pl.DataFrame:
+    """Expand pip_plot_data to per-threshold rows for render_power_fdp_chart."""
+    _GRID = [0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 0.8, 0.9, 0.95, 0.99]
+
+    if pip_plot_data.is_empty():
+        return pl.DataFrame(schema={
+            "simulation_name": pl.String, "method": pl.String, "method_display": pl.String,
+            "trace_label": pl.String, "legend_label": pl.String,
+            "is_selected_threshold": pl.Boolean,
+            "pip_threshold": pl.Float64, "power": pl.Float64, "fdp": pl.Float64,
+        })
+    meta = method_metadata.select(
+        "method", "threshold", "method_display", "method_label_base", "is_thresholded",
+    )
+    rows = []
+    for row in pip_plot_data.iter_rows(named=True):
+        for t, power, fdp in zip(
+            _GRID, row["power_at_threshold"], row["fdp_at_threshold"]
+        ):
+            rows.append({
+                "collection_name": row.get("collection_name", ""),
+                "method": row["method"],
+                "threshold": row["threshold"],
+                "pip_threshold": float(t),
+                "power": power,
+                "fdp": fdp,
+            })
+    expanded = pl.from_dicts(rows, schema={
+        "collection_name": pl.String, "method": pl.String, "threshold": pl.Float64,
+        "pip_threshold": pl.Float64, "power": pl.Float64, "fdp": pl.Float64,
+    })
+    joined = (
+        expanded
+        .filter(pl.col("method").is_in(list(selected_methods)))
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(
+            (
+                ~pl.col("is_thresholded") | (pl.col("threshold") == selected_threshold)
+            ).alias("is_selected_threshold")
+        )
+    )
+    if not show_background_threshold_traces:
+        joined = joined.filter(pl.col("is_selected_threshold"))
+    return (
+        joined
+        .group_by(
+            "collection_name", "method", "method_display", "method_label_base",
+            "is_thresholded", "is_selected_threshold", "threshold", "pip_threshold",
+        )
+        .agg(pl.col("power").mean(), pl.col("fdp").mean())
+        .with_columns(
+            pl.col("collection_name").alias("simulation_name"),
+            pl.when(pl.col("is_thresholded"))
+            .then(pl.format("{} (@{})", pl.col("method_label_base"), pl.col("threshold")))
+            .otherwise(pl.col("method_display"))
+            .alias("trace_label"),
+            pl.when(pl.col("is_selected_threshold"))
+            .then(pl.col("method_display"))
+            .otherwise(None)
+            .alias("legend_label"),
+        )
+        .sort("simulation_name", "method_display", "pip_threshold")
+    )
+
+
+def expand_causal_pip_from_compact(
+    pip_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+) -> pl.DataFrame:
+    """Expand pip_plot_data to per-causal rows for render_causal_pip_chart."""
+    if pip_plot_data.is_empty():
+        return pl.DataFrame(schema={
+            "collection_name": pl.String, "simulation_name": pl.String,
+            "method": pl.String, "method_display": pl.String,
+            "causal_pip": pl.Float64,
+        })
+    meta = method_metadata.select("method", "threshold", "method_display")
+    rows = []
+    for row in pip_plot_data.iter_rows(named=True):
+        for pip in row["causal_pips"]:
+            rows.append({
+                "collection_name": row.get("collection_name", ""),
+                "method": row["method"],
+                "threshold": row["threshold"],
+                "causal_pip": float(pip),
+            })
+    expanded = pl.from_dicts(rows, schema={
+        "collection_name": pl.String, "method": pl.String,
+        "threshold": pl.Float64, "causal_pip": pl.Float64,
+    })
+    return (
+        expanded
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(pl.col("collection_name").alias("simulation_name"))
+        .sort("simulation_name", "method_display")
+    )
+
+
 def summarize_pip_calibration(plot_data: pl.DataFrame) -> pl.DataFrame:
     calibration_df = plot_data.with_columns(
         (pl.col("pip_threshold") * 20).floor().clip(0, 19).cast(pl.Int64).alias("pip_bin_index")
