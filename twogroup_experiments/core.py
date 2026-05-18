@@ -165,8 +165,8 @@ def _score(simulation: TwoGroupSimulation) -> np.ndarray:
     )
 
 
-def _extract_ser_struct(state: Any) -> dict[str, Any]:
-    effect = state.single_effects[0]
+def _extract_ser_struct(state: Any, l: int) -> dict[str, Any]:
+    effect = state.single_effects[l]
     return {
         "mu": _to_python(effect.mu),
         "var": _to_python(effect.var),
@@ -174,7 +174,7 @@ def _extract_ser_struct(state: Any) -> dict[str, Any]:
         "prior_variance": float(effect.prior_variance),
         "marginal_log_likelihood": float(effect.marginal_log_likelihood),
         "null_log_likelihood": float(effect.null_log_likelihood),
-        "ser_log_bf": float(np.asarray(state.ser_log_bayes_factor[0])),
+        "ser_log_bf": float(np.asarray(state.ser_log_bayes_factor[l])),
     }
 
 
@@ -202,10 +202,10 @@ def _extract_twogroup_state_struct(state: Any) -> dict[str, Any] | None:
 
 
 def _make_cs_struct(
-    state: Any, simulation: TwoGroupSimulation, coverage: float = 0.95
+    state: Any, simulation: TwoGroupSimulation, l: int, coverage: float = 0.95
 ) -> dict[str, Any]:
-    alpha = np.asarray(state.single_effects[0].alpha, dtype=float)
-    cs = tuple(int(idx) for idx in state.get_credible_sets(coverage=coverage)[0])
+    alpha = np.asarray(state.single_effects[l].alpha, dtype=float)
+    cs = tuple(int(idx) for idx in state.get_credible_sets(coverage=coverage)[l])
     top_feature = int(np.argmax(alpha))
     causal_indices = [int(idx) for idx in simulation.causal_indices]
     return {
@@ -221,11 +221,16 @@ def _make_cs_struct(
 def _make_fit_summary_struct(
     state: Any, simulation: TwoGroupSimulation, n_selected: int | None
 ) -> dict[str, Any]:
-    alpha = np.asarray(state.single_effects[0].alpha, dtype=float)
-    causal_alpha = alpha[np.asarray(simulation.causal_indices, dtype=int)]
+    n_effects = len(state.single_effects)
+    alphas = np.stack(
+        [np.asarray(state.single_effects[l].alpha, dtype=float) for l in range(n_effects)]
+    )
+    marginal_pip = 1.0 - np.prod(1.0 - alphas, axis=0)
+    causal_indices = np.asarray(simulation.causal_indices, dtype=int)
     return {
-        "causal_pip": float(np.max(causal_alpha)),
-        "max_pip": float(np.max(alpha)),
+        "marginal_pip": marginal_pip.tolist(),
+        "causal_pip": float(np.max(marginal_pip[causal_indices])),
+        "max_pip": float(np.max(marginal_pip)),
         "n_selected": None if n_selected is None else int(n_selected),
         "n_iter": int(state.n_iter),
         "converged": bool(state.converged),
@@ -266,15 +271,14 @@ def summarize_cox_method(
 ):
     del time_sign, threshold, L
     state = fit_obj["state"]
+    n_effects = len(state.single_effects)
     return {
         "threshold": fit_obj["threshold"],
-        "ser_posterior": _extract_ser_struct(state),
-        "credible_set": _make_cs_struct(state, simulation),
+        "single_effects": [_extract_ser_struct(state, l) for l in range(n_effects)],
+        "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_effects)],
         "family_state": _extract_family_state_struct(state),
         "two_group_state": _extract_twogroup_state_struct(state),
-        "fit_summary": _make_fit_summary_struct(
-            state, simulation, fit_obj["n_selected"]
-        ),
+        "fit_summary": _make_fit_summary_struct(state, simulation, fit_obj["n_selected"]),
     }
 
 
@@ -314,15 +318,14 @@ def summarize_logistic_method(
 ):
     del response_source, threshold, L
     state = fit_obj["state"]
+    n_effects = len(state.single_effects)
     return {
         "threshold": fit_obj["threshold"],
-        "ser_posterior": _extract_ser_struct(state),
-        "credible_set": _make_cs_struct(state, simulation),
+        "single_effects": [_extract_ser_struct(state, l) for l in range(n_effects)],
+        "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_effects)],
         "family_state": _extract_family_state_struct(state),
         "two_group_state": _extract_twogroup_state_struct(state),
-        "fit_summary": _make_fit_summary_struct(
-            state, simulation, fit_obj["n_selected"]
-        ),
+        "fit_summary": _make_fit_summary_struct(state, simulation, fit_obj["n_selected"]),
     }
 
 
@@ -354,15 +357,14 @@ def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1, L=1):
 def summarize_twogroup_method(fit_obj, simulation: TwoGroupSimulation, *, f1, L=1):
     del f1, L
     state = fit_obj["state"]
+    n_effects = len(state.single_effects)
     return {
         "threshold": fit_obj["threshold"],
-        "ser_posterior": _extract_ser_struct(state),
-        "credible_set": _make_cs_struct(state, simulation),
+        "single_effects": [_extract_ser_struct(state, l) for l in range(n_effects)],
+        "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_effects)],
         "family_state": _extract_family_state_struct(state),
         "two_group_state": _extract_twogroup_state_struct(state),
-        "fit_summary": _make_fit_summary_struct(
-            state, simulation, fit_obj["n_selected"]
-        ),
+        "fit_summary": _make_fit_summary_struct(state, simulation, fit_obj["n_selected"]),
     }
 
 
