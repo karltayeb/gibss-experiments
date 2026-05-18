@@ -340,6 +340,60 @@ def build_pip_plot_data(
     return pl.from_dicts(rows, schema=empty_schema)
 
 
+def build_cs_plot_data(
+    fits_df: pl.DataFrame,
+    sample_metadata: pl.DataFrame,
+) -> pl.DataFrame:
+    """One row per (sample_id, method, threshold, l). Arrays for CS sweep at each beta."""
+    from utils import CS_BETA_GRID
+
+    empty_schema = {
+        "sample_id": pl.String, "method": pl.String, "threshold": pl.Float64,
+        "l": pl.Int64, "ser_log_bf": pl.Float64,
+        "causal_indices": pl.List(pl.Int64), "rank_of_causal": pl.List(pl.Int64),
+        "mass_above_causal": pl.List(pl.Float64), "cs_sizes": pl.List(pl.Int64),
+    }
+    fits_with_sid = fits_df.join(
+        sample_metadata.select("sample_id", "batch_hash", "replicate"),
+        on=["batch_hash", "replicate"],
+        how="left",
+    )
+    rows: list[dict] = []
+    for row in fits_with_sid.iter_rows(named=True):
+        for l, effect in enumerate(row["single_effects"]):
+            alpha = np.asarray(effect["alpha"], dtype=float)
+            cs_struct = row["credible_sets"][l]
+            causal_indices = [int(ci) for ci in cs_struct["causal_indices"]]
+
+            order = np.argsort(-alpha)
+            cumulative = np.cumsum(alpha[order])
+            rank_of = {int(feat): rk for rk, feat in enumerate(order.tolist())}
+
+            rank_of_causal = [rank_of[ci] for ci in causal_indices]
+            mass_above_causal = [
+                float(cumulative[rk - 1]) if rk > 0 else 0.0
+                for rk in rank_of_causal
+            ]
+            cs_sizes = [
+                int(np.searchsorted(cumulative, float(beta), side="left") + 1)
+                for beta in CS_BETA_GRID
+            ]
+            rows.append({
+                "sample_id": row["sample_id"],
+                "method": row["method"],
+                "threshold": row["threshold"],
+                "l": l,
+                "ser_log_bf": float(effect["ser_log_bf"]),
+                "causal_indices": causal_indices,
+                "rank_of_causal": rank_of_causal,
+                "mass_above_causal": mass_above_causal,
+                "cs_sizes": cs_sizes,
+            })
+    if not rows:
+        return pl.DataFrame(schema=empty_schema)
+    return pl.from_dicts(rows, schema=empty_schema)
+
+
 def aggregate_power_fdp(per_sample: pl.DataFrame) -> pl.DataFrame:
     return (
         per_sample.group_by("method", "threshold", "pip_threshold")

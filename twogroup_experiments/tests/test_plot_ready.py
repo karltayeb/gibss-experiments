@@ -326,3 +326,36 @@ def test_build_pip_plot_data_causal_pips_correct():
     # replicate 1: alpha=[0.1, 0.8, 0.1], L=1, causal=0 → pip=0.1
     row1 = result.filter(pl.col("sample_id") == "batchA::1").row(0, named=True)
     assert abs(row1["causal_pips"][0] - 0.1) < 1e-9
+
+
+def test_build_cs_plot_data_schema():
+    from utils import CS_BETA_GRID
+
+    fits_df = _make_pip_fits_df()
+    sample_metadata = _make_sample_metadata()
+
+    result = plot_ready.build_cs_plot_data(fits_df, sample_metadata)
+
+    # 2 replicates × L=1 effect = 2 rows
+    assert result.height == 2
+    assert set(result.columns) == {
+        "sample_id", "method", "threshold", "l",
+        "ser_log_bf", "causal_indices", "rank_of_causal",
+        "mass_above_causal", "cs_sizes",
+    }
+    assert result["l"].dtype == pl.Int64
+    assert result["cs_sizes"].dtype == pl.List(pl.Int64)
+
+
+def test_build_cs_plot_data_cs_sizes_length():
+    from utils import CS_BETA_GRID
+
+    fits_df = _make_pip_fits_df()
+    sample_metadata = _make_sample_metadata()
+
+    result = plot_ready.build_cs_plot_data(fits_df, sample_metadata)
+
+    for row in result.iter_rows(named=True):
+        assert len(row["cs_sizes"]) == len(CS_BETA_GRID)
+        assert len(row["rank_of_causal"]) == len(row["causal_indices"])
+        assert len(row["mass_above_causal"]) == len(row["causal_indices"])
