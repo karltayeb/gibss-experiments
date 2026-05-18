@@ -212,7 +212,8 @@ def build_cs_plot_data(
     empty_schema = {
         "sample_id": pl.String, "method": pl.String, "threshold": pl.Float64,
         "l": pl.Int64, "ser_log_bf": pl.Float64,
-        "causal_indices": pl.List(pl.Int64), "rank_of_causal": pl.List(pl.Int64),
+        "causal_indices": pl.List(pl.Int64), "causal_alpha": pl.List(pl.Float64),
+        "rank_of_causal": pl.List(pl.Int64),
         "mass_above_causal": pl.List(pl.Float64), "cs_sizes": pl.List(pl.Int64),
     }
     fits_with_sid = fits_df.join(
@@ -231,6 +232,7 @@ def build_cs_plot_data(
             cumulative = np.cumsum(alpha[order])
             rank_of = {int(feat): rk for rk, feat in enumerate(order.tolist())}
 
+            causal_alpha = [float(alpha[ci]) for ci in causal_indices]
             rank_of_causal = [rank_of[ci] for ci in causal_indices]
             mass_above_causal = [
                 float(cumulative[rk - 1]) if rk > 0 else 0.0
@@ -247,6 +249,7 @@ def build_cs_plot_data(
                 "l": l,
                 "ser_log_bf": float(effect["ser_log_bf"]),
                 "causal_indices": causal_indices,
+                "causal_alpha": causal_alpha,
                 "rank_of_causal": rank_of_causal,
                 "mass_above_causal": mass_above_causal,
                 "cs_sizes": cs_sizes,

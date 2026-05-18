@@ -213,7 +213,7 @@ def test_build_cs_plot_data_schema():
     assert result.height == 2
     assert set(result.columns) == {
         "sample_id", "method", "threshold", "l",
-        "ser_log_bf", "causal_indices", "rank_of_causal",
+        "ser_log_bf", "causal_indices", "causal_alpha", "rank_of_causal",
         "mass_above_causal", "cs_sizes",
     }
     assert result["l"].dtype == pl.Int64
