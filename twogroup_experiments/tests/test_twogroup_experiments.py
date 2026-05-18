@@ -31,10 +31,8 @@ from utils import (
     attach_spec_metadata,
     BatchSpec,
     CollectionSpec,
-    build_plot_data_frames,
     fit_batch_method,
     manifest_dict,
-    symlink_plot_data_outputs,
     simulate_batch,
 )
 from viz2_metadata import (
@@ -279,128 +277,6 @@ def test_fit_batch_method_L5_has_5_effects():
     assert len(row["credible_sets"]) == 5
 
 
-def test_build_plot_data_frames_returns_expected_tables_and_shapes():
-    simulations_df = simulate_batch(_tiny_simulation_spec(), replicates=(0, 1))
-    fits_df = fit_batch_method(
-        _tiny_simulation_spec(),
-        method_spec=LOGISTIC_ORACLE,
-        replicates=(0, 1),
-    )
-
-    outputs = build_plot_data_frames(fits_df, simulations_df)
-
-    assert set(outputs) == {
-        "pip_threshold_plot_data",
-        "causal_pip_plot_data",
-        "cs_component_plot_data",
-        "cs_truth_plot_data",
-    }
-
-    pip_threshold = outputs["pip_threshold_plot_data"]
-    causal_pip = outputs["causal_pip_plot_data"]
-    cs_component = outputs["cs_component_plot_data"]
-    cs_truth = outputs["cs_truth_plot_data"]
-
-    assert pip_threshold["replicate"].n_unique() == 2
-    assert pip_threshold["pip_threshold"].n_unique() == 999
-    assert pip_threshold.shape[0] == 2 * 999
-    assert {
-        "selected_total",
-        "selected_causal",
-        "power",
-        "fdp",
-        "n_exact",
-        "n_causal_exact",
-    } <= set(pip_threshold.columns)
-
-    assert causal_pip.shape[0] == 2
-    assert {"causal_variable", "causal_pip", "max_pip"} <= set(causal_pip.columns)
-
-    assert cs_component.shape[0] == 2
-    assert {"component", "ordered_pips", "betas", "cs_sizes", "ser_log_bf"} <= set(
-        cs_component.columns
-    )
-    assert all(len(betas) == len(cs_sizes) for betas, cs_sizes in zip(cs_component["betas"], cs_component["cs_sizes"]))
-
-    assert cs_truth.shape[0] == 2
-    assert {"component", "causal_variable", "causal_rank", "betas", "covered"} <= set(
-        cs_truth.columns
-    )
-    assert all(len(betas) == len(covered) for betas, covered in zip(cs_truth["betas"], cs_truth["covered"]))
-
-
-def test_build_plot_data_frames_propagates_specs_to_all_outputs():
-    simulation_spec = _tiny_simulation_spec()
-    simulations_df = simulate_batch(simulation_spec, replicates=(0,))
-    method_spec = _logistic_threshold_method_spec(threshold=2.0, L=5)
-    fits_df = attach_spec_metadata(
-        fit_batch_method(
-            simulation_spec,
-            method_spec=method_spec,
-            replicates=(0,),
-        ),
-        method_spec_node=dehydrate_hashed(method_spec),
-        simulation_spec_node=dehydrate_hashed(simulation_spec),
-    )
-
-    plot_frames = build_plot_data_frames(fits_df, simulations_df)
-
-    for df in plot_frames.values():
-        assert {"method_spec", "simulation_spec"} <= set(df.columns)
-
-    row = plot_frames["pip_threshold_plot_data"].row(0, named=True)
-    method_spec = json.loads(row["method_spec"])
-    stored_simulation_spec = json.loads(row["simulation_spec"])
-    assert method_spec["fields"]["kwargs"]["L"] == 5
-    assert method_spec["fields"]["kwargs"]["threshold"] == 2.0
-    assert stored_simulation_spec["fields"]["name"] == simulation_spec.name
-
-
-def test_build_plot_data_frames_keeps_spec_columns_for_empty_outputs():
-    simulation_spec = _tiny_simulation_spec()
-    method_spec = _logistic_threshold_method_spec(threshold=2.0, L=5)
-    source_fits_df = attach_spec_metadata(
-        fit_batch_method(
-            simulation_spec,
-            method_spec=method_spec,
-            replicates=(0,),
-        ),
-        method_spec_node=dehydrate_hashed(method_spec),
-        simulation_spec_node=dehydrate_hashed(simulation_spec),
-    )
-    fits_df = source_fits_df.head(0)
-    simulations_df = simulate_batch(simulation_spec, replicates=(0,)).head(0)
-
-    plot_frames = build_plot_data_frames(fits_df, simulations_df)
-
-    for df in plot_frames.values():
-        assert {"method_spec", "simulation_spec"} <= set(df.columns)
-        assert df.height == 0
-        assert df.schema["method_spec"] == pl.String
-        assert df.schema["simulation_spec"] == pl.String
-
-
-def test_build_plot_data_frames_keeps_threshold_dtype_for_empty_oracle_outputs():
-    simulation_spec = _tiny_simulation_spec()
-    source_fits_df = attach_spec_metadata(
-        fit_batch_method(
-            simulation_spec,
-            method_spec=LOGISTIC_ORACLE,
-            replicates=(0,),
-        ),
-        method_spec_node=dehydrate_hashed(LOGISTIC_ORACLE),
-        simulation_spec_node=dehydrate_hashed(simulation_spec),
-    )
-    fits_df = source_fits_df.head(0)
-    simulations_df = simulate_batch(simulation_spec, replicates=(0,)).head(0)
-
-    plot_frames = build_plot_data_frames(fits_df, simulations_df)
-
-    for df in plot_frames.values():
-        assert df.height == 0
-        assert df.schema["threshold"] == pl.Float64
-
-
 def test_method_metadata_from_method_spec_json_ser():
     method_spec_json = json.dumps(
         dehydrate_hashed(_logistic_threshold_method_spec(threshold=2.0, L=1)),
@@ -529,31 +405,6 @@ def test_hallmark_ser_enrich_loc_metadata_yields_ser_and_susie_labels():
     assert "Logistic SuSiE [L=5] (@2)" in labels
 
 
-def test_symlink_plot_data_outputs_links_all_plot_data_files(tmp_path):
-    source_root = tmp_path / "by_batch" / "batch0" / "fits" / "method0"
-    source_root.mkdir(parents=True)
-    target_root = tmp_path / "by_alias" / "demo" / "batches" / "batch0" / "fits" / "method0"
-    for name in (
-        "pip_threshold_plot_data.parquet",
-        "causal_pip_plot_data.parquet",
-        "cs_component_plot_data.parquet",
-        "cs_truth_plot_data.parquet",
-    ):
-        (source_root / name).write_text(name, encoding="utf-8")
-
-    symlink_plot_data_outputs(source_root, target_root)
-
-    for name in (
-        "pip_threshold_plot_data.parquet",
-        "causal_pip_plot_data.parquet",
-        "cs_component_plot_data.parquet",
-        "cs_truth_plot_data.parquet",
-    ):
-        link = target_root / name
-        assert link.is_symlink()
-        assert link.resolve() == (source_root / name).resolve()
-
-
 def test_manifest_filename_matches_new_convention():
     manifest_path = (
         Path(__file__).resolve().parents[1]
@@ -617,12 +468,8 @@ def test_collection_plot_ready_snakemake_rules_are_declared():
         "collection_method_metadata",
         "collection_simulation_metadata",
         "collection_sample_metadata",
-        "collection_pip_calibration_plot_ready",
-        "collection_power_fdp_plot_ready",
-        "collection_causal_pip_plot_ready",
-        "collection_cs_raw_plot_ready",
-        "collection_cs_size_histogram_plot_ready",
-        "collection_ser_log_bf_histogram_plot_ready",
+        "collection_pip_plot_data",
+        "collection_cs_plot_data",
     ]
     for rule in required_rules:
         assert f"rule {rule}:" in snk_text, f"Missing rule: {rule}"
