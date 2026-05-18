@@ -175,6 +175,7 @@ def _extract_ser_struct(state: Any, l: int) -> dict[str, Any]:
         "marginal_log_likelihood": float(effect.marginal_log_likelihood),
         "null_log_likelihood": float(effect.null_log_likelihood),
         "ser_log_bf": float(np.asarray(state.ser_log_bayes_factor[l])),
+        "kl": float(effect.kl),
     }
 
 
@@ -221,16 +222,7 @@ def _make_cs_struct(
 def _make_fit_summary_struct(
     state: Any, simulation: TwoGroupSimulation, n_selected: int | None
 ) -> dict[str, Any]:
-    n_effects = len(state.single_effects)
-    alphas = np.stack(
-        [np.asarray(state.single_effects[l].alpha, dtype=float) for l in range(n_effects)]
-    )
-    marginal_pip = 1.0 - np.prod(1.0 - alphas, axis=0)
-    causal_indices = np.asarray(simulation.causal_indices, dtype=int)
     return {
-        "marginal_pip": marginal_pip.tolist(),
-        "causal_pip": float(np.max(marginal_pip[causal_indices])),
-        "max_pip": float(np.max(marginal_pip)),
         "n_selected": None if n_selected is None else int(n_selected),
         "n_iter": int(state.n_iter),
         "converged": bool(state.converged),

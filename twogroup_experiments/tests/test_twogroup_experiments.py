@@ -279,34 +279,6 @@ def test_fit_batch_method_L5_has_5_effects():
     assert len(row["credible_sets"]) == 5
 
 
-def test_fit_batch_method_marginal_pip_correct_for_L1():
-    df = fit_batch_method(
-        _tiny_simulation_spec(),
-        method_spec=_logistic_threshold_method_spec(threshold=2.0, L=1),
-        replicates=(0,),
-    )
-    row = df.row(0, named=True)
-    alpha = np.asarray(row["single_effects"][0]["alpha"])
-    marginal_pip = np.asarray(row["fit_summary"]["marginal_pip"])
-    assert marginal_pip.shape == alpha.shape
-    np.testing.assert_allclose(marginal_pip, alpha, atol=1e-12)
-
-
-def test_fit_batch_method_marginal_pip_correct_for_L5():
-    df = fit_batch_method(
-        _tiny_simulation_spec(),
-        method_spec=_logistic_threshold_method_spec(threshold=2.0, L=5),
-        replicates=(0,),
-    )
-    row = df.row(0, named=True)
-    marginal_pip = np.asarray(row["fit_summary"]["marginal_pip"])
-    assert np.all(marginal_pip >= 0.0)
-    assert np.all(marginal_pip <= 1.0)
-    for effect in row["single_effects"]:
-        alpha_l = np.asarray(effect["alpha"])
-        assert np.all(marginal_pip >= alpha_l - 1e-12)
-
-
 def test_build_plot_data_frames_returns_expected_tables_and_shapes():
     simulations_df = simulate_batch(_tiny_simulation_spec(), replicates=(0, 1))
     fits_df = fit_batch_method(
