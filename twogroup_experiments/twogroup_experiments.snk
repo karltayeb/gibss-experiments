@@ -231,18 +231,17 @@ rule collection_sample_metadata:
         write_parquet(sample_metadata, output[0])
 
 
-rule collection_pip_calibration_plot_ready:
+rule collection_pip_plot_data:
     input:
         collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
         sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/pip_calibration.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/pip_plot_data.parquet",
     run:
         from plot_ready import (
             load_collection_fits_with_specs,
             load_collection_simulations,
-            summarize_pip_calibration_per_sample,
-            aggregate_pip_calibration,
+            build_pip_plot_data,
         )
         import polars as pl
 
@@ -252,142 +251,26 @@ rule collection_pip_calibration_plot_ready:
             collection, results_root=RESULTS_ROOT
         )
         sample_metadata = pl.read_parquet(input.sample_metadata)
-        per_sample = summarize_pip_calibration_per_sample(
-            fits_df, sample_metadata, simulations_by_batch
-        )
-        write_parquet(aggregate_pip_calibration(per_sample), output[0])
+        write_parquet(build_pip_plot_data(fits_df, sample_metadata, simulations_by_batch), output[0])
 
 
-rule collection_power_fdp_plot_ready:
+rule collection_cs_plot_data:
     input:
         collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
         sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/power_fdp.parquet",
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/cs_plot_data.parquet",
     run:
         from plot_ready import (
             load_collection_fits_with_specs,
-            load_collection_simulations,
-            summarize_power_fdp_per_sample,
-            aggregate_power_fdp,
-        )
-        import polars as pl
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
-        simulations_by_batch = load_collection_simulations(
-            collection, results_root=RESULTS_ROOT
-        )
-        sample_metadata = pl.read_parquet(input.sample_metadata)
-        per_sample = summarize_power_fdp_per_sample(
-            fits_df, sample_metadata, simulations_by_batch
-        )
-        write_parquet(aggregate_power_fdp(per_sample), output[0])
-
-
-rule collection_causal_pip_plot_ready:
-    input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/causal_pip.parquet",
-    run:
-        from plot_ready import (
-            load_collection_fits_with_specs,
-            summarize_causal_pip_per_sample,
-            aggregate_causal_pip,
+            build_cs_plot_data,
         )
         import polars as pl
 
         collection = load_collection_yaml(wildcards.collection_alias)
         fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
         sample_metadata = pl.read_parquet(input.sample_metadata)
-        per_sample = summarize_causal_pip_per_sample(fits_df, sample_metadata)
-        write_parquet(aggregate_causal_pip(per_sample), output[0])
-
-
-rule collection_cs_raw_plot_ready:
-    input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/cs_raw.parquet",
-    run:
-        from plot_ready import (
-            load_collection_fits_with_specs,
-            summarize_cs_raw_per_sample,
-        )
-        import polars as pl
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
-        sample_metadata = pl.read_parquet(input.sample_metadata)
-        write_parquet(summarize_cs_raw_per_sample(fits_df, sample_metadata), output[0])
-
-
-rule collection_cs_beta_trace_plot_ready:
-    input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/cs_beta_trace.parquet",
-    run:
-        from plot_ready import (
-            load_collection_fits_with_specs,
-            summarize_cs_beta_trace,
-        )
-        import polars as pl
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
-        sample_metadata = pl.read_parquet(input.sample_metadata)
-        write_parquet(summarize_cs_beta_trace(fits_df, sample_metadata), output[0])
-
-
-rule collection_cs_size_histogram_plot_ready:
-    input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/cs_size_histogram.parquet",
-    run:
-        from plot_ready import (
-            load_collection_fits_with_specs,
-            summarize_cs_size_histogram_observations,
-            finalize_cs_size_histogram,
-        )
-        import polars as pl
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
-        sample_metadata = pl.read_parquet(input.sample_metadata)
-        observations = summarize_cs_size_histogram_observations(
-            fits_df, sample_metadata
-        )
-        write_parquet(finalize_cs_size_histogram(observations), output[0])
-
-
-rule collection_ser_log_bf_histogram_plot_ready:
-    input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
-        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/ser_log_bf_histogram.parquet",
-    run:
-        from plot_ready import (
-            load_collection_fits_with_specs,
-            summarize_ser_log_bf_histogram_observations,
-            finalize_ser_log_bf_histogram,
-        )
-        import polars as pl
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
-        sample_metadata = pl.read_parquet(input.sample_metadata)
-        observations = summarize_ser_log_bf_histogram_observations(
-            fits_df, sample_metadata
-        )
-        write_parquet(finalize_ser_log_bf_histogram(observations), output[0])
+        write_parquet(build_cs_plot_data(fits_df, sample_metadata), output[0])
 
 
 rule all_collections:
@@ -408,13 +291,8 @@ rule twogroup_experiments_target:
                 "method_metadata.parquet",
                 "simulation_metadata.parquet",
                 "sample_metadata.parquet",
-                "pip_calibration.parquet",
-                "power_fdp.parquet",
-                "causal_pip.parquet",
-                "cs_raw.parquet",
-                "cs_beta_trace.parquet",
-                "cs_size_histogram.parquet",
-                "ser_log_bf_histogram.parquet",
+                "pip_plot_data.parquet",
+                "cs_plot_data.parquet",
             ],
         ),
     output:
