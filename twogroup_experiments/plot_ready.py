@@ -280,6 +280,66 @@ def summarize_power_fdp_per_sample(
     )
 
 
+def build_pip_plot_data(
+    fits_df: pl.DataFrame,
+    sample_metadata: pl.DataFrame,
+    simulations_by_batch: dict[str, pl.DataFrame],
+) -> pl.DataFrame:
+    """One row per (sample_id, method, threshold). Arrays pre-aggregated for plot time."""
+    empty_schema = {
+        "sample_id": pl.String, "method": pl.String, "threshold": pl.Float64,
+        "causal_indices": pl.List(pl.Int64), "causal_pips": pl.List(pl.Float64),
+        "pip_bin_counts": pl.List(pl.Int64), "pip_bin_causal_counts": pl.List(pl.Int64),
+        "power_at_threshold": pl.List(pl.Float64), "fdp_at_threshold": pl.List(pl.Float64),
+    }
+    fits_with_sid = fits_df.join(
+        sample_metadata.select("sample_id", "batch_hash", "replicate"),
+        on=["batch_hash", "replicate"],
+        how="left",
+    )
+    rows: list[dict] = []
+    for row in fits_with_sid.iter_rows(named=True):
+        alphas = np.stack([np.asarray(e["alpha"], dtype=float) for e in row["single_effects"]])
+        marginal_pip = 1.0 - np.prod(1.0 - alphas, axis=0)
+
+        sim_df = simulations_by_batch[row["batch_hash"]]
+        sim_row = sim_df.filter(pl.col("replicate") == row["replicate"]).row(0, named=True)
+        causal_indices = [int(i) for i in sim_row["simulation"]["causal_indices"]]
+
+        causal_pips = [float(marginal_pip[ci]) for ci in causal_indices]
+
+        bin_idx = np.clip((marginal_pip * 20).astype(int), 0, 19)
+        is_causal = np.zeros(len(marginal_pip), dtype=bool)
+        is_causal[causal_indices] = True
+        pip_bin_counts = [int((bin_idx == b).sum()) for b in range(20)]
+        pip_bin_causal_counts = [int(((bin_idx == b) & is_causal).sum()) for b in range(20)]
+
+        n_causal = max(len(causal_indices), 1)
+        power_at_threshold = []
+        fdp_at_threshold = []
+        for t in _PIP_THRESHOLD_GRID:
+            selected = marginal_pip >= t
+            sel_causal = int(selected[causal_indices].sum())
+            sel_total = int(selected.sum())
+            power_at_threshold.append(float(sel_causal / n_causal))
+            fdp_at_threshold.append(float((sel_total - sel_causal) / max(sel_total, 1)))
+
+        rows.append({
+            "sample_id": row["sample_id"],
+            "method": row["method"],
+            "threshold": row["threshold"],
+            "causal_indices": causal_indices,
+            "causal_pips": causal_pips,
+            "pip_bin_counts": pip_bin_counts,
+            "pip_bin_causal_counts": pip_bin_causal_counts,
+            "power_at_threshold": power_at_threshold,
+            "fdp_at_threshold": fdp_at_threshold,
+        })
+    if not rows:
+        return pl.DataFrame(schema=empty_schema)
+    return pl.from_dicts(rows, schema=empty_schema)
+
+
 def aggregate_power_fdp(per_sample: pl.DataFrame) -> pl.DataFrame:
     return (
         per_sample.group_by("method", "threshold", "pip_threshold")

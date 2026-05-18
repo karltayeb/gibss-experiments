@@ -242,3 +242,87 @@ def test_union_collection_yaml_nodes_deduplicates():
     assert len(result["batches"]) == 2   # deduped
     assert len(result["method_specs"]) == 1  # deduped
     assert "__spec_hash__" in result
+
+
+def _make_pip_fits_df():
+    """Minimal fits_df with new schema: single_effects as list of structs."""
+    return pl.DataFrame({
+        "method": ["cox_L1", "cox_L1"],
+        "threshold": [None, None],
+        "batch_hash": ["batchA", "batchA"],
+        "replicate": [0, 1],
+        "single_effects": [
+            [{"alpha": [0.9, 0.05, 0.05], "mu": [1.0, 0.0, 0.0], "var": [0.1, 0.1, 0.1],
+              "prior_variance": 1.0, "marginal_log_likelihood": -1.0,
+              "null_log_likelihood": -2.0, "ser_log_bf": 1.0, "kl": 0.1}],
+            [{"alpha": [0.1, 0.8, 0.1], "mu": [0.0, 1.0, 0.0], "var": [0.1, 0.1, 0.1],
+              "prior_variance": 1.0, "marginal_log_likelihood": -1.5,
+              "null_log_likelihood": -2.5, "ser_log_bf": 1.0, "kl": 0.2}],
+        ],
+        "credible_sets": [
+            [{"cs": [0], "cs_size": 1, "causal_indices": [0], "causal_in_cs": True,
+              "top_feature": 0, "top_feature_is_causal": True}],
+            [{"cs": [1], "cs_size": 1, "causal_indices": [0], "causal_in_cs": False,
+              "top_feature": 1, "top_feature_is_causal": False}],
+        ],
+        "fit_summary": [
+            {"n_selected": 10, "n_iter": 5, "converged": True},
+            {"n_selected": 8, "n_iter": 4, "converged": True},
+        ],
+    })
+
+
+def _make_sample_metadata():
+    return pl.DataFrame({
+        "sample_id": ["batchA::0", "batchA::1"],
+        "batch_hash": ["batchA", "batchA"],
+        "replicate": [0, 1],
+    })
+
+
+def _make_simulations_by_batch():
+    return {
+        "batchA": pl.DataFrame({
+            "replicate": [0, 1],
+            "simulation": [
+                {"causal_indices": [0], "causal_effects": [1.0]},
+                {"causal_indices": [0], "causal_effects": [1.0]},
+            ],
+        })
+    }
+
+
+def test_build_pip_plot_data_schema():
+    fits_df = _make_pip_fits_df()
+    sample_metadata = _make_sample_metadata()
+    simulations_by_batch = _make_simulations_by_batch()
+
+    result = plot_ready.build_pip_plot_data(fits_df, sample_metadata, simulations_by_batch)
+
+    assert result.height == 2  # one row per (sample, method, threshold)
+    assert set(result.columns) == {
+        "sample_id", "method", "threshold",
+        "causal_indices", "causal_pips",
+        "pip_bin_counts", "pip_bin_causal_counts",
+        "power_at_threshold", "fdp_at_threshold",
+    }
+    assert result["pip_bin_counts"].dtype == pl.List(pl.Int64)
+    assert result["pip_bin_counts"][0].len() == 20
+    assert result["power_at_threshold"][0].len() == 10
+
+
+def test_build_pip_plot_data_causal_pips_correct():
+    """Verifies marginal_pip = 1 - prod_l(1 - alpha_lj) at causal indices."""
+    fits_df = _make_pip_fits_df()
+    sample_metadata = _make_sample_metadata()
+    simulations_by_batch = _make_simulations_by_batch()
+
+    result = plot_ready.build_pip_plot_data(fits_df, sample_metadata, simulations_by_batch)
+
+    # replicate 0: alpha=[0.9, 0.05, 0.05], L=1, marginal_pip=alpha, causal=0 → pip=0.9
+    row0 = result.filter(pl.col("sample_id") == "batchA::0").row(0, named=True)
+    assert abs(row0["causal_pips"][0] - 0.9) < 1e-9
+
+    # replicate 1: alpha=[0.1, 0.8, 0.1], L=1, causal=0 → pip=0.1
+    row1 = result.filter(pl.col("sample_id") == "batchA::1").row(0, named=True)
+    assert abs(row1["causal_pips"][0] - 0.1) < 1e-9
