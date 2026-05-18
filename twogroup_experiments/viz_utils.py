@@ -1051,6 +1051,148 @@ def render_causal_rank_chart(
         return fig
 
 
+def expand_mass_above_causal_from_compact(
+    cs_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+) -> pl.DataFrame:
+    """One row per (sample_id, method, threshold, causal_idx).
+
+    For each causal, picks the L effect with highest alpha[causal_idx], uses
+    that effect's mass_above_causal.
+    """
+    empty_schema = {
+        "collection_name": pl.String, "simulation_name": pl.String,
+        "method": pl.String, "threshold": pl.Float64,
+        "method_display": pl.String, "method_display_base": pl.String,
+        "causal_idx": pl.Int64, "mass_above_causal": pl.Float64,
+    }
+    if cs_plot_data.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+    meta = method_metadata.select("method", "threshold", "method_display", "method_display_base")
+    expanded = (
+        cs_plot_data
+        .select("collection_name", "sample_id", "method", "threshold",
+                "causal_indices", "causal_alpha", "mass_above_causal")
+        .explode("causal_indices", "causal_alpha", "mass_above_causal")
+    )
+    if expanded.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+    per_causal = (
+        expanded
+        .group_by("collection_name", "sample_id", "method", "threshold", "causal_indices")
+        .agg(
+            pl.col("mass_above_causal").sort_by(pl.col("causal_alpha"), descending=True).first()
+        )
+        .rename({"causal_indices": "causal_idx"})
+    )
+    return (
+        per_causal
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(pl.col("collection_name").alias("simulation_name"))
+        .sort("simulation_name", "method_display")
+    )
+
+
+def make_mass_above_causal_summary(plot_data: pl.DataFrame) -> pl.DataFrame:
+    return (
+        plot_data.group_by("simulation_name", "method", "method_display", "method_display_base", "threshold")
+        .agg(pl.col("mass_above_causal").mean().alias("mean_mass_above_causal"))
+        .sort("simulation_name", "method_display", "threshold")
+    )
+
+
+def _plot_mass_above_causal_on_ax(
+    ax: "plt.Axes",
+    panel_df: pl.DataFrame,
+    *,
+    title: str,
+    method_order: list[str] | None = None,
+) -> None:
+    _all = set(x for x in panel_df.get_column("method").unique().to_list() if x is not None)
+    _methods = [m for m in method_order if m in _all] if method_order is not None else sorted(_all)
+    _nothresh_idx = 0
+    for method_name in _methods:
+        method_df = panel_df.filter(pl.col("method") == method_name)
+        color = method_color(method_name)
+        label = method_df["method_display_base"][0]
+        if method_df["threshold"].is_null().all():
+            y_val = float(method_df["mean_mass_above_causal"].mean())
+            ls = _NOTHRESH_LINESTYLES[_nothresh_idx % len(_NOTHRESH_LINESTYLES)]
+            ax.axhline(y=y_val, color=color, linestyle=ls, linewidth=1.5, label=label)
+            _nothresh_idx += 1
+        else:
+            method_df = method_df.sort("threshold")
+            ax.plot(
+                method_df["threshold"].drop_nulls().to_numpy(),
+                method_df["mean_mass_above_causal"].to_numpy(),
+                marker="o",
+                color=color,
+                label=label,
+            )
+    ax.set_xlabel("Threshold")
+    ax.set_ylim(-0.05, 1.05)
+    ax.set_title(title, fontsize=11)
+
+
+def render_mass_above_causal_chart(
+    summary: pl.DataFrame,
+    *,
+    facet: bool,
+    title: str | None = None,
+    legend_outside: bool = False,
+    square_axes: bool = False,
+    method_order: list[str] | None = None,
+):
+    if summary.is_empty():
+        return make_placeholder_chart("No mass above causal data")
+    theme = base_chart_theme()
+    if facet:
+        simulations = sorted(
+            x for x in summary.get_column("simulation_name").unique().to_list() if x is not None
+        )
+        n_cols = len(simulations)
+        _legend_w = 2.0
+        _fig_w = theme["width"] * n_cols + _legend_w
+        _plot_frac = (theme["width"] * n_cols) / _fig_w
+        fig, axes = plt.subplots(1, n_cols, figsize=(_fig_w, theme["height"]), squeeze=False)
+        for col_idx, sim_name in enumerate(simulations):
+            _plot_mass_above_causal_on_ax(
+                axes[0, col_idx],
+                summary.filter(pl.col("simulation_name") == sim_name),
+                title=sim_name,
+                method_order=method_order,
+            )
+        axes[0, 0].set_ylabel("Mean mass above causal")
+        handles, labels = axes[0, 0].get_legend_handles_labels()
+        if handles:
+            fig.legend(handles, labels, frameon=False, fontsize=8,
+                       loc="center left", bbox_to_anchor=(_plot_frac + 0.02, 0.5))
+            fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+        else:
+            fig.tight_layout()
+        return fig
+    else:
+        _h = theme["height"]
+        _w = _h * 2.2 if square_axes else theme["width"] * 1.6
+        fig, ax = plt.subplots(figsize=(_w, _h))
+        if square_axes:
+            ax.set_box_aspect(1)
+        _plot_mass_above_causal_on_ax(
+            ax, summary,
+            title=title if title is not None else "Aggregate",
+            method_order=method_order,
+        )
+        ax.set_ylabel("Mean mass above causal")
+        handles, labels = ax.get_legend_handles_labels()
+        if handles:
+            if legend_outside:
+                ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), borderaxespad=0, frameon=False, fontsize=8)
+            else:
+                ax.legend(frameon=False)
+        fig.tight_layout()
+        return fig
+
+
 def explode_cs_component_beta_rows(cs_component_plot_data: pl.DataFrame) -> pl.DataFrame:
     if cs_component_plot_data.is_empty():
         return cs_component_plot_data

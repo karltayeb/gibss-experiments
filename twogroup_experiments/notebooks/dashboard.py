@@ -605,6 +605,47 @@ def causal_rank_cell(combined_data, foreground_methods):
 
 
 @app.cell(hide_code=True)
+def mass_above_causal_heading_cell():
+    mo.md("""
+    ## Mean Mass Above Causal
+    """)
+    return
+
+
+@app.cell
+def mass_above_causal_cell(combined_data, foreground_methods):
+    _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    _method_meta = combined_data["method_metadata"]
+    _method_order = (
+        _method_meta.filter(pl.col("method").is_in(foreground_methods))
+        .select("method", "is_thresholded")
+        .unique()
+        .sort(["is_thresholded", "method"])["method"]
+        .to_list()
+    )
+    if _cs_data.is_empty():
+        mass_above_causal_chart = viz_utils.make_placeholder_chart("No CS data")
+    else:
+        _expanded = viz_utils.expand_mass_above_causal_from_compact(
+            _cs_data.filter(pl.col("method").is_in(foreground_methods)),
+            _method_meta,
+        )
+        if _expanded.is_empty():
+            mass_above_causal_chart = viz_utils.make_placeholder_chart("No mass above causal data")
+        else:
+            _summary = viz_utils.make_mass_above_causal_summary(_expanded)
+            mass_above_causal_chart = viz_utils.render_mass_above_causal_chart(
+                _summary,
+                facet=True,
+                legend_outside=True,
+                square_axes=True,
+                method_order=_method_order,
+            )
+    mass_above_causal_chart
+    return
+
+
+@app.cell(hide_code=True)
 def cs_summary_heading_cell():
     mo.md("""
     ## Credible Set Summary
