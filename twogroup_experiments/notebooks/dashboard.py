@@ -474,11 +474,14 @@ def pip_calibration_heading_cell():
 def pip_calibration_cell(
     combined_data,
     foreground_methods,
+    selected_threshold,
 ):
     _pip_plot = combined_data["pip_plot_data"]
     _method_meta = combined_data["method_metadata"]
     _pip_filtered = _pip_plot.filter(pl.col("method").is_in(foreground_methods))
-    _pip_cal_summary = viz_utils.expand_pip_calibration_from_compact(_pip_filtered, _method_meta)
+    _pip_cal_summary = viz_utils.expand_pip_calibration_from_compact(
+        _pip_filtered, _method_meta, selected_threshold=selected_threshold,
+    )
     if _pip_cal_summary.is_empty():
         pip_cal_chart = viz_utils.make_placeholder_chart("No PIP calibration data")
     else:
