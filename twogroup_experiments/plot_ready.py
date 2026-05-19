@@ -12,6 +12,20 @@ from utils import attach_spec_metadata, CollectionSpec
 from viz_utils import method_metadata_from_method_spec_json, make_method_display_label
 
 
+def _batch_name(batch: dict) -> str:
+    """Handle flat (name) and legacy nested (fields.name) batch nodes."""
+    return batch.get("name") or batch["fields"]["name"]
+
+
+def _batch_sim_node(batch: dict) -> dict:
+    """Simulation spec node, handling both flat and legacy nested formats."""
+    return batch.get("simulation_spec") or batch["fields"]["simulation_spec"]
+
+
+def _batch_sim_name(batch: dict) -> str:
+    return _batch_sim_node(batch)["fields"]["name"]
+
+
 def load_collection_fits_with_specs(
     collection: dict[str, Any],
     results_root: str = "results",
@@ -26,7 +40,7 @@ def load_collection_fits_with_specs(
             fits_df = attach_spec_metadata(
                 pl.read_parquet(fits_path),
                 method_spec_node=method_spec,
-                simulation_spec_node=batch["simulation_spec"],
+                simulation_spec_node=_batch_sim_node(batch),
             )
             fits_df = fits_df.with_columns(pl.lit(batch_hash).alias("batch_hash"))
             frames.append(fits_df.select(
@@ -89,10 +103,10 @@ def build_simulation_metadata(collection: dict[str, Any]) -> pl.DataFrame:
     for batch in collection["batches"]:
         rows.append(
             {
-                "batch_hash": batch["hash"],
-                "batch_name": batch["name"],
-                "simulation_spec": json.dumps(batch["simulation_spec"], sort_keys=True),
-                "simulation_name": batch["simulation_spec"]["fields"]["name"],
+                "batch_hash": batch[HASH_KEY],
+                "batch_name": _batch_name(batch),
+                "simulation_spec": json.dumps(_batch_sim_node(batch), sort_keys=True),
+                "simulation_name": _batch_sim_name(batch),
             }
         )
     return pl.from_dicts(rows)
@@ -104,8 +118,8 @@ def build_sample_metadata(
 ) -> pl.DataFrame:
     rows = []
     for batch in collection_batches:
-        batch_hash = batch["hash"]
-        batch_name = batch["name"]
+        batch_hash = batch[HASH_KEY]
+        batch_name = _batch_name(batch)
         for replicate in simulations_by_batch[batch_hash]["replicate"].to_list():
             rows.append(
                 {
@@ -125,8 +139,8 @@ def _build_sample_metadata_from_manifest(
     """Build sample metadata using __spec_hash__ key (for use with real manifest)."""
     rows = []
     for batch in collection["batches"]:
-        batch_hash = batch["__spec_hash__"]
-        batch_name = batch["name"]
+        batch_hash = batch[HASH_KEY]
+        batch_name = _batch_name(batch)
         for replicate in simulations_by_batch[batch_hash]["replicate"].to_list():
             rows.append(
                 {
