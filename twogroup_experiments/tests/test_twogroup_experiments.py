@@ -36,14 +36,7 @@ from utils import (
     manifest_dict,
     simulate_batch,
 )
-from viz2_metadata import (
-    add_plot_metadata_columns,
-    available_L_values,
-    available_method_families,
-    make_method_display_label,
-    method_family_display_order,
-    method_metadata_from_method_spec_json,
-)
+from viz_utils import make_method_display_label, method_metadata_from_method_spec_json
 
 
 def _tiny_simulation_spec() -> SimulationSpec:
@@ -339,92 +332,6 @@ def test_make_method_display_label_uses_threshold_and_oracle_suffixes():
     )
 
 
-def test_add_plot_metadata_columns_uses_method_spec_json():
-    method_spec_json = json.dumps(
-        dehydrate_hashed(_logistic_threshold_method_spec(threshold=2.0, L=5)),
-        sort_keys=True,
-    )
-    simulation_spec_json = json.dumps(
-        dehydrate_hashed(_tiny_simulation_spec()),
-        sort_keys=True,
-    )
-    df = pl.DataFrame(
-        {
-            "method": ["logistic_threshold_L5"],
-            "threshold": [2.0],
-            "method_spec": [method_spec_json],
-            "simulation_spec": [simulation_spec_json],
-        }
-    )
-
-    normalized = add_plot_metadata_columns(df)
-    row = normalized.row(0, named=True)
-
-    assert row["method_family"] == "logistic_threshold"
-    assert row["L"] == 5
-    assert row["method_label_base"] == "Logistic SuSiE [L=5]"
-    assert row["method_display"] == "Logistic SuSiE [L=5] (@2.0)"
-
-
-def test_method_family_display_order_is_family_based():
-    assert method_family_display_order() == [
-        "logistic_oracle",
-        "twogroup_oracle",
-        "twogroup",
-        "cox_heavy",
-        "cox_light_threshold",
-        "logistic_threshold",
-    ]
-
-
-def test_available_method_families_and_L_values_are_data_driven():
-    df = pl.DataFrame(
-        {
-            "method_family": ["logistic_threshold", "logistic_threshold", "twogroup"],
-            "L": [1, 5, 1],
-        }
-    )
-
-    assert available_method_families(df) == ["logistic_threshold", "twogroup"]
-    assert available_L_values(df) == [1, 5]
-
-
-def test_hallmark_ser_enrich_loc_metadata_yields_ser_and_susie_labels():
-    method_spec_ser = json.dumps(
-        dehydrate_hashed(_logistic_threshold_method_spec(threshold=2.0, L=1)),
-        sort_keys=True,
-    )
-    method_spec_susie = json.dumps(
-        dehydrate_hashed(_logistic_threshold_method_spec(threshold=2.0, L=5)),
-        sort_keys=True,
-    )
-    simulation_spec_json = json.dumps(
-        dehydrate_hashed(_tiny_simulation_spec()),
-        sort_keys=True,
-    )
-    df = pl.DataFrame(
-        {
-            "method": ["logistic_threshold_L1", "logistic_threshold_L5"],
-            "threshold": [2.0, 2.0],
-            "method_spec": [method_spec_ser, method_spec_susie],
-            "simulation_spec": [simulation_spec_json, simulation_spec_json],
-        }
-    )
-
-    normalized = add_plot_metadata_columns(df)
-    labels = set(normalized.get_column("method_display").to_list())
-
-    assert "Logistic SER (@2.0)" in labels
-    assert "Logistic SuSiE [L=5] (@2.0)" in labels
-
-
-def test_manifest_filename_matches_new_convention():
-    manifest_path = (
-        Path(__file__).resolve().parents[1]
-        / "results"
-        / "twogroup_experiments_manifest.json"
-    )
-    assert manifest_path.name == "twogroup_experiments_manifest.json"
 
 
 def test_dehydrate_hashed_round_trip_ignores_hash_key():

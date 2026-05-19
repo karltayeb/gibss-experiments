@@ -32,7 +32,7 @@ def test_build_simulation_metadata_uses_collection_batch_info():
     collection = {
         "batches": [
             {
-                "hash": "batch-a",
+                "__spec_hash__": "batch-a",
                 "name": "batch-a",
                 "simulation_spec": {"fields": {"name": "sim-a"}},
             }
@@ -46,7 +46,7 @@ def test_build_simulation_metadata_uses_collection_batch_info():
 
 
 def test_build_sample_metadata_uses_batch_hash_and_replicate():
-    collection_batches = [{"hash": "batch-a", "name": "batch-a"}]
+    collection_batches = [{"__spec_hash__": "batch-a", "name": "batch-a"}]
     simulations = {"batch-a": pl.DataFrame({"replicate": [0, 1]})}
 
     sample_metadata = plot_ready.build_sample_metadata(collection_batches, simulations)

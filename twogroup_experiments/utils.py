@@ -47,12 +47,6 @@ def manifest_dict() -> dict[str, object]:
     return config_manifest_dict()
 
 
-def materialize_manifest(path: str | Path) -> None:
-    from config import write_manifest
-
-    write_manifest(path)
-
-
 def simulation_struct_without_x(simulation: TwoGroupSimulation) -> dict[str, Any]:
     return {
         "causal_indices": [int(idx) for idx in simulation.causal_indices],
