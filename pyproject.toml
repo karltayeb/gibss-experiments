@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "gibss-mono",
+    "ipython>=9.13.0",
     "jax>=0.10.0",
     "marimo>=0.23.5",
     "matplotlib>=3.10.9",

@@ -14,6 +14,7 @@ with app.setup:
     if parent_dir not in sys.path:
         sys.path.append(parent_dir)
 
+    import config
     import plot_ready
     import viz_utils
 
@@ -36,12 +37,15 @@ def prepare_heading_cell():
 @app.cell
 def unprepared_cell():
     _collections_root = Path(__file__).parent.parent / "results" / "collections"
+    _registered = sorted(
+        collection.name
+        for collection in config.COLLECTION_SPECS
+        if collection.name != "tiny_test"
+    )
     _not_ready = sorted(
-        p.name
-        for p in _collections_root.iterdir()
-        if p.is_dir()
-        and (p / "collection_spec.yaml").exists()
-        and not (p / "plot_ready" / "out.txt").exists()
+        name
+        for name in _registered
+        if not (_collections_root / name / "plot_ready" / "out.txt").exists()
     )
     unprepared_table = mo.ui.table(
         pl.DataFrame({"name": _not_ready}),
@@ -222,6 +226,8 @@ def alias_cell(collection_table, set_dirty, active_config):
             for part in name.split("__"):
                 if part.startswith("signal_"):
                     return part[len("signal_"):]
+                if part.startswith("signal="):
+                    return part[len("signal="):]
             return name.split("__")[0]
         def _default_order_val(i: int, name: str) -> str:
             return str(i + 1)

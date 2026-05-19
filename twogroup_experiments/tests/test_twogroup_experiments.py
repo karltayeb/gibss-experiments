@@ -27,6 +27,7 @@ from config import (
     SIMULATION_SPECS,
     _logistic_threshold_method_spec,
 )
+from config_builders import batch_specs_for_simulation
 from utils import (
     attach_spec_metadata,
     BatchSpec,
@@ -92,6 +93,7 @@ def test_config_registry_register_collection_accumulates_unique_specs():
         methods=(LOGISTIC_ORACLE,),
         n_batches=2,
         replicates_per_batch=3,
+        batch_builder=batch_specs_for_simulation,
     )
 
     assert collection.name == "demo"
@@ -118,6 +120,7 @@ def test_config_registry_register_collection_is_idempotent_for_duplicates():
         methods=(LOGISTIC_ORACLE,),
         n_batches=1,
         replicates_per_batch=2,
+        batch_builder=batch_specs_for_simulation,
     )
     registry.register_collection(
         name="demo",
@@ -125,6 +128,7 @@ def test_config_registry_register_collection_is_idempotent_for_duplicates():
         methods=(LOGISTIC_ORACLE,),
         n_batches=1,
         replicates_per_batch=2,
+        batch_builder=batch_specs_for_simulation,
     )
 
     assert len(registry.simulations) == 1
@@ -142,6 +146,7 @@ def test_config_registry_register_collection_union_reuses_batches_and_methods():
         methods=(LOGISTIC_ORACLE,),
         n_batches=1,
         replicates_per_batch=2,
+        batch_builder=batch_specs_for_simulation,
     )
     registry.register_collection(
         name="right",
@@ -149,6 +154,7 @@ def test_config_registry_register_collection_union_reuses_batches_and_methods():
         methods=(),
         n_batches=1,
         replicates_per_batch=2,
+        batch_builder=batch_specs_for_simulation,
     )
 
     union = registry.register_collection_union(
@@ -184,10 +190,17 @@ def test_core_specs_are_dataclasses():
 
 def test_config_uses_axis_composed_simulation_names():
     names = {spec.name for spec in SIMULATION_SPECS}
-    assert "hallmark__ser_enrich__loc_0.5" in names
-    assert "hallmark__ser_dep__loc_5.0" in names
-    assert "c4__ser_enrich__scale_6.0" in names
-    assert "c4__ser_dep__scale_0.5" in names
+    assert "design=hallmark__enrichment=ser_enrich__signal=loc_0.25" in names
+    assert "design=hallmark__enrichment=ser_enrich__signal=scale_5.00" in names
+    assert "design=c4__enrichment=ser_enrich__signal=scale_1.75" in names
+    assert (
+        "design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_1.50"
+        in names
+    )
+    assert (
+        "design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_1.75"
+        in names
+    )
 
 
 def test_manifest_uses_batches_key():
@@ -350,7 +363,7 @@ def test_add_plot_metadata_columns_uses_method_spec_json():
     assert row["method_family"] == "logistic_threshold"
     assert row["L"] == 5
     assert row["method_label_base"] == "Logistic SuSiE [L=5]"
-    assert row["method_display"] == "Logistic SuSiE [L=5] (@2)"
+    assert row["method_display"] == "Logistic SuSiE [L=5] (@2.0)"
 
 
 def test_method_family_display_order_is_family_based():
@@ -401,8 +414,8 @@ def test_hallmark_ser_enrich_loc_metadata_yields_ser_and_susie_labels():
     normalized = add_plot_metadata_columns(df)
     labels = set(normalized.get_column("method_display").to_list())
 
-    assert "Logistic SER (@2)" in labels
-    assert "Logistic SuSiE [L=5] (@2)" in labels
+    assert "Logistic SER (@2.0)" in labels
+    assert "Logistic SuSiE [L=5] (@2.0)" in labels
 
 
 def test_manifest_filename_matches_new_convention():

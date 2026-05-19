@@ -1,10 +1,13 @@
 import sys
 
 import polars as pl
+from pathlib import Path
 
 RESULTS_ROOT = "results"
+PLOT_CONFIG_PATH = "notebooks/plot_config.yaml"
 
 from core import HASH_KEY, rehydrate_node
+from config import COLLECTION_SPECS, collection_yaml_node
 from utils import (
     attach_spec_metadata,
     fit_batch_method,
@@ -19,34 +22,85 @@ from utils import (
 configfile: RESULTS_ROOT + "/manifest.json"
 
 
-COLLECTION_ALIASES = glob_wildcards(f"{RESULTS_ROOT}/collections/{{name}}/collection_spec.yaml").name
+EXPLICIT_COLLECTION_ALIASES = glob_wildcards(
+    f"{RESULTS_ROOT}/collections/{{name}}/collection_spec.yaml"
+).name
+REGISTERED_COLLECTION_ALIASES = [collection.name for collection in COLLECTION_SPECS]
+COLLECTION_ALIASES = sorted(
+    set(EXPLICIT_COLLECTION_ALIASES) | set(REGISTERED_COLLECTION_ALIASES)
+)
 
 
 wildcard_constraints:
     batch_hash       = r"[0-9a-f]{64}",
     method_hash      = r"[0-9a-f]{64}",
-    collection_alias = r"[A-Za-z0-9_\-\.]+",
+    collection_alias = r"[A-Za-z0-9_\-=\.]+",
+    supercollection  = r"[A-Za-z0-9_\-\.]+",
 
 
 import yaml as _yaml
 
 def _load_all_collection_yamls() -> dict:
     result = {}
-    for alias in COLLECTION_ALIASES:
+    for alias in EXPLICIT_COLLECTION_ALIASES:
         path = f"{RESULTS_ROOT}/collections/{alias}/collection_spec.yaml"
         with open(path) as fh:
             result[alias] = _yaml.safe_load(fh)
     return result
 
 _COLLECTION_YAMLS: dict = _load_all_collection_yamls()
+_REGISTERED_COLLECTION_YAMLS: dict = {
+    alias: collection_yaml_node(alias) for alias in REGISTERED_COLLECTION_ALIASES
+}
+_PLOT_CONFIG: dict = _yaml.safe_load(Path(PLOT_CONFIG_PATH).read_text()) or {}
+SUPERCOLLECTIONS = sorted(
+    key for key in _PLOT_CONFIG if not str(key).startswith("_")
+)
 
 
 def load_collection_yaml(collection_alias: str) -> dict:
-    return _COLLECTION_YAMLS[collection_alias]
+    if collection_alias in _COLLECTION_YAMLS:
+        return _COLLECTION_YAMLS[collection_alias]
+    if collection_alias in _REGISTERED_COLLECTION_YAMLS:
+        return _REGISTERED_COLLECTION_YAMLS[collection_alias]
+    raise KeyError(collection_alias)
+
+
+def load_supercollection(supercollection: str) -> dict:
+    if supercollection not in _PLOT_CONFIG:
+        raise KeyError(supercollection)
+    return _PLOT_CONFIG[supercollection]
+
+
+def _batch_name(batch: dict) -> str:
+    """Handle both flat (name) and legacy nested (fields.name) batch nodes."""
+    return batch.get("name") or batch["fields"]["name"]
+
+
+def _batch_sim_name(batch: dict) -> str:
+    """Simulation name from batch node, handling both formats."""
+    sim = batch.get("simulation_spec") or batch["fields"]["simulation_spec"]
+    return sim["fields"]["name"]
+
+
+def _batch_sim_node(batch: dict) -> dict:
+    """Simulation spec node from batch node, handling both formats."""
+    return batch.get("simulation_spec") or batch["fields"]["simulation_spec"]
 
 
 BATCH_HASH_TO_INFO = config["batches"]
 METHOD_HASH_TO_INFO = config["method_specs"]
+
+
+rule resolve_collection_spec:
+    output:
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+    run:
+        path = Path(output[0])
+        if path.exists():
+            return
+        collection = load_collection_yaml(wildcards.collection_alias)
+        write_yaml(collection, output[0])
 
 
 rule materialize_twogroup_experiment_batch:
@@ -93,7 +147,7 @@ rule fit_twogroup_experiment_batch_method:
 
 rule materialize_twogroup_experiment_collection_alias:
     input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=rules.resolve_collection_spec.output,
         batch_specs=lambda wildcards: expand(
             f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
             batch_hash=[
@@ -172,7 +226,7 @@ rule materialize_twogroup_experiment_collection_alias:
 
 rule collection_method_metadata:
     input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=rules.resolve_collection_spec.output,
         batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/method_metadata.parquet",
@@ -186,7 +240,7 @@ rule collection_method_metadata:
 
 rule collection_simulation_metadata:
     input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=rules.resolve_collection_spec.output,
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/simulation_metadata.parquet",
     run:
@@ -199,11 +253,11 @@ rule collection_simulation_metadata:
             rows.append(
                 {
                     "batch_hash": batch[HASH_KEY],
-                    "batch_name": batch["name"],
+                    "batch_name": _batch_name(batch),
                     "simulation_spec": json.dumps(
-                        batch["simulation_spec"], sort_keys=True
+                        _batch_sim_node(batch), sort_keys=True
                     ),
-                    "simulation_name": batch["simulation_spec"]["fields"]["name"],
+                    "simulation_name": _batch_sim_name(batch),
                 }
             )
         write_parquet(pl.from_dicts(rows), output[0])
@@ -211,7 +265,7 @@ rule collection_simulation_metadata:
 
 rule collection_sample_metadata:
     input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=rules.resolve_collection_spec.output,
         batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
@@ -233,7 +287,7 @@ rule collection_sample_metadata:
 
 rule collection_pip_plot_data:
     input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=rules.resolve_collection_spec.output,
         sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/pip_plot_data.parquet",
@@ -256,7 +310,7 @@ rule collection_pip_plot_data:
 
 rule collection_cs_plot_data:
     input:
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=rules.resolve_collection_spec.output,
         sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/cs_plot_data.parquet",
@@ -281,10 +335,33 @@ rule all_collections:
         ),
 
 
+rule all_supercollections:
+    input:
+        expand(
+            f"{RESULTS_ROOT}/supercollections/{{supercollection}}/out.txt",
+            supercollection=SUPERCOLLECTIONS,
+        ),
+
+
+rule materialize_supercollection:
+    input:
+        lambda wildcards: expand(
+            f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/out.txt",
+            collection_alias=[
+                item["name"]
+                for item in load_supercollection(wildcards.supercollection)["collections"]
+            ],
+        ),
+    output:
+        f"{RESULTS_ROOT}/supercollections/{{supercollection}}/out.txt",
+    shell:
+        "echo ran > {output[0]}"
+
+
 rule twogroup_experiments_target:
     input:
         batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
-        collection_spec=f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
+        collection_spec=rules.resolve_collection_spec.output,
         plot_ready=lambda wildcards: expand(
             f"{RESULTS_ROOT}/collections/{wildcards.collection_alias}/plot_ready/{{name}}",
             name=[
