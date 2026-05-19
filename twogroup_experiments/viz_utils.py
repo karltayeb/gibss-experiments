@@ -508,15 +508,9 @@ def summarize_pip_calibration(plot_data: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _plot_calibration_on_ax(
-    ax: "plt.Axes",
-    panel_df: pl.DataFrame,
-    *,
-    method_color_lookup: dict[str, str] | None = None,
-) -> None:
+def _plot_calibration_on_ax(ax: "plt.Axes", panel_df: pl.DataFrame, color: str | None = None) -> None:
     for series_label in sorted(x for x in panel_df.get_column("series_label").unique().to_list() if x is not None):
         series_df = panel_df.filter(pl.col("series_label") == series_label).sort("pip_mid")
-        color = (method_color_lookup or {}).get(series_label)
         x = series_df["pip_mid"].to_numpy()
         y = series_df["empirical_rate"].to_numpy()
         if {"ci_lower", "ci_upper"}.issubset(series_df.columns):
@@ -528,9 +522,9 @@ def _plot_calibration_on_ax(
                     np.clip(upper - y, a_min=0.0, a_max=None),
                 ]
             )
-            ax.errorbar(x, y, yerr=yerr, fmt="o-", capsize=2, color=color, label=series_label)
+            ax.errorbar(x, y, yerr=yerr, fmt="o-", capsize=2, color=color)
         else:
-            ax.plot(x, y, marker="o", color=color, label=series_label)
+            ax.plot(x, y, marker="o", color=color)
     ax.plot([0.0, 1.0], [0.0, 1.0], color="black", linestyle=":", linewidth=1.0)
     ax.set_xlim(0.0, 1.0)
     ax.set_ylim(0.0, 1.02)
@@ -544,42 +538,44 @@ def render_pip_calibration(
         return make_placeholder_chart("No PIP calibration data")
 
     theme = base_chart_theme()
+    methods = sorted(m for m in calibration_summary.get_column("method_display").unique().to_list() if m is not None)
+    n_cols = len(methods)
     method_color_lookup = {
-        row["series_label"]: method_color(row["method"])
-        for row in calibration_summary.select("method", "series_label").unique().iter_rows(named=True)
+        row["method_display"]: method_color(row["method"])
+        for row in calibration_summary.select("method", "method_display").unique().iter_rows(named=True)
     }
 
     if facet_by_simulation:
         simulations = sorted(x for x in calibration_summary.get_column("simulation_name").unique().to_list() if x is not None)
-        n_cols = len(simulations)
-        _legend_w = 2.0
-        _fig_w = theme["width"] * n_cols + _legend_w
-        _plot_frac = (theme["width"] * n_cols) / _fig_w
+        n_rows = len(simulations)
         fig, axes = plt.subplots(
-            1, n_cols,
-            figsize=(_fig_w, theme["height"]),
+            n_rows, n_cols,
+            figsize=(theme["width"] * n_cols, theme["height"] * n_rows),
             squeeze=False,
         )
-        for col_idx, sim_name in enumerate(simulations):
-            panel_df = calibration_summary.filter(pl.col("simulation_name") == sim_name)
-            _plot_calibration_on_ax(axes[0, col_idx], panel_df, method_color_lookup=method_color_lookup)
-            axes[0, col_idx].set_title(sim_name, fontsize=9)
-        axes[0, 0].set_ylabel("Empirical causal frequency")
-        handles, labels = axes[0, 0].get_legend_handles_labels()
-        if handles:
-            fig.legend(handles, labels, frameon=False, fontsize=8,
-                       loc="center left", bbox_to_anchor=(_plot_frac + 0.02, 0.5))
-            fig.tight_layout(rect=[0, 0, _plot_frac, 1])
-        else:
-            fig.tight_layout()
+        for col_idx, method_name in enumerate(methods):
+            axes[0, col_idx].set_title(method_name, fontsize=9)
+        for row_idx, sim_name in enumerate(simulations):
+            for col_idx, method_name in enumerate(methods):
+                panel_df = calibration_summary.filter(
+                    (pl.col("simulation_name") == sim_name)
+                    & (pl.col("method_display") == method_name)
+                )
+                _plot_calibration_on_ax(axes[row_idx, col_idx], panel_df, color=method_color_lookup.get(method_name))
+            axes[row_idx, 0].set_ylabel(f"{sim_name}\nEmpirical causal freq.", fontsize=9)
     else:
-        fig, ax = plt.subplots(figsize=(theme["width"], theme["height"]))
-        _plot_calibration_on_ax(ax, calibration_summary, method_color_lookup=method_color_lookup)
-        ax.set_ylabel("Empirical causal frequency")
-        handles, labels = ax.get_legend_handles_labels()
-        if handles:
-            ax.legend(loc="upper left", bbox_to_anchor=(1.02, 1), borderaxespad=0, frameon=False, fontsize=8)
-        fig.tight_layout()
+        fig, axes = plt.subplots(
+            1, n_cols,
+            figsize=(theme["width"] * n_cols, theme["height"]),
+            squeeze=False,
+        )
+        for col_idx, method_name in enumerate(methods):
+            panel_df = calibration_summary.filter(pl.col("method_display") == method_name)
+            _plot_calibration_on_ax(axes[0, col_idx], panel_df, color=method_color_lookup.get(method_name))
+            axes[0, col_idx].set_title(method_name)
+        axes[0, 0].set_ylabel("Empirical causal frequency")
+
+    fig.tight_layout()
     return fig
 
 
