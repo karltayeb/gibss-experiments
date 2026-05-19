@@ -180,7 +180,7 @@ def build_pip_plot_data(
 
         sim_df = simulations_by_batch[row["batch_hash"]]
         sim_row = sim_df.filter(pl.col("replicate") == row["replicate"]).row(0, named=True)
-        causal_indices = [int(i) for i in sim_row["simulation"]["causal_indices"]]
+        causal_indices = sorted(set(int(i) for i in sim_row["simulation"]["causal_indices"]))
 
         causal_pips = [float(marginal_pip[ci]) for ci in causal_indices]
 
