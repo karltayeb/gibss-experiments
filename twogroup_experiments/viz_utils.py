@@ -287,7 +287,10 @@ def _plot_calibration_on_ax(ax: "plt.Axes", panel_df: pl.DataFrame, color: str |
 
 
 def render_pip_calibration(
-    calibration_summary: pl.DataFrame, *, facet_by_simulation: bool
+    calibration_summary: pl.DataFrame,
+    *,
+    facet_by_simulation: bool,
+    collection_names: list[str] | None = None,
 ):
     if calibration_summary.is_empty():
         return make_placeholder_chart("No PIP calibration data")
@@ -301,7 +304,8 @@ def render_pip_calibration(
     }
 
     if facet_by_simulation:
-        simulations = sorted(x for x in calibration_summary.get_column("simulation_name").unique().to_list() if x is not None)
+        _all_sims = set(x for x in calibration_summary.get_column("simulation_name").unique().to_list() if x is not None)
+        simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_rows = len(simulations)
         fig, axes = plt.subplots(
             n_rows, n_cols,
@@ -427,6 +431,7 @@ def render_power_fdp_chart(
     title: str | None = None,
     legend_outside: bool = False,
     square_axes: bool = False,
+    collection_names: list[str] | None = None,
 ):
     if power_fdp_summary.is_empty():
         return make_placeholder_chart("No power vs FDP data")
@@ -434,7 +439,8 @@ def render_power_fdp_chart(
     theme = base_chart_theme()
 
     if facet:
-        simulations = sorted(x for x in visible.get_column("simulation_name").unique().to_list() if x is not None)
+        _all_sims = set(x for x in visible.get_column("simulation_name").unique().to_list() if x is not None)
+        simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_cols = len(simulations)
         _legend_w = 2.0
         _fig_w = theme["width"] * n_cols + _legend_w
@@ -533,13 +539,15 @@ def render_causal_pip_chart(
     legend_outside: bool = False,
     square_axes: bool = False,
     method_order: list[str] | None = None,
+    collection_names: list[str] | None = None,
 ):
     if causal_pip_summary.is_empty():
         return make_placeholder_chart("No causal PIP data")
     theme = base_chart_theme()
 
     if facet:
-        simulations = sorted(x for x in causal_pip_summary.get_column("simulation_name").unique().to_list() if x is not None)
+        _all_sims = set(x for x in causal_pip_summary.get_column("simulation_name").unique().to_list() if x is not None)
+        simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_cols = len(simulations)
         _legend_w = 2.0
         _fig_w = theme["width"] * n_cols + _legend_w
@@ -679,15 +687,15 @@ def render_causal_rank_chart(
     legend_outside: bool = False,
     square_axes: bool = False,
     method_order: list[str] | None = None,
+    collection_names: list[str] | None = None,
 ):
     if causal_rank_summary.is_empty():
         return make_placeholder_chart("No causal rank data")
     theme = base_chart_theme()
 
     if facet:
-        simulations = sorted(
-            x for x in causal_rank_summary.get_column("simulation_name").unique().to_list() if x is not None
-        )
+        _all_sims = set(x for x in causal_rank_summary.get_column("simulation_name").unique().to_list() if x is not None)
+        simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_cols = len(simulations)
         _legend_w = 2.0
         _fig_w = theme["width"] * n_cols + _legend_w
@@ -822,14 +830,14 @@ def render_mass_above_causal_chart(
     legend_outside: bool = False,
     square_axes: bool = False,
     method_order: list[str] | None = None,
+    collection_names: list[str] | None = None,
 ):
     if summary.is_empty():
         return make_placeholder_chart("No mass above causal data")
     theme = base_chart_theme()
     if facet:
-        simulations = sorted(
-            x for x in summary.get_column("simulation_name").unique().to_list() if x is not None
-        )
+        _all_sims = set(x for x in summary.get_column("simulation_name").unique().to_list() if x is not None)
+        simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_cols = len(simulations)
         _legend_w = 2.0
         _fig_w = theme["width"] * n_cols + _legend_w

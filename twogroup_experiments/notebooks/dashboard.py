@@ -486,7 +486,8 @@ def pip_calibration_cell(
         pip_cal_chart = viz_utils.make_placeholder_chart("No PIP calibration data")
     else:
         pip_cal_chart = viz_utils.render_pip_calibration(
-            _pip_cal_summary, facet_by_simulation=True
+            _pip_cal_summary, facet_by_simulation=True,
+            collection_names=combined_data["collection_names"],
         )
     pip_cal_chart
     return
@@ -528,6 +529,7 @@ def power_fdp_cell(
             fixed_y_scale=True,
             legend_outside=True,
             square_axes=True,
+            collection_names=combined_data["collection_names"],
         )
     power_fdp_chart
     return
@@ -564,6 +566,7 @@ def causal_pip_cell(combined_data, foreground_methods):
             legend_outside=True,
             square_axes=True,
             method_order=_method_order,
+            collection_names=combined_data["collection_names"],
         )
     causal_pip_chart
     return
@@ -607,6 +610,7 @@ def causal_rank_cell(combined_data, foreground_methods):
                 legend_outside=True,
                 square_axes=True,
                 method_order=_method_order,
+                collection_names=combined_data["collection_names"],
             )
 
     causal_rank_chart
@@ -649,6 +653,7 @@ def mass_above_causal_cell(combined_data, foreground_methods):
                 legend_outside=True,
                 square_axes=True,
                 method_order=_method_order,
+                collection_names=combined_data["collection_names"],
             )
     mass_above_causal_chart
     return
