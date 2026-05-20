@@ -867,6 +867,7 @@ def cs_power_fdp_cell(
             fixed_y_scale=True,
             legend_outside=True,
             square_axes=True,
+            collection_names=_collection_names2,
         )
 
     cs_power_fdp_chart

@@ -308,8 +308,8 @@ def render_pip_calibration(
         simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_rows = len(simulations)
         fig, axes = plt.subplots(
-            n_rows, n_cols,
-            figsize=(theme["width"] * n_cols, theme["height"] * n_rows),
+            n_rows + 1, n_cols,
+            figsize=(theme["width"] * n_cols, theme["height"] * (n_rows + 1)),
             squeeze=False,
         )
         for col_idx, method_name in enumerate(methods):
@@ -322,6 +322,23 @@ def render_pip_calibration(
                 )
                 _plot_calibration_on_ax(axes[row_idx, col_idx], panel_df, color=method_color_lookup.get(method_name))
             axes[row_idx, 0].set_ylabel(f"{sim_name}\nEmpirical causal freq.", fontsize=9)
+        # aggregate row
+        _agg = (
+            calibration_summary
+            .group_by("method", "method_display", "series_label", "method_family", "pip_bin_index", "pip_left", "pip_right", "pip_mid")
+            .agg(pl.col("n_total").sum(), pl.col("n_causal").sum())
+            .with_columns(
+                pl.when(pl.col("n_total") > 0)
+                .then(pl.col("n_causal") / pl.col("n_total"))
+                .otherwise(None)
+                .alias("empirical_rate")
+            )
+        )
+        for col_idx, method_name in enumerate(methods):
+            ax = axes[n_rows, col_idx]
+            ax.set_facecolor("#ddeeff")
+            _plot_calibration_on_ax(ax, _agg.filter(pl.col("method_display") == method_name), color=method_color_lookup.get(method_name))
+        axes[n_rows, 0].set_ylabel("All\nEmpirical causal freq.", fontsize=9, fontweight="bold")
     else:
         fig, axes = plt.subplots(
             1, n_cols,
@@ -443,10 +460,10 @@ def render_power_fdp_chart(
         simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_cols = len(simulations)
         _legend_w = 2.0
-        _fig_w = theme["width"] * n_cols + _legend_w
-        _plot_frac = (theme["width"] * n_cols) / _fig_w
+        _fig_w = theme["width"] * (n_cols + 1) + _legend_w
+        _plot_frac = (theme["width"] * (n_cols + 1)) / _fig_w
         fig, axes = plt.subplots(
-            1, n_cols,
+            1, n_cols + 1,
             figsize=(_fig_w, theme["height"]),
             squeeze=False,
         )
@@ -459,6 +476,15 @@ def render_power_fdp_chart(
                 fixed_y_scale=fixed_y_scale,
                 title=sim_name,
             )
+        # aggregate column
+        _agg_pf = (
+            visible
+            .group_by("method", "method_display", "trace_label", "legend_label", "is_selected_threshold", "pip_threshold")
+            .agg(pl.col("power").mean(), pl.col("fdp").mean())
+        )
+        agg_ax = axes[0, n_cols]
+        agg_ax.set_facecolor("#ddeeff")
+        _plot_power_fdp_on_ax(agg_ax, _agg_pf, max_fdp=max_fdp, fixed_y_scale=fixed_y_scale, title="All")
         axes[0, 0].set_ylabel("Power")
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
@@ -550,10 +576,10 @@ def render_causal_pip_chart(
         simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_cols = len(simulations)
         _legend_w = 2.0
-        _fig_w = theme["width"] * n_cols + _legend_w
-        _plot_frac = (theme["width"] * n_cols) / _fig_w
+        _fig_w = theme["width"] * (n_cols + 1) + _legend_w
+        _plot_frac = (theme["width"] * (n_cols + 1)) / _fig_w
         fig, axes = plt.subplots(
-            1, n_cols,
+            1, n_cols + 1,
             figsize=(_fig_w, theme["height"]),
             squeeze=False,
         )
@@ -564,6 +590,14 @@ def render_causal_pip_chart(
                 title=sim_name,
                 method_order=method_order,
             )
+        _agg_cp = (
+            causal_pip_summary
+            .group_by("method", "method_display", "method_display_base", "threshold")
+            .agg(pl.col("mean_causal_pip").mean())
+        )
+        agg_ax = axes[0, n_cols]
+        agg_ax.set_facecolor("#ddeeff")
+        _plot_causal_pip_on_ax(agg_ax, _agg_cp, title="All", method_order=method_order)
         axes[0, 0].set_ylabel("Mean causal PIP")
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
@@ -698,9 +732,9 @@ def render_causal_rank_chart(
         simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_cols = len(simulations)
         _legend_w = 2.0
-        _fig_w = theme["width"] * n_cols + _legend_w
-        _plot_frac = (theme["width"] * n_cols) / _fig_w
-        fig, axes = plt.subplots(1, n_cols, figsize=(_fig_w, theme["height"]), squeeze=False)
+        _fig_w = theme["width"] * (n_cols + 1) + _legend_w
+        _plot_frac = (theme["width"] * (n_cols + 1)) / _fig_w
+        fig, axes = plt.subplots(1, n_cols + 1, figsize=(_fig_w, theme["height"]), squeeze=False)
         for col_idx, sim_name in enumerate(simulations):
             _plot_causal_rank_on_ax(
                 axes[0, col_idx],
@@ -708,6 +742,14 @@ def render_causal_rank_chart(
                 title=sim_name,
                 method_order=method_order,
             )
+        _agg_cr = (
+            causal_rank_summary
+            .group_by("method", "method_display", "method_display_base", "threshold")
+            .agg(pl.col("mean_causal_rank").mean())
+        )
+        agg_ax = axes[0, n_cols]
+        agg_ax.set_facecolor("#ddeeff")
+        _plot_causal_rank_on_ax(agg_ax, _agg_cr, title="All", method_order=method_order)
         axes[0, 0].set_ylabel("Mean causal rank")
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
@@ -840,9 +882,9 @@ def render_mass_above_causal_chart(
         simulations = [n for n in collection_names if n in _all_sims] if collection_names else sorted(_all_sims)
         n_cols = len(simulations)
         _legend_w = 2.0
-        _fig_w = theme["width"] * n_cols + _legend_w
-        _plot_frac = (theme["width"] * n_cols) / _fig_w
-        fig, axes = plt.subplots(1, n_cols, figsize=(_fig_w, theme["height"]), squeeze=False)
+        _fig_w = theme["width"] * (n_cols + 1) + _legend_w
+        _plot_frac = (theme["width"] * (n_cols + 1)) / _fig_w
+        fig, axes = plt.subplots(1, n_cols + 1, figsize=(_fig_w, theme["height"]), squeeze=False)
         for col_idx, sim_name in enumerate(simulations):
             _plot_mass_above_causal_on_ax(
                 axes[0, col_idx],
@@ -850,6 +892,14 @@ def render_mass_above_causal_chart(
                 title=sim_name,
                 method_order=method_order,
             )
+        _agg_mac = (
+            summary
+            .group_by("method", "method_display", "method_display_base", "threshold")
+            .agg(pl.col("mean_mass_above_causal").mean())
+        )
+        agg_ax = axes[0, n_cols]
+        agg_ax.set_facecolor("#ddeeff")
+        _plot_mass_above_causal_on_ax(agg_ax, _agg_mac, title="All", method_order=method_order)
         axes[0, 0].set_ylabel("Mean mass above causal")
         handles, labels = axes[0, 0].get_legend_handles_labels()
         if handles:
@@ -1013,6 +1063,12 @@ def render_cs_dot_summary_chart(
     offsets = np.linspace(-0.35, 0.35, n_methods) if n_methods > 1 else np.array([0.0])
     method_offset = {m: float(offsets[i]) for i, m in enumerate(method_order)}
     coll_to_x = {c: i for i, c in enumerate(collection_names)}
+    agg_x = len(collection_names)
+    _agg_dot = (
+        beta_df
+        .group_by("method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
+        .agg(pl.col("power").mean(), pl.col("coverage").mean(), pl.col("cs_size").mean())
+    )
 
     legend_handles = []
     legend_labels = []
@@ -1044,6 +1100,13 @@ def render_cs_dot_summary_chart(
                 if val is not None:
                     xs.append(coll_to_x[coll] + offset)
                     ys.append(float(val))
+            # aggregate dot
+            agg_row = _agg_dot.filter((pl.col("method") == trow["method"]) & thresh_filter)
+            if not agg_row.is_empty():
+                agg_val = agg_row[metric_col][0]
+                if agg_val is not None:
+                    xs.append(agg_x + offset)
+                    ys.append(float(agg_val))
             if xs:
                 sc = ax.scatter(xs, ys, color=color, s=60, zorder=3)
                 if trow["method_display"] not in seen_labels:
@@ -1054,14 +1117,15 @@ def render_cs_dot_summary_chart(
         for ci, _ in enumerate(collection_names):
             if ci % 2 == 1:
                 ax.axvspan(ci - 0.5, ci + 0.5, color="lightgrey", alpha=0.35, zorder=0, linewidth=0)
+        ax.axvspan(agg_x - 0.5, agg_x + 0.5, color="#ddeeff", zorder=0, linewidth=0)
 
         if metric_col == "coverage":
             ax.axhline(y=selected_beta, color="black", linestyle="--", linewidth=1.0)
 
         ax.set_title(metric_title)
-        ax.set_xticks(list(range(len(collection_names))))
-        ax.set_xticklabels(collection_names, rotation=45, ha="right", fontsize=7)
-        ax.set_xlim(-0.5, len(collection_names) - 0.5)
+        ax.set_xticks(list(range(agg_x + 1)))
+        ax.set_xticklabels(list(collection_names) + ["All"], rotation=45, ha="right", fontsize=7)
+        ax.set_xlim(-0.5, agg_x + 0.5)
 
     settings_text = f"β = {selected_beta:.2f}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
     if legend_handles:
@@ -1102,8 +1166,8 @@ def render_cs_beta_trace_chart(
     _fig_w = _plot_w + _legend_w
     _plot_frac = _plot_w / _fig_w
     fig, axes = plt.subplots(
-        n_rows, len(metrics),
-        figsize=(_fig_w, theme["height"] * n_rows),
+        n_rows + 1, len(metrics),
+        figsize=(_fig_w, theme["height"] * (n_rows + 1)),
         squeeze=False,
     )
 
@@ -1111,21 +1175,20 @@ def render_cs_beta_trace_chart(
     legend_labels: list = []
     seen_labels: set[str] = set()
 
-    for row_idx, coll_name in enumerate(collection_names):
-        coll_df = summary.filter(pl.col("collection_name") == coll_name)
+    def _plot_beta_trace_row(row_idx: int, row_df: pl.DataFrame) -> None:
+        trace_labels = (
+            row_df.select("method", "threshold", "method_display", "is_thresholded")
+            .unique()
+            .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
+        )
         for col_idx, (metric_col, metric_title) in enumerate(metrics):
             ax = axes[row_idx, col_idx]
-            trace_labels = (
-                coll_df.select("method", "threshold", "method_display", "is_thresholded")
-                .unique()
-                .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
-            )
             for trow in trace_labels.iter_rows(named=True):
                 thresh_filter = (
                     pl.col("threshold").is_null() if trow["threshold"] is None
                     else (pl.col("threshold") == trow["threshold"])
                 )
-                trace_df = coll_df.filter(
+                trace_df = row_df.filter(
                     (pl.col("method") == trow["method"]) & thresh_filter
                 ).sort("beta")
                 if trace_df.is_empty():
@@ -1146,14 +1209,27 @@ def render_cs_beta_trace_chart(
                     legend_labels.append(label)
                     seen_labels.add(label)
             if metric_col == "coverage":
-                betas = coll_df["beta"].unique().sort().to_numpy()
+                betas = row_df["beta"].unique().sort().to_numpy()
                 if len(betas):
                     ax.plot(betas, betas, color="black", linestyle="--", linewidth=1.0)
             if row_idx == 0:
                 ax.set_title(metric_title)
             ax.set_xlabel("Nominal coverage (β)")
-            if col_idx == 0:
-                ax.set_ylabel(coll_name, fontsize=9, fontweight="bold")
+
+    for row_idx, coll_name in enumerate(collection_names):
+        _plot_beta_trace_row(row_idx, summary.filter(pl.col("collection_name") == coll_name))
+        axes[row_idx, 0].set_ylabel(coll_name, fontsize=9, fontweight="bold")
+
+    # aggregate row
+    _agg_bt = (
+        summary
+        .group_by("method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
+        .agg(pl.col("power").mean(), pl.col("coverage").mean(), pl.col("cs_size").mean())
+    )
+    _plot_beta_trace_row(n_rows, _agg_bt)
+    for col_idx in range(len(metrics)):
+        axes[n_rows, col_idx].set_facecolor("#ddeeff")
+    axes[n_rows, 0].set_ylabel("All", fontsize=9, fontweight="bold")
 
     if legend_handles:
         fig.legend(
