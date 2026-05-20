@@ -27,122 +27,6 @@ def title_cell():
 
 
 @app.cell(hide_code=True)
-def prepare_heading_cell():
-    mo.md("""
-    ## Prepare Collections
-    """)
-    return
-
-
-@app.cell
-def unprepared_cell():
-    _collections_root = Path(__file__).parent.parent / "results" / "collections"
-    _registered = sorted(
-        collection.name
-        for collection in config.COLLECTION_SPECS
-        if collection.name != "tiny_test"
-    )
-    _not_ready = sorted(
-        name
-        for name in _registered
-        if not (_collections_root / name / "plot_ready" / "out.txt").exists()
-    )
-    unprepared_table = mo.ui.table(
-        pl.DataFrame({"name": _not_ready}),
-        selection="multi",
-    )
-    _display = (
-        mo.vstack([
-            mo.md(f"**{len(_not_ready)} collections not yet plot-ready:**"),
-            unprepared_table,
-        ])
-        if _not_ready
-        else mo.md("All collections are plot-ready.")
-    )
-    _display
-    return (unprepared_table,)
-
-
-@app.cell(hide_code=True)
-def snakemake_cores_cell():
-    cores_input = mo.ui.number(value=1, start=1, stop=64, label="Cores (-c)")
-    return (cores_input,)
-
-
-@app.cell
-def snakemake_prepare_cell(unprepared_table, cores_input):
-    import re as _re
-    import subprocess as _subprocess
-
-    _selected = unprepared_table.value["name"].to_list() if len(unprepared_table.value) else []
-
-    if not _selected:
-        mo.stop(True, mo.md("Select collections above to prepare."))
-
-    _cwd = str(Path(__file__).parent.parent)
-    _targets = [
-        f"results/collections/{n}/plot_ready/out.txt" for n in _selected
-    ]
-    _base_cmd = ["uv", "run", "snakemake", "--snakefile", "twogroup_experiments.snk"] + _targets
-    _cores = int(cores_input.value)
-
-    def _parse_dry_run(text):
-        if "Nothing to be done" in text:
-            return "Nothing to be done (all up to date)."
-        lines = text.splitlines()
-        in_stats = False
-        table_lines = []
-        for line in lines:
-            if _re.search(r"[Jj]ob\s+(stats|counts)", line):
-                in_stats = True
-                continue
-            if in_stats:
-                if not line.strip() and table_lines:
-                    break
-                table_lines.append(line)
-        if table_lines:
-            return "\n".join(table_lines)
-        return text[:400].strip() or "No output."
-
-    def _do_dry_run(_):
-        result = _subprocess.run(
-            _base_cmd + ["--dry-run"],
-            cwd=_cwd, capture_output=True, text=True,
-        )
-        return _parse_dry_run(result.stdout + result.stderr)
-
-    def _do_run(_):
-        _subprocess.Popen(
-            _base_cmd + [f"-c{_cores}"],
-            cwd=_cwd, start_new_session=True,
-        )
-
-    def _do_touch(_):
-        _subprocess.Popen(
-            _base_cmd + ["--touch"],
-            cwd=_cwd, start_new_session=True,
-        )
-
-    dry_run_btn = mo.ui.button(label="Dry run", on_click=_do_dry_run, value="")
-    run_btn = mo.ui.button(
-        label=f"Run ({len(_selected)} collections, -c{_cores})",
-        on_click=_do_run,
-    )
-    touch_btn = mo.ui.button(label="Touch", on_click=_do_touch)
-    _cmd_str = " \\\n    ".join(_base_cmd + [f"-c{_cores}"])
-    mo.vstack([
-        mo.md(f"```bash\n{_cmd_str}\n```"),
-        mo.hstack([cores_input, dry_run_btn, run_btn, touch_btn]),
-    ])
-    return (dry_run_btn,)
-
-
-@app.cell(hide_code=True)
-def dry_run_output_cell(dry_run_btn):
-    mo.md(f"```\n{dry_run_btn.value}\n```") if dry_run_btn.value else mo.md("")
-
-
-@app.cell(hide_code=True)
 def view_heading_cell():
     mo.md("""
     ## View Collections
@@ -151,199 +35,57 @@ def view_heading_cell():
 
 
 @app.cell
-def config_io_cell(set_active_config):
+def config_select_cell():
     import yaml as _yaml
+
     _config_path = Path(__file__).parent / "plot_config.yaml"
-    _all_configs: dict = {}
-    if _config_path.exists():
-        _all_configs = _yaml.safe_load(_config_path.read_text()) or {}
+    _all_configs: dict = _yaml.safe_load(_config_path.read_text()) or {} if _config_path.exists() else {}
+    _supercollections = _all_configs.get("supercollections", {})
+    _settings_presets = _all_configs.get("settings", {})
 
-    _names = list(_all_configs.keys())
-    _config_dropdown = mo.ui.dropdown(
-        options=_names,
-        value=_names[0] if _names else None,
-        label="config",
+    _sc_names = list(_supercollections.keys())
+    _ps_names = ["(default)"] + list(_settings_presets.keys())
+
+    supercollection_dropdown = mo.ui.dropdown(
+        options=_sc_names,
+        value=_sc_names[0] if _sc_names else None,
+        label="supercollection",
     )
-
-    def _load(_):
-        name = _config_dropdown.value
-        if name and name in _all_configs:
-            set_active_config({"name": name, "data": _all_configs[name]})
-
-    def _clear(_):
-        set_active_config(None)
-
-    load_btn = mo.ui.button(label="Load", on_click=_load)
-    clear_btn = mo.ui.button(label="Clear", on_click=_clear)
-
-    mo.hstack([_config_dropdown, load_btn, clear_btn])
-    return
-
-
-@app.cell
-def collection_selector_cell():
-    collection_alias_root = Path(__file__).parent.parent / "results" / "collections"
-    _names = plot_ready.available_plot_ready_collections(collection_alias_root)
-    collection_table = mo.ui.table(
-        pl.DataFrame({"name": _names}),
-        selection="multi",
+    plot_settings_dropdown = mo.ui.dropdown(
+        options=_ps_names,
+        value=_ps_names[0] if _ps_names else None,
+        label="plot settings",
     )
-    collection_table
-    return collection_alias_root, collection_table
-
-
-@app.cell
-def dirty_state_cell():
-    dirty, set_dirty = mo.state(False)
-    return dirty, set_dirty
-
-
-@app.cell
-def config_state_cell():
-    active_config, set_active_config = mo.state(None)
-    return active_config, set_active_config
-
-
-@app.cell
-def alias_cell(collection_table, set_dirty, active_config):
-    _cfg = active_config()
-
-    if _cfg is not None:
-        _coll_list: list = _cfg["data"].get("collections", [])
-        _selected = [item["name"] for item in _coll_list]
-        _alias_map = {item["name"]: item.get("alias", item["name"]) for item in _coll_list}
-        def _default_alias(name: str) -> str:
-            return str(_alias_map.get(name, name))
-        def _default_order_val(i: int, name: str) -> str:
-            return str(i + 1)
-    else:
-        mo.stop(
-            len(collection_table.value) == 0,
-            mo.md("Select one or more collections above."),
-        )
-        _selected = collection_table.value["name"].to_list()
-        def _default_alias(name: str) -> str:
-            for part in name.split("__"):
-                if part.startswith("signal_"):
-                    return part[len("signal_"):]
-                if part.startswith("signal="):
-                    return part[len("signal="):]
-            return name.split("__")[0]
-        def _default_order_val(i: int, name: str) -> str:
-            return str(i + 1)
-
-    def _parse_order(v: str) -> float:
-        try:
-            return float(v)
-        except ValueError:
-            return float("inf")
-
-    _alias_els = {
-        name: mo.ui.text(value=_default_alias(name), label="", on_change=lambda _: set_dirty(True))
-        for name in _selected
-    }
-    _order_els = {
-        name: mo.ui.text(value=_default_order_val(i, name), label="", on_change=lambda _: set_dirty(True))
-        for i, name in enumerate(_selected)
-    }
-
-    _settings_defaults: dict = {} if _cfg is None else _cfg["data"].get("settings", {})
-    _initial = {
-        "selected": _selected,
-        "aliases": {n: _default_alias(n) for n in _selected},
-        "settings": _settings_defaults,
-    }
 
     def _apply(_):
-        set_dirty(False)
-        return {
-            "selected": sorted(
-                _selected,
-                key=lambda n: _parse_order(_order_els[n].value),
-            ),
-            "aliases": {n: _alias_els[n].value for n in _selected},
-            "settings": _settings_defaults,
-        }
+        sc = supercollection_dropdown.value
+        ps = plot_settings_dropdown.value
+        if not sc:
+            return {"selected": [], "aliases": {}, "settings": {}}
+        sc_cfg = _supercollections.get(sc, {})
+        coll_list = sc_cfg.get("collections", [])
+        selected = [item["name"] for item in coll_list]
+        aliases = {item["name"]: item.get("alias", item["name"]) for item in coll_list}
+        defaults = sc_cfg.get("default_settings", {})
+        overrides = _settings_presets.get(ps, {}) if ps != "(default)" else {}
+        settings = {**defaults, **overrides}
+        return {"selected": selected, "aliases": aliases, "settings": settings}
 
-    apply_btn = mo.ui.button(label="Apply", on_click=_apply, value=_initial)
+    _initial_val = _apply(None)
+    apply_btn = mo.ui.button(label="Apply", on_click=_apply, value=_initial_val)
 
-    def _row(name: str):
-        return mo.hstack([
-            _order_els[name],
-            mo.Html(f'<span style="font-family:monospace;font-size:11px">{name}</span>'),
-            _alias_els[name],
-        ])
-
-    _mode_label = (
-        mo.md(f"*Config loaded: **{_cfg['name']}***") if _cfg
-        else mo.md("*Manual mode — select collections above*")
-    )
-    _header = mo.hstack([mo.md("**#**"), mo.md("**collection**"), mo.md("**alias**")])
-    mo.vstack([_mode_label, _header, *[_row(n) for n in _selected], apply_btn])
+    mo.hstack([supercollection_dropdown, plot_settings_dropdown, apply_btn])
     return (apply_btn,)
 
 
 @app.cell
-def apply_status_cell(apply_btn, dirty):
-    _ = apply_btn  # depend on apply_btn so status clears on new selection
-    mo.md("⚠️ **Modified** — click Apply") if dirty() else mo.md("✅ Applied")
-
-
-@app.cell
-def config_save_cell(apply_btn, active_config, max_cs_size_slider, min_log_bf_slider, cs_beta_slider):
-    import yaml as _yaml
-    _config_path = Path(__file__).parent / "plot_config.yaml"
-    _cfg = active_config()
-    _default_name = _cfg["name"] if _cfg else ""
-    _settings = apply_btn.value
-
-    name_input = mo.ui.text(value=_default_name, label="config name")
-
-    def _save(current_val: str):
-        _name = name_input.value.strip()
-        if not _name:
-            return "no_name"
-        _existing: dict = {}
-        if _config_path.exists():
-            _existing = _yaml.safe_load(_config_path.read_text()) or {}
-        if _name in _existing and current_val != "confirm":
-            return "confirm"
-        _coll_entry = [
-            {"name": n, "alias": _settings["aliases"].get(n, n)}
-            for n in _settings["selected"]
-        ]
-        _saved_settings = dict(_settings.get("settings", {}))
-        _saved_settings["max_cs_size"] = max_cs_size_slider.value
-        _saved_settings["min_log_bf"] = min_log_bf_slider.value
-        _saved_settings["cs_beta"] = cs_beta_slider.value
-        _existing[_name] = {
-            "collections": _coll_entry,
-            "settings": _saved_settings,
-        }
-        _config_path.write_text(_yaml.dump(_existing, default_flow_style=False, allow_unicode=True))
-        return "saved"
-
-    save_btn = mo.ui.button(label="Save", on_click=_save, value="")
-    mo.hstack([name_input, save_btn])
-    return (save_btn,)
-
-
-@app.cell
-def config_save_status_cell(save_btn):
-    {
-        "confirm": mo.md("⚠️ Config exists — click **Save** again to overwrite"),
-        "saved": mo.md("✅ Saved to plot_config.yaml"),
-        "no_name": mo.md("⚠️ Enter a config name first"),
-    }.get(save_btn.value, mo.md(""))
-
-
-@app.cell
-def bundles_cell(collection_alias_root, apply_btn):
+def bundles_cell(apply_btn):
+    collection_alias_root = Path(__file__).parent.parent / "results" / "collections"
     _settings = apply_btn.value
     _selected = _settings["selected"]
     _aliases: dict[str, str] = _settings["aliases"]
 
-    mo.stop(not _selected, mo.md("Select collections above."))
+    mo.stop(not _selected, mo.md("Select a supercollection above."))
 
     _bundles = {
         name: plot_ready.load_plot_ready_collection(collection_alias_root / name)
