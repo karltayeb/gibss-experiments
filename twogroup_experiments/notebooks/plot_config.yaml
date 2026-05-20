@@ -292,3 +292,131 @@ uniform-n-features-scale:
       alias: "p=1600"
   settings:
     <<: *defaults
+
+gaussian-correlation-loc-strong:
+  collections:
+    - name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.00"
+    - name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.50"
+    - name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.80"
+    - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.90"
+    - name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.95"
+    - name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.99"
+  settings:
+    <<: *defaults
+
+gaussian-correlation-scale-strong:
+  collections:
+    - name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.00"
+    - name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.50"
+    - name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.80"
+    - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.90"
+    - name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.95"
+    - name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.99"
+  settings:
+    <<: *defaults
+
+uniform-correlation-loc-strong:
+  collections:
+    - name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.00"
+    - name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.50"
+    - name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.80"
+    - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.90"
+    - name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.95"
+    - name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "rho=0.99"
+  settings:
+    <<: *defaults
+
+uniform-correlation-scale-strong:
+  collections:
+    - name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.00"
+    - name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.50"
+    - name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.80"
+    - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.90"
+    - name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.95"
+    - name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "rho=0.99"
+  settings:
+    <<: *defaults
+
+gaussian-n-features-loc-strong:
+  collections:
+    - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=100"
+    - name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=200"
+    - name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=400"
+    - name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=800"
+    - name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=1600"
+  settings:
+    <<: *defaults
+
+gaussian-n-features-scale-strong:
+  collections:
+    - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=100"
+    - name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=200"
+    - name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=400"
+    - name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=800"
+    - name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=1600"
+  settings:
+    <<: *defaults
+
+uniform-n-features-loc-strong:
+  collections:
+    - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=100"
+    - name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=200"
+    - name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=400"
+    - name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=800"
+    - name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_2.00
+      alias: "p=1600"
+  settings:
+    <<: *defaults
+
+uniform-n-features-scale-strong:
+  collections:
+    - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=100"
+    - name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=200"
+    - name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=400"
+    - name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=800"
+    - name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_2.25
+      alias: "p=1600"
+  settings:
+    <<: *defaults

@@ -136,7 +136,9 @@ F1INIT = Normal(loc=0.0, scale=1.0, estimate_loc=True, estimate_scale=True)
 SER_ENRICH = "ser_enrich"
 LOC_SCALE_FIXED = 0.1
 CORRELATION_LOC_ANCHOR = 1.5
+CORRELATION_LOC_ANCHOR_STRONG = 2.0
 CORRELATION_SCALE_ANCHOR = 1.75
+CORRELATION_SCALE_ANCHOR_STRONG = 2.25
 SIGNAL_RHO = 0.90
 SIGNAL_N_FEATURES = 100
 SAMPLE_SIZE_RHO = 0.90
@@ -436,40 +438,28 @@ def _register_signal_collections() -> tuple[CollectionSpec, ...]:
 def _register_correlation_collections() -> tuple[CollectionSpec, ...]:
     collections: list[CollectionSpec] = []
     for design in CORRELATION_GAUSSIAN_DESIGNS + CORRELATION_UNIFORM_DESIGNS:
-        collections.append(
-            _register_atomic_collection(
-                design=design,
-                signal_kind="loc",
-                signal_value=CORRELATION_LOC_ANCHOR,
+        for loc in (CORRELATION_LOC_ANCHOR, CORRELATION_LOC_ANCHOR_STRONG):
+            collections.append(
+                _register_atomic_collection(design=design, signal_kind="loc", signal_value=loc)
             )
-        )
-        collections.append(
-            _register_atomic_collection(
-                design=design,
-                signal_kind="scale",
-                signal_value=CORRELATION_SCALE_ANCHOR,
+        for scale in (CORRELATION_SCALE_ANCHOR, CORRELATION_SCALE_ANCHOR_STRONG):
+            collections.append(
+                _register_atomic_collection(design=design, signal_kind="scale", signal_value=scale)
             )
-        )
     return tuple(collections)
 
 
 def _register_n_feature_collections() -> tuple[CollectionSpec, ...]:
     collections: list[CollectionSpec] = []
     for design in N_FEATURE_GAUSSIAN_DESIGNS + N_FEATURE_UNIFORM_DESIGNS:
-        collections.append(
-            _register_atomic_collection(
-                design=design,
-                signal_kind="loc",
-                signal_value=CORRELATION_LOC_ANCHOR,
+        for loc in (CORRELATION_LOC_ANCHOR, CORRELATION_LOC_ANCHOR_STRONG):
+            collections.append(
+                _register_atomic_collection(design=design, signal_kind="loc", signal_value=loc)
             )
-        )
-        collections.append(
-            _register_atomic_collection(
-                design=design,
-                signal_kind="scale",
-                signal_value=CORRELATION_SCALE_ANCHOR,
+        for scale in (CORRELATION_SCALE_ANCHOR, CORRELATION_SCALE_ANCHOR_STRONG):
+            collections.append(
+                _register_atomic_collection(design=design, signal_kind="scale", signal_value=scale)
             )
-        )
     return tuple(collections)
 
 
