@@ -1,12 +1,30 @@
 supercollections:
   hallmark-signal-loc:
     collections:
-      - {name: design=hallmark__enrichment=ser_enrich__signal=loc_0.50, alias: "mu=0.50"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=loc_1.00, alias: "mu=1.00"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=loc_1.50, alias: "mu=1.50"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00, alias: "mu=2.00"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=loc_2.50, alias: "mu=2.50"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=loc_3.00, alias: "mu=3.00"}
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=loc_0.50,
+          alias: "mu=0.50",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=loc_1.00,
+          alias: "mu=1.00",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "mu=1.50",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "mu=2.00",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=loc_2.50,
+          alias: "mu=2.50",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=loc_3.00,
+          alias: "mu=3.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -23,14 +41,38 @@ supercollections:
 
   hallmark-signal-scale:
     collections:
-      - {name: design=hallmark__enrichment=ser_enrich__signal=scale_0.75, alias: "sigma=0.75"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=scale_1.00, alias: "sigma=1.00"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=scale_1.50, alias: "sigma=1.50"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=scale_1.75, alias: "sigma=1.75"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00, alias: "sigma=2.00"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=scale_3.00, alias: "sigma=3.00"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=scale_4.00, alias: "sigma=4.00"}
-      - {name: design=hallmark__enrichment=ser_enrich__signal=scale_5.00, alias: "sigma=5.00"}
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=scale_0.75,
+          alias: "sigma=0.75",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=scale_1.00,
+          alias: "sigma=1.00",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=scale_1.50,
+          alias: "sigma=1.50",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "sigma=1.75",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00,
+          alias: "sigma=2.00",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=scale_3.00,
+          alias: "sigma=3.00",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=scale_4.00,
+          alias: "sigma=4.00",
+        }
+      - {
+          name: design=hallmark__enrichment=ser_enrich__signal=scale_5.00,
+          alias: "sigma=5.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -47,12 +89,30 @@ supercollections:
 
   c4-signal-loc:
     collections:
-      - {name: design=c4__enrichment=ser_enrich__signal=loc_0.50, alias: "mu=0.50"}
-      - {name: design=c4__enrichment=ser_enrich__signal=loc_1.00, alias: "mu=1.00"}
-      - {name: design=c4__enrichment=ser_enrich__signal=loc_1.50, alias: "mu=1.50"}
-      - {name: design=c4__enrichment=ser_enrich__signal=loc_2.00, alias: "mu=2.00"}
-      - {name: design=c4__enrichment=ser_enrich__signal=loc_2.50, alias: "mu=2.50"}
-      - {name: design=c4__enrichment=ser_enrich__signal=loc_3.00, alias: "mu=3.00"}
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=loc_0.50,
+          alias: "mu=0.50",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=loc_1.00,
+          alias: "mu=1.00",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "mu=1.50",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "mu=2.00",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=loc_2.50,
+          alias: "mu=2.50",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=loc_3.00,
+          alias: "mu=3.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -69,14 +129,38 @@ supercollections:
 
   c4-signal-scale:
     collections:
-      - {name: design=c4__enrichment=ser_enrich__signal=scale_0.75, alias: "sigma=0.75"}
-      - {name: design=c4__enrichment=ser_enrich__signal=scale_1.00, alias: "sigma=1.00"}
-      - {name: design=c4__enrichment=ser_enrich__signal=scale_1.50, alias: "sigma=1.50"}
-      - {name: design=c4__enrichment=ser_enrich__signal=scale_1.75, alias: "sigma=1.75"}
-      - {name: design=c4__enrichment=ser_enrich__signal=scale_2.00, alias: "sigma=2.00"}
-      - {name: design=c4__enrichment=ser_enrich__signal=scale_3.00, alias: "sigma=3.00"}
-      - {name: design=c4__enrichment=ser_enrich__signal=scale_4.00, alias: "sigma=4.00"}
-      - {name: design=c4__enrichment=ser_enrich__signal=scale_5.00, alias: "sigma=5.00"}
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=scale_0.75,
+          alias: "sigma=0.75",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=scale_1.00,
+          alias: "sigma=1.00",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=scale_1.50,
+          alias: "sigma=1.50",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "sigma=1.75",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=scale_2.00,
+          alias: "sigma=2.00",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=scale_3.00,
+          alias: "sigma=3.00",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=scale_4.00,
+          alias: "sigma=4.00",
+        }
+      - {
+          name: design=c4__enrichment=ser_enrich__signal=scale_5.00,
+          alias: "sigma=5.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -93,12 +177,30 @@ supercollections:
 
   gaussian-rho0.9-signal-loc:
     collections:
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50, alias: "mu=0.50"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00, alias: "mu=1.00"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "mu=1.50"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "mu=2.00"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50, alias: "mu=2.50"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00, alias: "mu=3.00"}
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50,
+          alias: "mu=0.50",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00,
+          alias: "mu=1.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "mu=1.50",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "mu=2.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50,
+          alias: "mu=2.50",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00,
+          alias: "mu=3.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -115,14 +217,38 @@ supercollections:
 
   gaussian-rho0.9-signal-scale:
     collections:
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75, alias: "sigma=0.75"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00, alias: "sigma=1.00"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50, alias: "sigma=1.50"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "sigma=1.75"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00, alias: "sigma=2.00"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00, alias: "sigma=3.00"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00, alias: "sigma=4.00"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00, alias: "sigma=5.00"}
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75,
+          alias: "sigma=0.75",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00,
+          alias: "sigma=1.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50,
+          alias: "sigma=1.50",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "sigma=1.75",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00,
+          alias: "sigma=2.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00,
+          alias: "sigma=3.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00,
+          alias: "sigma=4.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00,
+          alias: "sigma=5.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -139,12 +265,30 @@ supercollections:
 
   uniform-rho0.9-signal-loc:
     collections:
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50, alias: "mu=0.50"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00, alias: "mu=1.00"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "mu=1.50"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "mu=2.00"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50, alias: "mu=2.50"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00, alias: "mu=3.00"}
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50,
+          alias: "mu=0.50",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00,
+          alias: "mu=1.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "mu=1.50",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "mu=2.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50,
+          alias: "mu=2.50",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00,
+          alias: "mu=3.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -161,14 +305,38 @@ supercollections:
 
   uniform-rho0.9-signal-scale:
     collections:
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75, alias: "sigma=0.75"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00, alias: "sigma=1.00"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50, alias: "sigma=1.50"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "sigma=1.75"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00, alias: "sigma=2.00"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00, alias: "sigma=3.00"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00, alias: "sigma=4.00"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00, alias: "sigma=5.00"}
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75,
+          alias: "sigma=0.75",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00,
+          alias: "sigma=1.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50,
+          alias: "sigma=1.50",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "sigma=1.75",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00,
+          alias: "sigma=2.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00,
+          alias: "sigma=3.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00,
+          alias: "sigma=4.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00,
+          alias: "sigma=5.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -185,12 +353,30 @@ supercollections:
 
   gaussian-correlation-loc:
     collections:
-      - {name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.00"}
-      - {name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.50"}
-      - {name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.80"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.90"}
-      - {name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.95"}
-      - {name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.99"}
+      - {
+          name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.50",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.80",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.90",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.95",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.99",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -207,12 +393,30 @@ supercollections:
 
   gaussian-correlation-scale:
     collections:
-      - {name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.00"}
-      - {name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.50"}
-      - {name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.80"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.90"}
-      - {name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.95"}
-      - {name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.99"}
+      - {
+          name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.50",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.80",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.90",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.95",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.99",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -229,12 +433,30 @@ supercollections:
 
   uniform-correlation-loc:
     collections:
-      - {name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.00"}
-      - {name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.50"}
-      - {name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.80"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.90"}
-      - {name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.95"}
-      - {name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "rho=0.99"}
+      - {
+          name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.50",
+        }
+      - {
+          name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.80",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.90",
+        }
+      - {
+          name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.95",
+        }
+      - {
+          name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "rho=0.99",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -251,12 +473,30 @@ supercollections:
 
   uniform-correlation-scale:
     collections:
-      - {name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.00"}
-      - {name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.50"}
-      - {name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.80"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.90"}
-      - {name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.95"}
-      - {name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "rho=0.99"}
+      - {
+          name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.50",
+        }
+      - {
+          name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.80",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.90",
+        }
+      - {
+          name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.95",
+        }
+      - {
+          name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "rho=0.99",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -273,11 +513,26 @@ supercollections:
 
   gaussian-n-features-loc:
     collections:
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "p=100"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_1.50, alias: "p=200"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_1.50, alias: "p=400"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_1.50, alias: "p=800"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_1.50, alias: "p=1600"}
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=100",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=200",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=400",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=800",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=1600",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -294,11 +549,26 @@ supercollections:
 
   gaussian-n-features-scale:
     collections:
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "p=100"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_1.75, alias: "p=200"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_1.75, alias: "p=400"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_1.75, alias: "p=800"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_1.75, alias: "p=1600"}
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=100",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=200",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=400",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=800",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=1600",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -315,11 +585,26 @@ supercollections:
 
   uniform-n-features-loc:
     collections:
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50, alias: "p=100"}
-      - {name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_1.50, alias: "p=200"}
-      - {name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_1.50, alias: "p=400"}
-      - {name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_1.50, alias: "p=800"}
-      - {name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_1.50, alias: "p=1600"}
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=100",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=200",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=400",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=800",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_1.50,
+          alias: "p=1600",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -336,11 +621,26 @@ supercollections:
 
   uniform-n-features-scale:
     collections:
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75, alias: "p=100"}
-      - {name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_1.75, alias: "p=200"}
-      - {name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_1.75, alias: "p=400"}
-      - {name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_1.75, alias: "p=800"}
-      - {name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_1.75, alias: "p=1600"}
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=100",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=200",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=400",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=800",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_1.75,
+          alias: "p=1600",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -357,12 +657,30 @@ supercollections:
 
   gaussian-correlation-loc-strong:
     collections:
-      - {name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.00"}
-      - {name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.50"}
-      - {name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.80"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.90"}
-      - {name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.95"}
-      - {name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.99"}
+      - {
+          name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.50",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.80",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.90",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.95",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.99",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -379,12 +697,30 @@ supercollections:
 
   gaussian-correlation-scale-strong:
     collections:
-      - {name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.00"}
-      - {name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.50"}
-      - {name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.80"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.90"}
-      - {name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.95"}
-      - {name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.99"}
+      - {
+          name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.00",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.50",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.80",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.90",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.95",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.99",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -401,12 +737,30 @@ supercollections:
 
   uniform-correlation-loc-strong:
     collections:
-      - {name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.00"}
-      - {name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.50"}
-      - {name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.80"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.90"}
-      - {name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.95"}
-      - {name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "rho=0.99"}
+      - {
+          name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.50",
+        }
+      - {
+          name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.80",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.90",
+        }
+      - {
+          name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.95",
+        }
+      - {
+          name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "rho=0.99",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -423,12 +777,30 @@ supercollections:
 
   uniform-correlation-scale-strong:
     collections:
-      - {name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.00"}
-      - {name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.50"}
-      - {name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.80"}
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.90"}
-      - {name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.95"}
-      - {name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "rho=0.99"}
+      - {
+          name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.00",
+        }
+      - {
+          name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.50",
+        }
+      - {
+          name: design=uniform_markov_rho_0.80_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.80",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.90",
+        }
+      - {
+          name: design=uniform_markov_rho_0.95_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.95",
+        }
+      - {
+          name: design=uniform_markov_rho_0.99_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "rho=0.99",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -445,11 +817,26 @@ supercollections:
 
   gaussian-n-features-loc-strong:
     collections:
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "p=100"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_2.00, alias: "p=200"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_2.00, alias: "p=400"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_2.00, alias: "p=800"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_2.00, alias: "p=1600"}
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=100",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=200",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=400",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=800",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=1600",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -466,11 +853,26 @@ supercollections:
 
   gaussian-n-features-scale-strong:
     collections:
-      - {name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "p=100"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_2.25, alias: "p=200"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_2.25, alias: "p=400"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_2.25, alias: "p=800"}
-      - {name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_2.25, alias: "p=1600"}
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=100",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=200",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=400",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=800",
+        }
+      - {
+          name: design=gaussian_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=1600",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -487,11 +889,26 @@ supercollections:
 
   uniform-n-features-loc-strong:
     collections:
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00, alias: "p=100"}
-      - {name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_2.00, alias: "p=200"}
-      - {name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_2.00, alias: "p=400"}
-      - {name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_2.00, alias: "p=800"}
-      - {name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_2.00, alias: "p=1600"}
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=100",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=200",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=400",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=800",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=loc_2.00,
+          alias: "p=1600",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -508,11 +925,26 @@ supercollections:
 
   uniform-n-features-scale-strong:
     collections:
-      - {name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25, alias: "p=100"}
-      - {name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_2.25, alias: "p=200"}
-      - {name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_2.25, alias: "p=400"}
-      - {name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_2.25, alias: "p=800"}
-      - {name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_2.25, alias: "p=1600"}
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=100",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=200",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_400__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=400",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_800__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=800",
+        }
+      - {
+          name: design=uniform_markov_rho_0.90_n_features_1600__enrichment=ser_enrich__signal=scale_2.25,
+          alias: "p=1600",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
@@ -544,3 +976,18 @@ settings:
     method_families:
       - cox_heavy
       - twogroup
+  cox_light_vs_cox_heavy:
+    method_families:
+      - cox_light_threshold
+      - cox_heavy
+  no-oracle:
+    method_families:
+      - cox_heavy
+      - logistic_threshold
+      - cox_light_threshold
+      - twogroup
+      - twogroup_oracle
+  oracle:
+    method_families:
+      - logistic_oracle
+      - twogroup_oracle

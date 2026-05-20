@@ -59,6 +59,8 @@ PLOT_SETTINGS_NAMES = sorted(_PLOT_CONFIG.get("settings", {}).keys())
 PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
     "mass_above_causal", "cs_dot_summary", "cs_power_fdp", "cs_beta_trace",
+    "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
+    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace",
 ]
 
 
@@ -396,6 +398,16 @@ rule supercollection_plot:
             wildcards.plot_type,
             output[0],
         )
+
+
+rule supercollection_all_plots:
+    input:
+        expand(
+            f"{RESULTS_ROOT}/plots/{{supercollection}}/{{plot_settings}}/{{plot_type}}.pdf",
+            supercollection=[config["supercollection"]] if "supercollection" in config else [],
+            plot_settings=PLOT_SETTINGS_NAMES,
+            plot_type=PLOT_TYPES,
+        ),
 
 
 rule all_plots:
