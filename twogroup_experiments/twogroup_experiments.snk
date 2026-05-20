@@ -36,6 +36,7 @@ wildcard_constraints:
     method_hash      = r"[0-9a-f]{64}",
     collection_alias = r"[A-Za-z0-9_\-=\.]+",
     supercollection  = r"[A-Za-z0-9_\-\.]+",
+    plot_settings    = r"[A-Za-z0-9_\-]+",
 
 
 import yaml as _yaml
@@ -53,9 +54,12 @@ _REGISTERED_COLLECTION_YAMLS: dict = {
     alias: collection_yaml_node(alias) for alias in REGISTERED_COLLECTION_ALIASES
 }
 _PLOT_CONFIG: dict = _yaml.safe_load(Path(PLOT_CONFIG_PATH).read_text()) or {}
-SUPERCOLLECTIONS = sorted(
-    key for key in _PLOT_CONFIG if not str(key).startswith("_")
-)
+SUPERCOLLECTIONS = sorted(_PLOT_CONFIG.get("supercollections", {}).keys())
+PLOT_SETTINGS_NAMES = sorted(_PLOT_CONFIG.get("settings", {}).keys())
+PLOT_TYPES = [
+    "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
+    "mass_above_causal", "cs_dot_summary", "cs_power_fdp", "cs_beta_trace",
+]
 
 
 def load_collection_yaml(collection_alias: str) -> dict:
@@ -67,9 +71,10 @@ def load_collection_yaml(collection_alias: str) -> dict:
 
 
 def load_supercollection(supercollection: str) -> dict:
-    if supercollection not in _PLOT_CONFIG:
+    supercollections = _PLOT_CONFIG.get("supercollections", {})
+    if supercollection not in supercollections:
         raise KeyError(supercollection)
-    return _PLOT_CONFIG[supercollection]
+    return supercollections[supercollection]
 
 
 def _batch_name(batch: dict) -> str:
@@ -376,3 +381,28 @@ rule twogroup_experiments_target:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/out.txt",
     shell:
         "echo ran > {output[0]}"
+
+
+rule supercollection_plot:
+    input:
+        f"{RESULTS_ROOT}/supercollections/{{supercollection}}/out.txt",
+    output:
+        f"{RESULTS_ROOT}/plots/{{supercollection}}/{{plot_settings}}/{{plot_type}}.pdf",
+    run:
+        import generate_plots
+        generate_plots.make_plot(
+            wildcards.supercollection,
+            wildcards.plot_settings,
+            wildcards.plot_type,
+            output[0],
+        )
+
+
+rule all_plots:
+    input:
+        expand(
+            f"{RESULTS_ROOT}/plots/{{supercollection}}/{{plot_settings}}/{{plot_type}}.pdf",
+            supercollection=SUPERCOLLECTIONS,
+            plot_settings=PLOT_SETTINGS_NAMES,
+            plot_type=PLOT_TYPES,
+        ),
