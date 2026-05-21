@@ -1,3 +1,39 @@
+settings:
+  all_methods:
+    method_families: &all_method_families
+      - cox_heavy
+      - logistic_oracle
+      - logistic_threshold
+      - cox_light_threshold
+      - twogroup
+      - twogroup_oracle
+      - twogroup_oracle_init
+      - twogroup_scale_fam
+      - twogroup_loc_fam
+  cox_light_vs_logistic:
+    method_families:
+      - logistic_threshold
+      - cox_light_threshold
+  cox_heavy_vs_twogroup:
+    method_families:
+      - cox_heavy
+      - twogroup
+  cox_light_vs_cox_heavy:
+    method_families:
+      - cox_light_threshold
+      - cox_heavy
+  no-oracle:
+    method_families:
+      - cox_heavy
+      - logistic_threshold
+      - cox_light_threshold
+      - twogroup
+      - twogroup_oracle
+  oracle:
+    method_families:
+      - logistic_oracle
+      - twogroup_oracle
+
 supercollections:
   hallmark-signal-loc:
     collections:
@@ -31,13 +67,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   hallmark-signal-scale:
     collections:
@@ -79,13 +109,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   c4-signal-loc:
     collections:
@@ -119,13 +143,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   c4-signal-scale:
     collections:
@@ -167,13 +185,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-rho0.9-signal-loc:
     collections:
@@ -207,13 +219,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-rho0.9-signal-scale:
     collections:
@@ -255,13 +261,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-rho0.9-signal-loc:
     collections:
@@ -295,13 +295,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-rho0.9-signal-scale:
     collections:
@@ -343,13 +337,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-correlation-loc:
     collections:
@@ -383,13 +371,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-correlation-scale:
     collections:
@@ -423,13 +405,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-correlation-loc:
     collections:
@@ -463,13 +439,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-correlation-scale:
     collections:
@@ -503,13 +473,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-n-features-loc:
     collections:
@@ -539,13 +503,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-n-features-scale:
     collections:
@@ -575,13 +533,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-n-features-loc:
     collections:
@@ -611,13 +563,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-n-features-scale:
     collections:
@@ -647,13 +593,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-correlation-loc-strong:
     collections:
@@ -687,13 +627,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-correlation-scale-strong:
     collections:
@@ -727,13 +661,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-correlation-loc-strong:
     collections:
@@ -767,13 +695,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-correlation-scale-strong:
     collections:
@@ -807,13 +729,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-n-features-loc-strong:
     collections:
@@ -843,13 +759,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   gaussian-n-features-scale-strong:
     collections:
@@ -879,13 +789,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-n-features-loc-strong:
     collections:
@@ -915,13 +819,7 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
+      method_families: *all_method_families
 
   uniform-n-features-scale-strong:
     collections:
@@ -951,43 +849,4 @@ supercollections:
       max_cs_size: 10000
       L: 1
       max_fdp: 0.5
-      method_families:
-        - cox_heavy
-        - logistic_oracle
-        - logistic_threshold
-        - cox_light_threshold
-        - twogroup
-        - twogroup_oracle
-
-settings:
-  all_methods:
-    method_families:
-      - cox_heavy
-      - logistic_oracle
-      - logistic_threshold
-      - cox_light_threshold
-      - twogroup
-      - twogroup_oracle
-  cox_light_vs_logistic:
-    method_families:
-      - logistic_threshold
-      - cox_light_threshold
-  cox_heavy_vs_twogroup:
-    method_families:
-      - cox_heavy
-      - twogroup
-  cox_light_vs_cox_heavy:
-    method_families:
-      - cox_light_threshold
-      - cox_heavy
-  no-oracle:
-    method_families:
-      - cox_heavy
-      - logistic_threshold
-      - cox_light_threshold
-      - twogroup
-      - twogroup_oracle
-  oracle:
-    method_families:
-      - logistic_oracle
-      - twogroup_oracle
+      method_families: *all_method_families

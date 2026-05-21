@@ -22,13 +22,7 @@ from utils import (
 configfile: RESULTS_ROOT + "/manifest.json"
 
 
-EXPLICIT_COLLECTION_ALIASES = glob_wildcards(
-    f"{RESULTS_ROOT}/collections/{{name}}/collection_spec.yaml"
-).name
-REGISTERED_COLLECTION_ALIASES = [collection.name for collection in COLLECTION_SPECS]
-COLLECTION_ALIASES = sorted(
-    set(EXPLICIT_COLLECTION_ALIASES) | set(REGISTERED_COLLECTION_ALIASES)
-)
+COLLECTION_ALIASES = sorted(collection.name for collection in COLLECTION_SPECS)
 
 
 wildcard_constraints:
@@ -41,17 +35,9 @@ wildcard_constraints:
 
 import yaml as _yaml
 
-def _load_all_collection_yamls() -> dict:
-    result = {}
-    for alias in EXPLICIT_COLLECTION_ALIASES:
-        path = f"{RESULTS_ROOT}/collections/{alias}/collection_spec.yaml"
-        with open(path) as fh:
-            result[alias] = _yaml.safe_load(fh)
-    return result
-
-_COLLECTION_YAMLS: dict = _load_all_collection_yamls()
-_REGISTERED_COLLECTION_YAMLS: dict = {
-    alias: collection_yaml_node(alias) for alias in REGISTERED_COLLECTION_ALIASES
+_COLLECTION_YAMLS: dict = {
+    collection.name: collection_yaml_node(collection.name)
+    for collection in COLLECTION_SPECS
 }
 _PLOT_CONFIG: dict = _yaml.safe_load(Path(PLOT_CONFIG_PATH).read_text()) or {}
 SUPERCOLLECTIONS = sorted(_PLOT_CONFIG.get("supercollections", {}).keys())
@@ -65,11 +51,7 @@ PLOT_TYPES = [
 
 
 def load_collection_yaml(collection_alias: str) -> dict:
-    if collection_alias in _COLLECTION_YAMLS:
-        return _COLLECTION_YAMLS[collection_alias]
-    if collection_alias in _REGISTERED_COLLECTION_YAMLS:
-        return _REGISTERED_COLLECTION_YAMLS[collection_alias]
-    raise KeyError(collection_alias)
+    return _COLLECTION_YAMLS[collection_alias]
 
 
 def load_supercollection(supercollection: str) -> dict:
@@ -100,12 +82,11 @@ METHOD_HASH_TO_INFO = config["method_specs"]
 
 
 rule resolve_collection_spec:
+    input:
+        manifest=f"{RESULTS_ROOT}/manifest.json",
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
     run:
-        path = Path(output[0])
-        if path.exists():
-            return
         collection = load_collection_yaml(wildcards.collection_alias)
         write_yaml(collection, output[0])
 

@@ -133,6 +133,8 @@ N_FEATURE_VALUES = N_FEATURE_GRID
 
 F0 = PointMass(0.0)
 F1INIT = Normal(loc=0.0, scale=1.0, estimate_loc=True, estimate_scale=True)
+F1INIT_SCALE_FAM = Normal(loc=0.0, scale=1.0, estimate_loc=False, estimate_scale=True)
+F1INIT_LOC_FAM = Normal(loc=0.0, scale=0.1, estimate_loc=True, estimate_scale=False)
 SER_ENRICH = "ser_enrich"
 LOC_SCALE_FIXED = 0.1
 CORRELATION_LOC_ANCHOR = 1.5
@@ -206,6 +208,33 @@ def _twogroup_method_spec(*, L: int) -> MethodSpec:
     )
 
 
+def _twogroup_oracle_init_method_spec(*, L: int) -> MethodSpec:
+    return MethodSpec(
+        name=f"twogroup_oracle_init_L{L}",
+        fit_function=fit_twogroup_method,
+        summarize_function=summarize_twogroup_method,
+        kwargs={"f1": F1INIT_SCALE_FAM, "oracle_init": True, "L": int(L)},
+    )
+
+
+def _twogroup_scale_fam_method_spec(*, L: int) -> MethodSpec:
+    return MethodSpec(
+        name=f"twogroup_scale_fam_L{L}",
+        fit_function=fit_twogroup_method,
+        summarize_function=summarize_twogroup_method,
+        kwargs={"f1": F1INIT_SCALE_FAM, "L": int(L)},
+    )
+
+
+def _twogroup_loc_fam_method_spec(*, L: int) -> MethodSpec:
+    return MethodSpec(
+        name=f"twogroup_loc_fam_L{L}",
+        fit_function=fit_twogroup_method,
+        summarize_function=summarize_twogroup_method,
+        kwargs={"f1": F1INIT_LOC_FAM, "L": int(L)},
+    )
+
+
 def _default_method_specs(
     *, L: int, thresholds: tuple[float, ...]
 ) -> tuple[MethodSpec, ...]:
@@ -214,6 +243,9 @@ def _default_method_specs(
         _logistic_oracle_method_spec(L=L),
         _twogroup_oracle_method_spec(L=L),
         _twogroup_method_spec(L=L),
+        _twogroup_oracle_init_method_spec(L=L),
+        _twogroup_scale_fam_method_spec(L=L),
+        _twogroup_loc_fam_method_spec(L=L),
         *tuple(
             _cox_light_threshold_method_spec(threshold, L=L) for threshold in thresholds
         ),

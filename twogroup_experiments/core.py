@@ -321,8 +321,16 @@ def summarize_logistic_method(
     }
 
 
-def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1, L=1):
-    resolved_f1 = simulation.f1 if f1 is None else f1
+def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1, L=1, oracle_init=False):
+    if oracle_init:
+        resolved_f1 = Normal(
+            loc=simulation.f1.loc,
+            scale=simulation.f1.scale,
+            estimate_loc=f1.estimate_loc,
+            estimate_scale=f1.estimate_scale,
+        )
+    else:
+        resolved_f1 = simulation.f1 if f1 is None else f1
     y0 = np.full(simulation.X.shape[0], 0.5, dtype=float)
     inner_data = localjj.prep_data(simulation.X, y0)
     inner_state = localjj.initialize_state(
@@ -346,8 +354,8 @@ def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1, L=1):
     }
 
 
-def summarize_twogroup_method(fit_obj, simulation: TwoGroupSimulation, *, f1, L=1):
-    del f1, L
+def summarize_twogroup_method(fit_obj, simulation: TwoGroupSimulation, *, f1, L=1, oracle_init=False):
+    del f1, L, oracle_init
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {
@@ -365,6 +373,20 @@ TWOGROUP_DEFAULT_F1INIT = Normal(
     scale=1.0,
     estimate_loc=True,
     estimate_scale=True,
+)
+
+TWOGROUP_SCALE_FAM_F1INIT = Normal(
+    loc=0.0,
+    scale=1.0,
+    estimate_loc=False,
+    estimate_scale=True,
+)
+
+TWOGROUP_LOC_FAM_F1INIT = Normal(
+    loc=0.0,
+    scale=0.1,
+    estimate_loc=True,
+    estimate_scale=False,
 )
 
 
@@ -406,6 +428,37 @@ TWOGROUP = MethodSpec(
     summarize_function=summarize_twogroup_method,
     kwargs={
         "f1": TWOGROUP_DEFAULT_F1INIT,
+        "L": 1,
+    },
+)
+
+TWOGROUP_ORACLE_INIT = MethodSpec(
+    name="twogroup_oracle_init_L1",
+    fit_function=fit_twogroup_method,
+    summarize_function=summarize_twogroup_method,
+    kwargs={
+        "f1": TWOGROUP_SCALE_FAM_F1INIT,
+        "oracle_init": True,
+        "L": 1,
+    },
+)
+
+TWOGROUP_SCALE_FAM = MethodSpec(
+    name="twogroup_scale_fam_L1",
+    fit_function=fit_twogroup_method,
+    summarize_function=summarize_twogroup_method,
+    kwargs={
+        "f1": TWOGROUP_SCALE_FAM_F1INIT,
+        "L": 1,
+    },
+)
+
+TWOGROUP_LOC_FAM = MethodSpec(
+    name="twogroup_loc_fam_L1",
+    fit_function=fit_twogroup_method,
+    summarize_function=summarize_twogroup_method,
+    kwargs={
+        "f1": TWOGROUP_LOC_FAM_F1INIT,
         "L": 1,
     },
 )
