@@ -20,6 +20,7 @@ from core import (
     fit_twogroup_method,
     gaussian_markov_X,
     hallmark_gene_sets_X,
+    null_enrich_X,
     summarize_cox_method,
     summarize_logistic_method,
     summarize_twogroup_method,
@@ -51,6 +52,7 @@ __all__ = [
     "BANK_BATCH_SPECS",
     "BATCH_SPECS",
     "COLLECTION_SPECS",
+    "NULL_ENRICH_COLLECTION_SPECS",
     "collection_yaml_node",
 ]
 
@@ -136,6 +138,8 @@ F1INIT = Normal(loc=0.0, scale=1.0, estimate_loc=True, estimate_scale=True)
 F1INIT_SCALE_FAM = Normal(loc=0.0, scale=1.0, estimate_loc=False, estimate_scale=True)
 F1INIT_LOC_FAM = Normal(loc=0.0, scale=0.1, estimate_loc=True, estimate_scale=False)
 SER_ENRICH = "ser_enrich"
+NULL_ENRICH = "null_enrich"
+NULL_ENRICH_N = 4384
 LOC_SCALE_FIXED = 0.1
 CORRELATION_LOC_ANCHOR = 1.5
 CORRELATION_LOC_ANCHOR_STRONG = 2.0
@@ -190,12 +194,15 @@ def _logistic_oracle_method_spec(*, L: int) -> MethodSpec:
     )
 
 
+_TG_ITER_KWARGS = {"n_null_iter": 20, "n_intercept_iter": 20}
+
+
 def _twogroup_oracle_method_spec(*, L: int) -> MethodSpec:
     return MethodSpec(
         name=f"twogroup_oracle_L{L}",
         fit_function=fit_twogroup_method,
         summarize_function=summarize_twogroup_method,
-        kwargs={"f1": None, "L": int(L)},
+        kwargs={"f1": None, "L": int(L), **_TG_ITER_KWARGS},
     )
 
 
@@ -204,7 +211,7 @@ def _twogroup_method_spec(*, L: int) -> MethodSpec:
         name=f"twogroup_L{L}",
         fit_function=fit_twogroup_method,
         summarize_function=summarize_twogroup_method,
-        kwargs={"f1": F1INIT, "L": int(L)},
+        kwargs={"f1": F1INIT, "L": int(L), **_TG_ITER_KWARGS},
     )
 
 
@@ -213,7 +220,7 @@ def _twogroup_oracle_init_method_spec(*, L: int) -> MethodSpec:
         name=f"twogroup_oracle_init_L{L}",
         fit_function=fit_twogroup_method,
         summarize_function=summarize_twogroup_method,
-        kwargs={"f1": F1INIT_SCALE_FAM, "oracle_init": True, "L": int(L)},
+        kwargs={"f1": F1INIT, "oracle_init": True, "L": int(L), **_TG_ITER_KWARGS},
     )
 
 
@@ -222,7 +229,7 @@ def _twogroup_scale_fam_method_spec(*, L: int) -> MethodSpec:
         name=f"twogroup_scale_fam_L{L}",
         fit_function=fit_twogroup_method,
         summarize_function=summarize_twogroup_method,
-        kwargs={"f1": F1INIT_SCALE_FAM, "L": int(L)},
+        kwargs={"f1": F1INIT_SCALE_FAM, "L": int(L), **_TG_ITER_KWARGS},
     )
 
 
@@ -231,7 +238,7 @@ def _twogroup_loc_fam_method_spec(*, L: int) -> MethodSpec:
         name=f"twogroup_loc_fam_L{L}",
         fit_function=fit_twogroup_method,
         summarize_function=summarize_twogroup_method,
-        kwargs={"f1": F1INIT_LOC_FAM, "L": int(L)},
+        kwargs={"f1": F1INIT_LOC_FAM, "L": int(L), **_TG_ITER_KWARGS},
     )
 
 
@@ -498,6 +505,70 @@ def _register_n_feature_collections() -> tuple[CollectionSpec, ...]:
 SIGNAL_COLLECTION_SPECS = _register_signal_collections()
 CORRELATION_COLLECTION_SPECS = _register_correlation_collections()
 N_FEATURE_COLLECTION_SPECS = _register_n_feature_collections()
+
+
+def _make_null_enrich_simulation(
+    *,
+    signal_kind: str,
+    signal_value: float,
+) -> SimulationSpec:
+    if signal_kind == "loc":
+        f1 = fixed_normal(loc=signal_value, scale=LOC_SCALE_FIXED)
+    elif signal_kind == "scale":
+        f1 = fixed_normal(loc=0.0, scale=signal_value)
+    else:
+        raise ValueError(f"Unknown signal kind: {signal_kind}")
+    return SimulationSpec(
+        name=_simulation_name(
+            design=NULL_ENRICH,
+            enrichment=NULL_ENRICH,
+            signal=_signal_name(signal_kind, signal_value),
+        ),
+        design_sampler=partial(null_enrich_X, n=NULL_ENRICH_N),
+        effect_sampler=partial(uniform_single_effect, causal_effect=0.0),
+        intercept=-2.0,
+        f0=F0,
+        f1=f1,
+        base_seed=BASE_SEED,
+    )
+
+
+_NULL_ENRICH_SIGNAL_VALUES = (
+    [("loc", v) for v in SIGNAL_LOC_VALUES]
+    + [("scale", v) for v in SIGNAL_SCALE_VALUES]
+)
+
+NULL_ENRICH_SIMULATION_SPECS = tuple(
+    _make_null_enrich_simulation(signal_kind=kind, signal_value=value)
+    for kind, value in _NULL_ENRICH_SIGNAL_VALUES
+)
+SIMULATION_BY_NAME.update({spec.name: spec for spec in NULL_ENRICH_SIMULATION_SPECS})
+
+_NULL_ENRICH_METHOD_SPECS = (
+    _twogroup_oracle_method_spec(L=1),
+    _twogroup_method_spec(L=1),
+    _twogroup_oracle_init_method_spec(L=1),
+    _twogroup_scale_fam_method_spec(L=1),
+    _twogroup_loc_fam_method_spec(L=1),
+)
+
+
+def _register_null_enrich_collections() -> tuple[CollectionSpec, ...]:
+    return tuple(
+        REGISTRY.register_collection(
+            name=spec.name,
+            simulations=(spec,),
+            methods=_NULL_ENRICH_METHOD_SPECS,
+            n_batches=N_BATCHES,
+            replicates_per_batch=REPLICATES_PER_BATCH,
+            batch_builder=batch_specs_for_simulation,
+        )
+        for spec in NULL_ENRICH_SIMULATION_SPECS
+    )
+
+
+NULL_ENRICH_COLLECTION_SPECS = _register_null_enrich_collections()
+
 
 TINY_TEST_SIMULATION = _atomic_collection_name(
     design="hallmark",
