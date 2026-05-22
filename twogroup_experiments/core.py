@@ -321,7 +321,15 @@ def summarize_logistic_method(
     }
 
 
-def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1, L=1, oracle_init=False):
+def fit_twogroup_method(
+    simulation: TwoGroupSimulation,
+    *,
+    f1,
+    L=1,
+    oracle_init=False,
+    n_null_iter=20,
+    n_intercept_iter=20,
+):
     if oracle_init:
         resolved_f1 = Normal(
             loc=simulation.f1.loc,
@@ -340,7 +348,12 @@ def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1, L=1, oracle_init=
     )
     data = twogroup.prep_data(simulation.X, bhat=simulation.thetahat, se=simulation.se)
     state = twogroup.initialize_state(
-        data, inner_state=inner_state, f0=simulation.f0, f1=resolved_f1
+        data,
+        inner_state=inner_state,
+        f0=simulation.f0,
+        f1=resolved_f1,
+        n_null_iter=n_null_iter,
+        n_intercept_iter=n_intercept_iter,
     )
     fitted = engine.fit_ibss(
         data,
@@ -354,8 +367,17 @@ def fit_twogroup_method(simulation: TwoGroupSimulation, *, f1, L=1, oracle_init=
     }
 
 
-def summarize_twogroup_method(fit_obj, simulation: TwoGroupSimulation, *, f1, L=1, oracle_init=False):
-    del f1, L, oracle_init
+def summarize_twogroup_method(
+    fit_obj,
+    simulation: TwoGroupSimulation,
+    *,
+    f1,
+    L=1,
+    oracle_init=False,
+    n_null_iter=20,
+    n_intercept_iter=20,
+):
+    del f1, L, oracle_init, n_null_iter, n_intercept_iter
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {
@@ -412,55 +434,41 @@ LOGISTIC_ORACLE = MethodSpec(
     },
 )
 
+_TG_ITER_KWARGS = {"n_null_iter": 20, "n_intercept_iter": 20}
+
 TWOGROUP_ORACLE = MethodSpec(
     name="twogroup_oracle_L1",
     fit_function=fit_twogroup_method,
     summarize_function=summarize_twogroup_method,
-    kwargs={
-        "f1": None,
-        "L": 1,
-    },
+    kwargs={"f1": None, "L": 1, **_TG_ITER_KWARGS},
 )
 
 TWOGROUP = MethodSpec(
     name="twogroup_L1",
     fit_function=fit_twogroup_method,
     summarize_function=summarize_twogroup_method,
-    kwargs={
-        "f1": TWOGROUP_DEFAULT_F1INIT,
-        "L": 1,
-    },
+    kwargs={"f1": TWOGROUP_DEFAULT_F1INIT, "L": 1, **_TG_ITER_KWARGS},
 )
 
 TWOGROUP_ORACLE_INIT = MethodSpec(
     name="twogroup_oracle_init_L1",
     fit_function=fit_twogroup_method,
     summarize_function=summarize_twogroup_method,
-    kwargs={
-        "f1": TWOGROUP_SCALE_FAM_F1INIT,
-        "oracle_init": True,
-        "L": 1,
-    },
+    kwargs={"f1": TWOGROUP_DEFAULT_F1INIT, "oracle_init": True, "L": 1, **_TG_ITER_KWARGS},
 )
 
 TWOGROUP_SCALE_FAM = MethodSpec(
     name="twogroup_scale_fam_L1",
     fit_function=fit_twogroup_method,
     summarize_function=summarize_twogroup_method,
-    kwargs={
-        "f1": TWOGROUP_SCALE_FAM_F1INIT,
-        "L": 1,
-    },
+    kwargs={"f1": TWOGROUP_SCALE_FAM_F1INIT, "L": 1, **_TG_ITER_KWARGS},
 )
 
 TWOGROUP_LOC_FAM = MethodSpec(
     name="twogroup_loc_fam_L1",
     fit_function=fit_twogroup_method,
     summarize_function=summarize_twogroup_method,
-    kwargs={
-        "f1": TWOGROUP_LOC_FAM_F1INIT,
-        "L": 1,
-    },
+    kwargs={"f1": TWOGROUP_LOC_FAM_F1INIT, "L": 1, **_TG_ITER_KWARGS},
 )
 
 LOGISTIC_THRESHOLD_2_0 = MethodSpec(
@@ -595,6 +603,11 @@ def uniform_markov_X(
         otypes=[float],
     )
     return gaussian_cdf(gaussian_X)
+
+
+def null_enrich_X(rng: np.random.Generator, *, n: int = 4384) -> np.ndarray:
+    del rng
+    return np.zeros((n, 1), dtype=float)
 
 
 def uniform_single_effect(
