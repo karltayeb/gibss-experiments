@@ -29,6 +29,7 @@ wildcard_constraints:
     collection_alias = r"[A-Za-z0-9_\-=\.]+",
     supercollection  = r"[A-Za-z0-9_\-\.]+",
     plot_settings    = r"[A-Za-z0-9_\-]+",
+    plot_type        = r"[A-Za-z0-9_]+",
 
 
 import yaml as _yaml
@@ -51,6 +52,7 @@ def _resolve_collection_batches(simulations: list) -> list:
 _PLOT_CONFIG: dict = _yaml.safe_load(Path(PLOT_CONFIG_PATH).read_text()) or {}
 _COLLECTION_DEFS = _PLOT_CONFIG.get("collections", {})
 _METHOD_COLLECTIONS = _PLOT_CONFIG.get("method_collections", {})
+_PLOT_TYPE_GROUPS: dict[str, list[str]] = _PLOT_CONFIG.get("plot_type_groups", {})
 
 
 def _method_passes(node: dict, *, method_families, L, thresholds) -> bool:
@@ -98,7 +100,6 @@ for _sc in _PLOT_CONFIG.get("supercollections", {}).values():
         }
 
 SUPERCOLLECTIONS = sorted(_PLOT_CONFIG.get("supercollections", {}).keys())
-PLOT_SETTINGS_NAMES = sorted(_PLOT_CONFIG.get("settings", {}).keys())
 COLLECTION_ALIASES = sorted(_COLLECTION_YAMLS.keys())
 PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
@@ -106,6 +107,21 @@ PLOT_TYPES = [
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
     "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace",
 ]
+
+
+def _resolve_sc_plot_pairs(sc_name: str) -> list[tuple[str, str]]:
+    """Return deduplicated (settings_name, plot_type) pairs for a supercollection."""
+    sc = _PLOT_CONFIG.get("supercollections", {}).get(sc_name, {})
+    seen: dict[tuple[str, str], None] = {}
+    for entry in sc.get("plots", []):
+        settings_list = entry.get("settings", [])
+        plot_types: list[str] = list(entry.get("plot_types", []))
+        for grp in entry.get("plot_type_groups", []):
+            plot_types += _PLOT_TYPE_GROUPS.get(grp, [])
+        for s in settings_list:
+            for pt in plot_types:
+                seen[(s, pt)] = None
+    return list(seen.keys())
 
 
 def load_collection_yaml(collection_alias: str) -> dict:
@@ -354,7 +370,7 @@ rule supercollection_plot:
     input:
         f"{RESULTS_ROOT}/supercollections/{{supercollection}}/out.txt",
     output:
-        f"{RESULTS_ROOT}/plots/{{supercollection}}/{{plot_settings}}/{{plot_type}}.pdf",
+        f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{{plot_type}}/{{plot_settings}}.pdf",
     run:
         import generate_plots
         generate_plots.make_plot(
@@ -367,19 +383,16 @@ rule supercollection_plot:
 
 rule supercollection_all_plots:
     input:
-        expand(
-            f"{RESULTS_ROOT}/plots/{{supercollection}}/{{plot_settings}}/{{plot_type}}.pdf",
-            supercollection=[config["supercollection"]] if "supercollection" in config else [],
-            plot_settings=PLOT_SETTINGS_NAMES,
-            plot_type=PLOT_TYPES,
-        ),
+        lambda _: [
+            f"{RESULTS_ROOT}/supercollections/{config['supercollection']}/{pt}/{ps}.pdf"
+            for ps, pt in _resolve_sc_plot_pairs(config["supercollection"])
+        ] if "supercollection" in config else [],
 
 
 rule all_plots:
     input:
-        expand(
-            f"{RESULTS_ROOT}/plots/{{supercollection}}/{{plot_settings}}/{{plot_type}}.pdf",
-            supercollection=SUPERCOLLECTIONS,
-            plot_settings=PLOT_SETTINGS_NAMES,
-            plot_type=PLOT_TYPES,
-        ),
+        [
+            f"{RESULTS_ROOT}/supercollections/{sc}/{pt}/{ps}.pdf"
+            for sc in SUPERCOLLECTIONS
+            for ps, pt in _resolve_sc_plot_pairs(sc)
+        ],
