@@ -48,25 +48,38 @@ def _resolve_collection_batches(simulations: list) -> list:
     ]
 
 
-def _resolve_collection_methods(method_families, L, thresholds) -> list:
-    result = []
-    for h, node in METHOD_HASH_TO_INFO.items():
-        fields = node["fields"]
-        kwargs = fields.get("kwargs", {})
-        family = _method_family(fields["name"])
-        if method_families is not None and family not in method_families:
-            continue
-        if L is not None and kwargs.get("L") not in L:
-            continue
-        thresh = kwargs.get("threshold")
-        if thresh is not None and thresholds is not None and thresh not in thresholds:
-            continue
-        result.append({**node, HASH_KEY: h})
-    return result
-
-
 _PLOT_CONFIG: dict = _yaml.safe_load(Path(PLOT_CONFIG_PATH).read_text()) or {}
 _COLLECTION_DEFS = _PLOT_CONFIG.get("collections", {})
+_METHOD_COLLECTIONS = _PLOT_CONFIG.get("method_collections", {})
+
+
+def _method_passes(node: dict, *, method_families, L, thresholds) -> bool:
+    fields = node["fields"]
+    kwargs = fields.get("kwargs", {})
+    family = _method_family(fields["name"])
+    if method_families is not None and family not in method_families:
+        return False
+    if L is not None and kwargs.get("L") not in L:
+        return False
+    thresh = kwargs.get("threshold")
+    if thresh is not None and thresholds is not None and thresh not in thresholds:
+        return False
+    return True
+
+
+def _resolve_collection_methods(method_collection_names: list) -> list:
+    seen: dict[str, dict] = {}
+    for mc_name in method_collection_names:
+        mc = _METHOD_COLLECTIONS.get(mc_name)
+        if mc is None:
+            raise KeyError(f"Unknown method_collection: {mc_name!r}")
+        mf = mc.get("method_families")
+        L = mc.get("L")
+        thresholds = mc.get("thresholds")
+        for h, node in METHOD_HASH_TO_INFO.items():
+            if h not in seen and _method_passes(node, method_families=mf, L=L, thresholds=thresholds):
+                seen[h] = {**node, HASH_KEY: h}
+    return list(seen.values())
 
 _COLLECTION_YAMLS: dict[str, dict] = {}
 for _sc in _PLOT_CONFIG.get("supercollections", {}).values():
@@ -80,9 +93,7 @@ for _sc in _PLOT_CONFIG.get("supercollections", {}).values():
             "name": _name,
             "batches": _resolve_collection_batches(_sims),
             "method_specs": _resolve_collection_methods(
-                _spec.get("method_families"),
-                _spec.get("L"),
-                _spec.get("thresholds"),
+                _spec.get("method_collections", ["default"]),
             ),
         }
 

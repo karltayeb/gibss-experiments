@@ -1,46 +1,55 @@
+method_collections:
+  default:
+    method_families:
+      - cox_heavy
+      - logistic_oracle
+      - logistic_threshold
+      - cox_light_threshold
+      - twogroup
+      - twogroup_oracle
+      - twogroup_oracle_init
+      - twogroup_scale_fam
+      - twogroup_loc_fam
+    L: [1, 5]
+    thresholds: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
+  twogroup_ser:
+    method_families:
+      - twogroup
+      - twogroup_oracle
+      - twogroup_oracle_init
+      - twogroup_scale_fam
+      - twogroup_loc_fam
+    L: [1]
+
 collections:
   "design=null_enrich__enrichment=null_enrich__signal=loc_0.50":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=loc_1.00":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=loc_1.50":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=loc_2.00":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=loc_2.50":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=loc_3.00":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=scale_0.75":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=scale_1.00":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=scale_1.50":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=scale_1.75":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=scale_2.00":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=scale_3.00":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=scale_4.00":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
   "design=null_enrich__enrichment=null_enrich__signal=scale_5.00":
-    method_families: [twogroup, twogroup_oracle, twogroup_oracle_init, twogroup_scale_fam, twogroup_loc_fam]
-    L: [1]
+    method_collections: [twogroup_ser]
 
 settings:
   all_methods:
