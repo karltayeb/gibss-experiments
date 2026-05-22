@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Iterable
 
 from core import HASH_KEY, MethodSpec, SimulationSpec, dehydrate_hashed
-from utils import BatchSpec, CollectionSpec
+from utils import BatchSpec
 
 
 class ConfigRegistry:
@@ -13,8 +13,6 @@ class ConfigRegistry:
         self._methods_by_hash: dict[str, MethodSpec] = {}
         self._batches_by_name: dict[str, BatchSpec] = {}
         self._batch_hashes: dict[str, BatchSpec] = {}
-        self._collections_by_name: dict[str, CollectionSpec] = {}
-        self._collection_hashes: dict[str, CollectionSpec] = {}
 
     @property
     def simulations(self) -> tuple[SimulationSpec, ...]:
@@ -27,10 +25,6 @@ class ConfigRegistry:
     @property
     def batches(self) -> tuple[BatchSpec, ...]:
         return tuple(self._batches_by_name.values())
-
-    @property
-    def collections(self) -> tuple[CollectionSpec, ...]:
-        return tuple(self._collections_by_name.values())
 
     def _item_hash(self, item) -> str:
         return dehydrate_hashed(item)[HASH_KEY]
@@ -89,87 +83,3 @@ class ConfigRegistry:
             for batch in batches
         )
 
-    def register_collection(
-        self,
-        *,
-        name: str,
-        methods: Iterable[MethodSpec],
-        simulations: Iterable[SimulationSpec] = (),
-        n_batches: int | None = None,
-        replicates_per_batch: int | None = None,
-        batches: Iterable[BatchSpec] | None = None,
-        batch_builder=None,
-    ) -> CollectionSpec:
-        if batches is None:
-            if n_batches is None or replicates_per_batch is None or batch_builder is None:
-                raise ValueError(
-                    "register_collection requires either explicit batches or a batch policy."
-                )
-            registered_simulations = self.register_simulations(simulations)
-            batch_specs = tuple(
-                batch
-                for simulation in registered_simulations
-                for batch in batch_builder(
-                    simulation,
-                    replicates_per_batch=replicates_per_batch,
-                    n_batches=n_batches,
-                )
-            )
-        else:
-            if n_batches is not None or replicates_per_batch is not None:
-                raise ValueError(
-                    "register_collection cannot accept both explicit batches and a batch policy."
-                )
-            batch_specs = tuple(batches)
-            self.register_simulations(batch.simulation_spec for batch in batch_specs)
-
-        registered_methods = self.register_methods(methods)
-        registered_batches = self.register_batches(batch_specs)
-        collection = CollectionSpec(
-            name=name,
-            batches=registered_batches,
-            method_specs=registered_methods,
-        )
-        return self._register_named(
-            kind="collection",
-            item=collection,
-            by_name=self._collections_by_name,
-            by_hash=self._collection_hashes,
-        )
-
-    def register_collection_union(
-        self,
-        *,
-        name: str,
-        collections: Iterable[str],
-    ) -> CollectionSpec:
-        source_names = tuple(collections)
-        source_collections: list[CollectionSpec] = []
-        for collection_name in source_names:
-            collection = self._collections_by_name.get(collection_name)
-            if collection is None:
-                raise KeyError(f"Unknown collection {collection_name!r}.")
-            source_collections.append(collection)
-
-        batch_hashes: set[str] = set()
-        union_batches: list[BatchSpec] = []
-        method_hashes: set[str] = set()
-        union_methods: list[MethodSpec] = []
-
-        for collection in source_collections:
-            for batch in collection.batches:
-                batch_hash = self._item_hash(batch)
-                if batch_hash not in batch_hashes:
-                    batch_hashes.add(batch_hash)
-                    union_batches.append(batch)
-            for method in collection.method_specs:
-                method_hash = self._item_hash(method)
-                if method_hash not in method_hashes:
-                    method_hashes.add(method_hash)
-                    union_methods.append(method)
-
-        return self.register_collection(
-            name=name,
-            batches=tuple(union_batches),
-            methods=tuple(union_methods),
-        )

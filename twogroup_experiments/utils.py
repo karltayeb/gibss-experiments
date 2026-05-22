@@ -31,13 +31,6 @@ class BatchSpec:
     replicates: tuple[int, ...]
 
 
-@dataclass(frozen=True)
-class CollectionSpec:
-    name: str
-    batches: tuple[BatchSpec, ...]
-    method_specs: tuple[MethodSpec, ...]
-
-
 CS_BETA_GRID = np.round(np.arange(0.50, 1.00, 0.01), 2)
 
 
