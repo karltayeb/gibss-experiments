@@ -104,7 +104,7 @@ def expand_pip_calibration_from_compact(
     pip_plot_data: pl.DataFrame,
     method_metadata: pl.DataFrame,
     *,
-    selected_threshold: float,
+    selected_thresholds: list[float] | None,
 ) -> pl.DataFrame:
     """Expand pip_plot_data to per-bin rows for render_pip_calibration."""
     if pip_plot_data.is_empty():
@@ -147,7 +147,10 @@ def expand_pip_calibration_from_compact(
     return (
         expanded
         .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
-        .filter(~pl.col("is_thresholded") | (pl.col("threshold") == selected_threshold))
+        .filter(
+            ~pl.col("is_thresholded")
+            | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+        )
         .group_by(
             "collection_name", "method", "method_display", "method_family",
             "series_label", "pip_bin_index", "pip_left", "pip_right", "pip_mid",
@@ -169,8 +172,7 @@ def expand_power_fdp_from_compact(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_threshold: float,
-    show_background_threshold_traces: bool,
+    selected_thresholds: list[float] | None,
 ) -> pl.DataFrame:
     """Expand pip_plot_data to per-threshold rows for render_power_fdp_chart."""
     _GRID = [0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 0.8, 0.9, 0.95, 0.99]
@@ -208,12 +210,12 @@ def expand_power_fdp_from_compact(
         .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
         .with_columns(
             (
-                ~pl.col("is_thresholded") | (pl.col("threshold") == selected_threshold)
+                ~pl.col("is_thresholded")
+                | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
             ).alias("is_selected_threshold")
         )
     )
-    if not show_background_threshold_traces:
-        joined = joined.filter(pl.col("is_selected_threshold"))
+    joined = joined.filter(pl.col("is_selected_threshold"))
     return (
         joined
         .group_by(
@@ -983,7 +985,7 @@ def make_cs_beta_trace_summary(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_threshold: float,
+    selected_thresholds: list[float] | None,
     max_cs_size: int,
     min_ser_log_bf: float,
 ) -> pl.DataFrame:
@@ -1011,12 +1013,14 @@ def make_cs_beta_trace_summary(
         .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
         .with_columns(
             (
-                ~pl.col("is_thresholded") | (pl.col("threshold") == selected_threshold)
+                ~pl.col("is_thresholded")
+                | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
             ).alias("is_selected_threshold")
         )
     )
     return (
         filtered
+        .filter(pl.col("is_selected_threshold"))
         .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
         .agg(
             (pl.col("covered") & pl.col("valid_cs")).cast(pl.Float64).mean().alias("power"),
@@ -1042,9 +1046,6 @@ def render_cs_dot_summary_chart(
     beta_df = summary.filter(pl.col("beta") == selected_beta)
     if beta_df.is_empty():
         return make_placeholder_chart(f"No data at β={selected_beta:.2f}")
-
-    # only show selected threshold for thresholded methods
-    beta_df = beta_df.filter(pl.col("is_selected_threshold"))
 
     theme = base_chart_theme()
     metrics = [("power", "Power"), ("coverage", "Coverage"), ("cs_size", "CS Size")]
@@ -1154,15 +1155,12 @@ def render_cs_beta_trace_chart(
     summary: pl.DataFrame,
     *,
     collection_names: list[str],
-    selected_threshold: float,
+    selected_thresholds: list[float] | None,
     max_cs_size: int,
     min_ser_log_bf: float,
 ) -> "plt.Figure":
     if summary.is_empty():
         return make_placeholder_chart("No CS beta trace data")
-
-    # only show selected threshold for thresholded methods
-    summary = summary.filter(pl.col("is_selected_threshold"))
 
     metrics = [("power", "Power"), ("cs_size", "CS Size"), ("coverage", "Coverage")]
     theme = base_chart_theme()
@@ -1243,7 +1241,8 @@ def render_cs_beta_trace_chart(
             frameon=False, fontsize=8,
             loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
         )
-    settings_text = f"threshold = {selected_threshold:g}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
+    _thresh_str = "all" if selected_thresholds is None else ", ".join(f"{t:g}" for t in selected_thresholds)
+    settings_text = f"thresholds = {_thresh_str}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
     fig.text(
         _plot_frac + 0.03, 0.35, settings_text,
         fontsize=7, verticalalignment="top",

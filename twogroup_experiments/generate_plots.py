@@ -51,7 +51,7 @@ def _load_plot_config() -> dict:
 
 def _resolve_settings(cfg: dict, supercollection: str, plot_settings: str) -> dict:
     defaults = cfg["supercollections"][supercollection].get("default_settings", {})
-    overrides = cfg["settings"].get(plot_settings, {})
+    overrides = cfg["settings"].get(plot_settings) or {}
     return {**defaults, **overrides}
 
 
@@ -83,14 +83,26 @@ def _load_supercollection_data(cfg: dict, supercollection: str) -> dict:
     }
 
 
+def _selected_thresholds(settings: dict) -> list[float] | None:
+    if "thresholds" in settings:
+        val = settings["thresholds"]
+        return [float(t) for t in val] if val else None
+    if "threshold" in settings:
+        return [float(settings["threshold"])]
+    return None
+
+
 def _foreground_methods(method_metadata: pl.DataFrame, settings: dict) -> set[str]:
-    threshold = settings.get("threshold", 2.0)
-    mask = (
+    thresholds = _selected_thresholds(settings)
+    method_families = settings.get("method_families")
+    threshold_mask = (
         ~pl.col("is_thresholded")
-        | (pl.col("threshold") == threshold)
-        | pl.col("threshold").is_null()
+        | (pl.lit(True) if thresholds is None else pl.col("threshold").is_in(thresholds))
     )
-    return set(method_metadata.filter(mask)["method"].to_list())
+    df = method_metadata.filter(threshold_mask)
+    if method_families is not None:
+        df = df.filter(pl.col("method_family").is_in(method_families))
+    return set(df["method"].to_list())
 
 
 def _method_order(method_metadata: pl.DataFrame, foreground: set[str]) -> list[str]:
@@ -106,12 +118,11 @@ def _method_order(method_metadata: pl.DataFrame, foreground: set[str]) -> list[s
 def _make_pip_calibration(combined_data: dict, settings: dict) -> plt.Figure:
     pip_plot = combined_data["pip_plot_data"]
     method_meta = combined_data["method_metadata"]
-    threshold = settings.get("threshold", 2.0)
     fg = _foreground_methods(method_meta, settings)
     summary = viz_utils.expand_pip_calibration_from_compact(
         pip_plot.filter(pl.col("method").is_in(fg)),
         method_meta,
-        selected_threshold=threshold,
+        selected_thresholds=_selected_thresholds(settings),
     )
     if summary.is_empty():
         return viz_utils.make_placeholder_chart("No PIP calibration data")
@@ -125,15 +136,13 @@ def _make_pip_calibration(combined_data: dict, settings: dict) -> plt.Figure:
 def _make_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
     pip_plot = combined_data["pip_plot_data"]
     method_meta = combined_data["method_metadata"]
-    threshold = settings.get("threshold", 2.0)
     max_fdp = settings.get("max_fdp", 0.5)
     fg = _foreground_methods(method_meta, settings)
     power_fdp = viz_utils.expand_power_fdp_from_compact(
         pip_plot,
         method_meta,
         selected_methods=fg,
-        selected_threshold=threshold,
-        show_background_threshold_traces=False,
+        selected_thresholds=_selected_thresholds(settings),
     )
     if power_fdp.is_empty():
         return viz_utils.make_placeholder_chart("No power/FDP data")
@@ -217,7 +226,6 @@ def _make_cs_dot_summary(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
     fg = _foreground_methods(method_meta, settings)
-    threshold = settings.get("threshold", 2.0)
     max_cs_size = settings.get("max_cs_size", 10000)
     min_log_bf = settings.get("min_log_bf", 2.0)
     cs_beta = settings.get("cs_beta", 0.95)
@@ -228,7 +236,7 @@ def _make_cs_dot_summary(combined_data: dict, settings: dict) -> plt.Figure:
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_threshold=threshold,
+        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -246,7 +254,7 @@ def _make_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
     collection_names = combined_data["collection_names"]
-    threshold = settings.get("threshold", 2.0)
+    thresholds = _selected_thresholds(settings)
     max_fdp = settings.get("max_fdp", 0.5)
     fg = _foreground_methods(method_meta, settings)
 
@@ -264,11 +272,12 @@ def _make_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
         "l", "cs_size", "causal_in_cs", "ser_log_bf",
     )
 
+    _thresh_mask = (
+        pl.col("threshold").is_null()
+        | (pl.lit(True) if thresholds is None else pl.col("threshold").is_in(thresholds))
+    )
     raw = (
-        cs_raw.filter(
-            pl.col("method").is_in(fg)
-            & (pl.col("threshold").is_null() | (pl.col("threshold") == threshold))
-        )
+        cs_raw.filter(pl.col("method").is_in(fg) & _thresh_mask)
         .join(
             method_meta.select("method", "threshold", "method_display", "is_thresholded"),
             on=["method", "threshold"],
@@ -357,7 +366,6 @@ def _make_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
     collection_names = combined_data["collection_names"]
-    threshold = settings.get("threshold", 2.0)
     max_cs_size = settings.get("max_cs_size", 10000)
     min_log_bf = settings.get("min_log_bf", 2.0)
     fg = _foreground_methods(method_meta, settings)
@@ -367,14 +375,14 @@ def _make_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_threshold=threshold,
+        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
     return viz_utils.render_cs_beta_trace_chart(
         beta_summary,
         collection_names=collection_names,
-        selected_threshold=threshold,
+        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -388,12 +396,11 @@ def _set_agg_facecolor(fig: plt.Figure) -> None:
 def _make_agg_pip_calibration(combined_data: dict, settings: dict) -> plt.Figure:
     pip_plot = combined_data["pip_plot_data"]
     method_meta = combined_data["method_metadata"]
-    threshold = settings.get("threshold", 2.0)
     fg = _foreground_methods(method_meta, settings)
     summary = viz_utils.expand_pip_calibration_from_compact(
         pip_plot.filter(pl.col("method").is_in(fg)),
         method_meta,
-        selected_threshold=threshold,
+        selected_thresholds=_selected_thresholds(settings),
     )
     if summary.is_empty():
         return viz_utils.make_placeholder_chart("No PIP calibration data")
@@ -417,15 +424,13 @@ def _make_agg_pip_calibration(combined_data: dict, settings: dict) -> plt.Figure
 def _make_agg_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
     pip_plot = combined_data["pip_plot_data"]
     method_meta = combined_data["method_metadata"]
-    threshold = settings.get("threshold", 2.0)
     max_fdp = settings.get("max_fdp", 0.5)
     fg = _foreground_methods(method_meta, settings)
     power_fdp = viz_utils.expand_power_fdp_from_compact(
         pip_plot,
         method_meta,
         selected_methods=fg,
-        selected_threshold=threshold,
-        show_background_threshold_traces=False,
+        selected_thresholds=_selected_thresholds(settings),
     )
     if power_fdp.is_empty():
         return viz_utils.make_placeholder_chart("No power/FDP data")
@@ -535,7 +540,7 @@ def _make_agg_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
     collection_names = combined_data["collection_names"]
-    threshold = settings.get("threshold", 2.0)
+    thresholds = _selected_thresholds(settings)
     max_fdp = settings.get("max_fdp", 0.5)
     fg = _foreground_methods(method_meta, settings)
 
@@ -553,11 +558,12 @@ def _make_agg_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
         "l", "cs_size", "causal_in_cs", "ser_log_bf",
     )
 
+    _thresh_mask = (
+        pl.col("threshold").is_null()
+        | (pl.lit(True) if thresholds is None else pl.col("threshold").is_in(thresholds))
+    )
     raw = (
-        cs_raw.filter(
-            pl.col("method").is_in(fg)
-            & (pl.col("threshold").is_null() | (pl.col("threshold") == threshold))
-        )
+        cs_raw.filter(pl.col("method").is_in(fg) & _thresh_mask)
         .join(
             method_meta.select("method", "threshold", "method_display", "is_thresholded"),
             on=["method", "threshold"],
@@ -641,7 +647,6 @@ def _make_agg_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
 def _make_agg_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
-    threshold = settings.get("threshold", 2.0)
     max_cs_size = settings.get("max_cs_size", 10000)
     min_log_bf = settings.get("min_log_bf", 2.0)
     fg = _foreground_methods(method_meta, settings)
@@ -651,7 +656,7 @@ def _make_agg_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_threshold=threshold,
+        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -659,7 +664,7 @@ def _make_agg_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
     return viz_utils.render_cs_beta_trace_chart(
         beta_summary,
         collection_names=[],
-        selected_threshold=threshold,
+        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )

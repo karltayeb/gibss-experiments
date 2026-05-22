@@ -57,9 +57,7 @@ def config_select_cell():
         label="plot settings",
     )
 
-    def _apply(_):
-        sc = supercollection_dropdown.value
-        ps = plot_settings_dropdown.value
+    def _compute_state(sc, ps):
         if not sc:
             return {"selected": [], "aliases": {}, "settings": {}}
         sc_cfg = _supercollections.get(sc, {})
@@ -71,7 +69,13 @@ def config_select_cell():
         settings = {**defaults, **overrides}
         return {"selected": selected, "aliases": aliases, "settings": settings}
 
-    _initial_val = _apply(None)
+    def _apply(_):
+        return _compute_state(supercollection_dropdown.value, plot_settings_dropdown.value)
+
+    _initial_val = _compute_state(
+        _sc_names[0] if _sc_names else None,
+        _ps_names[0] if _ps_names else None,
+    )
     apply_btn = mo.ui.button(label="Apply", on_click=_apply, value=_initial_val)
 
     mo.hstack([supercollection_dropdown, plot_settings_dropdown, apply_btn])
@@ -124,10 +128,12 @@ def controls_cell(combined_data, apply_btn):
         .unique()
         .to_list()
     )
-    threshold_dropdown = mo.ui.dropdown(
+    _saved_thresholds = _settings_cfg.get("thresholds", _all_thresholds)
+    _valid_thresholds = [t for t in _saved_thresholds if t in _all_thresholds]
+    threshold_multiselect = mo.ui.multiselect(
         options=_all_thresholds,
-        value=_settings_cfg.get("threshold", _all_thresholds[0] if _all_thresholds else None),
-        label="threshold",
+        value=_valid_thresholds if _valid_thresholds else _all_thresholds,
+        label="thresholds",
     )
 
     _all_families = sorted(_method_metadata["method_family"].unique().to_list())
@@ -154,12 +160,12 @@ def controls_cell(combined_data, apply_btn):
         label="max FDP",
     )
 
-    mo.hstack([method_family_multiselect, L_dropdown, threshold_dropdown, max_fdp_slider])
+    mo.hstack([method_family_multiselect, L_dropdown, threshold_multiselect, max_fdp_slider])
     return (
         L_dropdown,
         max_fdp_slider,
         method_family_multiselect,
-        threshold_dropdown,
+        threshold_multiselect,
     )
 
 
@@ -168,39 +174,25 @@ def selected_methods_cell(
     L_dropdown,
     combined_data,
     method_family_multiselect,
-    threshold_dropdown,
+    threshold_multiselect,
 ):
     _method_metadata = combined_data["method_metadata"]
-    selected_threshold = threshold_dropdown.value
+    selected_thresholds = threshold_multiselect.value or None
 
+    _thresh_mask = (
+        ~pl.col("is_thresholded")
+        | pl.col("threshold").is_null()
+        | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+    )
     _fg_mask = (
         pl.col("method_family").is_in(method_family_multiselect.value)
         & (pl.col("L") == L_dropdown.value)
-        & (
-            ~pl.col("is_thresholded")
-            | (pl.col("threshold") == selected_threshold)
-            | pl.col("threshold").is_null()
-        )
+        & _thresh_mask
     )
     foreground_methods = set(_method_metadata.filter(_fg_mask)["method"].to_list())
-
-    _bg_mask = (
-        pl.col("method_family").is_in(method_family_multiselect.value)
-        & (pl.col("L") == L_dropdown.value)
-        & pl.col("is_thresholded")
-        & (pl.col("threshold") != selected_threshold)
-    )
-    _bg_filtered = _method_metadata.filter(_bg_mask)
-    background_methods_thresholds = set(
-        zip(
-            _bg_filtered["method"].to_list(),
-            _bg_filtered["threshold"].to_list(),
-        )
-    )
     return (
-        background_methods_thresholds,
         foreground_methods,
-        selected_threshold,
+        selected_thresholds,
     )
 
 
@@ -216,13 +208,13 @@ def pip_calibration_heading_cell():
 def pip_calibration_cell(
     combined_data,
     foreground_methods,
-    selected_threshold,
+    selected_thresholds,
 ):
     _pip_plot = combined_data["pip_plot_data"]
     _method_meta = combined_data["method_metadata"]
     _pip_filtered = _pip_plot.filter(pl.col("method").is_in(foreground_methods))
     _pip_cal_summary = viz_utils.expand_pip_calibration_from_compact(
-        _pip_filtered, _method_meta, selected_threshold=selected_threshold,
+        _pip_filtered, _method_meta, selected_thresholds=selected_thresholds,
     )
     if _pip_cal_summary.is_empty():
         pip_cal_chart = viz_utils.make_placeholder_chart("No PIP calibration data")
@@ -245,20 +237,17 @@ def power_fdp_heading_cell():
 
 @app.cell
 def power_fdp_cell(
-    background_methods_thresholds,
     combined_data,
     foreground_methods,
     max_fdp_slider,
-    selected_threshold,
+    selected_thresholds,
 ):
     _pip_plot = combined_data["pip_plot_data"]
     _method_meta = combined_data["method_metadata"]
-    _all_methods = set(foreground_methods) | {m for m, _ in background_methods_thresholds}
     _power_fdp = viz_utils.expand_power_fdp_from_compact(
         _pip_plot, _method_meta,
-        selected_methods=_all_methods,
-        selected_threshold=selected_threshold,
-        show_background_threshold_traces=bool(background_methods_thresholds),
+        selected_methods=foreground_methods,
+        selected_thresholds=selected_thresholds,
     )
     if _power_fdp.is_empty():
         power_fdp_chart = viz_utils.make_placeholder_chart("No power/FDP data")
@@ -456,7 +445,7 @@ def cs_summary_cell(
     max_cs_size_slider,
     min_log_bf_slider,
     cs_beta_slider,
-    selected_threshold,
+    selected_thresholds,
 ):
     _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     _method_meta = combined_data["method_metadata"]
@@ -472,7 +461,7 @@ def cs_summary_cell(
             _cs_data,
             _method_meta,
             selected_methods=set(foreground_methods),
-            selected_threshold=selected_threshold,
+            selected_thresholds=selected_thresholds,
             max_cs_size=_max_cs,
             min_ser_log_bf=_min_lbf,
         )
@@ -501,7 +490,7 @@ def cs_power_fdp_cell(
     combined_data,
     foreground_methods,
     max_fdp_slider,
-    selected_threshold,
+    selected_thresholds,
 ):
     import matplotlib.pyplot as _plt2
     import numpy as _np
@@ -525,11 +514,12 @@ def cs_power_fdp_cell(
     _method_meta2 = combined_data["method_metadata"]
     _collection_names2 = combined_data["collection_names"]
 
+    _thresh_mask2 = (
+        pl.col("threshold").is_null()
+        | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+    )
     _raw2 = (
-        _cs_raw2.filter(
-            pl.col("method").is_in(foreground_methods)
-            & (pl.col("threshold").is_null() | (pl.col("threshold") == selected_threshold))
-        )
+        _cs_raw2.filter(pl.col("method").is_in(foreground_methods) & _thresh_mask2)
         .join(
             _method_meta2.select("method", "threshold", "method_display", "is_thresholded"),
             on=["method", "threshold"],
@@ -630,8 +620,7 @@ def cs_beta_trace_cell(
     foreground_methods,
     max_cs_size_slider,
     min_log_bf_slider,
-    threshold_dropdown,
-    selected_threshold,
+    selected_thresholds,
 ):
     _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     _method_meta = combined_data["method_metadata"]
@@ -644,14 +633,14 @@ def cs_beta_trace_cell(
             _cs_data,
             _method_meta,
             selected_methods=set(foreground_methods),
-            selected_threshold=selected_threshold,
+            selected_thresholds=selected_thresholds,
             max_cs_size=max_cs_size_slider.value,
             min_ser_log_bf=min_log_bf_slider.value,
         )
         cs_beta_trace_chart = viz_utils.render_cs_beta_trace_chart(
             _beta_summary,
             collection_names=_collection_names,
-            selected_threshold=selected_threshold,
+            selected_thresholds=selected_thresholds,
             max_cs_size=max_cs_size_slider.value,
             min_ser_log_bf=min_log_bf_slider.value,
         )
@@ -674,7 +663,7 @@ def histograms_cell(
     foreground_methods,
     max_cs_size_slider,
     min_log_bf_slider,
-    threshold_dropdown,
+    selected_thresholds,
 ):
     import matplotlib.pyplot as _plt3
     import numpy as _np3
@@ -697,11 +686,13 @@ def histograms_cell(
         })
     _method_meta = combined_data["method_metadata"]
     _collection_names = combined_data["collection_names"]
-    _selected_threshold = threshold_dropdown.value
+    _thresh_mask_hist = (
+        pl.col("threshold").is_null()
+        | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+    )
 
     _cs_filtered = _cs_size_hist.filter(
-        pl.col("method").is_in(foreground_methods)
-        & (pl.col("threshold").is_null() | (pl.col("threshold") == _selected_threshold))
+        pl.col("method").is_in(foreground_methods) & _thresh_mask_hist
     ).join(
         _method_meta.select("method", "threshold", "method_display", "is_thresholded"),
         on=["method", "threshold"],
@@ -709,8 +700,7 @@ def histograms_cell(
         nulls_equal=True,
     )
     _lbf_filtered = _ser_log_bf_hist.filter(
-        pl.col("method").is_in(foreground_methods)
-        & (pl.col("threshold").is_null() | (pl.col("threshold") == _selected_threshold))
+        pl.col("method").is_in(foreground_methods) & _thresh_mask_hist
     ).join(
         _method_meta.select("method", "threshold", "method_display", "is_thresholded"),
         on=["method", "threshold"],

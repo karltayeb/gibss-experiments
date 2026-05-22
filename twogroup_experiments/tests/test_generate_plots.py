@@ -66,8 +66,29 @@ def test_foreground_methods_returns_all_except_wrong_threshold():
         "is_thresholded": [False, False, True],
     })
 
-    result = generate_plots._foreground_methods(method_metadata, {"threshold": 2.0})
+    result = generate_plots._foreground_methods(method_metadata, {"thresholds": [2.0]})
     assert result == {"twogroup_L1", "cox_heavy_L1", "logistic_threshold_L1"}
 
-    result_other = generate_plots._foreground_methods(method_metadata, {"threshold": 3.0})
+    result_other = generate_plots._foreground_methods(method_metadata, {"thresholds": [3.0]})
     assert result_other == {"twogroup_L1", "cox_heavy_L1"}
+
+    result_multi = generate_plots._foreground_methods(method_metadata, {"thresholds": [2.0, 3.0]})
+    assert result_multi == {"twogroup_L1", "cox_heavy_L1", "logistic_threshold_L1"}
+
+
+def test_foreground_methods_filters_by_method_families():
+    import generate_plots
+
+    method_metadata = pl.DataFrame({
+        "method": ["twogroup_L1", "cox_heavy_L1", "logistic_threshold_L1"],
+        "method_family": ["twogroup", "cox_heavy", "logistic_threshold"],
+        "L": [1, 1, 1],
+        "threshold": [None, None, 2.0],
+        "is_thresholded": [False, False, True],
+    })
+
+    result = generate_plots._foreground_methods(
+        method_metadata,
+        {"thresholds": [2.0], "method_families": ["twogroup", "logistic_threshold"]},
+    )
+    assert result == {"twogroup_L1", "logistic_threshold_L1"}
