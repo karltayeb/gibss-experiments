@@ -11,9 +11,7 @@ from utils import (
     attach_spec_metadata,
     fit_batch_method,
     simulate_batch,
-    symlink_output,
     write_parquet,
-    write_text,
     write_yaml,
 )
 
@@ -126,16 +124,6 @@ def _batch_sim_node(batch: dict) -> dict:
     return batch.get("simulation_spec") or batch["fields"]["simulation_spec"]
 
 
-rule resolve_collection_spec:
-    input:
-        manifest=f"{RESULTS_ROOT}/manifest.json",
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/collection_spec.yaml",
-    run:
-        collection = load_collection_yaml(wildcards.collection_alias)
-        write_yaml(collection, output[0])
-
-
 rule materialize_twogroup_experiment_batch:
     output:
         batch_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
@@ -178,89 +166,8 @@ rule fit_twogroup_experiment_batch_method:
 
 
 
-rule materialize_twogroup_experiment_collection_alias:
-    input:
-        collection_spec=rules.resolve_collection_spec.output,
-        batch_specs=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            ],
-        ),
-        simulation_specs=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulation_spec.yaml",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            ],
-        ),
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            ],
-        ),
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
-        ],
-        method_specs=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/method_spec.yaml"
-            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
-        ],
-    output:
-        batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
-        batches_dir=directory(f"{RESULTS_ROOT}/collections/{{collection_alias}}/batches"),
-    run:
-        from pathlib import Path
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        batch_hashes = [batch[HASH_KEY] for batch in collection["batches"]]
-        batch_hashes_text = "".join(f"{batch_hash}\n" for batch_hash in batch_hashes)
-        write_text(batch_hashes_text, output.batch_hashes)
-
-        batches_dir = Path(output.batches_dir)
-        batches_dir.mkdir(parents=True, exist_ok=True)
-        for batch in collection["batches"]:
-            batch_hash = batch[HASH_KEY]
-            batch_root = batches_dir / batch_hash
-            batch_root.mkdir(parents=True, exist_ok=True)
-            symlink_output(
-                f"{RESULTS_ROOT}/by_batch/{batch_hash}/batch_spec.yaml",
-                str(batch_root / "batch_spec.yaml"),
-            )
-            symlink_output(
-                f"{RESULTS_ROOT}/by_batch/{batch_hash}/simulation_spec.yaml",
-                str(batch_root / "simulation_spec.yaml"),
-            )
-            symlink_output(
-                f"{RESULTS_ROOT}/by_batch/{batch_hash}/simulations.parquet",
-                str(batch_root / "simulations.parquet"),
-            )
-            fits_root = batch_root / "fits"
-            fits_root.mkdir(parents=True, exist_ok=True)
-            for method_spec in collection["method_specs"]:
-                method_hash = method_spec[HASH_KEY]
-                method_root = fits_root / method_hash
-                method_root.mkdir(parents=True, exist_ok=True)
-                symlink_output(
-                    f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/method_spec.yaml",
-                    str(method_root / "method_spec.yaml"),
-                )
-                symlink_output(
-                    f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/fits.parquet",
-                    str(method_root / "fits.parquet"),
-                )
-
-
 rule collection_method_metadata:
     input:
-        collection_spec=rules.resolve_collection_spec.output,
-        batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
             for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
@@ -277,8 +184,6 @@ rule collection_method_metadata:
 
 
 rule collection_simulation_metadata:
-    input:
-        collection_spec=rules.resolve_collection_spec.output,
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/simulation_metadata.parquet",
     run:
@@ -303,8 +208,6 @@ rule collection_simulation_metadata:
 
 rule collection_sample_metadata:
     input:
-        collection_spec=rules.resolve_collection_spec.output,
-        batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
         simulations=lambda wildcards: expand(
             f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
             batch_hash=[
@@ -332,7 +235,6 @@ rule collection_sample_metadata:
 
 rule collection_pip_plot_data:
     input:
-        collection_spec=rules.resolve_collection_spec.output,
         sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
@@ -367,7 +269,6 @@ rule collection_pip_plot_data:
 
 rule collection_cs_plot_data:
     input:
-        collection_spec=rules.resolve_collection_spec.output,
         sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
@@ -422,9 +323,7 @@ rule materialize_supercollection:
 
 rule twogroup_experiments_target:
     input:
-        batch_hashes=f"{RESULTS_ROOT}/collections/{{collection_alias}}/batch_hashes.txt",
-        collection_spec=rules.resolve_collection_spec.output,
-        plot_ready=lambda wildcards: expand(
+        lambda wildcards: expand(
             f"{RESULTS_ROOT}/collections/{wildcards.collection_alias}/plot_ready/{{name}}",
             name=[
                 "method_metadata.parquet",
