@@ -3,8 +3,6 @@ from __future__ import annotations
 import json
 from functools import partial
 from pathlib import Path
-from typing import Iterable
-
 from gibss.distributions import Normal, PointMass
 
 from config_builders import batch_specs_for_simulation, fixed_normal, format_float
@@ -27,7 +25,7 @@ from core import (
     uniform_markov_X,
     uniform_single_effect,
 )
-from utils import BatchSpec, CollectionSpec
+from utils import BatchSpec
 
 __all__ = [
     "THRESHOLDS",
@@ -51,9 +49,8 @@ __all__ = [
     "DEFAULT_METHOD_SPECS",
     "BANK_BATCH_SPECS",
     "BATCH_SPECS",
-    "COLLECTION_SPECS",
-    "NULL_ENRICH_COLLECTION_SPECS",
-    "collection_yaml_node",
+    "NULL_ENRICH_SIMULATION_SPECS",
+    "NULL_ENRICH_METHOD_SPECS",
 ]
 
 REGISTRY = ConfigRegistry()
@@ -267,6 +264,7 @@ THRESHOLD_SWEEP_SUSIE_SPECS = _default_method_specs(L=5, thresholds=THRESHOLDS)
 DEFAULT_SER_SPECS = _default_method_specs(L=1, thresholds=THRESHOLDS_SMALL)
 DEFAULT_SUSIE_SPECS = _default_method_specs(L=5, thresholds=THRESHOLDS_SMALL)
 DEFAULT_METHOD_SPECS = DEFAULT_SER_SPECS + DEFAULT_SUSIE_SPECS
+REGISTRY.register_methods(THRESHOLD_SWEEP_SER_SPECS + THRESHOLD_SWEEP_SUSIE_SPECS)
 
 
 def _signal_name(kind: str, value: float) -> str:
@@ -403,28 +401,6 @@ def _atomic_collection_name(
     )
 
 
-def _register_atomic_collection(
-    *,
-    design: str,
-    signal_kind: str,
-    signal_value: float,
-    methods: Iterable[MethodSpec] = DEFAULT_METHOD_SPECS,
-) -> CollectionSpec:
-    collection_name = _atomic_collection_name(
-        design=design,
-        signal_kind=signal_kind,
-        signal_value=signal_value,
-    )
-    return REGISTRY.register_collection(
-        name=collection_name,
-        simulations=(_named_simulation(collection_name),),
-        methods=tuple(methods),
-        n_batches=N_BATCHES,
-        replicates_per_batch=REPLICATES_PER_BATCH,
-        batch_builder=batch_specs_for_simulation,
-    )
-
-
 SIGNAL_DESIGNS = (
     "hallmark",
     "c4",
@@ -450,61 +426,6 @@ N_FEATURE_UNIFORM_DESIGNS = tuple(
     _markov_design_name(family="uniform", rho=SAMPLE_SIZE_RHO, n_features=n_features)
     for n_features in N_FEATURE_VALUES
 )
-
-
-def _register_signal_collections() -> tuple[CollectionSpec, ...]:
-    collections: list[CollectionSpec] = []
-    for design in SIGNAL_DESIGNS:
-        for loc in SIGNAL_LOC_VALUES:
-            collections.append(
-                _register_atomic_collection(
-                    design=design,
-                    signal_kind="loc",
-                    signal_value=loc,
-                )
-            )
-        for scale in SIGNAL_SCALE_VALUES:
-            collections.append(
-                _register_atomic_collection(
-                    design=design,
-                    signal_kind="scale",
-                    signal_value=scale,
-                )
-            )
-    return tuple(collections)
-
-
-def _register_correlation_collections() -> tuple[CollectionSpec, ...]:
-    collections: list[CollectionSpec] = []
-    for design in CORRELATION_GAUSSIAN_DESIGNS + CORRELATION_UNIFORM_DESIGNS:
-        for loc in (CORRELATION_LOC_ANCHOR, CORRELATION_LOC_ANCHOR_STRONG):
-            collections.append(
-                _register_atomic_collection(design=design, signal_kind="loc", signal_value=loc)
-            )
-        for scale in (CORRELATION_SCALE_ANCHOR, CORRELATION_SCALE_ANCHOR_STRONG):
-            collections.append(
-                _register_atomic_collection(design=design, signal_kind="scale", signal_value=scale)
-            )
-    return tuple(collections)
-
-
-def _register_n_feature_collections() -> tuple[CollectionSpec, ...]:
-    collections: list[CollectionSpec] = []
-    for design in N_FEATURE_GAUSSIAN_DESIGNS + N_FEATURE_UNIFORM_DESIGNS:
-        for loc in (CORRELATION_LOC_ANCHOR, CORRELATION_LOC_ANCHOR_STRONG):
-            collections.append(
-                _register_atomic_collection(design=design, signal_kind="loc", signal_value=loc)
-            )
-        for scale in (CORRELATION_SCALE_ANCHOR, CORRELATION_SCALE_ANCHOR_STRONG):
-            collections.append(
-                _register_atomic_collection(design=design, signal_kind="scale", signal_value=scale)
-            )
-    return tuple(collections)
-
-
-SIGNAL_COLLECTION_SPECS = _register_signal_collections()
-CORRELATION_COLLECTION_SPECS = _register_correlation_collections()
-N_FEATURE_COLLECTION_SPECS = _register_n_feature_collections()
 
 
 def _make_null_enrich_simulation(
@@ -544,7 +465,7 @@ NULL_ENRICH_SIMULATION_SPECS = tuple(
 )
 SIMULATION_BY_NAME.update({spec.name: spec for spec in NULL_ENRICH_SIMULATION_SPECS})
 
-_NULL_ENRICH_METHOD_SPECS = (
+NULL_ENRICH_METHOD_SPECS = (
     _twogroup_oracle_method_spec(L=1),
     _twogroup_method_spec(L=1),
     _twogroup_oracle_init_method_spec(L=1),
@@ -552,22 +473,17 @@ _NULL_ENRICH_METHOD_SPECS = (
     _twogroup_loc_fam_method_spec(L=1),
 )
 
-
-def _register_null_enrich_collections() -> tuple[CollectionSpec, ...]:
-    return tuple(
-        REGISTRY.register_collection(
-            name=spec.name,
-            simulations=(spec,),
-            methods=_NULL_ENRICH_METHOD_SPECS,
-            n_batches=N_BATCHES,
-            replicates_per_batch=REPLICATES_PER_BATCH,
-            batch_builder=batch_specs_for_simulation,
-        )
-        for spec in NULL_ENRICH_SIMULATION_SPECS
+_NULL_ENRICH_BATCH_SPECS = tuple(
+    batch
+    for sim in NULL_ENRICH_SIMULATION_SPECS
+    for batch in batch_specs_for_simulation(
+        sim,
+        replicates_per_batch=REPLICATES_PER_BATCH,
+        n_batches=N_BATCHES,
     )
-
-
-NULL_ENRICH_COLLECTION_SPECS = _register_null_enrich_collections()
+)
+REGISTRY.register_simulations(NULL_ENRICH_SIMULATION_SPECS)
+REGISTRY.register_batches(_NULL_ENRICH_BATCH_SPECS)
 
 
 TINY_TEST_SIMULATION = _atomic_collection_name(
@@ -580,11 +496,7 @@ TINY_TEST_BATCH = BatchSpec(
     simulation_spec=_named_simulation(TINY_TEST_SIMULATION),
     replicates=(0,),
 )
-REGISTRY.register_collection(
-    name="tiny_test",
-    batches=(TINY_TEST_BATCH,),
-    methods=(_logistic_oracle_method_spec(L=1),),
-)
+REGISTRY.register_batches((TINY_TEST_BATCH,))
 
 
 def manifest_dict() -> dict[str, object]:
@@ -622,33 +534,6 @@ def manifest_dict() -> dict[str, object]:
     return manifest
 
 
-def _flat_batch_node(batch: "BatchSpec") -> dict:
-    """Produce a flat batch node matching the file-based collection_spec.yaml format."""
-    return {
-        HASH_KEY: dehydrate_hashed(batch)[HASH_KEY],
-        "name": batch.name,
-        "replicates": list(batch.replicates),
-        "simulation_spec": dehydrate_hashed(batch.simulation_spec),
-    }
-
-
-def collection_yaml_node(name: str) -> dict[str, object]:
-    collection = next(
-        (collection for collection in REGISTRY.collections if collection.name == name),
-        None,
-    )
-    if collection is None:
-        raise KeyError(f"Unknown collection name: {name}")
-    return {
-        "name": collection.name,
-        "batches": [_flat_batch_node(batch) for batch in collection.batches],
-        "method_specs": [
-            dehydrate_hashed(method) for method in collection.method_specs
-        ],
-        HASH_KEY: dehydrate_hashed(collection)[HASH_KEY],
-    }
-
-
 def write_manifest(path: str | Path | None = None) -> Path:
     if path is not None:
         destination = Path(path)
@@ -661,7 +546,6 @@ def write_manifest(path: str | Path | None = None) -> Path:
 
 SIMULATION_SPECS = REGISTRY.simulations
 BATCH_SPECS = REGISTRY.batches
-COLLECTION_SPECS = REGISTRY.collections
 
 
 if __name__ == "__main__":

@@ -381,6 +381,21 @@ def test_uniform_markov_x_shape_support_and_adjacent_spearman_correlation():
     assert abs(empirical_spearman - expected_spearman) < 0.08
 
 
+def test_all_threshold_sweep_methods_in_registry():
+    from config import REGISTRY, THRESHOLD_SWEEP_SER_SPECS, THRESHOLD_SWEEP_SUSIE_SPECS
+    registered_hashes = {dehydrate_hashed(m)[HASH_KEY] for m in REGISTRY.methods}
+    for spec in THRESHOLD_SWEEP_SER_SPECS + THRESHOLD_SWEEP_SUSIE_SPECS:
+        h = dehydrate_hashed(spec)[HASH_KEY]
+        assert h in registered_hashes, f"Method {spec.name} not in registry"
+
+
+def test_null_enrich_simulations_have_registered_batches():
+    from config import REGISTRY, NULL_ENRICH_SIMULATION_SPECS
+    batch_sim_names = {b.simulation_spec.name for b in REGISTRY.batches}
+    for spec in NULL_ENRICH_SIMULATION_SPECS:
+        assert spec.name in batch_sim_names, f"No batch for {spec.name}"
+
+
 def test_collection_plot_ready_snakemake_rules_are_declared():
     """Verify all collection-level plot-ready rules exist in the snk file."""
     snk_text = Path("twogroup_experiments.snk").read_text()
