@@ -85,16 +85,10 @@ def _load_supercollection_data(cfg: dict, supercollection: str) -> dict:
 
 def _foreground_methods(method_metadata: pl.DataFrame, settings: dict) -> set[str]:
     threshold = settings.get("threshold", 2.0)
-    L = settings.get("L", 1)
-    method_families = settings.get("method_families", [])
     mask = (
-        pl.col("method_family").is_in(method_families)
-        & (pl.col("L") == L)
-        & (
-            ~pl.col("is_thresholded")
-            | (pl.col("threshold") == threshold)
-            | pl.col("threshold").is_null()
-        )
+        ~pl.col("is_thresholded")
+        | (pl.col("threshold") == threshold)
+        | pl.col("threshold").is_null()
     )
     return set(method_metadata.filter(mask)["method"].to_list())
 

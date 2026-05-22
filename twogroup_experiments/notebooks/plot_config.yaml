@@ -6,12 +6,11 @@ method_collections:
       - logistic_threshold
       - cox_light_threshold
       - twogroup
-      - twogroup_oracle
-      - twogroup_oracle_init
       - twogroup_scale_fam
       - twogroup_loc_fam
-    L: [1, 5]
-    thresholds: [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0]
+      - twogroup_oracle
+    L: [1]
+    thresholds: [0.0, 1.0, 2.0, 3.0, 4.0]
   twogroup_ser:
     method_families:
       - twogroup
@@ -53,16 +52,6 @@ collections:
 
 settings:
   all_methods:
-    method_families: &all_method_families
-      - cox_heavy
-      - logistic_oracle
-      - logistic_threshold
-      - cox_light_threshold
-      - twogroup
-      - twogroup_oracle
-      - twogroup_oracle_init
-      - twogroup_scale_fam
-      - twogroup_loc_fam
   cox_light_vs_logistic:
     method_families:
       - logistic_threshold
@@ -118,9 +107,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   hallmark-signal-scale:
     collections:
@@ -160,9 +147,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   c4-signal-loc:
     collections:
@@ -194,9 +179,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   c4-signal-scale:
     collections:
@@ -236,9 +219,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-rho0.9-signal-loc:
     collections:
@@ -270,9 +251,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-rho0.9-signal-scale:
     collections:
@@ -312,9 +291,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-rho0.9-signal-loc:
     collections:
@@ -346,9 +323,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-rho0.9-signal-scale:
     collections:
@@ -388,9 +363,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-correlation-loc:
     collections:
@@ -422,9 +395,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-correlation-scale:
     collections:
@@ -456,9 +427,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-correlation-loc:
     collections:
@@ -490,9 +459,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-correlation-scale:
     collections:
@@ -524,9 +491,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-n-features-loc:
     collections:
@@ -554,9 +519,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-n-features-scale:
     collections:
@@ -584,9 +547,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-n-features-loc:
     collections:
@@ -614,9 +575,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-n-features-scale:
     collections:
@@ -644,9 +603,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-correlation-loc-strong:
     collections:
@@ -678,9 +635,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-correlation-scale-strong:
     collections:
@@ -712,9 +667,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-correlation-loc-strong:
     collections:
@@ -746,9 +699,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-correlation-scale-strong:
     collections:
@@ -780,9 +731,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-n-features-loc-strong:
     collections:
@@ -810,9 +759,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   gaussian-n-features-scale-strong:
     collections:
@@ -840,9 +787,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-n-features-loc-strong:
     collections:
@@ -870,9 +815,7 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   uniform-n-features-scale-strong:
     collections:
@@ -900,23 +843,38 @@ supercollections:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
-      method_families: *all_method_families
 
   null-enrich-signal-loc:
     collections:
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=loc_0.50", alias: "mu=0.50"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=loc_1.00", alias: "mu=1.00"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=loc_1.50", alias: "mu=1.50"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=loc_2.00", alias: "mu=2.00"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=loc_2.50", alias: "mu=2.50"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=loc_3.00", alias: "mu=3.00"}
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=loc_0.50",
+          alias: "mu=0.50",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=loc_1.00",
+          alias: "mu=1.00",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=loc_1.50",
+          alias: "mu=1.50",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=loc_2.00",
+          alias: "mu=2.00",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=loc_2.50",
+          alias: "mu=2.50",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=loc_3.00",
+          alias: "mu=3.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
       method_families:
         - twogroup
@@ -927,19 +885,42 @@ supercollections:
 
   null-enrich-signal-scale:
     collections:
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=scale_0.75", alias: "sigma=0.75"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=scale_1.00", alias: "sigma=1.00"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=scale_1.50", alias: "sigma=1.50"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=scale_1.75", alias: "sigma=1.75"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=scale_2.00", alias: "sigma=2.00"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=scale_3.00", alias: "sigma=3.00"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=scale_4.00", alias: "sigma=4.00"}
-      - {name: "design=null_enrich__enrichment=null_enrich__signal=scale_5.00", alias: "sigma=5.00"}
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=scale_0.75",
+          alias: "sigma=0.75",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=scale_1.00",
+          alias: "sigma=1.00",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=scale_1.50",
+          alias: "sigma=1.50",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=scale_1.75",
+          alias: "sigma=1.75",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=scale_2.00",
+          alias: "sigma=2.00",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=scale_3.00",
+          alias: "sigma=3.00",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=scale_4.00",
+          alias: "sigma=4.00",
+        }
+      - {
+          name: "design=null_enrich__enrichment=null_enrich__signal=scale_5.00",
+          alias: "sigma=5.00",
+        }
     default_settings:
       threshold: 2.0
       min_log_bf: 2.0
       max_cs_size: 10000
-      L: 1
       max_fdp: 0.5
       method_families:
         - twogroup
