@@ -7,7 +7,6 @@ RESULTS_ROOT = "results"
 PLOT_CONFIG_PATH = "notebooks/plot_config.yaml"
 
 from core import HASH_KEY, rehydrate_node
-from config import COLLECTION_SPECS, collection_yaml_node
 from utils import (
     attach_spec_metadata,
     fit_batch_method,
@@ -22,7 +21,8 @@ from utils import (
 configfile: RESULTS_ROOT + "/manifest.json"
 
 
-COLLECTION_ALIASES = sorted(collection.name for collection in COLLECTION_SPECS)
+BATCH_HASH_TO_INFO = config["batches"]
+METHOD_HASH_TO_INFO = config["method_specs"]
 
 
 wildcard_constraints:
@@ -34,14 +34,63 @@ wildcard_constraints:
 
 
 import yaml as _yaml
+import re as _re
 
-_COLLECTION_YAMLS: dict = {
-    collection.name: collection_yaml_node(collection.name)
-    for collection in COLLECTION_SPECS
-}
+
+def _method_family(name: str) -> str:
+    return _re.sub(r"_L\d+$", "", name)
+
+
+def _resolve_collection_batches(simulations: list) -> list:
+    sim_set = set(simulations)
+    return [
+        {**node, HASH_KEY: h}
+        for h, node in BATCH_HASH_TO_INFO.items()
+        if node["simulation_spec"]["fields"]["name"] in sim_set
+    ]
+
+
+def _resolve_collection_methods(method_families, L, thresholds) -> list:
+    result = []
+    for h, node in METHOD_HASH_TO_INFO.items():
+        fields = node["fields"]
+        kwargs = fields.get("kwargs", {})
+        family = _method_family(fields["name"])
+        if method_families is not None and family not in method_families:
+            continue
+        if L is not None and kwargs.get("L") not in L:
+            continue
+        thresh = kwargs.get("threshold")
+        if thresh is not None and thresholds is not None and thresh not in thresholds:
+            continue
+        result.append({**node, HASH_KEY: h})
+    return result
+
+
 _PLOT_CONFIG: dict = _yaml.safe_load(Path(PLOT_CONFIG_PATH).read_text()) or {}
+_COLLECTION_DEFS = _PLOT_CONFIG.get("collections", {})
+
+_COLLECTION_YAMLS: dict[str, dict] = {}
+for _sc in _PLOT_CONFIG.get("supercollections", {}).values():
+    for _coll in _sc.get("collections", []):
+        _name = _coll["name"]
+        if _name in _COLLECTION_YAMLS:
+            continue
+        _spec = _COLLECTION_DEFS.get(_name, {})
+        _sims = _spec.get("simulations", [_name])
+        _COLLECTION_YAMLS[_name] = {
+            "name": _name,
+            "batches": _resolve_collection_batches(_sims),
+            "method_specs": _resolve_collection_methods(
+                _spec.get("method_families"),
+                _spec.get("L"),
+                _spec.get("thresholds"),
+            ),
+        }
+
 SUPERCOLLECTIONS = sorted(_PLOT_CONFIG.get("supercollections", {}).keys())
 PLOT_SETTINGS_NAMES = sorted(_PLOT_CONFIG.get("settings", {}).keys())
+COLLECTION_ALIASES = sorted(_COLLECTION_YAMLS.keys())
 PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
     "mass_above_causal", "cs_dot_summary", "cs_power_fdp", "cs_beta_trace",
@@ -75,10 +124,6 @@ def _batch_sim_name(batch: dict) -> str:
 def _batch_sim_node(batch: dict) -> dict:
     """Simulation spec node from batch node, handling both formats."""
     return batch.get("simulation_spec") or batch["fields"]["simulation_spec"]
-
-
-BATCH_HASH_TO_INFO = config["batches"]
-METHOD_HASH_TO_INFO = config["method_specs"]
 
 
 rule resolve_collection_spec:
