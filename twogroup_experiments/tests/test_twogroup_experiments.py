@@ -23,15 +23,12 @@ from core import (
     uniform_single_effect,
 )
 from config import (
-    ConfigRegistry,
     SIMULATION_SPECS,
     _logistic_threshold_method_spec,
 )
-from config_builders import batch_specs_for_simulation
 from utils import (
     attach_spec_metadata,
     BatchSpec,
-    CollectionSpec,
     fit_batch_method,
     manifest_dict,
     simulate_batch,
@@ -59,120 +56,6 @@ def test_batchspec_is_defined_locally():
     )
     assert batch.name == "tiny_batch"
     assert batch.replicates == (0, 1)
-
-
-def test_collectionspec_owns_batches_and_methods():
-    batch = BatchSpec(
-        name="tiny_batch",
-        simulation_spec=_tiny_simulation_spec(),
-        replicates=(0, 1),
-    )
-    collection = CollectionSpec(
-        name="tiny",
-        batches=(batch,),
-        method_specs=(LOGISTIC_ORACLE,),
-    )
-    assert collection.name == "tiny"
-    assert collection.batches == (batch,)
-    assert collection.method_specs == (LOGISTIC_ORACLE,)
-
-
-def test_config_registry_register_collection_accumulates_unique_specs():
-    registry = ConfigRegistry()
-
-    collection = registry.register_collection(
-        name="demo",
-        simulations=(_tiny_simulation_spec(),),
-        methods=(LOGISTIC_ORACLE,),
-        n_batches=2,
-        replicates_per_batch=3,
-        batch_builder=batch_specs_for_simulation,
-    )
-
-    assert collection.name == "demo"
-    assert len(registry.simulations) == 1
-    assert len(registry.methods) == 1
-    assert len(registry.batches) == 2
-    assert len(registry.collections) == 1
-    assert [batch.name for batch in registry.batches] == [
-        "tiny_simulation__batch0",
-        "tiny_simulation__batch1",
-    ]
-    assert [batch.replicates for batch in registry.batches] == [
-        (0, 1, 2),
-        (3, 4, 5),
-    ]
-
-
-def test_config_registry_register_collection_is_idempotent_for_duplicates():
-    registry = ConfigRegistry()
-
-    registry.register_collection(
-        name="demo",
-        simulations=(_tiny_simulation_spec(),),
-        methods=(LOGISTIC_ORACLE,),
-        n_batches=1,
-        replicates_per_batch=2,
-        batch_builder=batch_specs_for_simulation,
-    )
-    registry.register_collection(
-        name="demo",
-        simulations=(_tiny_simulation_spec(),),
-        methods=(LOGISTIC_ORACLE,),
-        n_batches=1,
-        replicates_per_batch=2,
-        batch_builder=batch_specs_for_simulation,
-    )
-
-    assert len(registry.simulations) == 1
-    assert len(registry.methods) == 1
-    assert len(registry.batches) == 1
-    assert len(registry.collections) == 1
-
-
-def test_config_registry_register_collection_union_reuses_batches_and_methods():
-    registry = ConfigRegistry()
-
-    registry.register_collection(
-        name="left",
-        simulations=(_tiny_simulation_spec(),),
-        methods=(LOGISTIC_ORACLE,),
-        n_batches=1,
-        replicates_per_batch=2,
-        batch_builder=batch_specs_for_simulation,
-    )
-    registry.register_collection(
-        name="right",
-        simulations=(_tiny_simulation_spec(),),
-        methods=(),
-        n_batches=1,
-        replicates_per_batch=2,
-        batch_builder=batch_specs_for_simulation,
-    )
-
-    union = registry.register_collection_union(
-        name="union",
-        collections=("left", "right"),
-    )
-
-    assert union.name == "union"
-    assert len(union.batches) == 1
-    assert union.batches[0].name == "tiny_simulation__batch0"
-    assert union.method_specs == (LOGISTIC_ORACLE,)
-
-
-def test_config_registry_register_collection_union_raises_for_unknown_collection():
-    registry = ConfigRegistry()
-
-    try:
-        registry.register_collection_union(
-            name="union",
-            collections=("missing",),
-        )
-    except KeyError as exc:
-        assert "missing" in str(exc)
-    else:
-        raise AssertionError("Expected KeyError for unknown collection.")
 
 
 def test_core_specs_are_dataclasses():

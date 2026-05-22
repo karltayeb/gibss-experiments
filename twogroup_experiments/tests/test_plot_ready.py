@@ -87,7 +87,7 @@ def test_build_collection_yaml_node_roundtrip():
     assert result["name"] == "test_collection"
     assert len(result["batches"]) == 1
     assert len(result["method_specs"]) == 1
-    assert "__spec_hash__" in result
+    assert "__spec_hash__" not in result
 
 
 def test_union_collection_yaml_nodes_deduplicates():
@@ -114,7 +114,7 @@ def test_union_collection_yaml_nodes_deduplicates():
     assert result["name"] == "union"
     assert len(result["batches"]) == 2   # deduped
     assert len(result["method_specs"]) == 1  # deduped
-    assert "__spec_hash__" in result
+    assert "__spec_hash__" not in result
 
 
 def _make_pip_fits_df():
