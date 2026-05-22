@@ -19,8 +19,8 @@ def method_family_label_map() -> dict[str, str]:
         "logistic_oracle":       "Logistic",
         "cox_heavy":             "Cox Heavy",
         "twogroup_oracle_init":  "TG Oracle Init",
-        "twogroup_scale_fam":    "TG Scale",
-        "twogroup_loc_fam":      "TG Loc",
+        "twogroup_scale_fam":    "Twogroup Scale",
+        "twogroup_loc_fam":      "Twogroup Loc",
     }
 
 
