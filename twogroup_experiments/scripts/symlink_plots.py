@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Create results/plots/{plot_type}/{settings}/{supercollection}.pdf symlinks.
+"""Create symlink views of results/supercollections/{sc}/{plot_type}/{settings}.pdf.
 
-Scans results/supercollections/{sc}/{plot_type}/{settings}.pdf and deposits
-relative symlinks under results/plots/ for easy cross-supercollection browsing.
+Two views under results/plots/:
+  by_type/{plot_type}/{settings}/{supercollection}.pdf   -- compare across supercollections
+  by_sc/{supercollection}/{settings}/{plot_type}.pdf     -- browse one supercollection
 
 Usage:
     uv run python scripts/symlink_plots.py
@@ -13,9 +14,23 @@ import os
 from pathlib import Path
 
 
+def _link(src: Path, dst: Path) -> bool:
+    rel_target = os.path.relpath(src, dst.parent)
+    if dst.is_symlink():
+        if os.readlink(dst) == rel_target:
+            return False
+        dst.unlink()
+    elif dst.exists():
+        dst.unlink()
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst.symlink_to(rel_target)
+    return True
+
+
 def symlink_plots(results: Path) -> None:
     sc_root = results / "supercollections"
-    plots_root = results / "plots"
+    by_type = results / "plots" / "by_type"
+    by_sc = results / "plots" / "by_sc"
 
     count = 0
     for pdf in sorted(sc_root.glob("*/*/*.pdf")):
@@ -23,21 +38,10 @@ def symlink_plots(results: Path) -> None:
         plot_type = pdf.parts[-2]
         settings = pdf.stem
 
-        dst = plots_root / plot_type / settings / f"{sc}.pdf"
-        dst.parent.mkdir(parents=True, exist_ok=True)
+        count += _link(pdf, by_type / plot_type / settings / f"{sc}.pdf")
+        count += _link(pdf, by_sc / sc / settings / f"{plot_type}.pdf")
 
-        rel_target = os.path.relpath(pdf, dst.parent)
-        if dst.is_symlink():
-            if os.readlink(dst) == rel_target:
-                continue
-            dst.unlink()
-        elif dst.exists():
-            dst.unlink()
-
-        dst.symlink_to(rel_target)
-        count += 1
-
-    print(f"Created/updated {count} symlinks under {plots_root}")
+    print(f"Created/updated {count} symlinks under {results / 'plots'}")
 
 
 if __name__ == "__main__":
