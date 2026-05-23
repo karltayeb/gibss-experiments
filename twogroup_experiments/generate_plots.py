@@ -26,6 +26,7 @@ PLOT_TYPES = [
     "mass_above_causal", "cs_dot_summary", "cs_power_fdp", "cs_beta_trace",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
     "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace",
+    "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
 ]
 
 
@@ -75,11 +76,21 @@ def _load_supercollection_data(cfg: dict, supercollection: str) -> dict:
             for name, b in bundles.items()
         ])
 
+    def _tag_optional(key: str) -> pl.DataFrame:
+        frames = [
+            b[key].with_columns(pl.lit(aliases.get(name, name)).alias("collection_name"))
+            for name, b in bundles.items()
+            if key in b and not b[key].is_empty()
+        ]
+        return pl.concat(frames) if frames else pl.DataFrame()
+
     return {
         "method_metadata": combined_method_metadata,
         "collection_names": [aliases.get(item["name"], item["name"]) for item in coll_list],
         "pip_plot_data": _tag("pip_plot_data"),
         "cs_plot_data": _tag("cs_plot_data"),
+        "f1_plot_data": _tag_optional("f1_plot_data"),
+        "enrich_plot_data": _tag_optional("enrich_plot_data"),
     }
 
 
@@ -670,6 +681,102 @@ def _make_agg_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
     )
 
 
+_TG_FAMILIES = {"twogroup", "twogroup_oracle", "twogroup_oracle_init", "twogroup_scale_fam", "twogroup_loc_fam"}
+
+
+def _tg_methods(method_meta: pl.DataFrame, settings: dict) -> set[str]:
+    fg = _foreground_methods(method_meta, settings)
+    tg = set(method_meta.filter(pl.col("method_family").is_in(_TG_FAMILIES))["method"].to_list())
+    return fg & tg
+
+
+def _with_meta(data: pl.DataFrame, method_meta: pl.DataFrame, tg_fg: set[str]) -> pl.DataFrame:
+    return (
+        data.filter(pl.col("method").is_in(tg_fg))
+        .join(
+            method_meta.select("method", "method_display", "method_family").unique("method"),
+            on="method",
+            how="left",
+        )
+    )
+
+
+_TG_FAMILY_ORDER = {
+    "twogroup_oracle": 0,
+    "twogroup_oracle_init": 1,
+    "twogroup": 2,
+    "twogroup_loc_fam": 3,
+    "twogroup_scale_fam": 4,
+}
+
+
+def _tg_display_order(method_meta: pl.DataFrame, methods: set[str]) -> list[str]:
+    return (
+        method_meta.filter(pl.col("method").is_in(methods))
+        .with_columns(
+            pl.col("method_family").replace(_TG_FAMILY_ORDER, default=99).alias("_fam_rank")
+        )
+        .sort(["_fam_rank", "method"])["method_display"]
+        .to_list()
+    )
+
+
+def _make_f1_boxplot(combined_data: dict, settings: dict) -> plt.Figure:
+    method_meta = combined_data["method_metadata"]
+    tg_fg = _tg_methods(method_meta, settings)
+    f1_raw = combined_data.get("f1_plot_data", pl.DataFrame())
+    enrich_raw = combined_data.get("enrich_plot_data", pl.DataFrame())
+    if f1_raw.is_empty():
+        return viz_utils.make_placeholder_chart("No f1 data")
+    f1 = _with_meta(f1_raw, method_meta, tg_fg)
+    enrich = _with_meta(enrich_raw, method_meta, tg_fg) if not enrich_raw.is_empty() else pl.DataFrame()
+    if not enrich.is_empty():
+        all_data = f1.join(
+            enrich.select("sample_id", "method", "mu_at_causal", "true_intercept", "true_effect"),
+            on=["sample_id", "method"],
+            how="left",
+        )
+    else:
+        all_data = f1.with_columns(
+            pl.lit(None).cast(pl.Float64).alias("mu_at_causal"),
+            pl.lit(None).cast(pl.Float64).alias("true_intercept"),
+            pl.lit(None).cast(pl.Float64).alias("true_effect"),
+        )
+    return viz_utils.render_f1_boxplot(
+        all_data,
+        collection_names=combined_data["collection_names"],
+        method_order=_tg_display_order(method_meta, tg_fg),
+    )
+
+
+def _make_f1_scatter(combined_data: dict, settings: dict) -> plt.Figure:
+    method_meta = combined_data["method_metadata"]
+    tg_fg = _tg_methods(method_meta, settings)
+    f1_raw = combined_data.get("f1_plot_data", pl.DataFrame())
+    if f1_raw.is_empty():
+        return viz_utils.make_placeholder_chart("No f1 scatter data")
+    f1 = _with_meta(f1_raw, method_meta, tg_fg)
+    return viz_utils.render_f1_scatter_chart(
+        f1,
+        collection_names=combined_data["collection_names"],
+        method_order=_tg_display_order(method_meta, tg_fg),
+    )
+
+
+def _make_f1_enrich_scatter(combined_data: dict, settings: dict) -> plt.Figure:
+    method_meta = combined_data["method_metadata"]
+    tg_fg = _tg_methods(method_meta, settings)
+    enrich_raw = combined_data.get("enrich_plot_data", pl.DataFrame())
+    if enrich_raw.is_empty():
+        return viz_utils.make_placeholder_chart("No enrichment scatter data")
+    enrich = _with_meta(enrich_raw, method_meta, tg_fg)
+    return viz_utils.render_f1_enrich_scatter_chart(
+        enrich,
+        collection_names=combined_data["collection_names"],
+        method_order=_tg_display_order(method_meta, tg_fg),
+    )
+
+
 _PLOT_DISPATCH = {
     "pip_calibration": _make_pip_calibration,
     "power_fdp": _make_power_fdp,
@@ -686,4 +793,7 @@ _PLOT_DISPATCH = {
     "agg_mass_above_causal": _make_agg_mass_above_causal,
     "agg_cs_power_fdp": _make_agg_cs_power_fdp,
     "agg_cs_beta_trace": _make_agg_cs_beta_trace,
+    "f1_boxplot": _make_f1_boxplot,
+    "f1_scatter": _make_f1_scatter,
+    "f1_enrich_scatter": _make_f1_enrich_scatter,
 }

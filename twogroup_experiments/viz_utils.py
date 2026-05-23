@@ -1251,3 +1251,279 @@ def render_cs_beta_trace_chart(
     )
     fig.tight_layout(rect=[0, 0, _plot_frac, 1])
     return fig
+
+
+def render_f1_boxplot(
+    all_data: pl.DataFrame,
+    collection_names: list[str],
+    method_order: list[str] | None = None,
+) -> plt.Figure:
+    """4 axes (f1_loc, f1_scale, est_intercept, mu_at_causal).
+    X-axis = collections; grouped boxes at each tick, one box per method.
+    Oracle methods excluded.
+    """
+    _ORACLE_FAMILIES = {"twogroup_oracle"}
+    color_map = method_family_color_map()
+
+    all_data = all_data.filter(~pl.col("method_family").is_in(_ORACLE_FAMILIES))
+    present = set(all_data["method_display"].to_list())
+
+    if method_order is None:
+        method_order = (
+            all_data.select("method_display", "method_family")
+            .unique()
+            .sort("method_family")["method_display"]
+            .to_list()
+        )
+    else:
+        method_order = [m for m in method_order if m in present]
+
+    family_of: dict[str, str] = dict(
+        all_data.select("method_display", "method_family").unique().iter_rows()
+    )
+
+    params = [
+        ("f1_loc",        "true_f1_loc",    "f₁ loc"),
+        ("f1_scale",      "true_f1_scale",  "f₁ scale"),
+        ("est_intercept", "true_intercept", "intercept"),
+        ("mu_at_causal",  "true_effect",    "μ at causal"),
+    ]
+
+    n_colls = len(collection_names)
+    n_methods = len(method_order)
+    group_width = n_methods + 1
+
+    cell_w = max(1.5 * n_colls, 6)
+    cell_h = cell_w * 2 / 3
+    tick_fs = 11
+    fig, axes_2d = plt.subplots(
+        2, 2,
+        figsize=(2 * cell_w, 2 * cell_h),
+        gridspec_kw={"hspace": 0.5, "wspace": 0.35},
+        squeeze=False,
+    )
+    axes = [axes_2d[0, 0], axes_2d[0, 1], axes_2d[1, 0], axes_2d[1, 1]]
+
+    for ax_idx, (param, true_col, label) in enumerate(params):
+        ax = axes[ax_idx]
+
+        for ci, cname in enumerate(collection_names):
+            coll = all_data.filter(pl.col("collection_name") == cname)
+
+            true_vals = coll[true_col].drop_nulls()
+            true_val = float(true_vals[0]) if not true_vals.is_empty() else None
+
+            x_left = ci * group_width + 0.5
+            x_right = ci * group_width + n_methods + 0.5
+            if true_val is not None:
+                ax.hlines(true_val, x_left, x_right, colors="black",
+                          linestyles="--", linewidth=1.5, zorder=5)
+
+            for mi, m in enumerate(method_order):
+                vals = coll.filter(pl.col("method_display") == m)[param].drop_nulls()
+                if vals.is_empty():
+                    continue
+                x_pos = ci * group_width + mi + 1
+                color = color_map.get(family_of.get(m, ""), "#888888")
+                bp = ax.boxplot(
+                    vals.to_numpy(),
+                    positions=[x_pos],
+                    patch_artist=True,
+                    showfliers=False,
+                    widths=0.7,
+                    manage_ticks=False,
+                )
+                bp["boxes"][0].set_facecolor(color)
+                bp["boxes"][0].set_alpha(0.7)
+                for element in ("whiskers", "caps", "medians"):
+                    for line in bp[element]:
+                        line.set_color("#333333")
+
+        group_centers = [ci * group_width + (n_methods - 1) / 2 + 1 for ci in range(n_colls)]
+        ax.set_xlim(0.5, n_colls * group_width - 0.5)
+        ax.set_xticks(group_centers)
+        ax.set_xticklabels(collection_names, rotation=45, ha="right", fontsize=tick_fs)
+        ax.set_title(label, fontsize=tick_fs + 2)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+    handles = [
+        plt.Rectangle((0, 0), 1, 1,
+                      facecolor=color_map.get(family_of.get(m, ""), "#888888"), alpha=0.7)
+        for m in method_order
+    ]
+    axes[3].legend(handles, method_order, loc="upper right", fontsize=tick_fs, framealpha=0.5,
+                   bbox_to_anchor=(1.0, 1.0))
+    return fig
+
+
+def _scatter_with_marginals(
+    fig: plt.Figure,
+    outer_spec,
+    x: np.ndarray,
+    y: np.ndarray,
+    true_x: float | None,
+    true_y: float | None,
+    color: str,
+    *,
+    row_ref: dict,
+    ri: int,
+    ci: int,
+    n_rows: int,
+    xlabel: str,
+    ylabel: str,
+    ylabel_prefix: str,
+    col_label: str | None,
+) -> None:
+    import matplotlib.gridspec as gridspec
+
+    inner = gridspec.GridSpecFromSubplotSpec(
+        2, 2, subplot_spec=outer_spec,
+        width_ratios=[3, 1], height_ratios=[1, 3],
+        hspace=0.05, wspace=0.05,
+    )
+    share_kw = {"sharex": row_ref[ri], "sharey": row_ref[ri]} if ri in row_ref else {}
+    ax_s = fig.add_subplot(inner[1, 0], **share_kw)
+    if ri not in row_ref:
+        row_ref[ri] = ax_s
+    ax_t = fig.add_subplot(inner[0, 0], sharex=ax_s)
+    ax_r = fig.add_subplot(inner[1, 1], sharey=ax_s)
+    ax_corner = fig.add_subplot(inner[0, 1])
+    ax_corner.axis("off")
+
+    if len(x):
+        ax_s.scatter(x, y, alpha=0.4, color=color, s=12, linewidths=0)
+        ax_t.hist(x, bins=20, color=color, alpha=0.75)
+        ax_r.hist(y, bins=20, color=color, alpha=0.75, orientation="horizontal")
+
+    if true_x is not None and true_y is not None:
+        ax_s.scatter([true_x], [true_y], color="black", marker="*", s=80, zorder=6)
+        ax_s.axvline(true_x, color="black", linewidth=0.7, alpha=0.4)
+        ax_s.axhline(true_y, color="black", linewidth=0.7, alpha=0.4)
+        ax_t.axvline(true_x, color="black", linewidth=1.0, alpha=0.7)
+        ax_r.axhline(true_y, color="black", linewidth=1.0, alpha=0.7)
+
+    plt.setp(ax_t.get_xticklabels(), visible=False)
+    plt.setp(ax_r.get_yticklabels(), visible=False)
+    ax_t.tick_params(axis="x", which="both", bottom=False)
+    ax_r.tick_params(axis="y", which="both", left=False)
+    for ax in (ax_s, ax_t, ax_r):
+        ax.tick_params(labelsize=6)
+
+    if ci == 0:
+        ax_s.set_ylabel(f"{ylabel_prefix}\n{ylabel}", fontsize=7)
+    else:
+        ax_s.set_ylabel("")
+        plt.setp(ax_s.get_yticklabels(), visible=False)
+    if ri == n_rows - 1:
+        ax_s.set_xlabel(xlabel, fontsize=7)
+    if col_label is not None:
+        ax_t.set_title(col_label, fontsize=8, pad=3)
+
+
+def render_f1_scatter_chart(
+    f1_data: pl.DataFrame,
+    collection_names: list[str],
+    method_order: list[str] | None = None,
+) -> plt.Figure:
+    """N_collections rows × N_methods columns.
+    Each cell: scatter(est_loc, est_scale) + marginal histograms.
+    f1_data: collection_name, method_display, method_family,
+             f1_loc, f1_scale, true_f1_loc, true_f1_scale.
+    """
+    color_map = method_family_color_map()
+    label_map = method_family_label_map()
+    if method_order is None:
+        method_order = (
+            f1_data.select("method_display", "method_family")
+            .unique().sort("method_family")["method_display"].to_list()
+        )
+    family_of: dict[str, str] = dict(
+        f1_data.select("method_display", "method_family").unique().iter_rows()
+    )
+
+    n_rows, n_cols = len(collection_names), len(method_order)
+    cell = 2.8
+    fig = plt.figure(figsize=(n_cols * cell, n_rows * cell))
+    outer = fig.add_gridspec(n_rows, n_cols, hspace=0.55, wspace=0.45)
+    row_ref: dict = {}
+
+    for ri, cname in enumerate(collection_names):
+        coll = f1_data.filter(pl.col("collection_name") == cname)
+        true_loc_s = coll["true_f1_loc"].drop_nulls()
+        true_scale_s = coll["true_f1_scale"].drop_nulls()
+        true_x = float(true_loc_s[0]) if not true_loc_s.is_empty() else None
+        true_y = float(true_scale_s[0]) if not true_scale_s.is_empty() else None
+
+        for ci, m in enumerate(method_order):
+            fd = coll.filter(pl.col("method_display") == m)
+            fam = family_of.get(m)
+            color = color_map.get(fam, "#888888")
+            x = fd["f1_loc"].drop_nulls().to_numpy() if not fd.is_empty() else np.array([])
+            y = fd["f1_scale"].drop_nulls().to_numpy() if not fd.is_empty() else np.array([])
+            col_label = label_map.get(fam, m) if ri == 0 else None
+
+            _scatter_with_marginals(
+                fig, outer[ri, ci], x, y, true_x, true_y, color,
+                row_ref=row_ref, ri=ri, ci=ci, n_rows=n_rows,
+                xlabel="loc", ylabel="scale", ylabel_prefix=cname,
+                col_label=col_label,
+            )
+
+    return fig
+
+
+def render_f1_enrich_scatter_chart(
+    enrich_data: pl.DataFrame,
+    collection_names: list[str],
+    method_order: list[str] | None = None,
+) -> plt.Figure:
+    """N_collections rows × N_methods columns.
+    Each cell: scatter(est_intercept, mu_at_causal) + marginal histograms.
+    enrich_data: collection_name, method_display, method_family,
+                 est_intercept, mu_at_causal, true_intercept, true_effect.
+    """
+    color_map = method_family_color_map()
+    label_map = method_family_label_map()
+    if method_order is None:
+        method_order = (
+            enrich_data.select("method_display", "method_family")
+            .unique().sort("method_family")["method_display"].to_list()
+        )
+    family_of: dict[str, str] = dict(
+        enrich_data.select("method_display", "method_family").unique().iter_rows()
+    )
+
+    n_rows, n_cols = len(collection_names), len(method_order)
+    cell = 2.8
+    fig = plt.figure(figsize=(n_cols * cell, n_rows * cell))
+    outer = fig.add_gridspec(n_rows, n_cols, hspace=0.55, wspace=0.45)
+    row_ref: dict = {}
+
+    for ri, cname in enumerate(collection_names):
+        for ci, m in enumerate(method_order):
+            fd = enrich_data.filter(
+                (pl.col("collection_name") == cname) & (pl.col("method_display") == m)
+            )
+            fam = family_of.get(m)
+            color = color_map.get(fam, "#888888")
+
+            if not fd.is_empty():
+                x = fd["est_intercept"].drop_nulls().to_numpy()
+                y = fd["mu_at_causal"].drop_nulls().to_numpy()
+                true_x = float(fd["true_intercept"].drop_nulls()[0])
+                true_y = float(fd["true_effect"].drop_nulls()[0])
+            else:
+                x, y = np.array([]), np.array([])
+                true_x, true_y = None, None
+
+            col_label = label_map.get(fam, m) if ri == 0 else None
+
+            _scatter_with_marginals(
+                fig, outer[ri, ci], x, y, true_x, true_y, color,
+                row_ref=row_ref, ri=ri, ci=ci, n_rows=n_rows,
+                xlabel="intercept", ylabel="μ_causal", ylabel_prefix=cname,
+                col_label=col_label,
+            )
+
+    return fig

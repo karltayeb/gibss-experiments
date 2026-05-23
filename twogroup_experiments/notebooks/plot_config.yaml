@@ -9,6 +9,7 @@ method_collections:
     - twogroup_scale_fam
     - twogroup_loc_fam
     - twogroup_oracle
+    - twogroup_oracle_init
     L:
     - 1
     thresholds:
@@ -79,6 +80,7 @@ settings:
     - twogroup_scale_fam
     - twogroup_loc_fam
     - twogroup_oracle
+    - twogroup_oracle_init
   heavy_vs_light:
     method_families:
     - cox_heavy
@@ -123,6 +125,10 @@ supercollections:
       plot_type_groups:
       - standard
       - cs
+    - settings:
+      - twogroup_methods
+      plot_type_groups:
+      - f1
   hallmark-signal-scale:
     collections:
     - name: design=hallmark__enrichment=ser_enrich__signal=scale_0.75
@@ -682,3 +688,7 @@ plot_type_groups:
   - cs_beta_trace
   - agg_cs_power_fdp
   - agg_cs_beta_trace
+  f1:
+  - f1_boxplot
+  - f1_scatter
+  - f1_enrich_scatter

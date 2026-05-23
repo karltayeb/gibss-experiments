@@ -106,6 +106,7 @@ PLOT_TYPES = [
     "mass_above_causal", "cs_dot_summary", "cs_power_fdp", "cs_beta_trace",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
     "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace",
+    "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
 ]
 
 
@@ -317,6 +318,47 @@ rule collection_cs_plot_data:
         write_parquet(build_cs_plot_data(fits_df, sample_metadata), output[0])
 
 
+rule collection_f1_plot_data:
+    input:
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
+            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
+            if method_spec["fields"]["name"].startswith("twogroup")
+        ],
+    output:
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/f1_plot_data.parquet",
+    run:
+        from plot_ready import build_f1_plot_data
+
+        collection = load_collection_yaml(wildcards.collection_alias)
+        write_parquet(build_f1_plot_data(collection, results_root=RESULTS_ROOT), output[0])
+
+
+rule collection_enrich_plot_data:
+    input:
+        simulations=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+            batch_hash=[
+                batch[HASH_KEY]
+                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
+            ],
+        ),
+        fits=lambda wildcards: [
+            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
+            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
+            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
+            if method_spec["fields"]["name"].startswith("twogroup")
+        ],
+    output:
+        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/enrich_plot_data.parquet",
+    run:
+        from plot_ready import build_enrich_plot_data
+
+        collection = load_collection_yaml(wildcards.collection_alias)
+        write_parquet(build_enrich_plot_data(collection, results_root=RESULTS_ROOT), output[0])
+
+
 rule all_collections:
     input:
         expand(
@@ -358,6 +400,8 @@ rule twogroup_experiments_target:
                 "sample_metadata.parquet",
                 "pip_plot_data.parquet",
                 "cs_plot_data.parquet",
+                "f1_plot_data.parquet",
+                "enrich_plot_data.parquet",
             ],
         ),
     output:
