@@ -353,9 +353,6 @@ def test_rehydrate_spec_handles_missing_error_sampler():
 def test_t_error_sampler_has_unit_variance():
     """Standardized t-error sampler should produce unit variance regardless of df."""
     from core import t_error_sampler
-    import numpy as np
-
-    import numpy as np
 
     # Verify the formula gives unit variance analytically for all df
     for df in (3, 5, 10, 30):
@@ -379,7 +376,6 @@ def test_simulate_uses_error_sampler_when_set():
     from core import SimulationSpec, simulate, t_error_sampler, uniform_single_effect, identity_design_sampler
     from gibss.distributions import Normal, PointMass
     from functools import partial
-    import numpy as np
 
     base_spec = SimulationSpec(
         name="tiny_simulation",
