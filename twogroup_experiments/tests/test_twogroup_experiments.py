@@ -414,3 +414,32 @@ def test_simulate_uses_error_sampler_when_set():
     # Verify t_error_sampler runs without error
     t_sim = simulate(t_spec, replicate=0)
     assert t_sim.thetahat is not None
+
+
+def test_t_error_simulation_specs_count():
+    """4 designs × 2 signal kinds × 4 df values = 32 specs."""
+    from config import T_ERROR_SIMULATION_SPECS
+    assert len(T_ERROR_SIMULATION_SPECS) == 32
+
+
+def test_t_error_simulation_spec_names_include_error_field():
+    from config import T_ERROR_SIMULATION_SPECS
+    for spec in T_ERROR_SIMULATION_SPECS:
+        assert "__error=t_df_" in spec.name, f"Missing error field: {spec.name}"
+
+
+def test_t_error_simulation_specs_have_registered_batches():
+    from config import REGISTRY, T_ERROR_SIMULATION_SPECS
+    batch_sim_names = {b.simulation_spec.name for b in REGISTRY.batches}
+    for spec in T_ERROR_SIMULATION_SPECS:
+        assert spec.name in batch_sim_names, f"No batch for {spec.name}"
+
+
+def test_t_error_simulation_spec_hash_differs_from_normal_baseline():
+    """t-error spec hash must differ from the equivalent normal-error spec."""
+    from config import T_ERROR_SIMULATION_SPECS, SIMULATION_BY_NAME
+    from core import simulation_hash
+    for spec in T_ERROR_SIMULATION_SPECS:
+        normal_name = spec.name.split("__error=")[0]
+        if normal_name in SIMULATION_BY_NAME:
+            assert simulation_hash(spec) != simulation_hash(SIMULATION_BY_NAME[normal_name])
