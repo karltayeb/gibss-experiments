@@ -27,6 +27,7 @@ class SimulationSpec:
     f0: Any
     f1: Any
     base_seed: int
+    error_sampler: Any = None
 
 
 @dataclass(frozen=True)
@@ -781,9 +782,13 @@ def dehydrate_hashed(node: Any) -> dict[str, Any]:
 
 
 def dehydrate_spec(spec: SimulationSpec) -> dict[str, Any]:
-    return {
-        field.name: dehydrate_node(getattr(spec, field.name)) for field in fields(spec)
-    }
+    result = {}
+    for field in fields(spec):
+        value = getattr(spec, field.name)
+        if value is None and field.default is None:
+            continue
+        result[field.name] = dehydrate_node(value)
+    return result
 
 
 def dehydrate_simulation_semantics(spec: SimulationSpec) -> dict[str, Any]:
@@ -842,6 +847,8 @@ def rehydrate_spec(node: dict[str, Any]) -> SimulationSpec:
         f0=rehydrate_node(canonical_node["f0"]),
         f1=rehydrate_node(canonical_node["f1"]),
         base_seed=int(canonical_node["base_seed"]),
+        error_sampler=rehydrate_node(canonical_node["error_sampler"])
+            if "error_sampler" in canonical_node else None,
     )
 
 

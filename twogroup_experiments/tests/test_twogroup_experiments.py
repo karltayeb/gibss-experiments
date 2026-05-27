@@ -291,3 +291,56 @@ def test_collection_plot_ready_snakemake_rules_are_declared():
     ]
     for rule in required_rules:
         assert f"rule {rule}:" in snk_text, f"Missing rule: {rule}"
+
+
+def test_simulation_spec_hash_unchanged_after_adding_error_sampler():
+    """Adding error_sampler=None must not change existing hashes."""
+    from core import SimulationSpec, simulation_hash, uniform_single_effect, identity_design_sampler
+    from gibss.distributions import Normal, PointMass
+    from functools import partial
+
+    spec_without = SimulationSpec(
+        name="tiny_simulation",
+        design_sampler=identity_design_sampler,
+        effect_sampler=partial(uniform_single_effect, causal_effect=2.0),
+        intercept=-1.0,
+        f0=PointMass(0.0),
+        f1=Normal(loc=1.0, scale=0.1, estimate_loc=False, estimate_scale=False),
+        base_seed=123,
+    )
+    hash_before = simulation_hash(spec_without)
+
+    spec_with_none = SimulationSpec(
+        name="tiny_simulation",
+        design_sampler=identity_design_sampler,
+        effect_sampler=partial(uniform_single_effect, causal_effect=2.0),
+        intercept=-1.0,
+        f0=PointMass(0.0),
+        f1=Normal(loc=1.0, scale=0.1, estimate_loc=False, estimate_scale=False),
+        base_seed=123,
+        error_sampler=None,
+    )
+    assert simulation_hash(spec_with_none) == hash_before
+
+
+def test_rehydrate_spec_handles_missing_error_sampler():
+    """Old serialized specs (no error_sampler key) must rehydrate without error."""
+    from core import rehydrate_spec, dehydrate_spec, SimulationSpec, uniform_single_effect, identity_design_sampler
+    from gibss.distributions import Normal, PointMass
+    from functools import partial
+
+    spec = SimulationSpec(
+        name="tiny_simulation",
+        design_sampler=identity_design_sampler,
+        effect_sampler=partial(uniform_single_effect, causal_effect=2.0),
+        intercept=-1.0,
+        f0=PointMass(0.0),
+        f1=Normal(loc=1.0, scale=0.1, estimate_loc=False, estimate_scale=False),
+        base_seed=123,
+        error_sampler=None,
+    )
+    dehydrated = dehydrate_spec(spec)
+    assert "error_sampler" not in dehydrated
+
+    rehydrated = rehydrate_spec(dehydrated)
+    assert rehydrated.error_sampler is None
