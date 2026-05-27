@@ -70,6 +70,68 @@ collections:
   design=null_enrich__enrichment=null_enrich__signal=scale_5.00:
     method_collections:
       - twogroup_ser
+  # --- t-error aggregate collections (loc) ---
+  t-error-agg-loc-df-3:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=loc_2.00__error=t_df_3
+      - design=c4__enrichment=ser_enrich__signal=loc_2.00__error=t_df_3
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_3
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_3
+  t-error-agg-loc-df-5:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=loc_2.00__error=t_df_5
+      - design=c4__enrichment=ser_enrich__signal=loc_2.00__error=t_df_5
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_5
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_5
+  t-error-agg-loc-df-10:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=loc_2.00__error=t_df_10
+      - design=c4__enrichment=ser_enrich__signal=loc_2.00__error=t_df_10
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_10
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_10
+  t-error-agg-loc-df-30:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
+      - design=c4__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
+  t-error-agg-loc-normal:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=loc_2.00
+      - design=c4__enrichment=ser_enrich__signal=loc_2.00
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+  # --- t-error aggregate collections (scale) ---
+  t-error-agg-scale-df-3:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_2.00__error=t_df_3
+      - design=c4__enrichment=ser_enrich__signal=scale_2.00__error=t_df_3
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_3
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_3
+  t-error-agg-scale-df-5:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_2.00__error=t_df_5
+      - design=c4__enrichment=ser_enrich__signal=scale_2.00__error=t_df_5
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_5
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_5
+  t-error-agg-scale-df-10:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_2.00__error=t_df_10
+      - design=c4__enrichment=ser_enrich__signal=scale_2.00__error=t_df_10
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_10
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_10
+  t-error-agg-scale-df-30:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
+      - design=c4__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
+  t-error-agg-scale-normal:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_2.00
+      - design=c4__enrichment=ser_enrich__signal=scale_2.00
+      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
+      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
 settings:
   all_methods: null
   minimal:
@@ -697,6 +759,201 @@ supercollections:
         - twogroup_scale_fam
         - twogroup_loc_fam
     plots: *null_plots
+  0010-hallmark-t-error-loc:
+    collections:
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00
+        alias: normal
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
+        alias: df=30
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00__error=t_df_10
+        alias: df=10
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00__error=t_df_5
+        alias: df=5
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00__error=t_df_3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: &t_error_plots
+      - settings:
+          - minimal
+        plot_type_groups:
+          - standard
+          - cs
+  0010-hallmark-t-error-scale:
+    collections:
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
+        alias: normal
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
+        alias: df=30
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00__error=t_df_10
+        alias: df=10
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00__error=t_df_5
+        alias: df=5
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00__error=t_df_3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *t_error_plots
+  0010-c4-t-error-loc:
+    collections:
+      - name: design=c4__enrichment=ser_enrich__signal=loc_2.00
+        alias: normal
+      - name: design=c4__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
+        alias: df=30
+      - name: design=c4__enrichment=ser_enrich__signal=loc_2.00__error=t_df_10
+        alias: df=10
+      - name: design=c4__enrichment=ser_enrich__signal=loc_2.00__error=t_df_5
+        alias: df=5
+      - name: design=c4__enrichment=ser_enrich__signal=loc_2.00__error=t_df_3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *t_error_plots
+  0010-c4-t-error-scale:
+    collections:
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
+        alias: normal
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
+        alias: df=30
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.00__error=t_df_10
+        alias: df=10
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.00__error=t_df_5
+        alias: df=5
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.00__error=t_df_3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *t_error_plots
+  0010-gaussian-t-error-loc:
+    collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+        alias: normal
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
+        alias: df=30
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_10
+        alias: df=10
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_5
+        alias: df=5
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *t_error_plots
+  0010-gaussian-t-error-scale:
+    collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
+        alias: normal
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
+        alias: df=30
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_10
+        alias: df=10
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_5
+        alias: df=5
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *t_error_plots
+  0010-uniform-t-error-loc:
+    collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+        alias: normal
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
+        alias: df=30
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_10
+        alias: df=10
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_5
+        alias: df=5
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *t_error_plots
+  0010-uniform-t-error-scale:
+    collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
+        alias: normal
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
+        alias: df=30
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_10
+        alias: df=10
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_5
+        alias: df=5
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *t_error_plots
+  0010-all-designs-t-error-loc:
+    collections:
+      - name: t-error-agg-loc-normal
+        alias: normal
+      - name: t-error-agg-loc-df-30
+        alias: df=30
+      - name: t-error-agg-loc-df-10
+        alias: df=10
+      - name: t-error-agg-loc-df-5
+        alias: df=5
+      - name: t-error-agg-loc-df-3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *t_error_plots
+  0010-all-designs-t-error-scale:
+    collections:
+      - name: t-error-agg-scale-normal
+        alias: normal
+      - name: t-error-agg-scale-df-30
+        alias: df=30
+      - name: t-error-agg-scale-df-10
+        alias: df=10
+      - name: t-error-agg-scale-df-5
+        alias: df=5
+      - name: t-error-agg-scale-df-3
+        alias: df=3
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *t_error_plots
 plot_type_groups:
   standard:
     - pip_calibration
