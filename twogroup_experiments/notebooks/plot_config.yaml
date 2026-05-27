@@ -89,6 +89,18 @@ settings:
       - twogroup
       - twogroup_scale_fam
       - twogroup_loc_fam
+  twogroup_loc_methods:
+    method_families:
+      - twogroup_oracle
+      - twogroup_oracle_init
+      - twogroup
+      - twogroup_loc_fam
+  twogroup_scale_methods:
+    method_families:
+      - twogroup_oracle
+      - twogroup_oracle_init
+      - twogroup
+      - twogroup_c_fam
   heavy_vs_light:
     method_families:
       - cox_heavy
@@ -647,7 +659,13 @@ supercollections:
         - twogroup_oracle_init
         - twogroup_scale_fam
         - twogroup_loc_fam
-    plots: *id001
+    plots: &null_plots
+      - settings:
+          - twogroup_methods
+          - twogroup_loc_methods
+          - twogroup_scale_methods
+        plot_type_groups:
+          - f1
   null-enrich-signal-scale:
     collections:
       - name: design=null_enrich__enrichment=null_enrich__signal=scale_0.75
@@ -678,7 +696,7 @@ supercollections:
         - twogroup_oracle_init
         - twogroup_scale_fam
         - twogroup_loc_fam
-    plots: *id001
+    plots: *null_plots
 plot_type_groups:
   standard:
     - pip_calibration
