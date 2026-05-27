@@ -142,7 +142,11 @@ def simulate(simulation_spec: SimulationSpec, replicate: int):
     )
 
     se = np.ones(X.shape[0], dtype=float)
-    thetahat = theta + rng.normal(scale=se, size=X.shape[0])
+    if simulation_spec.error_sampler is None:
+        noise = rng.normal(scale=se, size=X.shape[0])
+    else:
+        noise = simulation_spec.error_sampler(rng, se)
+    thetahat = theta + noise
 
     return TwoGroupSimulation(
         X=X,
@@ -618,6 +622,17 @@ def uniform_single_effect(
 ) -> tuple[list[int], list[float]]:
     index = int(rng.integers(0, X.shape[1]))
     return [index], [float(causal_effect)]
+
+
+def t_error_sampler(
+    rng: np.random.Generator,
+    se: np.ndarray,
+    *,
+    df: float,
+) -> np.ndarray:
+    """Standardized t-distributed error: unit variance regardless of df."""
+    scale = se * np.sqrt((df - 2.0) / df)
+    return rng.standard_t(df, size=len(se)) * scale
 
 
 def canonicalize_node(node: Any) -> Any:

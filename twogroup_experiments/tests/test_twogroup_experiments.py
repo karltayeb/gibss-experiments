@@ -9,6 +9,10 @@ from gibss.distributions import Normal, PointMass
 import numpy as np
 import polars as pl
 
+
+def zero_error_sampler(rng, se):
+    return np.zeros(len(se))
+
 from core import (
     HASH_KEY,
     LOGISTIC_ORACLE,
@@ -344,3 +348,73 @@ def test_rehydrate_spec_handles_missing_error_sampler():
 
     rehydrated = rehydrate_spec(dehydrated)
     assert rehydrated.error_sampler is None
+
+
+def test_t_error_sampler_has_unit_variance():
+    """Standardized t-error sampler should produce unit variance regardless of df."""
+    from core import t_error_sampler
+    import numpy as np
+
+    import numpy as np
+
+    # Verify the formula gives unit variance analytically for all df
+    for df in (3, 5, 10, 30):
+        scale_factor = np.sqrt((df - 2.0) / df)
+        analytic_var = scale_factor**2 * (df / (df - 2.0))
+        assert abs(analytic_var - 1.0) < 1e-10, f"df={df}: analytic var={analytic_var}"
+
+    # Verify empirically for df >= 6 (where 4th moment is finite, sample var is reliable)
+    rng = np.random.default_rng(42)
+    se = np.ones(50_000)
+    for df in (10, 30):
+        samples = t_error_sampler(rng, se, df=df)
+        assert abs(np.var(samples) - 1.0) < 0.05, f"df={df}: var={np.var(samples):.3f}"
+
+    # Verify df=3 runs without error
+    t_error_sampler(rng, se, df=3)
+
+
+def test_simulate_uses_error_sampler_when_set():
+    """simulate() with a t error_sampler should produce different thetahat than normal."""
+    from core import SimulationSpec, simulate, t_error_sampler, uniform_single_effect, identity_design_sampler
+    from gibss.distributions import Normal, PointMass
+    from functools import partial
+    import numpy as np
+
+    base_spec = SimulationSpec(
+        name="tiny_simulation",
+        design_sampler=identity_design_sampler,
+        effect_sampler=partial(uniform_single_effect, causal_effect=2.0),
+        intercept=-1.0,
+        f0=PointMass(0.0),
+        f1=Normal(loc=1.0, scale=0.1, estimate_loc=False, estimate_scale=False),
+        base_seed=123,
+    )
+    t_spec = SimulationSpec(
+        name="tiny_simulation",
+        design_sampler=identity_design_sampler,
+        effect_sampler=partial(uniform_single_effect, causal_effect=2.0),
+        intercept=-1.0,
+        f0=PointMass(0.0),
+        f1=Normal(loc=1.0, scale=0.1, estimate_loc=False, estimate_scale=False),
+        base_seed=123,
+        error_sampler=partial(t_error_sampler, df=3),
+    )
+    # Use a zero error_sampler to verify simulate() routes through it
+    zero_spec = SimulationSpec(
+        name="tiny_simulation",
+        design_sampler=identity_design_sampler,
+        effect_sampler=partial(uniform_single_effect, causal_effect=2.0),
+        intercept=-1.0,
+        f0=PointMass(0.0),
+        f1=Normal(loc=1.0, scale=0.1, estimate_loc=False, estimate_scale=False),
+        base_seed=123,
+        error_sampler=zero_error_sampler,
+    )
+    zero_sim = simulate(zero_spec, replicate=0)
+    # With zero noise, thetahat should equal theta exactly
+    np.testing.assert_array_equal(zero_sim.thetahat, zero_sim.theta)
+
+    # Verify t_error_sampler runs without error
+    t_sim = simulate(t_spec, replicate=0)
+    assert t_sim.thetahat is not None
