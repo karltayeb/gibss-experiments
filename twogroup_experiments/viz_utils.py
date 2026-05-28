@@ -1232,7 +1232,7 @@ def make_adaptive_cs_summary(
     empty_schema = {
         "collection_name": pl.String, "method": pl.String, "method_display": pl.String,
         "threshold": pl.Float64, "is_thresholded": pl.Boolean, "is_selected_threshold": pl.Boolean,
-        "power": pl.Float64, "cs_size": pl.Float64, "beta_at_coverage": pl.Float64,
+        "power": pl.Float64, "cs_size": pl.Float64, "min_covering_beta": pl.Float64,
     }
     if cs_plot_data.is_empty():
         return pl.DataFrame(schema=empty_schema)
@@ -1261,7 +1261,7 @@ def make_adaptive_cs_summary(
                 "threshold": row["threshold"],
                 "causal_idx": int(causal_idx),
                 "achieved": achieved_beta is not None,
-                "beta_at_coverage": achieved_beta,
+                "min_covering_beta": achieved_beta,
                 "cs_size": float(achieved_size) if achieved_size is not None else None,
             })
 
@@ -1271,7 +1271,7 @@ def make_adaptive_cs_summary(
     per_cs = pl.from_dicts(per_cs_rows, schema={
         "collection_name": pl.String, "sample_id": pl.String, "method": pl.String,
         "threshold": pl.Float64, "causal_idx": pl.Int64, "achieved": pl.Boolean,
-        "beta_at_coverage": pl.Float64, "cs_size": pl.Float64,
+        "min_covering_beta": pl.Float64, "cs_size": pl.Float64,
     })
 
     # Per (sample_id, causal_idx): did any l achieve coverage for this specific causal?
@@ -1290,7 +1290,7 @@ def make_adaptive_cs_summary(
         .agg(
             pl.col("achieved").any().alias("any_achieved"),
             pl.when(pl.col("achieved")).then(pl.col("cs_size")).mean().alias("cs_size"),
-            pl.when(pl.col("achieved")).then(pl.col("beta_at_coverage")).mean().alias("beta_at_coverage"),
+            pl.when(pl.col("achieved")).then(pl.col("min_covering_beta")).mean().alias("min_covering_beta"),
         )
     )
     return (
@@ -1299,7 +1299,7 @@ def make_adaptive_cs_summary(
         .agg(
             pl.col("any_achieved").cast(pl.Float64).mean().alias("power"),
             pl.col("cs_size").mean(),
-            pl.col("beta_at_coverage").mean(),
+            pl.col("min_covering_beta").mean(),
         )
         .sort("collection_name", "method_display", "threshold")
     )
@@ -1317,7 +1317,7 @@ def render_adaptive_cs_dot_chart(
         return make_placeholder_chart("No adaptive CS data")
 
     theme = base_chart_theme()
-    metrics = [("power", "Power"), ("cs_size", "CS Size"), ("beta_at_coverage", "β at coverage")]
+    metrics = [("power", "Power"), ("cs_size", "CS Size"), ("min_covering_beta", "min covering β")]
     _legend_w = 2.5
     _plot_w = theme["width"] * len(metrics)
     _fig_w = _plot_w + _legend_w
@@ -1338,7 +1338,7 @@ def render_adaptive_cs_dot_chart(
     _agg_dot = (
         summary
         .group_by("method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
-        .agg(pl.col("power").mean(), pl.col("cs_size").mean(), pl.col("beta_at_coverage").mean())
+        .agg(pl.col("power").mean(), pl.col("cs_size").mean(), pl.col("min_covering_beta").mean())
     )
 
     legend_handles: list = []
@@ -1386,7 +1386,7 @@ def render_adaptive_cs_dot_chart(
             if ci % 2 == 1:
                 ax.axvspan(ci - 0.5, ci + 0.5, color="lightgrey", alpha=0.35, zorder=0, linewidth=0)
         ax.axvspan(agg_x - 0.5, agg_x + 0.5, color="#ddeeff", zorder=0, linewidth=0)
-        if metric_col == "beta_at_coverage":
+        if metric_col == "min_covering_beta":
             ax.axhline(y=min_beta, color="black", linestyle="--", linewidth=1.0)
         ax.set_title(metric_title)
         ax.set_xticks(list(range(agg_x + 1)))
