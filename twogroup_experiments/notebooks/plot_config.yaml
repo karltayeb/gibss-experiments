@@ -970,8 +970,10 @@ plot_type_groups:
     - cs_dot_summary
     - cs_power_fdp
     - cs_beta_trace
+    - cs_coverage_trace
     - agg_cs_power_fdp
     - agg_cs_beta_trace
+    - agg_cs_coverage_trace
   f1:
     - f1_boxplot
     - f1_scatter
