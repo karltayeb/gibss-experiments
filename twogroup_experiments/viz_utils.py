@@ -1018,14 +1018,23 @@ def make_cs_beta_trace_summary(
             ).alias("is_selected_threshold")
         )
     )
-    return (
+    per_sample = (
         filtered
         .filter(pl.col("is_selected_threshold"))
-        .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
+        .group_by("collection_name", "sample_id", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
         .agg(
-            (pl.col("covered") & pl.col("valid_cs")).cast(pl.Float64).mean().alias("power"),
+            (pl.col("covered") & pl.col("valid_cs")).any().alias("any_valid_covered"),
             pl.when(pl.col("valid_cs")).then(pl.col("covered").cast(pl.Float64)).mean().alias("coverage"),
             pl.when(pl.col("valid_cs")).then(pl.col("cs_size").cast(pl.Float64)).mean().alias("cs_size"),
+        )
+    )
+    return (
+        per_sample
+        .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
+        .agg(
+            pl.col("any_valid_covered").cast(pl.Float64).mean().alias("power"),
+            pl.col("coverage").mean(),
+            pl.col("cs_size").mean(),
         )
         .sort("collection_name", "method_display", "threshold", "beta")
     )
@@ -1194,6 +1203,7 @@ def make_adaptive_cs_summary(
                     break
         per_cs_rows.append({
             "collection_name": row["collection_name"],
+            "sample_id": row["sample_id"],
             "method": row["method"],
             "threshold": row["threshold"],
             "achieved": achieved_beta is not None,
@@ -1205,11 +1215,13 @@ def make_adaptive_cs_summary(
         return pl.DataFrame(schema=empty_schema)
 
     per_cs = pl.from_dicts(per_cs_rows, schema={
-        "collection_name": pl.String, "method": pl.String, "threshold": pl.Float64,
-        "achieved": pl.Boolean, "beta_at_coverage": pl.Float64, "cs_size": pl.Float64,
+        "collection_name": pl.String, "sample_id": pl.String, "method": pl.String,
+        "threshold": pl.Float64, "achieved": pl.Boolean,
+        "beta_at_coverage": pl.Float64, "cs_size": pl.Float64,
     })
 
-    result = (
+    # Per-sample: did any l achieve coverage? (denominator = samples, not (sample, l) pairs)
+    per_sample = (
         per_cs
         .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
         .with_columns(
@@ -1219,15 +1231,23 @@ def make_adaptive_cs_summary(
             ).alias("is_selected_threshold")
         )
         .filter(pl.col("is_selected_threshold"))
-        .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
+        .group_by("collection_name", "sample_id", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
         .agg(
-            pl.col("achieved").cast(pl.Float64).mean().alias("power"),
+            pl.col("achieved").any().alias("any_achieved"),
             pl.when(pl.col("achieved")).then(pl.col("cs_size")).mean().alias("cs_size"),
             pl.when(pl.col("achieved")).then(pl.col("beta_at_coverage")).mean().alias("beta_at_coverage"),
         )
+    )
+    return (
+        per_sample
+        .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
+        .agg(
+            pl.col("any_achieved").cast(pl.Float64).mean().alias("power"),
+            pl.col("cs_size").mean(),
+            pl.col("beta_at_coverage").mean(),
+        )
         .sort("collection_name", "method_display", "threshold")
     )
-    return result
 
 
 def render_adaptive_cs_dot_chart(
