@@ -37,7 +37,12 @@ from utils import (
     manifest_dict,
     simulate_batch,
 )
-from viz_utils import make_method_display_label, method_metadata_from_method_spec_json
+from viz_utils import (
+    make_method_display_label,
+    method_metadata_from_method_spec_json,
+    make_cs_beta_trace_summary,
+)
+from utils import CS_BETA_GRID
 
 
 def _tiny_simulation_spec() -> SimulationSpec:
@@ -443,3 +448,115 @@ def test_t_error_simulation_spec_hash_differs_from_normal_baseline():
         normal_name = spec.name.split("__error=")[0]
         if normal_name in SIMULATION_BY_NAME:
             assert simulation_hash(spec) != simulation_hash(SIMULATION_BY_NAME[normal_name])
+
+
+def _make_cs_plot_data(rows: list[dict]) -> pl.DataFrame:
+    """Build minimal cs_plot_data for power tests."""
+    beta_idx_095 = int(np.searchsorted(CS_BETA_GRID, 0.95))
+    result = []
+    for r in rows:
+        n_vars = r["n_vars"]
+        rank_of_causal = r["rank_of_causal"]  # list, one per causal
+        causal_indices = r["causal_indices"]
+        # cs_sizes: small fixed CS that only covers if rank < 3
+        cs_sizes = [3] * len(CS_BETA_GRID)
+        result.append({
+            "collection_name": r.get("collection_name", "c1"),
+            "sample_id": r["sample_id"],
+            "method": r.get("method", "m1"),
+            "threshold": None,
+            "l": r.get("l", 0),
+            "ser_log_bf": r.get("ser_log_bf", 5.0),
+            "causal_indices": causal_indices,
+            "rank_of_causal": rank_of_causal,
+            "cs_sizes": cs_sizes,
+        })
+    return pl.from_dicts(result, schema={
+        "collection_name": pl.String, "sample_id": pl.String,
+        "method": pl.String, "threshold": pl.Float64, "l": pl.Int64,
+        "ser_log_bf": pl.Float64,
+        "causal_indices": pl.List(pl.Int64), "rank_of_causal": pl.List(pl.Int64),
+        "cs_sizes": pl.List(pl.Int64),
+    })
+
+
+def _method_meta() -> pl.DataFrame:
+    return pl.DataFrame({
+        "method": ["m1"], "threshold": [None],
+        "method_display": ["M1"], "is_thresholded": [False],
+    }, schema={"method": pl.String, "threshold": pl.Float64,
+               "method_display": pl.String, "is_thresholded": pl.Boolean})
+
+
+def test_power_lstar1_denominator_is_n_samples():
+    """Lstar=1: power = fraction of samples where causal is in any valid CS."""
+    # 3 samples: ranks [0, 2, 5] for cs_size=3; covered = rank < 3 → [True, True, False]
+    cs_data = _make_cs_plot_data([
+        {"sample_id": "s1", "causal_indices": [7], "rank_of_causal": [0], "n_vars": 10},
+        {"sample_id": "s2", "causal_indices": [7], "rank_of_causal": [2], "n_vars": 10},
+        {"sample_id": "s3", "causal_indices": [7], "rank_of_causal": [5], "n_vars": 10},
+    ])
+    summary = make_cs_beta_trace_summary(
+        cs_data, _method_meta(),
+        selected_methods={"m1"}, selected_thresholds=None,
+        max_cs_size=10000, min_ser_log_bf=0.0,
+    )
+    row = summary.filter((pl.col("beta") == 0.95) & (pl.col("collection_name") == "c1"))
+    assert len(row) == 1
+    assert abs(row["power"][0] - 2 / 3) < 1e-9, f"Expected 2/3, got {row['power'][0]}"
+
+
+def test_power_lstar1_not_inflated_by_fitting_l():
+    """Fitting L=3 with Lstar=1: power denominator is N_samples, not N_samples * L_fit."""
+    # Same causal found in l=0 for all 2 samples; l=1,2 are null (rank=99)
+    cs_data = _make_cs_plot_data([
+        {"sample_id": "s1", "causal_indices": [7], "rank_of_causal": [0], "n_vars": 10, "l": 0},
+        {"sample_id": "s1", "causal_indices": [7], "rank_of_causal": [99], "n_vars": 10, "l": 1},
+        {"sample_id": "s1", "causal_indices": [7], "rank_of_causal": [99], "n_vars": 10, "l": 2},
+        {"sample_id": "s2", "causal_indices": [7], "rank_of_causal": [99], "n_vars": 10, "l": 0},
+        {"sample_id": "s2", "causal_indices": [7], "rank_of_causal": [99], "n_vars": 10, "l": 1},
+        {"sample_id": "s2", "causal_indices": [7], "rank_of_causal": [99], "n_vars": 10, "l": 2},
+    ])
+    summary = make_cs_beta_trace_summary(
+        cs_data, _method_meta(),
+        selected_methods={"m1"}, selected_thresholds=None,
+        max_cs_size=10000, min_ser_log_bf=0.0,
+    )
+    row = summary.filter((pl.col("beta") == 0.95) & (pl.col("collection_name") == "c1"))
+    # s1 covered (l=0 has rank 0 < 3), s2 not covered → power = 1/2
+    assert abs(row["power"][0] - 0.5) < 1e-9, f"Expected 0.5, got {row['power'][0]}"
+
+
+def test_power_lstar2_denominator_is_total_causals():
+    """Lstar=2: denominator = 2 * N_samples; each causal counted independently."""
+    # sample s1: causal A (rank 0, found), causal B (rank 5, not found in cs_size=3)
+    # sample s2: causal A (rank 0, found), causal B (rank 1, found)
+    # total causal slots = 4; discovered = 3 → power = 3/4
+    cs_data = _make_cs_plot_data([
+        {"sample_id": "s1", "causal_indices": [3, 7], "rank_of_causal": [0, 5], "n_vars": 10},
+        {"sample_id": "s2", "causal_indices": [3, 7], "rank_of_causal": [0, 1], "n_vars": 10},
+    ])
+    summary = make_cs_beta_trace_summary(
+        cs_data, _method_meta(),
+        selected_methods={"m1"}, selected_thresholds=None,
+        max_cs_size=10000, min_ser_log_bf=0.0,
+    )
+    row = summary.filter((pl.col("beta") == 0.95) & (pl.col("collection_name") == "c1"))
+    assert abs(row["power"][0] - 3 / 4) < 1e-9, f"Expected 0.75, got {row['power'][0]}"
+
+
+def test_power_duplicate_cs_does_not_inflate_numerator():
+    """If two CSs both cover the same causal, it still counts once."""
+    # s1 has 1 causal (idx 7), covered by both l=0 and l=1
+    cs_data = _make_cs_plot_data([
+        {"sample_id": "s1", "causal_indices": [7], "rank_of_causal": [0], "n_vars": 10, "l": 0},
+        {"sample_id": "s1", "causal_indices": [7], "rank_of_causal": [0], "n_vars": 10, "l": 1},
+    ])
+    summary = make_cs_beta_trace_summary(
+        cs_data, _method_meta(),
+        selected_methods={"m1"}, selected_thresholds=None,
+        max_cs_size=10000, min_ser_log_bf=0.0,
+    )
+    row = summary.filter((pl.col("beta") == 0.95) & (pl.col("collection_name") == "c1"))
+    # 1 sample, 1 causal, covered → power = 1.0 (not 2.0)
+    assert abs(row["power"][0] - 1.0) < 1e-9, f"Expected 1.0, got {row['power'][0]}"

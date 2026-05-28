@@ -980,6 +980,45 @@ def _expand_cs_to_beta_rows(cs_plot_data: pl.DataFrame) -> pl.DataFrame:
     })
 
 
+def _compute_causal_power_rows(
+    cs_plot_data: pl.DataFrame,
+    *,
+    max_cs_size: int,
+    min_ser_log_bf: float,
+) -> pl.DataFrame:
+    """Expand to one row per (sample_id, l, causal_idx, beta) with valid_covered flag.
+
+    valid_covered = this specific causal's rank < cs_size AND cs_size <= max AND ser_log_bf >= min.
+    Rows with empty causal_indices are skipped (no discovery target).
+    """
+    from utils import CS_BETA_GRID
+
+    schema = {
+        "collection_name": pl.String, "sample_id": pl.String,
+        "method": pl.String, "threshold": pl.Float64, "l": pl.Int64,
+        "causal_idx": pl.Int64, "beta": pl.Float64, "valid_covered": pl.Boolean,
+    }
+    rows: list[dict] = []
+    for row in cs_plot_data.iter_rows(named=True):
+        sizes = row["cs_sizes"]
+        ser_valid = row["ser_log_bf"] >= min_ser_log_bf
+        for causal_rank, causal_idx in zip(row["rank_of_causal"], row["causal_indices"]):
+            for beta, cs_size in zip(CS_BETA_GRID.tolist(), sizes):
+                rows.append({
+                    "collection_name": row["collection_name"],
+                    "sample_id": row["sample_id"],
+                    "method": row["method"],
+                    "threshold": row["threshold"],
+                    "l": row["l"],
+                    "causal_idx": int(causal_idx),
+                    "beta": float(beta),
+                    "valid_covered": ser_valid and (cs_size <= max_cs_size) and (causal_rank < cs_size),
+                })
+    if not rows:
+        return pl.DataFrame(schema=schema)
+    return pl.from_dicts(rows, schema=schema)
+
+
 def make_cs_beta_trace_summary(
     cs_plot_data: pl.DataFrame,
     method_metadata: pl.DataFrame,
@@ -999,43 +1038,56 @@ def make_cs_beta_trace_summary(
     if cs_plot_data.is_empty():
         return pl.DataFrame(schema=empty_schema)
 
+    cs_filtered = cs_plot_data.filter(pl.col("method").is_in(list(selected_methods)))
     meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
-    expanded = _expand_cs_to_beta_rows(
-        cs_plot_data.filter(pl.col("method").is_in(list(selected_methods)))
-    )
+
+    def _add_threshold_meta(df: pl.DataFrame) -> pl.DataFrame:
+        return (
+            df.join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+            .with_columns(
+                (
+                    ~pl.col("is_thresholded")
+                    | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+                ).alias("is_selected_threshold")
+            )
+            .filter(pl.col("is_selected_threshold"))
+        )
+
+    # --- coverage and cs_size: CS-level metrics (unchanged) ---
+    expanded = _expand_cs_to_beta_rows(cs_filtered)
     if expanded.is_empty():
         return pl.DataFrame(schema=empty_schema)
-    filtered = (
-        expanded
-        .with_columns(
-            ((pl.col("cs_size") <= max_cs_size) & (pl.col("ser_log_bf") >= min_ser_log_bf)).alias("valid_cs")
+    cov_cs = (
+        _add_threshold_meta(
+            expanded.with_columns(
+                ((pl.col("cs_size") <= max_cs_size) & (pl.col("ser_log_bf") >= min_ser_log_bf)).alias("valid_cs")
+            )
         )
-        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
-        .with_columns(
-            (
-                ~pl.col("is_thresholded")
-                | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
-            ).alias("is_selected_threshold")
-        )
-    )
-    per_sample = (
-        filtered
-        .filter(pl.col("is_selected_threshold"))
-        .group_by("collection_name", "sample_id", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
+        .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
         .agg(
-            (pl.col("covered") & pl.col("valid_cs")).any().alias("any_valid_covered"),
             pl.when(pl.col("valid_cs")).then(pl.col("covered").cast(pl.Float64)).mean().alias("coverage"),
             pl.when(pl.col("valid_cs")).then(pl.col("cs_size").cast(pl.Float64)).mean().alias("cs_size"),
         )
     )
-    return (
-        per_sample
+
+    # --- power: per-causal metric ---
+    # denominator = total (sample_id, causal_idx) pairs; a causal counts once even if found by multiple CSs
+    causal_rows = _compute_causal_power_rows(cs_filtered, max_cs_size=max_cs_size, min_ser_log_bf=min_ser_log_bf)
+    if causal_rows.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+    per_causal_sample = (
+        _add_threshold_meta(causal_rows)
+        .group_by("collection_name", "sample_id", "causal_idx", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
+        .agg(pl.col("valid_covered").any().alias("discovered"))
+    )
+    power_df = (
+        per_causal_sample
         .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
-        .agg(
-            pl.col("any_valid_covered").cast(pl.Float64).mean().alias("power"),
-            pl.col("coverage").mean(),
-            pl.col("cs_size").mean(),
-        )
+        .agg(pl.col("discovered").cast(pl.Float64).mean().alias("power"))
+    )
+
+    return (
+        cov_cs.join(power_df, on=["collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta"], how="left", nulls_equal=True)
         .sort("collection_name", "method_display", "threshold", "beta")
     )
 
@@ -1190,38 +1242,41 @@ def make_adaptive_cs_summary(
 
     per_cs_rows: list[dict] = []
     for row in cs_plot_data.filter(pl.col("method").is_in(list(selected_methods))).iter_rows(named=True):
-        ranks = row["rank_of_causal"]
         sizes = row["cs_sizes"]
-        achieved_beta: float | None = None
-        achieved_size: int | None = None
-        if row["ser_log_bf"] >= min_ser_log_bf:
-            for i in beta_indices:
-                cs_size = sizes[i]
-                if cs_size <= max_cs_size and any(r < cs_size for r in ranks):
-                    achieved_beta = float(CS_BETA_GRID[i])
-                    achieved_size = cs_size
-                    break
-        per_cs_rows.append({
-            "collection_name": row["collection_name"],
-            "sample_id": row["sample_id"],
-            "method": row["method"],
-            "threshold": row["threshold"],
-            "achieved": achieved_beta is not None,
-            "beta_at_coverage": achieved_beta,
-            "cs_size": float(achieved_size) if achieved_size is not None else None,
-        })
+        ser_valid = row["ser_log_bf"] >= min_ser_log_bf
+        for causal_rank, causal_idx in zip(row["rank_of_causal"], row["causal_indices"]):
+            achieved_beta: float | None = None
+            achieved_size: int | None = None
+            if ser_valid:
+                for i in beta_indices:
+                    cs_size = sizes[i]
+                    if cs_size <= max_cs_size and causal_rank < cs_size:
+                        achieved_beta = float(CS_BETA_GRID[i])
+                        achieved_size = cs_size
+                        break
+            per_cs_rows.append({
+                "collection_name": row["collection_name"],
+                "sample_id": row["sample_id"],
+                "method": row["method"],
+                "threshold": row["threshold"],
+                "causal_idx": int(causal_idx),
+                "achieved": achieved_beta is not None,
+                "beta_at_coverage": achieved_beta,
+                "cs_size": float(achieved_size) if achieved_size is not None else None,
+            })
 
     if not per_cs_rows:
         return pl.DataFrame(schema=empty_schema)
 
     per_cs = pl.from_dicts(per_cs_rows, schema={
         "collection_name": pl.String, "sample_id": pl.String, "method": pl.String,
-        "threshold": pl.Float64, "achieved": pl.Boolean,
+        "threshold": pl.Float64, "causal_idx": pl.Int64, "achieved": pl.Boolean,
         "beta_at_coverage": pl.Float64, "cs_size": pl.Float64,
     })
 
-    # Per-sample: did any l achieve coverage? (denominator = samples, not (sample, l) pairs)
-    per_sample = (
+    # Per (sample_id, causal_idx): did any l achieve coverage for this specific causal?
+    # denominator = total (sample_id, causal_idx) pairs
+    per_causal_sample = (
         per_cs
         .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
         .with_columns(
@@ -1231,7 +1286,7 @@ def make_adaptive_cs_summary(
             ).alias("is_selected_threshold")
         )
         .filter(pl.col("is_selected_threshold"))
-        .group_by("collection_name", "sample_id", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
+        .group_by("collection_name", "sample_id", "causal_idx", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
         .agg(
             pl.col("achieved").any().alias("any_achieved"),
             pl.when(pl.col("achieved")).then(pl.col("cs_size")).mean().alias("cs_size"),
@@ -1239,7 +1294,7 @@ def make_adaptive_cs_summary(
         )
     )
     return (
-        per_sample
+        per_causal_sample
         .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
         .agg(
             pl.col("any_achieved").cast(pl.Float64).mean().alias("power"),
