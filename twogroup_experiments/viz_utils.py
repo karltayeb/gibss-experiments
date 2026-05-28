@@ -1151,6 +1151,190 @@ def render_cs_dot_summary_chart(
     return fig
 
 
+def make_adaptive_cs_summary(
+    cs_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_thresholds: list[float] | None,
+    min_beta: float,
+    min_ser_log_bf: float,
+) -> pl.DataFrame:
+    """Per-CS: find smallest beta' >= min_beta where covered=True; aggregate over replicates.
+
+    Excludes CSs where no beta achieves coverage. Power = fraction of valid CSs
+    that achieve adaptive coverage.
+    """
+    from utils import CS_BETA_GRID
+
+    empty_schema = {
+        "collection_name": pl.String, "method": pl.String, "method_display": pl.String,
+        "threshold": pl.Float64, "is_thresholded": pl.Boolean, "is_selected_threshold": pl.Boolean,
+        "power": pl.Float64, "cs_size": pl.Float64, "beta_at_coverage": pl.Float64,
+    }
+    if cs_plot_data.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    beta_indices = [i for i, b in enumerate(CS_BETA_GRID) if b >= min_beta]
+    meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+
+    per_cs_rows: list[dict] = []
+    for row in cs_plot_data.filter(pl.col("method").is_in(list(selected_methods))).iter_rows(named=True):
+        if row["ser_log_bf"] < min_ser_log_bf:
+            continue
+        ranks = row["rank_of_causal"]
+        sizes = row["cs_sizes"]
+        achieved_beta: float | None = None
+        achieved_size: int | None = None
+        for i in beta_indices:
+            cs_size = sizes[i]
+            if any(r < cs_size for r in ranks):
+                achieved_beta = float(CS_BETA_GRID[i])
+                achieved_size = cs_size
+                break
+        per_cs_rows.append({
+            "collection_name": row["collection_name"],
+            "method": row["method"],
+            "threshold": row["threshold"],
+            "achieved": achieved_beta is not None,
+            "beta_at_coverage": achieved_beta,
+            "cs_size": float(achieved_size) if achieved_size is not None else None,
+        })
+
+    if not per_cs_rows:
+        return pl.DataFrame(schema=empty_schema)
+
+    per_cs = pl.from_dicts(per_cs_rows, schema={
+        "collection_name": pl.String, "method": pl.String, "threshold": pl.Float64,
+        "achieved": pl.Boolean, "beta_at_coverage": pl.Float64, "cs_size": pl.Float64,
+    })
+
+    result = (
+        per_cs
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(
+            (
+                ~pl.col("is_thresholded")
+                | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+            ).alias("is_selected_threshold")
+        )
+        .filter(pl.col("is_selected_threshold"))
+        .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
+        .agg(
+            pl.col("achieved").cast(pl.Float64).mean().alias("power"),
+            pl.when(pl.col("achieved")).then(pl.col("cs_size")).mean().alias("cs_size"),
+            pl.when(pl.col("achieved")).then(pl.col("beta_at_coverage")).mean().alias("beta_at_coverage"),
+        )
+        .sort("collection_name", "method_display", "threshold")
+    )
+    return result
+
+
+def render_adaptive_cs_dot_chart(
+    summary: pl.DataFrame,
+    *,
+    collection_names: list[str],
+    min_beta: float,
+    min_ser_log_bf: float,
+) -> "plt.Figure":
+    """Dot plot with adaptive CS metrics: power, cs_size at achieved beta, mean achieved beta."""
+    if summary.is_empty():
+        return make_placeholder_chart("No adaptive CS data")
+
+    theme = base_chart_theme()
+    metrics = [("power", "Power"), ("cs_size", "CS Size"), ("beta_at_coverage", "β at coverage")]
+    _legend_w = 2.5
+    _plot_w = theme["width"] * len(metrics)
+    _fig_w = _plot_w + _legend_w
+    _plot_frac = _plot_w / _fig_w
+    fig, axes = plt.subplots(1, len(metrics), figsize=(_fig_w, theme["height"]), squeeze=False)
+    axes = axes[0]
+
+    method_order = (
+        summary.select("method_display", "is_thresholded").unique()
+        .sort(["is_thresholded", "method_display"])
+        ["method_display"].to_list()
+    )
+    n_methods = len(method_order)
+    offsets = np.linspace(-0.35, 0.35, n_methods) if n_methods > 1 else np.array([0.0])
+    method_offset = {m: float(offsets[i]) for i, m in enumerate(method_order)}
+    coll_to_x = {c: i for i, c in enumerate(collection_names)}
+    agg_x = len(collection_names)
+    _agg_dot = (
+        summary
+        .group_by("method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
+        .agg(pl.col("power").mean(), pl.col("cs_size").mean(), pl.col("beta_at_coverage").mean())
+    )
+
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
+    for col_idx, (metric_col, metric_title) in enumerate(metrics):
+        ax = axes[col_idx]
+        for trow in (
+            summary.select("method", "method_display", "threshold", "is_thresholded")
+            .unique()
+            .sort(["is_thresholded", "method_display"])
+            .iter_rows(named=True)
+        ):
+            thresh_filter = (
+                pl.col("threshold").is_null() if trow["threshold"] is None
+                else (pl.col("threshold") == trow["threshold"])
+            )
+            m_df = summary.filter((pl.col("method") == trow["method"]) & thresh_filter)
+            color = method_color(trow["method"])
+            offset = method_offset.get(trow["method_display"], 0.0)
+            xs, ys = [], []
+            for coll in collection_names:
+                coll_row = m_df.filter(pl.col("collection_name") == coll)
+                if coll_row.is_empty():
+                    continue
+                val = coll_row[metric_col][0]
+                if val is not None:
+                    xs.append(coll_to_x[coll] + offset)
+                    ys.append(float(val))
+            agg_row = _agg_dot.filter((pl.col("method") == trow["method"]) & thresh_filter)
+            if not agg_row.is_empty():
+                agg_val = agg_row[metric_col][0]
+                if agg_val is not None:
+                    xs.append(agg_x + offset)
+                    ys.append(float(agg_val))
+            if xs:
+                sc = ax.scatter(xs, ys, color=color, s=60, zorder=3)
+                if trow["method_display"] not in seen_labels:
+                    legend_handles.append(sc)
+                    legend_labels.append(trow["method_display"])
+                    seen_labels.add(trow["method_display"])
+
+        for ci, _ in enumerate(collection_names):
+            if ci % 2 == 1:
+                ax.axvspan(ci - 0.5, ci + 0.5, color="lightgrey", alpha=0.35, zorder=0, linewidth=0)
+        ax.axvspan(agg_x - 0.5, agg_x + 0.5, color="#ddeeff", zorder=0, linewidth=0)
+        if metric_col == "beta_at_coverage":
+            ax.axhline(y=min_beta, color="black", linestyle="--", linewidth=1.0)
+        ax.set_title(metric_title)
+        ax.set_xticks(list(range(agg_x + 1)))
+        ax.set_xticklabels(list(collection_names) + ["All"], rotation=45, ha="right", fontsize=7)
+        ax.set_xlim(-0.5, agg_x + 0.5)
+
+    settings_text = f"min β = {min_beta:.2f}\nmin log BF = {min_ser_log_bf:.1f}"
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.95),
+        )
+    fig.text(
+        _plot_frac + 0.03, 0.30, settings_text,
+        fontsize=7, verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
+        transform=fig.transFigure,
+    )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
 def render_cs_beta_trace_chart(
     summary: pl.DataFrame,
     *,
