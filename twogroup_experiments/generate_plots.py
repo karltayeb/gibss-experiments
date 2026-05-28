@@ -23,7 +23,7 @@ _COLLECTION_ALIAS_ROOT = Path(__file__).parent / "results" / "collections"
 
 PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
-    "mass_above_causal", "cs_dot_summary", "cs_adaptive_dot", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace",
+    "mass_above_causal", "cs_dot_summary", "cs_adaptive_dot", "cs_size_power", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
     "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace",
     "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
@@ -275,6 +275,7 @@ def _make_cs_adaptive_dot(combined_data: dict, settings: dict) -> plt.Figure:
         selected_methods=fg,
         selected_thresholds=_selected_thresholds(settings),
         min_beta=min_beta,
+        max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
     return viz_utils.render_adaptive_cs_dot_chart(
@@ -282,6 +283,38 @@ def _make_cs_adaptive_dot(combined_data: dict, settings: dict) -> plt.Figure:
         collection_names=collection_names,
         min_beta=min_beta,
         min_ser_log_bf=min_log_bf,
+    )
+
+
+def _make_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    collection_names = combined_data["collection_names"]
+    min_beta = settings.get("cs_beta", 0.95)
+    max_cs_size = settings.get("max_cs_size", 10000)
+    min_log_bf = settings.get("min_log_bf", 2.0)
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS data")
+    shared = dict(
+        cs_plot_data=cs_data,
+        method_metadata=method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+        max_cs_size=max_cs_size,
+        min_ser_log_bf=min_log_bf,
+    )
+    nominal = viz_utils.make_cs_beta_trace_summary(**shared).filter(
+        pl.col("beta") == round(min_beta, 2)
+    )
+    calibrated = viz_utils.make_adaptive_cs_summary(**shared, min_beta=min_beta)
+    return viz_utils.render_cs_size_power_chart(
+        nominal,
+        calibrated,
+        collection_names=collection_names,
+        min_beta=min_beta,
+        min_ser_log_bf=min_log_bf,
+        max_cs_size=max_cs_size,
     )
 
 
@@ -861,6 +894,7 @@ _PLOT_DISPATCH = {
     "mass_above_causal": _make_mass_above_causal,
     "cs_dot_summary": _make_cs_dot_summary,
     "cs_adaptive_dot": _make_cs_adaptive_dot,
+    "cs_size_power": _make_cs_size_power,
     "cs_power_fdp": _make_cs_power_fdp,
     "cs_beta_trace": _make_cs_beta_trace,
     "cs_coverage_trace": _make_cs_coverage_trace,

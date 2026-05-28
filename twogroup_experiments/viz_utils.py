@@ -1158,12 +1158,13 @@ def make_adaptive_cs_summary(
     selected_methods: set[str],
     selected_thresholds: list[float] | None,
     min_beta: float,
+    max_cs_size: int,
     min_ser_log_bf: float,
 ) -> pl.DataFrame:
-    """Per-CS: find smallest beta' >= min_beta where covered=True; aggregate over replicates.
+    """Per-CS: find smallest beta' >= min_beta where covered=True and cs_size <= max_cs_size.
 
-    Excludes CSs where no beta achieves coverage. Power = fraction of valid CSs
-    that achieve adaptive coverage.
+    Power = mean(achieved) over ALL CS instances (same denominator as make_cs_beta_trace_summary).
+    CSs failing ser_log_bf or max_cs_size filters contribute 0 (achieved=False) to power.
     """
     from utils import CS_BETA_GRID
 
@@ -1180,18 +1181,17 @@ def make_adaptive_cs_summary(
 
     per_cs_rows: list[dict] = []
     for row in cs_plot_data.filter(pl.col("method").is_in(list(selected_methods))).iter_rows(named=True):
-        if row["ser_log_bf"] < min_ser_log_bf:
-            continue
         ranks = row["rank_of_causal"]
         sizes = row["cs_sizes"]
         achieved_beta: float | None = None
         achieved_size: int | None = None
-        for i in beta_indices:
-            cs_size = sizes[i]
-            if any(r < cs_size for r in ranks):
-                achieved_beta = float(CS_BETA_GRID[i])
-                achieved_size = cs_size
-                break
+        if row["ser_log_bf"] >= min_ser_log_bf:
+            for i in beta_indices:
+                cs_size = sizes[i]
+                if cs_size <= max_cs_size and any(r < cs_size for r in ranks):
+                    achieved_beta = float(CS_BETA_GRID[i])
+                    achieved_size = cs_size
+                    break
         per_cs_rows.append({
             "collection_name": row["collection_name"],
             "method": row["method"],
@@ -1327,6 +1327,121 @@ def render_adaptive_cs_dot_chart(
         )
     fig.text(
         _plot_frac + 0.03, 0.30, settings_text,
+        fontsize=7, verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
+        transform=fig.transFigure,
+    )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
+def render_cs_size_power_chart(
+    nominal: pl.DataFrame,
+    calibrated: pl.DataFrame,
+    *,
+    collection_names: list[str],
+    min_beta: float,
+    min_ser_log_bf: float,
+    max_cs_size: int,
+) -> "plt.Figure":
+    """Scatter: x=mean cs_size, y=power. Filled=nominal beta, open=calibrated (adaptive) beta."""
+    if nominal.is_empty() and calibrated.is_empty():
+        return make_placeholder_chart("No CS data")
+
+    theme = base_chart_theme()
+    all_colls = list(collection_names) + ["All"]
+    n_panels = len(all_colls)
+    _legend_w = 2.5
+    _plot_w = theme["width"] * n_panels
+    _fig_w = _plot_w + _legend_w
+    _plot_frac = _plot_w / _fig_w
+
+    # build aggregate rows
+    def _agg(df: pl.DataFrame) -> pl.DataFrame:
+        return df.group_by(
+            "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold"
+        ).agg(pl.col("power").mean(), pl.col("cs_size").mean()).with_columns(
+            pl.lit("All").alias("collection_name")
+        )
+
+    nom_full = pl.concat([nominal, _agg(nominal)], how="diagonal")
+    cal_full = pl.concat([calibrated, _agg(calibrated)], how="diagonal")
+
+    method_order = (
+        nominal.select("method_display", "is_thresholded").unique()
+        .sort(["is_thresholded", "method_display"])["method_display"].to_list()
+    )
+
+    fig, axes = plt.subplots(1, n_panels, figsize=(_fig_w, theme["height"]), squeeze=False)
+    axes = axes[0]
+
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
+    for panel_idx, coll in enumerate(all_colls):
+        ax = axes[panel_idx]
+        if panel_idx == n_panels - 1:
+            ax.set_facecolor("#ddeeff")
+
+        nom_coll = nom_full.filter(pl.col("collection_name") == coll)
+        cal_coll = cal_full.filter(pl.col("collection_name") == coll)
+
+        for trow in (
+            nom_coll.select("method", "method_display", "threshold", "is_thresholded")
+            .unique().sort(["is_thresholded", "method_display"]).iter_rows(named=True)
+        ):
+            thresh_filter = (
+                pl.col("threshold").is_null() if trow["threshold"] is None
+                else (pl.col("threshold") == trow["threshold"])
+            )
+            color = method_color(trow["method"])
+            label = trow["method_display"]
+
+            nom_row = nom_coll.filter((pl.col("method") == trow["method"]) & thresh_filter)
+            cal_row = cal_coll.filter((pl.col("method") == trow["method"]) & thresh_filter)
+
+            nom_x = nom_row["cs_size"][0] if not nom_row.is_empty() and nom_row["cs_size"][0] is not None else None
+            nom_y = nom_row["power"][0] if not nom_row.is_empty() and nom_row["power"][0] is not None else None
+            cal_x = cal_row["cs_size"][0] if not cal_row.is_empty() and cal_row["cs_size"][0] is not None else None
+            cal_y = cal_row["power"][0] if not cal_row.is_empty() and cal_row["power"][0] is not None else None
+
+            if nom_x is not None and nom_y is not None and cal_x is not None and cal_y is not None:
+                ax.plot([nom_x, cal_x], [nom_y, cal_y], color=color, linewidth=0.8, zorder=2)
+
+            if nom_x is not None and nom_y is not None:
+                sc = ax.scatter([nom_x], [nom_y], color=color, s=60, zorder=3, marker="o")
+                if label not in seen_labels:
+                    legend_handles.append(sc)
+                    legend_labels.append(label)
+                    seen_labels.add(label)
+
+            if cal_x is not None and cal_y is not None:
+                ax.scatter([cal_x], [cal_y], color=color, s=60, zorder=3,
+                           marker="o", facecolors="none", edgecolors=color, linewidths=1.5)
+
+        ax.set_xlabel("Mean CS size")
+        ax.set_title(coll, fontsize=8, fontweight="bold")
+        if panel_idx == 0:
+            ax.set_ylabel("Power")
+
+    settings_text = f"min β = {min_beta:.2f}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
+    if legend_handles:
+        # add nominal/calibrated marker legend entries
+        from matplotlib.lines import Line2D
+        legend_handles += [
+            Line2D([0], [0], marker="o", color="grey", markersize=6, linestyle="none", label="nominal"),
+            Line2D([0], [0], marker="o", color="grey", markersize=6, linestyle="none",
+                   markerfacecolor="none", markeredgewidth=1.5, label="calibrated"),
+        ]
+        legend_labels += ["nominal β", "calibrated β"]
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
+        )
+    fig.text(
+        _plot_frac + 0.03, 0.35, settings_text,
         fontsize=7, verticalalignment="top",
         bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
         transform=fig.transFigure,
