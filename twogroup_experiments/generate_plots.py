@@ -270,19 +270,19 @@ def _make_cs_adaptive_dot(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS data")
-    summary = viz_utils.make_adaptive_cs_summary(
+    beta_summary = viz_utils.make_cs_beta_trace_summary(
         cs_data,
         method_meta,
         selected_methods=fg,
         selected_thresholds=_selected_thresholds(settings),
-        min_beta=min_beta,
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, target_coverage=min_beta)
     return viz_utils.render_adaptive_cs_dot_chart(
-        summary,
+        calibrated,
         collection_names=collection_names,
-        min_beta=min_beta,
+        nominal_beta=min_beta,
         min_ser_log_bf=min_log_bf,
     )
 
@@ -297,18 +297,15 @@ def _make_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS data")
-    shared = dict(
-        cs_plot_data=cs_data,
-        method_metadata=method_meta,
+    beta_summary = viz_utils.make_cs_beta_trace_summary(
+        cs_data, method_meta,
         selected_methods=fg,
         selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
-    nominal = viz_utils.make_cs_beta_trace_summary(**shared).filter(
-        pl.col("beta") == round(min_beta, 2)
-    )
-    calibrated = viz_utils.make_adaptive_cs_summary(**shared, min_beta=min_beta)
+    nominal = beta_summary.filter(pl.col("beta") == round(min_beta, 2))
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, target_coverage=min_beta)
     return viz_utils.render_cs_size_power_chart(
         nominal,
         calibrated,
@@ -800,18 +797,15 @@ def _make_agg_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS data")
-    shared = dict(
-        cs_plot_data=cs_data,
-        method_metadata=method_meta,
+    beta_summary = viz_utils.make_cs_beta_trace_summary(
+        cs_data, method_meta,
         selected_methods=fg,
         selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
-    nominal = viz_utils.make_cs_beta_trace_summary(**shared).filter(
-        pl.col("beta") == round(min_beta, 2)
-    )
-    calibrated = viz_utils.make_adaptive_cs_summary(**shared, min_beta=min_beta)
+    nominal = beta_summary.filter(pl.col("beta") == round(min_beta, 2))
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, target_coverage=min_beta)
     return viz_utils.render_cs_size_power_chart(
         nominal,
         calibrated,

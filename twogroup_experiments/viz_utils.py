@@ -1092,6 +1092,45 @@ def make_cs_beta_trace_summary(
     )
 
 
+def find_calibrated_beta_summary(
+    beta_trace: pl.DataFrame,
+    target_coverage: float,
+) -> pl.DataFrame:
+    """For each (collection_name, method, threshold), find min beta where coverage >= target.
+
+    Returns one row per group with power, cs_size, coverage, and calibrated_beta at that point.
+    Groups with no beta achieving target coverage are omitted.
+    """
+    group_cols = [
+        "collection_name", "method", "method_display", "threshold",
+        "is_thresholded", "is_selected_threshold",
+    ]
+    empty_schema = {
+        "collection_name": pl.String, "method": pl.String, "method_display": pl.String,
+        "threshold": pl.Float64, "is_thresholded": pl.Boolean, "is_selected_threshold": pl.Boolean,
+        "calibrated_beta": pl.Float64, "power": pl.Float64, "cs_size": pl.Float64, "coverage": pl.Float64,
+    }
+    if beta_trace.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    min_beta_df = (
+        beta_trace
+        .filter(pl.col("coverage") >= target_coverage)
+        .group_by(group_cols)
+        .agg(pl.col("beta").min().alias("calibrated_beta"))
+    )
+    return (
+        min_beta_df
+        .join(
+            beta_trace.rename({"beta": "calibrated_beta"}),
+            on=group_cols + ["calibrated_beta"],
+            how="left",
+            nulls_equal=True,
+        )
+        .sort("collection_name", "method_display", "threshold")
+    )
+
+
 def render_cs_dot_summary_chart(
     summary: pl.DataFrame,
     *,
@@ -1306,18 +1345,18 @@ def make_adaptive_cs_summary(
 
 
 def render_adaptive_cs_dot_chart(
-    summary: pl.DataFrame,
+    calibrated: pl.DataFrame,
     *,
     collection_names: list[str],
-    min_beta: float,
+    nominal_beta: float,
     min_ser_log_bf: float,
 ) -> "plt.Figure":
-    """Dot plot with adaptive CS metrics: power, cs_size at achieved beta, mean achieved beta."""
-    if summary.is_empty():
+    """Dot plot: power, cs_size, and calibrated_beta at collection-level calibrated operating point."""
+    if calibrated.is_empty():
         return make_placeholder_chart("No adaptive CS data")
 
     theme = base_chart_theme()
-    metrics = [("power", "Power"), ("cs_size", "CS Size"), ("min_covering_beta", "min covering β")]
+    metrics = [("power", "Power"), ("cs_size", "CS Size"), ("calibrated_beta", "calibrated β")]
     _legend_w = 2.5
     _plot_w = theme["width"] * len(metrics)
     _fig_w = _plot_w + _legend_w
@@ -1326,7 +1365,7 @@ def render_adaptive_cs_dot_chart(
     axes = axes[0]
 
     method_order = (
-        summary.select("method_display", "is_thresholded").unique()
+        calibrated.select("method_display", "is_thresholded").unique()
         .sort(["is_thresholded", "method_display"])
         ["method_display"].to_list()
     )
@@ -1336,9 +1375,9 @@ def render_adaptive_cs_dot_chart(
     coll_to_x = {c: i for i, c in enumerate(collection_names)}
     agg_x = len(collection_names)
     _agg_dot = (
-        summary
+        calibrated
         .group_by("method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
-        .agg(pl.col("power").mean(), pl.col("cs_size").mean(), pl.col("min_covering_beta").mean())
+        .agg(pl.col("power").mean(), pl.col("cs_size").mean(), pl.col("calibrated_beta").mean())
     )
 
     legend_handles: list = []
@@ -1348,7 +1387,7 @@ def render_adaptive_cs_dot_chart(
     for col_idx, (metric_col, metric_title) in enumerate(metrics):
         ax = axes[col_idx]
         for trow in (
-            summary.select("method", "method_display", "threshold", "is_thresholded")
+            calibrated.select("method", "method_display", "threshold", "is_thresholded")
             .unique()
             .sort(["is_thresholded", "method_display"])
             .iter_rows(named=True)
@@ -1357,7 +1396,7 @@ def render_adaptive_cs_dot_chart(
                 pl.col("threshold").is_null() if trow["threshold"] is None
                 else (pl.col("threshold") == trow["threshold"])
             )
-            m_df = summary.filter((pl.col("method") == trow["method"]) & thresh_filter)
+            m_df = calibrated.filter((pl.col("method") == trow["method"]) & thresh_filter)
             color = method_color(trow["method"])
             offset = method_offset.get(trow["method_display"], 0.0)
             xs, ys = [], []
@@ -1386,14 +1425,14 @@ def render_adaptive_cs_dot_chart(
             if ci % 2 == 1:
                 ax.axvspan(ci - 0.5, ci + 0.5, color="lightgrey", alpha=0.35, zorder=0, linewidth=0)
         ax.axvspan(agg_x - 0.5, agg_x + 0.5, color="#ddeeff", zorder=0, linewidth=0)
-        if metric_col == "min_covering_beta":
-            ax.axhline(y=min_beta, color="black", linestyle="--", linewidth=1.0)
+        if metric_col == "calibrated_beta":
+            ax.axhline(y=nominal_beta, color="black", linestyle="--", linewidth=1.0)
         ax.set_title(metric_title)
         ax.set_xticks(list(range(agg_x + 1)))
         ax.set_xticklabels(list(collection_names) + ["All"], rotation=45, ha="right", fontsize=7)
         ax.set_xlim(-0.5, agg_x + 0.5)
 
-    settings_text = f"min β = {min_beta:.2f}\nmin log BF = {min_ser_log_bf:.1f}"
+    settings_text = f"nominal β = {nominal_beta:.2f}\nmin log BF = {min_ser_log_bf:.1f}"
     if legend_handles:
         fig.legend(
             legend_handles, legend_labels,
