@@ -23,7 +23,7 @@ _COLLECTION_ALIAS_ROOT = Path(__file__).parent / "results" / "collections"
 
 PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
-    "mass_above_causal", "cs_dot_summary", "cs_adaptive_dot", "cs_size_power", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace",
+    "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
     "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace", "agg_cs_size_power",
     "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
@@ -260,7 +260,7 @@ def _make_cs_dot_summary(combined_data: dict, settings: dict) -> plt.Figure:
     )
 
 
-def _make_cs_adaptive_dot(combined_data: dict, settings: dict) -> plt.Figure:
+def _make_cs_calibrated_dot(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
     collection_names = combined_data["collection_names"]
@@ -919,7 +919,7 @@ _PLOT_DISPATCH = {
     "causal_rank": _make_causal_rank,
     "mass_above_causal": _make_mass_above_causal,
     "cs_dot_summary": _make_cs_dot_summary,
-    "cs_adaptive_dot": _make_cs_adaptive_dot,
+    "cs_calibrated_dot": _make_cs_calibrated_dot,
     "cs_size_power": _make_cs_size_power,
     "cs_power_fdp": _make_cs_power_fdp,
     "cs_beta_trace": _make_cs_beta_trace,

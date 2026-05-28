@@ -968,7 +968,7 @@ plot_type_groups:
     - agg_mass_above_causal
   cs:
     - cs_dot_summary
-    - cs_adaptive_dot
+    - cs_calibrated_dot
     - cs_size_power
     - cs_power_fdp
     - cs_beta_trace
