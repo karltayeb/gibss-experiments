@@ -976,6 +976,7 @@ plot_type_groups:
     - agg_cs_power_fdp
     - agg_cs_beta_trace
     - agg_cs_coverage_trace
+    - agg_cs_size_power
   f1:
     - f1_boxplot
     - f1_scatter

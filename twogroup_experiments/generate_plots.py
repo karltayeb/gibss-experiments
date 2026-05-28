@@ -25,7 +25,7 @@ PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
     "mass_above_causal", "cs_dot_summary", "cs_adaptive_dot", "cs_size_power", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
-    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace",
+    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace", "agg_cs_size_power",
     "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
 ]
 
@@ -791,6 +791,37 @@ def _make_agg_cs_coverage_trace(combined_data: dict, settings: dict) -> plt.Figu
     )
 
 
+def _make_agg_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    min_beta = settings.get("cs_beta", 0.95)
+    max_cs_size = settings.get("max_cs_size", 10000)
+    min_log_bf = settings.get("min_log_bf", 2.0)
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS data")
+    shared = dict(
+        cs_plot_data=cs_data,
+        method_metadata=method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+        max_cs_size=max_cs_size,
+        min_ser_log_bf=min_log_bf,
+    )
+    nominal = viz_utils.make_cs_beta_trace_summary(**shared).filter(
+        pl.col("beta") == round(min_beta, 2)
+    )
+    calibrated = viz_utils.make_adaptive_cs_summary(**shared, min_beta=min_beta)
+    return viz_utils.render_cs_size_power_chart(
+        nominal,
+        calibrated,
+        collection_names=[],
+        min_beta=min_beta,
+        min_ser_log_bf=min_log_bf,
+        max_cs_size=max_cs_size,
+    )
+
+
 _TG_FAMILIES = {"twogroup", "twogroup_oracle", "twogroup_oracle_init", "twogroup_scale_fam", "twogroup_loc_fam"}
 
 
@@ -907,6 +938,7 @@ _PLOT_DISPATCH = {
     "agg_cs_power_fdp": _make_agg_cs_power_fdp,
     "agg_cs_beta_trace": _make_agg_cs_beta_trace,
     "agg_cs_coverage_trace": _make_agg_cs_coverage_trace,
+    "agg_cs_size_power": _make_agg_cs_size_power,
     "f1_boxplot": _make_f1_boxplot,
     "f1_scatter": _make_f1_scatter,
     "f1_enrich_scatter": _make_f1_enrich_scatter,
