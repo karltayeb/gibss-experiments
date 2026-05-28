@@ -1253,6 +1253,104 @@ def render_cs_beta_trace_chart(
     return fig
 
 
+def render_cs_coverage_trace_chart(
+    summary: pl.DataFrame,
+    *,
+    collection_names: list[str],
+    selected_thresholds: list[float] | None,
+    max_cs_size: int,
+    min_ser_log_bf: float,
+) -> "plt.Figure":
+    if summary.is_empty():
+        return make_placeholder_chart("No CS beta trace data")
+
+    metrics = [("power", "Power"), ("cs_size", "CS Size")]
+    theme = base_chart_theme()
+    n_rows = len(collection_names)
+    _legend_w = 2.5
+    _plot_w = theme["width"] * len(metrics)
+    _fig_w = _plot_w + _legend_w
+    _plot_frac = _plot_w / _fig_w
+    fig, axes = plt.subplots(
+        n_rows + 1, len(metrics),
+        figsize=(_fig_w, theme["height"] * (n_rows + 1)),
+        squeeze=False,
+    )
+
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
+    def _plot_coverage_trace_row(row_idx: int, row_df: pl.DataFrame) -> None:
+        trace_labels = (
+            row_df.select("method", "threshold", "method_display", "is_thresholded")
+            .unique()
+            .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
+        )
+        for col_idx, (metric_col, metric_title) in enumerate(metrics):
+            ax = axes[row_idx, col_idx]
+            for trow in trace_labels.iter_rows(named=True):
+                thresh_filter = (
+                    pl.col("threshold").is_null() if trow["threshold"] is None
+                    else (pl.col("threshold") == trow["threshold"])
+                )
+                trace_df = row_df.filter(
+                    (pl.col("method") == trow["method"]) & thresh_filter
+                ).sort("coverage")
+                if trace_df.is_empty():
+                    continue
+                color = method_color(trow["method"])
+                if trow["is_thresholded"]:
+                    label = f"{trow['method_display']} (@{trow['threshold']:g})"
+                else:
+                    label = trow["method_display"]
+                line, = ax.plot(
+                    trace_df["coverage"].to_numpy(),
+                    trace_df[metric_col].to_numpy(),
+                    color=color,
+                    linewidth=2.0,
+                )
+                if label not in seen_labels:
+                    legend_handles.append(line)
+                    legend_labels.append(label)
+                    seen_labels.add(label)
+            if row_idx == 0:
+                ax.set_title(metric_title)
+            ax.set_xlabel("Empirical coverage")
+
+    for row_idx, coll_name in enumerate(collection_names):
+        _plot_coverage_trace_row(row_idx, summary.filter(pl.col("collection_name") == coll_name))
+        axes[row_idx, 0].set_ylabel(coll_name, fontsize=9, fontweight="bold")
+
+    # aggregate row
+    _agg_bt = (
+        summary
+        .group_by("method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
+        .agg(pl.col("power").mean(), pl.col("coverage").mean(), pl.col("cs_size").mean())
+    )
+    _plot_coverage_trace_row(n_rows, _agg_bt)
+    for col_idx in range(len(metrics)):
+        axes[n_rows, col_idx].set_facecolor("#ddeeff")
+    axes[n_rows, 0].set_ylabel("All", fontsize=9, fontweight="bold")
+
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
+        )
+    _thresh_str = "all" if selected_thresholds is None else ", ".join(f"{t:g}" for t in selected_thresholds)
+    settings_text = f"thresholds = {_thresh_str}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
+    fig.text(
+        _plot_frac + 0.03, 0.35, settings_text,
+        fontsize=7, verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
+        transform=fig.transFigure,
+    )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
 def render_f1_boxplot(
     all_data: pl.DataFrame,
     collection_names: list[str],
