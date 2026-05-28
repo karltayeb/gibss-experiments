@@ -265,6 +265,7 @@ def _make_cs_adaptive_dot(combined_data: dict, settings: dict) -> plt.Figure:
     method_meta = combined_data["method_metadata"]
     collection_names = combined_data["collection_names"]
     min_beta = settings.get("cs_beta", 0.95)
+    max_cs_size = settings.get("max_cs_size", 10000)
     min_log_bf = settings.get("min_log_bf", 2.0)
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
