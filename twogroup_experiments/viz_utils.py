@@ -1098,13 +1098,15 @@ def find_calibrated_beta_summary(
 ) -> pl.DataFrame:
     """For each (collection_name, method, threshold), find min beta where coverage >= target.
 
+    Also computes an "All" row by pooling (averaging) coverage/cs_size/power across collections
+    at each beta before calibrating — so "All" has its own calibration step, not averaged results.
     Returns one row per group with power, cs_size, coverage, and calibrated_beta at that point.
-    Groups with no beta achieving target coverage are omitted.
     """
     group_cols = [
         "collection_name", "method", "method_display", "threshold",
         "is_thresholded", "is_selected_threshold",
     ]
+    group_cols_no_coll = ["method", "method_display", "threshold", "is_thresholded", "is_selected_threshold"]
     empty_schema = {
         "collection_name": pl.String, "method": pl.String, "method_display": pl.String,
         "threshold": pl.Float64, "is_thresholded": pl.Boolean, "is_selected_threshold": pl.Boolean,
@@ -1113,20 +1115,32 @@ def find_calibrated_beta_summary(
     if beta_trace.is_empty():
         return pl.DataFrame(schema=empty_schema)
 
-    min_beta_df = (
-        beta_trace
-        .filter(pl.col("coverage") >= target_coverage)
-        .group_by(group_cols)
-        .agg(pl.col("beta").min().alias("calibrated_beta"))
-    )
-    return (
-        min_beta_df
-        .join(
-            beta_trace.rename({"beta": "calibrated_beta"}),
+    def _calibrate(trace: pl.DataFrame) -> pl.DataFrame:
+        min_beta_df = (
+            trace
+            .filter(pl.col("coverage") >= target_coverage)
+            .group_by(group_cols)
+            .agg(pl.col("beta").min().alias("calibrated_beta"))
+        )
+        return min_beta_df.join(
+            trace.rename({"beta": "calibrated_beta"}),
             on=group_cols + ["calibrated_beta"],
             how="left",
             nulls_equal=True,
         )
+
+    per_coll = _calibrate(beta_trace)
+
+    pooled_trace = (
+        beta_trace
+        .group_by(group_cols_no_coll + ["beta"])
+        .agg(pl.col("coverage").mean(), pl.col("cs_size").mean(), pl.col("power").mean())
+        .with_columns(pl.lit("All").alias("collection_name"))
+    )
+    pooled_calibrated = _calibrate(pooled_trace)
+
+    return (
+        pl.concat([per_coll, pooled_calibrated], how="diagonal")
         .sort("collection_name", "method_display", "threshold")
     )
 
@@ -1374,11 +1388,7 @@ def render_adaptive_cs_dot_chart(
     method_offset = {m: float(offsets[i]) for i, m in enumerate(method_order)}
     coll_to_x = {c: i for i, c in enumerate(collection_names)}
     agg_x = len(collection_names)
-    _agg_dot = (
-        calibrated
-        .group_by("method", "method_display", "threshold", "is_thresholded", "is_selected_threshold")
-        .agg(pl.col("power").mean(), pl.col("cs_size").mean(), pl.col("calibrated_beta").mean())
-    )
+    _agg_dot = calibrated.filter(pl.col("collection_name") == "All")
 
     legend_handles: list = []
     legend_labels: list = []
@@ -1479,7 +1489,7 @@ def render_cs_size_power_chart(
         )
 
     nom_full = pl.concat([nominal, _agg(nominal)], how="diagonal")
-    cal_full = pl.concat([calibrated, _agg(calibrated)], how="diagonal")
+    cal_full = calibrated  # already contains "All" row from find_calibrated_beta_summary
 
     method_order = (
         nominal.select("method_display", "is_thresholded").unique()
