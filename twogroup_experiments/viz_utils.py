@@ -1310,6 +1310,13 @@ def render_cs_coverage_trace_chart(
                     color=color,
                     linewidth=2.0,
                 )
+                marker_row = trace_df.filter(pl.col("beta") == 0.95)
+                if not marker_row.is_empty():
+                    ax.plot(
+                        marker_row["coverage"].to_numpy(),
+                        marker_row[metric_col].to_numpy(),
+                        marker="o", markersize=6, color=color, linestyle="none",
+                    )
                 if label not in seen_labels:
                     legend_handles.append(line)
                     legend_labels.append(label)
