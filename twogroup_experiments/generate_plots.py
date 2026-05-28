@@ -25,7 +25,7 @@ PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
     "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
-    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace", "agg_cs_size_power",
+    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace", "agg_cs_size_power", "agg_cs_calibrated_dot",
     "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
 ]
 
@@ -282,6 +282,32 @@ def _make_cs_calibrated_dot(combined_data: dict, settings: dict) -> plt.Figure:
     return viz_utils.render_adaptive_cs_dot_chart(
         calibrated,
         collection_names=collection_names,
+        nominal_beta=min_beta,
+        min_ser_log_bf=min_log_bf,
+    )
+
+
+def _make_agg_cs_calibrated_dot(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    min_beta = settings.get("cs_beta", 0.95)
+    max_cs_size = settings.get("max_cs_size", 10000)
+    min_log_bf = settings.get("min_log_bf", 2.0)
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS data")
+    beta_summary = viz_utils.make_cs_beta_trace_summary(
+        cs_data,
+        method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+        max_cs_size=max_cs_size,
+        min_ser_log_bf=min_log_bf,
+    )
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, target_coverage=min_beta)
+    return viz_utils.render_adaptive_cs_dot_chart(
+        calibrated,
+        collection_names=[],
         nominal_beta=min_beta,
         min_ser_log_bf=min_log_bf,
     )
@@ -933,6 +959,7 @@ _PLOT_DISPATCH = {
     "agg_cs_beta_trace": _make_agg_cs_beta_trace,
     "agg_cs_coverage_trace": _make_agg_cs_coverage_trace,
     "agg_cs_size_power": _make_agg_cs_size_power,
+    "agg_cs_calibrated_dot": _make_agg_cs_calibrated_dot,
     "f1_boxplot": _make_f1_boxplot,
     "f1_scatter": _make_f1_scatter,
     "f1_enrich_scatter": _make_f1_enrich_scatter,
