@@ -53,6 +53,9 @@ __all__ = [
     "NULL_ENRICH_SIMULATION_SPECS",
     "NULL_ENRICH_METHOD_SPECS",
     "T_ERROR_SIMULATION_SPECS",
+    "NULL_SIMULATION_SPECS",
+    "NULL_INTERCEPT_VALUES",
+    "NULL_METHOD_SPECS",
 ]
 
 REGISTRY = ConfigRegistry()
@@ -273,8 +276,10 @@ def _signal_name(kind: str, value: float) -> str:
     return f"{kind}_{format_float(value)}"
 
 
-def _simulation_name(*, design: str, enrichment: str, signal: str, error: str | None = None) -> str:
+def _simulation_name(*, design: str, enrichment: str, signal: str, error: str | None = None, intercept: float | None = None) -> str:
     base = f"design={design}__enrichment={enrichment}__signal={signal}"
+    if intercept is not None:
+        base = f"{base}__intercept={format_float(intercept)}"
     return base if error is None else f"{base}__error={error}"
 
 
@@ -552,6 +557,71 @@ REGISTRY.register_simulations(T_ERROR_SIMULATION_SPECS)
 REGISTRY.register_batches(tuple(
     batch
     for spec in T_ERROR_SIMULATION_SPECS
+    for batch in batch_specs_for_simulation(
+        spec,
+        replicates_per_batch=REPLICATES_PER_BATCH,
+        n_batches=N_BATCHES,
+    )
+))
+
+
+NULL_METHOD_SPECS = DEFAULT_SER_SPECS
+NULL_SIM = "null"
+NULL_INTERCEPT_VALUES = (-3.0, -2.0, -1.0, 0.0)
+_NULL_SIGNAL_VALUES: list[tuple[str, float]] = (
+    [("loc", v) for v in SIGNAL_LOC_VALUES]
+    + [("scale", v) for v in SIGNAL_SCALE_VALUES]
+)
+
+
+def _make_null_simulation(
+    *,
+    design_name: str,
+    design_sampler,
+    signal_kind: str,
+    signal_value: float,
+    intercept: float,
+) -> SimulationSpec:
+    if signal_kind == "loc":
+        f1 = fixed_normal(loc=signal_value, scale=LOC_SCALE_FIXED)
+    elif signal_kind == "scale":
+        f1 = fixed_normal(loc=0.0, scale=signal_value)
+    else:
+        raise ValueError(f"Unknown signal kind: {signal_kind}")
+    return SimulationSpec(
+        name=_simulation_name(
+            design=design_name,
+            enrichment=NULL_SIM,
+            signal=_signal_name(signal_kind, signal_value),
+            intercept=intercept,
+        ),
+        design_sampler=design_sampler,
+        effect_sampler=partial(uniform_single_effect, causal_effect=0.0),
+        intercept=float(intercept),
+        f0=F0,
+        f1=f1,
+        base_seed=BASE_SEED,
+    )
+
+
+NULL_SIMULATION_SPECS = tuple(
+    _make_null_simulation(
+        design_name=design_name,
+        design_sampler=DESIGN_KWARGS[design_name]["design_sampler"],
+        signal_kind=signal_kind,
+        signal_value=signal_value,
+        intercept=intercept,
+    )
+    for design_name in SIGNAL_DESIGNS
+    for signal_kind, signal_value in _NULL_SIGNAL_VALUES
+    for intercept in NULL_INTERCEPT_VALUES
+)
+
+SIMULATION_BY_NAME.update({spec.name: spec for spec in NULL_SIMULATION_SPECS})
+REGISTRY.register_simulations(NULL_SIMULATION_SPECS)
+REGISTRY.register_batches(tuple(
+    batch
+    for spec in NULL_SIMULATION_SPECS
     for batch in batch_specs_for_simulation(
         spec,
         replicates_per_batch=REPLICATES_PER_BATCH,
