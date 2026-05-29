@@ -433,6 +433,27 @@ rule supercollection_all_plots:
         ] if "supercollection" in config else [],
 
 
+from config import NULL_METHOD_SPECS as _NULL_METHOD_SPECS
+from core import dehydrate_hashed as _dehydrate_hashed
+
+_NULL_BATCH_HASHES = [
+    h for h, info in BATCH_HASH_TO_INFO.items()
+    if "__enrichment=null__" in info["simulation_spec"]["fields"]["name"]
+]
+_NULL_METHOD_HASHES = [
+    _dehydrate_hashed(m)[HASH_KEY] for m in _NULL_METHOD_SPECS
+]
+
+
+rule all_null_fits:
+    input:
+        expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
+            batch_hash=_NULL_BATCH_HASHES,
+            method_hash=_NULL_METHOD_HASHES,
+        ),
+
+
 rule all_plots:
     input:
         [
