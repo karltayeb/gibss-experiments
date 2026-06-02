@@ -31,7 +31,7 @@ class BatchSpec:
     replicates: tuple[int, ...]
 
 
-CS_BETA_GRID = np.round(np.arange(0.50, 1.00, 0.01), 2)
+CS_BETA_GRID = np.round(np.arange(0.01, 1.00, 0.01), 2)
 
 
 def manifest_dict() -> dict[str, object]:

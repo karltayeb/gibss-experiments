@@ -403,7 +403,7 @@ def histogram_controls_cell(combined_data, apply_btn):
     _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     _settings_cfg: dict = apply_btn.value.get("settings", {})
 
-    _BETA_095_IDX = 45  # CS_BETA_GRID[45] == 0.95
+    _BETA_095_IDX = 94  # CS_BETA_GRID[94] == 0.95
     _max_cs = (
         int(_cs_data.with_columns(
             pl.col("cs_sizes").list.get(_BETA_095_IDX).alias("_cs95")
@@ -495,7 +495,7 @@ def cs_power_fdp_cell(
     import matplotlib.pyplot as _plt2
     import numpy as _np
 
-    _BETA_095_IDX = 45  # CS_BETA_GRID[45] == 0.95
+    _BETA_095_IDX = 94  # CS_BETA_GRID[94] == 0.95
     _cs_data2 = combined_data.get("cs_plot_data", pl.DataFrame())
     if not _cs_data2.is_empty():
         _cs_raw2 = _cs_data2.with_columns(
@@ -668,7 +668,7 @@ def histograms_cell(
     import matplotlib.pyplot as _plt3
     import numpy as _np3
 
-    _BETA_095_IDX = 45  # CS_BETA_GRID[45] == 0.95
+    _BETA_095_IDX = 94  # CS_BETA_GRID[94] == 0.95
     _cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     if not _cs_data.is_empty():
         _cs_size_hist = _cs_data.with_columns(
