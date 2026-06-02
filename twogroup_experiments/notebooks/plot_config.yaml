@@ -10,6 +10,7 @@ method_collections:
       - twogroup_loc_fam
       - twogroup_oracle
       - twogroup_oracle_init
+      - linear_fixed
     L:
       - 1
     thresholds:
@@ -140,6 +141,7 @@ settings:
       - cox_heavy
       - cox_light_threshold
       - logistic_threshold
+      - linear_fixed
     thresholds:
       - 2.0
   threshold_methods:
@@ -978,6 +980,8 @@ plot_type_groups:
     - agg_cs_coverage_trace
     - agg_cs_size_power
     - agg_cs_calibrated_dot
+    - preceding_posterior_mass_ecdf
+    - agg_preceding_posterior_mass_ecdf
   f1:
     - f1_boxplot
     - f1_scatter
