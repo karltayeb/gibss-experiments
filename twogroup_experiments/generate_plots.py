@@ -23,9 +23,9 @@ _COLLECTION_ALIAS_ROOT = Path(__file__).parent / "results" / "collections"
 
 PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
-    "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace",
+    "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace", "preceding_posterior_mass_ecdf",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
-    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace", "agg_cs_size_power", "agg_cs_calibrated_dot",
+    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace", "agg_cs_size_power", "agg_cs_calibrated_dot", "agg_preceding_posterior_mass_ecdf",
     "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
 ]
 
@@ -209,6 +209,36 @@ def _make_causal_rank(combined_data: dict, settings: dict) -> plt.Figure:
     )
 
 
+def _make_preceding_posterior_mass_ecdf(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS data")
+    summary = viz_utils.make_preceding_mass_ecdf_summary(
+        cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+    )
+    return viz_utils.render_preceding_mass_ecdf_chart(
+        summary, collection_names=combined_data["collection_names"]
+    )
+
+
+def _make_agg_preceding_posterior_mass_ecdf(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS data")
+    summary = viz_utils.make_preceding_mass_ecdf_summary(
+        cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+    )
+    return viz_utils.render_preceding_mass_ecdf_chart(summary, collection_names=[])
+
+
 def _make_mass_above_causal(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
@@ -278,7 +308,7 @@ def _make_cs_calibrated_dot(combined_data: dict, settings: dict) -> plt.Figure:
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
-    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, target_coverage=min_beta)
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_adaptive_cs_dot_chart(
         calibrated,
         collection_names=collection_names,
@@ -304,7 +334,7 @@ def _make_agg_cs_calibrated_dot(combined_data: dict, settings: dict) -> plt.Figu
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
-    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, target_coverage=min_beta)
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_adaptive_cs_dot_chart(
         calibrated,
         collection_names=[],
@@ -331,7 +361,7 @@ def _make_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
         min_ser_log_bf=min_log_bf,
     )
     nominal = beta_summary.filter(pl.col("beta") == round(min_beta, 2))
-    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, target_coverage=min_beta)
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_cs_size_power_chart(
         nominal,
         calibrated,
@@ -343,7 +373,7 @@ def _make_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
 
 
 def _make_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
-    _BETA_095_IDX = 45
+    _BETA_095_IDX = 94
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
     collection_names = combined_data["collection_names"]
@@ -629,7 +659,7 @@ def _make_agg_mass_above_causal(combined_data: dict, settings: dict) -> plt.Figu
 
 
 def _make_agg_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
-    _BETA_095_IDX = 45
+    _BETA_095_IDX = 94
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
     collection_names = combined_data["collection_names"]
@@ -831,7 +861,7 @@ def _make_agg_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
         min_ser_log_bf=min_log_bf,
     )
     nominal = beta_summary.filter(pl.col("beta") == round(min_beta, 2))
-    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, target_coverage=min_beta)
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_cs_size_power_chart(
         nominal,
         calibrated,
@@ -960,6 +990,8 @@ _PLOT_DISPATCH = {
     "agg_cs_coverage_trace": _make_agg_cs_coverage_trace,
     "agg_cs_size_power": _make_agg_cs_size_power,
     "agg_cs_calibrated_dot": _make_agg_cs_calibrated_dot,
+    "preceding_posterior_mass_ecdf": _make_preceding_posterior_mass_ecdf,
+    "agg_preceding_posterior_mass_ecdf": _make_agg_preceding_posterior_mass_ecdf,
     "f1_boxplot": _make_f1_boxplot,
     "f1_scatter": _make_f1_scatter,
     "f1_enrich_scatter": _make_f1_enrich_scatter,

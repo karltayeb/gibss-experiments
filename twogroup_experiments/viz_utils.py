@@ -789,6 +789,113 @@ def render_causal_rank_chart(
         return fig
 
 
+def make_preceding_mass_ecdf_summary(
+    cs_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_thresholds: list[float] | None,
+) -> pl.DataFrame:
+    """Expand mass_above_causal for empirical CDF plotting. No validity filters applied."""
+    empty_schema = {
+        "collection_name": pl.String, "method": pl.String, "method_display": pl.String,
+        "threshold": pl.Float64, "is_thresholded": pl.Boolean, "is_selected_threshold": pl.Boolean,
+        "mass_above_causal": pl.Float64,
+    }
+    if cs_plot_data.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+    meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+    return (
+        cs_plot_data
+        .filter(pl.col("method").is_in(list(selected_methods)))
+        .filter(pl.col("rank_of_causal").list.len() > 0)
+        .explode("mass_above_causal", "causal_indices")
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(
+            (
+                ~pl.col("is_thresholded")
+                | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+            ).alias("is_selected_threshold")
+        )
+        .filter(pl.col("is_selected_threshold"))
+        .select("collection_name", "method", "method_display", "threshold",
+                "is_thresholded", "is_selected_threshold", "mass_above_causal")
+    )
+
+
+def render_preceding_mass_ecdf_chart(
+    summary: pl.DataFrame,
+    *,
+    collection_names: list[str],
+) -> "plt.Figure":
+    """Empirical CDF of mass_above_causal per method. x=mass above causal, y=fraction covered."""
+    if summary.is_empty():
+        return make_placeholder_chart("No causal resolution data")
+
+    theme = base_chart_theme()
+    all_colls = list(collection_names) + ["All"]
+    n_panels = len(all_colls)
+    _legend_w = 2.5
+    _plot_w = theme["width"] * n_panels
+    _fig_w = _plot_w + _legend_w
+    _plot_frac = _plot_w / _fig_w
+
+    method_order = (
+        summary.select("method_display", "is_thresholded").unique()
+        .sort(["is_thresholded", "method_display"])["method_display"].to_list()
+    )
+
+    fig, axes = plt.subplots(1, n_panels, figsize=(_fig_w, theme["height"]), squeeze=False)
+    axes = axes[0]
+
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
+    for panel_idx, coll in enumerate(all_colls):
+        ax = axes[panel_idx]
+        if panel_idx == n_panels - 1:
+            ax.set_facecolor("#ddeeff")
+        coll_df = summary if coll == "All" else summary.filter(pl.col("collection_name") == coll)
+
+        for trow in (
+            summary.select("method", "method_display", "threshold", "is_thresholded")
+            .unique().sort(["is_thresholded", "method_display"]).iter_rows(named=True)
+        ):
+            thresh_filter = (
+                pl.col("threshold").is_null() if trow["threshold"] is None
+                else pl.col("threshold") == trow["threshold"]
+            )
+            m_df = coll_df.filter((pl.col("method") == trow["method"]) & thresh_filter)
+            if m_df.is_empty():
+                continue
+            vals = m_df["mass_above_causal"].sort().to_numpy()
+            y = np.arange(1, len(vals) + 1) / len(vals)
+            color = method_color(trow["method"])
+            label = trow["method_display"]
+            (line,) = ax.plot(vals, y, color=color, linewidth=1.2)
+            if label not in seen_labels:
+                legend_handles.append(line)
+                legend_labels.append(label)
+                seen_labels.add(label)
+
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_xlabel("mass above causal")
+        ax.set_title(coll, fontsize=8, fontweight="bold")
+        if panel_idx == 0:
+            ax.set_ylabel("coverage")
+
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.95),
+        )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
 def expand_mass_above_causal_from_compact(
     cs_plot_data: pl.DataFrame,
     method_metadata: pl.DataFrame,
@@ -1094,13 +1201,21 @@ def make_cs_beta_trace_summary(
 
 def find_calibrated_beta_summary(
     beta_trace: pl.DataFrame,
+    cs_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_thresholds: list[float] | None,
     target_coverage: float,
+    min_ser_log_bf: float,
 ) -> pl.DataFrame:
-    """For each (collection_name, method, threshold), find min beta where coverage >= target.
+    """Compute calibrated beta' = target quantile of mass_above_causal (exact, no grid quantization).
 
-    Also computes an "All" row by pooling (averaging) coverage/cs_size/power across collections
-    at each beta before calibrating — so "All" has its own calibration step, not averaged results.
-    Returns one row per group with power, cs_size, coverage, and calibrated_beta at that point.
+    For each (collection_name, method, threshold): calibrated_beta = target-th percentile of the
+    distribution of mass_above_causal over valid (ser_log_bf >= min) (sample, l, causal) triples.
+    power/cs_size/coverage are looked up from beta_trace at the nearest grid beta.
+
+    Also computes an "All" row pooling mass_above_causal across all collections before calibrating.
     """
     group_cols = [
         "collection_name", "method", "method_display", "threshold",
@@ -1112,24 +1227,50 @@ def find_calibrated_beta_summary(
         "threshold": pl.Float64, "is_thresholded": pl.Boolean, "is_selected_threshold": pl.Boolean,
         "calibrated_beta": pl.Float64, "power": pl.Float64, "cs_size": pl.Float64, "coverage": pl.Float64,
     }
-    if beta_trace.is_empty():
+    if beta_trace.is_empty() or cs_plot_data.is_empty():
         return pl.DataFrame(schema=empty_schema)
 
-    def _calibrate(trace: pl.DataFrame) -> pl.DataFrame:
-        min_beta_df = (
-            trace
-            .filter(pl.col("coverage") >= target_coverage)
-            .group_by(group_cols)
-            .agg(pl.col("beta").min().alias("calibrated_beta"))
+    meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+    expanded = (
+        cs_plot_data
+        .filter(
+            pl.col("method").is_in(list(selected_methods))
+            & (pl.col("ser_log_bf") >= min_ser_log_bf)
         )
-        return min_beta_df.join(
+        .explode("mass_above_causal", "causal_indices")
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(
+            (
+                ~pl.col("is_thresholded")
+                | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+            ).alias("is_selected_threshold")
+        )
+        .filter(pl.col("is_selected_threshold"))
+    )
+    if expanded.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    def _exact_betas(df: pl.DataFrame, grp: list[str]) -> pl.DataFrame:
+        return (
+            df.group_by(grp)
+            .agg(
+                pl.col("mass_above_causal")
+                .quantile(target_coverage, interpolation="higher")
+                .round(2)
+                .clip(0.01, 0.99)
+                .alias("calibrated_beta")
+            )
+        )
+
+    def _lookup_metrics(exact_betas: pl.DataFrame, trace: pl.DataFrame) -> pl.DataFrame:
+        return exact_betas.join(
             trace.rename({"beta": "calibrated_beta"}),
             on=group_cols + ["calibrated_beta"],
             how="left",
             nulls_equal=True,
         )
 
-    per_coll = _calibrate(beta_trace)
+    per_coll = _lookup_metrics(_exact_betas(expanded, group_cols), beta_trace)
 
     pooled_trace = (
         beta_trace
@@ -1137,10 +1278,11 @@ def find_calibrated_beta_summary(
         .agg(pl.col("coverage").mean(), pl.col("cs_size").mean(), pl.col("power").mean())
         .with_columns(pl.lit("All").alias("collection_name"))
     )
-    pooled_calibrated = _calibrate(pooled_trace)
+    pooled_expanded = expanded.with_columns(pl.lit("All").alias("collection_name"))
+    pooled = _lookup_metrics(_exact_betas(pooled_expanded, group_cols), pooled_trace)
 
     return (
-        pl.concat([per_coll, pooled_calibrated], how="diagonal")
+        pl.concat([per_coll, pooled], how="diagonal")
         .sort("collection_name", "method_display", "threshold")
     )
 
