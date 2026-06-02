@@ -401,8 +401,7 @@ def fit_linear_method(
     estimate_residual_variance: bool,
     L: int = 1,
 ) -> dict[str, Any]:
-    X_dense = np.asarray(simulation.X.todense()) if hasattr(simulation.X, "todense") else np.asarray(simulation.X)
-    data = linear.prep_data(X_dense, simulation.thetahat)
+    data = linear.prep_data(simulation.X, simulation.thetahat)
     state = linear.initialize_state(
         data,
         L=L,
