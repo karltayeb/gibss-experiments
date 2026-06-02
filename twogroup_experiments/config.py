@@ -14,12 +14,14 @@ from core import (
     c4_gene_sets_X,
     dehydrate_hashed,
     fit_cox_method,
+    fit_linear_method,
     fit_logistic_method,
     fit_twogroup_method,
     gaussian_markov_X,
     hallmark_gene_sets_X,
     null_enrich_X,
     summarize_cox_method,
+    summarize_linear_method,
     summarize_logistic_method,
     summarize_twogroup_method,
     t_error_sampler,
@@ -244,6 +246,24 @@ def _twogroup_loc_fam_method_spec(*, L: int) -> MethodSpec:
     )
 
 
+def _linear_fixed_method_spec(*, L: int) -> MethodSpec:
+    return MethodSpec(
+        name=f"linear_fixed_L{L}",
+        fit_function=fit_linear_method,
+        summarize_function=summarize_linear_method,
+        kwargs={"estimate_residual_variance": False, "L": int(L)},
+    )
+
+
+def _linear_estimated_method_spec(*, L: int) -> MethodSpec:
+    return MethodSpec(
+        name=f"linear_estimated_L{L}",
+        fit_function=fit_linear_method,
+        summarize_function=summarize_linear_method,
+        kwargs={"estimate_residual_variance": True, "L": int(L)},
+    )
+
+
 def _default_method_specs(
     *, L: int, thresholds: tuple[float, ...]
 ) -> tuple[MethodSpec, ...]:
@@ -261,6 +281,8 @@ def _default_method_specs(
         *tuple(
             _logistic_threshold_method_spec(threshold, L=L) for threshold in thresholds
         ),
+        _linear_fixed_method_spec(L=L),
+        _linear_estimated_method_spec(L=L),
     )
 
 

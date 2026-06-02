@@ -11,7 +11,7 @@ from typing import Any, Iterable, Mapping
 
 import numpy as np
 
-from gibss import cox, engine, localjj, twogroup
+from gibss import cox, engine, linear, localjj, twogroup
 from gibss.distributions import Normal, NormalMixture, PointMass
 from gseasusie.genesets import load_gene_sets
 
@@ -392,6 +392,46 @@ def summarize_twogroup_method(
         "family_state": _extract_family_state_struct(state),
         "two_group_state": _extract_twogroup_state_struct(state),
         "fit_summary": _make_fit_summary_struct(state, simulation, fit_obj["n_selected"]),
+    }
+
+
+def fit_linear_method(
+    simulation: TwoGroupSimulation,
+    *,
+    estimate_residual_variance: bool,
+    L: int = 1,
+) -> dict[str, Any]:
+    X_dense = np.asarray(simulation.X.todense()) if hasattr(simulation.X, "todense") else np.asarray(simulation.X)
+    data = linear.prep_data(X_dense, simulation.thetahat)
+    state = linear.initialize_state(
+        data,
+        L=L,
+        family_state_kwargs={
+            "estimate_residual_variance": estimate_residual_variance,
+            "residual_variance": 1.0,
+        },
+    )
+    fitted = engine.fit_ibss(data, state, linear.default_schedule())
+    return {"state": fitted}
+
+
+def summarize_linear_method(
+    fit_obj,
+    simulation: TwoGroupSimulation,
+    *,
+    estimate_residual_variance: bool,
+    L: int = 1,
+) -> dict[str, Any]:
+    del estimate_residual_variance, L
+    state = fit_obj["state"]
+    n_effects = len(state.single_effects)
+    return {
+        "threshold": None,
+        "single_effects": [_extract_ser_struct(state, l) for l in range(n_effects)],
+        "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_effects)],
+        "family_state": _extract_family_state_struct(state),
+        "two_group_state": None,
+        "fit_summary": _make_fit_summary_struct(state, simulation, None),
     }
 
 
