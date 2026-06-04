@@ -252,9 +252,8 @@ def power_fdp_cell(
     if _power_fdp.is_empty():
         power_fdp_chart = viz_utils.make_placeholder_chart("No power/FDP data")
     else:
-        _summary = viz_utils.make_power_fdp_summary(_power_fdp)
         power_fdp_chart = viz_utils.render_power_fdp_chart(
-            _summary,
+            _power_fdp,
             facet=True,
             max_fdp=max_fdp_slider.value,
             fixed_y_scale=True,
