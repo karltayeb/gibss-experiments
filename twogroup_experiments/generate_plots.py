@@ -371,35 +371,114 @@ def _make_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     )
 
 
-def _make_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
-    _BETA_095_IDX = 94
+_CS_POWER_FDP_BETAS = [1.0, 0.95, 0.50]
+_CS_BETA_SIZE_INDICES = {0.95: 94, 0.50: 49}  # index into CS_BETA_GRID
+
+
+def _cs_power_fdp_curves(
+    raw: pl.DataFrame,
+    *,
+    collection_groups: list[str | None],
+) -> list[dict]:
+    """Compute power/FDP curves via cumsum for each (collection, method, cs_beta).
+
+    Denominator for power = total non-null components (rank_of_causal non-empty),
+    same across all cs_beta panels so curves are directly comparable.
+    """
+    method_groups = (
+        raw.select("method", "threshold", "method_display", "is_thresholded")
+        .unique().sort(["is_thresholded", "method_display"])
+    )
+    rows = []
+    for coll in collection_groups:
+        coll_raw = raw if coll is None else raw.filter(pl.col("collection_name") == coll)
+        for mg in method_groups.iter_rows(named=True):
+            thresh_filter = (
+                pl.col("threshold").is_null() if mg["threshold"] is None
+                else (pl.col("threshold") == mg["threshold"])
+            )
+            m_data = coll_raw.filter((pl.col("method") == mg["method"]) & thresh_filter)
+            if m_data.is_empty():
+                continue
+            lbf_arr = m_data["ser_log_bf"].to_numpy()
+            rank_causal = m_data["rank_of_causal"].to_list()
+            cs_sizes_list = m_data["cs_sizes"].to_list()
+            has_causal = np.array([len(r) > 0 for r in rank_causal])
+            n_non_null = int(has_causal.sum())
+            order = np.argsort(-lbf_arr)
+            sorted_lbf = lbf_arr[order]
+
+            for cs_beta in _CS_POWER_FDP_BETAS:
+                if cs_beta == 1.0:
+                    causal_arr = has_causal
+                else:
+                    idx = _CS_BETA_SIZE_INDICES[cs_beta]
+                    causal_arr = np.array([
+                        len(r) > 0 and min(r) < cs_sizes_list[i][idx]
+                        for i, r in enumerate(rank_causal)
+                    ])
+                sorted_causal = causal_arr[order]
+                cum_tp = np.cumsum(sorted_causal)
+                cum_fp = np.cumsum(~sorted_causal)
+                n_reported = cum_tp + cum_fp
+                power = cum_tp / max(n_non_null, 1)
+                fdp = cum_fp / np.maximum(n_reported, 1)
+                for k in range(len(sorted_lbf)):
+                    rows.append({
+                        "collection_name": coll or "",
+                        "method": mg["method"],
+                        "threshold": mg["threshold"],
+                        "method_display": mg["method_display"],
+                        "is_thresholded": mg["is_thresholded"],
+                        "cs_beta": float(cs_beta),
+                        "ser_log_bf": float(sorted_lbf[k]),
+                        "power": float(power[k]),
+                        "fdp": float(fdp[k]),
+                    })
+    return rows
+
+
+def _plot_cs_power_fdp_panel(
+    ax: "plt.Axes",
+    panel_rows: list[dict],
+    method_meta: pl.DataFrame,
+    *,
+    max_fdp: float,
+    title: str,
+) -> None:
+    by_method: dict[str, list] = {}
+    for r in panel_rows:
+        by_method.setdefault(r["method_display"], []).append(r)
+    for method_display, pts in sorted(by_method.items()):
+        method = pts[0]["method"]
+        color = viz_utils.method_color(method)
+        fdp_arr = [p["fdp"] for p in pts]
+        pwr_arr = [p["power"] for p in pts]
+        ax.plot(fdp_arr, pwr_arr, color=color, linewidth=1.5, label=method_display)
+    ax.set_xlabel("FDP")
+    ax.set_ylabel("Power")
+    ax.set_xlim(0.0, max_fdp)
+    ax.set_ylim(0.0, 1.05)
+    ax.set_title(title, fontsize=10)
+
+
+def _cs_power_fdp_filtered_raw(
+    combined_data: dict,
+    settings: dict,
+) -> pl.DataFrame | None:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
-    collection_names = combined_data["collection_names"]
     thresholds = _selected_thresholds(settings)
-    max_fdp = settings.get("max_fdp", 0.5)
     fg = _foreground_methods(method_meta, settings)
-
     if cs_data.is_empty():
-        return viz_utils.make_placeholder_chart("No CS data")
-
-    cs_raw = cs_data.with_columns(
-        pl.col("cs_sizes").list.get(_BETA_095_IDX).alias("cs_size"),
-        pl.when(pl.col("rank_of_causal").list.len() > 0)
-        .then(pl.col("rank_of_causal").list.min() < pl.col("cs_sizes").list.get(_BETA_095_IDX))
-        .otherwise(False)
-        .alias("causal_in_cs"),
-    ).select(
-        "collection_name", "sample_id", "method", "threshold",
-        "l", "cs_size", "causal_in_cs", "ser_log_bf",
-    )
-
+        return None
     _thresh_mask = (
         pl.col("threshold").is_null()
         | (pl.lit(True) if thresholds is None else pl.col("threshold").is_in(thresholds))
     )
     raw = (
-        cs_raw.filter(pl.col("method").is_in(fg) & _thresh_mask)
+        cs_data
+        .filter(pl.col("method").is_in(fg) & _thresh_mask)
         .join(
             method_meta.select("method", "threshold", "method_display", "is_thresholded"),
             on=["method", "threshold"],
@@ -407,81 +486,41 @@ def _make_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
             nulls_equal=True,
         )
     )
+    return raw if not raw.is_empty() else None
 
-    if raw.is_empty():
+
+def _make_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
+    raw = _cs_power_fdp_filtered_raw(combined_data, settings)
+    if raw is None:
         return viz_utils.make_placeholder_chart("No CS power/FDP data")
+    collection_names = combined_data["collection_names"]
+    method_meta = combined_data["method_metadata"]
+    max_fdp = settings.get("max_fdp", 0.5)
+    theme = viz_utils.base_chart_theme()
 
-    lbf_lo = float(raw["ser_log_bf"].min())
-    lbf_hi = float(raw["ser_log_bf"].max())
-    lbf_grid = np.linspace(lbf_lo, lbf_hi, 60)[::-1]
-    method_groups = (
-        raw.select("method", "threshold", "method_display", "is_thresholded")
-        .unique()
-        .sort(["is_thresholded", "method_display"])
-    )
-
-    rows = []
-    for coll_name in collection_names:
-        coll_raw = raw.filter(pl.col("collection_name") == coll_name)
-        for mg in method_groups.iter_rows(named=True):
-            thresh_filter = (
-                pl.col("threshold").is_null()
-                if mg["threshold"] is None
-                else (pl.col("threshold") == mg["threshold"])
-            )
-            m_data = coll_raw.filter((pl.col("method") == mg["method"]) & thresh_filter)
-            if m_data.is_empty():
-                continue
-            n_total = m_data.height
-            causal_arr = m_data["causal_in_cs"].to_numpy()
-            lbf_arr = m_data["ser_log_bf"].to_numpy()
-            for t in lbf_grid:
-                disc = lbf_arr >= t
-                hit = disc & causal_arr
-                n_disc = int(disc.sum())
-                n_hit = int(hit.sum())
-                rows.append({
-                    "collection_name": coll_name,
-                    "method": mg["method"],
-                    "threshold": mg["threshold"],
-                    "method_display": mg["method_display"],
-                    "is_thresholded": mg["is_thresholded"],
-                    "pip_threshold": float(t),
-                    "power": float(n_hit / max(n_total, 1)),
-                    "fdp": float((n_disc - n_hit) / max(n_disc, 1)),
-                })
-
+    colls = [c for c in collection_names if c in raw["collection_name"].unique().to_list()]
+    rows = _cs_power_fdp_curves(raw, collection_groups=colls)
     if not rows:
         return viz_utils.make_placeholder_chart("No CS power/FDP data")
 
-    cs_pf = pl.from_dicts(
-        rows,
-        schema={
-            "collection_name": pl.String,
-            "method": pl.String,
-            "threshold": pl.Float64,
-            "method_display": pl.String,
-            "is_thresholded": pl.Boolean,
-            "pip_threshold": pl.Float64,
-            "power": pl.Float64,
-            "fdp": pl.Float64,
-        },
-    ).with_columns(
-        pl.col("method_display").alias("trace_label"),
-        pl.col("method_display").alias("legend_label"),
-        pl.lit(True).alias("is_selected_threshold"),
-        pl.col("collection_name").alias("simulation_name"),
+    n_cols = len(colls)
+    n_rows = len(_CS_POWER_FDP_BETAS)
+    beta_labels = {1.0: "100% CS", 0.95: "95% CS", 0.50: "50% CS"}
+    fig, axes = plt.subplots(
+        n_rows, n_cols,
+        figsize=(theme["width"] * n_cols, theme["height"] * n_rows),
+        squeeze=False,
     )
-
-    return viz_utils.render_power_fdp_chart(
-        cs_pf,
-        facet=True,
-        max_fdp=max_fdp,
-        fixed_y_scale=True,
-        legend_outside=True,
-        square_axes=True,
-        collection_names=collection_names,
-    )
+    for row_idx, cs_beta in enumerate(_CS_POWER_FDP_BETAS):
+        for col_idx, coll in enumerate(colls):
+            ax = axes[row_idx, col_idx]
+            panel = [r for r in rows if r["collection_name"] == coll and r["cs_beta"] == cs_beta]
+            title = f"{coll}\n{beta_labels[cs_beta]}" if row_idx == 0 else beta_labels[cs_beta]
+            _plot_cs_power_fdp_panel(ax, panel, method_meta, max_fdp=max_fdp, title=title)
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper right", bbox_to_anchor=(1.0, 1.0), fontsize=8)
+    fig.tight_layout()
+    return fig
 
 
 def _make_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
@@ -652,110 +691,31 @@ def _make_agg_mass_above_causal(combined_data: dict, settings: dict) -> plt.Figu
 
 
 def _make_agg_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
-    _BETA_095_IDX = 94
-    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
-    method_meta = combined_data["method_metadata"]
-    collection_names = combined_data["collection_names"]
-    thresholds = _selected_thresholds(settings)
-    max_fdp = settings.get("max_fdp", 0.5)
-    fg = _foreground_methods(method_meta, settings)
-
-    if cs_data.is_empty():
-        return viz_utils.make_placeholder_chart("No CS data")
-
-    cs_raw = cs_data.with_columns(
-        pl.col("cs_sizes").list.get(_BETA_095_IDX).alias("cs_size"),
-        pl.when(pl.col("rank_of_causal").list.len() > 0)
-        .then(pl.col("rank_of_causal").list.min() < pl.col("cs_sizes").list.get(_BETA_095_IDX))
-        .otherwise(False)
-        .alias("causal_in_cs"),
-    ).select(
-        "collection_name", "sample_id", "method", "threshold",
-        "l", "cs_size", "causal_in_cs", "ser_log_bf",
-    )
-
-    _thresh_mask = (
-        pl.col("threshold").is_null()
-        | (pl.lit(True) if thresholds is None else pl.col("threshold").is_in(thresholds))
-    )
-    raw = (
-        cs_raw.filter(pl.col("method").is_in(fg) & _thresh_mask)
-        .join(
-            method_meta.select("method", "threshold", "method_display", "is_thresholded"),
-            on=["method", "threshold"],
-            how="left",
-            nulls_equal=True,
-        )
-    )
-
-    if raw.is_empty():
+    raw = _cs_power_fdp_filtered_raw(combined_data, settings)
+    if raw is None:
         return viz_utils.make_placeholder_chart("No CS power/FDP data")
+    method_meta = combined_data["method_metadata"]
+    max_fdp = settings.get("max_fdp", 0.5)
+    theme = viz_utils.base_chart_theme()
 
-    lbf_lo = float(raw["ser_log_bf"].min())
-    lbf_hi = float(raw["ser_log_bf"].max())
-    lbf_grid = np.linspace(lbf_lo, lbf_hi, 60)[::-1]
-    method_groups = (
-        raw.select("method", "threshold", "method_display", "is_thresholded")
-        .unique()
-        .sort(["is_thresholded", "method_display"])
-    )
-
-    rows = []
-    for mg in method_groups.iter_rows(named=True):
-        thresh_filter = (
-            pl.col("threshold").is_null()
-            if mg["threshold"] is None
-            else (pl.col("threshold") == mg["threshold"])
-        )
-        m_data = raw.filter((pl.col("method") == mg["method"]) & thresh_filter)
-        if m_data.is_empty():
-            continue
-        n_total = m_data.height
-        causal_arr = m_data["causal_in_cs"].to_numpy()
-        lbf_arr = m_data["ser_log_bf"].to_numpy()
-        for t in lbf_grid:
-            disc = lbf_arr >= t
-            hit = disc & causal_arr
-            n_disc = int(disc.sum())
-            n_hit = int(hit.sum())
-            rows.append({
-                "method": mg["method"],
-                "threshold": mg["threshold"],
-                "method_display": mg["method_display"],
-                "is_thresholded": mg["is_thresholded"],
-                "pip_threshold": float(t),
-                "power": float(n_hit / max(n_total, 1)),
-                "fdp": float((n_disc - n_hit) / max(n_disc, 1)),
-            })
-
+    rows = _cs_power_fdp_curves(raw, collection_groups=[None])
     if not rows:
         return viz_utils.make_placeholder_chart("No CS power/FDP data")
 
-    agg_pf = pl.from_dicts(
-        rows,
-        schema={
-            "method": pl.String,
-            "threshold": pl.Float64,
-            "method_display": pl.String,
-            "is_thresholded": pl.Boolean,
-            "pip_threshold": pl.Float64,
-            "power": pl.Float64,
-            "fdp": pl.Float64,
-        },
-    ).with_columns(
-        pl.col("method_display").alias("trace_label"),
-        pl.col("method_display").alias("legend_label"),
-        pl.lit(True).alias("is_selected_threshold"),
+    beta_labels = {1.0: "100% CS", 0.95: "95% CS", 0.50: "50% CS"}
+    n_cols = len(_CS_POWER_FDP_BETAS)
+    fig, axes = plt.subplots(
+        1, n_cols,
+        figsize=(theme["width"] * n_cols, theme["height"]),
+        squeeze=False,
     )
-
-    fig = viz_utils.render_power_fdp_chart(
-        agg_pf,
-        facet=False,
-        max_fdp=max_fdp,
-        fixed_y_scale=True,
-        legend_outside=True,
-        square_axes=True,
-    )
+    for col_idx, cs_beta in enumerate(_CS_POWER_FDP_BETAS):
+        ax = axes[0, col_idx]
+        panel = [r for r in rows if r["cs_beta"] == cs_beta]
+        _plot_cs_power_fdp_panel(ax, panel, method_meta, max_fdp=max_fdp, title=beta_labels[cs_beta])
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper right", bbox_to_anchor=(1.0, 1.0), fontsize=8)
+    fig.tight_layout()
     _set_agg_facecolor(fig)
     return fig
 
