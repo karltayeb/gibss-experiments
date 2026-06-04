@@ -174,45 +174,53 @@ def expand_pip_calibration_from_compact(
     )
 
 
+_N_PIP_BINS = 200
+_PIP_BIN_WIDTH = 1.0 / _N_PIP_BINS
+_PIP_THRESHOLD_GRID = np.arange(_N_PIP_BINS) * _PIP_BIN_WIDTH  # [0.000, 0.005, ..., 0.995]
+
+
+def _bins_to_power_fdp(
+    counts: np.ndarray,
+    causal_counts: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray]:
+    rev_cum_counts = np.cumsum(counts[::-1])[::-1]
+    rev_cum_causal = np.cumsum(causal_counts[::-1])[::-1]
+    total_causal = int(causal_counts.sum())
+    power = rev_cum_causal / max(total_causal, 1)
+    fdp = (rev_cum_counts - rev_cum_causal) / np.maximum(rev_cum_counts, 1)
+    return power.astype(float), fdp.astype(float)
+
+
 def expand_power_fdp_from_compact(
     pip_plot_data: pl.DataFrame,
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
     selected_thresholds: list[float] | None,
+    aggregate_across_collections: bool = False,
 ) -> pl.DataFrame:
-    """Expand pip_plot_data to per-threshold rows for render_power_fdp_chart."""
-    _GRID = [0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 0.8, 0.9, 0.95, 0.99]
+    """Derive per-threshold power/FDP rows from 200-bin arrays.
 
+    Bins are summed per (collection_name, method, threshold) across replicates,
+    then power/FDP are computed via reverse cumulative sums (200 threshold points).
+    When aggregate_across_collections=True, bins are summed over all collections
+    before computing — correct for aggregate plots.
+    """
+    empty = pl.DataFrame(schema={
+        "simulation_name": pl.String, "method": pl.String, "method_display": pl.String,
+        "trace_label": pl.String, "legend_label": pl.String,
+        "is_selected_threshold": pl.Boolean,
+        "pip_threshold": pl.Float64, "power": pl.Float64, "fdp": pl.Float64,
+    })
     if pip_plot_data.is_empty():
-        return pl.DataFrame(schema={
-            "simulation_name": pl.String, "method": pl.String, "method_display": pl.String,
-            "trace_label": pl.String, "legend_label": pl.String,
-            "is_selected_threshold": pl.Boolean,
-            "pip_threshold": pl.Float64, "power": pl.Float64, "fdp": pl.Float64,
-        })
+        return empty
+
     meta = method_metadata.select(
         "method", "threshold", "method_display", "method_label_base", "is_thresholded",
     )
-    rows = []
-    for row in pip_plot_data.iter_rows(named=True):
-        for t, power, fdp in zip(
-            _GRID, row["power_at_threshold"], row["fdp_at_threshold"]
-        ):
-            rows.append({
-                "collection_name": row.get("collection_name", ""),
-                "method": row["method"],
-                "threshold": row["threshold"],
-                "pip_threshold": float(t),
-                "power": power,
-                "fdp": fdp,
-            })
-    expanded = pl.from_dicts(rows, schema={
-        "collection_name": pl.String, "method": pl.String, "threshold": pl.Float64,
-        "pip_threshold": pl.Float64, "power": pl.Float64, "fdp": pl.Float64,
-    })
-    joined = (
-        expanded
+
+    filtered = (
+        pip_plot_data
         .filter(pl.col("method").is_in(list(selected_methods)))
         .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
         .with_columns(
@@ -221,28 +229,57 @@ def expand_power_fdp_from_compact(
                 | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
             ).alias("is_selected_threshold")
         )
+        .filter(pl.col("is_selected_threshold"))
     )
-    joined = joined.filter(pl.col("is_selected_threshold"))
-    return (
-        joined
-        .group_by(
-            "collection_name", "method", "method_display", "method_label_base",
-            "is_thresholded", "is_selected_threshold", "threshold", "pip_threshold",
+    if filtered.is_empty():
+        return empty
+
+    group_keys = ["method", "threshold", "method_display", "method_label_base",
+                  "is_thresholded", "is_selected_threshold"]
+    if not aggregate_across_collections:
+        group_keys = ["collection_name"] + group_keys
+
+    summed = (
+        filtered
+        .group_by(group_keys)
+        .agg(
+            pl.col("pip_bin_counts").list.sum(),
+            pl.col("pip_bin_causal_counts").list.sum(),
         )
-        .agg(pl.col("power").mean(), pl.col("fdp").mean())
-        .with_columns(
-            pl.col("collection_name").alias("simulation_name"),
-            pl.when(pl.col("is_thresholded"))
-            .then(pl.format("{} (@{})", pl.col("method_label_base"), pl.col("threshold")))
-            .otherwise(pl.col("method_display"))
-            .alias("trace_label"),
-            pl.when(pl.col("is_selected_threshold"))
-            .then(pl.col("method_display"))
-            .otherwise(None)
-            .alias("legend_label"),
-        )
-        .sort("simulation_name", "method_display", "pip_threshold")
     )
+
+    rows = []
+    for row in summed.iter_rows(named=True):
+        counts = np.asarray(row["pip_bin_counts"], dtype=float)
+        causal = np.asarray(row["pip_bin_causal_counts"], dtype=float)
+        power_arr, fdp_arr = _bins_to_power_fdp(counts, causal)
+        col_name = "" if aggregate_across_collections else row.get("collection_name", "")
+        trace_label = (
+            f"{row['method_label_base']} (@{row['threshold']})"
+            if row["is_thresholded"] else row["method_display"]
+        )
+        for k in range(_N_PIP_BINS):
+            rows.append({
+                "simulation_name": col_name,
+                "method": row["method"],
+                "threshold": row["threshold"],
+                "method_display": row["method_display"],
+                "is_thresholded": row["is_thresholded"],
+                "is_selected_threshold": row["is_selected_threshold"],
+                "trace_label": trace_label,
+                "legend_label": row["method_display"] if row["is_selected_threshold"] else None,
+                "pip_threshold": float(_PIP_THRESHOLD_GRID[k]),
+                "power": float(power_arr[k]),
+                "fdp": float(fdp_arr[k]),
+            })
+
+    return pl.from_dicts(rows, schema={
+        "simulation_name": pl.String, "method": pl.String, "threshold": pl.Float64,
+        "method_display": pl.String, "is_thresholded": pl.Boolean,
+        "is_selected_threshold": pl.Boolean,
+        "trace_label": pl.String, "legend_label": pl.String,
+        "pip_threshold": pl.Float64, "power": pl.Float64, "fdp": pl.Float64,
+    }).sort("simulation_name", "method_display", "pip_threshold")
 
 
 def expand_causal_pip_from_compact(
@@ -369,35 +406,6 @@ def render_pip_calibration(
     fig.tight_layout()
     return fig
 
-
-def make_power_fdp_summary(plot_data: pl.DataFrame) -> pl.DataFrame:
-    return (
-        plot_data.select(
-            "simulation_name",
-            "method",
-            "method_display",
-            "trace_label",
-            "legend_label",
-            "is_selected_threshold",
-            "pip_threshold",
-            "power",
-            "fdp",
-        )
-        .group_by(
-            "simulation_name",
-            "method",
-            "method_display",
-            "trace_label",
-            "legend_label",
-            "is_selected_threshold",
-            "pip_threshold",
-        )
-        .agg(
-            pl.col("power").mean().alias("power"),
-            pl.col("fdp").mean().alias("fdp"),
-        )
-        .sort("simulation_name", "method_display", "trace_label", "pip_threshold")
-    )
 
 
 _PIP_MARKER_THRESHOLDS = [0.5, 0.9, 0.99]
