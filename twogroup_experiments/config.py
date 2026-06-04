@@ -58,6 +58,10 @@ __all__ = [
     "NULL_SIMULATION_SPECS",
     "NULL_INTERCEPT_VALUES",
     "NULL_METHOD_SPECS",
+    "GRID_SIMULATION_SPECS",
+    "GRID_EFFECT_LOC_VALUES",
+    "GRID_EFFECT_SCALE_VALUES",
+    "GRID_INTERCEPT_VALUES",
 ]
 
 REGISTRY = ConfigRegistry()
@@ -644,6 +648,77 @@ REGISTRY.register_simulations(NULL_SIMULATION_SPECS)
 REGISTRY.register_batches(tuple(
     batch
     for spec in NULL_SIMULATION_SPECS
+    for batch in batch_specs_for_simulation(
+        spec,
+        replicates_per_batch=REPLICATES_PER_BATCH,
+        n_batches=N_BATCHES,
+    )
+))
+
+
+# --- full grid: causal_effect x intercept, signal_value matches effect ---
+# effect=0 (null) is covered by NULL_SIMULATION_SPECS; excluded here.
+# scale effects must be positive (scale parameter cannot be negative).
+GRID_EFFECT_LOC_VALUES: tuple[float, ...] = (-2.0, -1.0, 1.0, 2.0)
+GRID_EFFECT_SCALE_VALUES: tuple[float, ...] = (1.0, 2.0)
+GRID_INTERCEPT_VALUES: tuple[float, ...] = (-3.0, -2.0, -1.0, 0.0)
+
+
+def _make_grid_simulation(
+    *,
+    design_name: str,
+    design_sampler,
+    signal_kind: str,
+    causal_effect: float,
+    intercept: float,
+) -> SimulationSpec:
+    if signal_kind == "loc":
+        f1 = fixed_normal(loc=causal_effect, scale=LOC_SCALE_FIXED)
+    elif signal_kind == "scale":
+        f1 = fixed_normal(loc=0.0, scale=causal_effect)
+    else:
+        raise ValueError(f"Unknown signal kind: {signal_kind!r}")
+    return SimulationSpec(
+        name=_simulation_name(
+            design=design_name,
+            enrichment=SER_ENRICH,
+            signal=_signal_name(signal_kind, causal_effect),
+            intercept=intercept,
+        ),
+        design_sampler=design_sampler,
+        effect_sampler=partial(uniform_single_effect, causal_effect=causal_effect),
+        intercept=float(intercept),
+        f0=F0,
+        f1=f1,
+        base_seed=BASE_SEED,
+    )
+
+
+def _grid_signal_effect_pairs() -> list[tuple[str, float]]:
+    return (
+        [("loc", e) for e in GRID_EFFECT_LOC_VALUES]
+        + [("scale", e) for e in GRID_EFFECT_SCALE_VALUES]
+    )
+
+
+GRID_SIMULATION_SPECS = tuple(
+    _make_grid_simulation(
+        design_name=design_name,
+        design_sampler=DESIGN_KWARGS[design_name]["design_sampler"],
+        signal_kind=signal_kind,
+        causal_effect=effect,
+        intercept=intercept,
+    )
+    for design_name in SIGNAL_DESIGNS
+    for signal_kind, effect in _grid_signal_effect_pairs()
+    for intercept in GRID_INTERCEPT_VALUES
+)
+
+SIMULATION_BY_NAME.update({spec.name: spec for spec in GRID_SIMULATION_SPECS})
+REGISTRY.register_simulations(GRID_SIMULATION_SPECS)
+REGISTRY.register_batches(tuple(
+    batch
+    for spec in GRID_SIMULATION_SPECS
     for batch in batch_specs_for_simulation(
         spec,
         replicates_per_batch=REPLICATES_PER_BATCH,
