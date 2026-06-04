@@ -21,8 +21,8 @@ def method_family_label_map() -> dict[str, str]:
         "twogroup_oracle_init":  "TG Oracle Init",
         "twogroup_scale_fam":    "Twogroup Scale",
         "twogroup_loc_fam":      "Twogroup Loc",
-        "linear_fixed":          "Linear SER",
-        "linear_estimated":      "Linear SER (est. var)",
+        "linear_fixed":          "Linear",
+        "linear_estimated":      "Linear (est. var)",
     }
 
 
