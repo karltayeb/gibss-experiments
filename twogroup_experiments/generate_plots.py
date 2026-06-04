@@ -157,9 +157,8 @@ def _make_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
     )
     if power_fdp.is_empty():
         return viz_utils.make_placeholder_chart("No power/FDP data")
-    summary = viz_utils.make_power_fdp_summary(power_fdp)
     return viz_utils.render_power_fdp_chart(
-        summary,
+        power_fdp,
         facet=True,
         max_fdp=max_fdp,
         fixed_y_scale=True,
@@ -554,18 +553,12 @@ def _make_agg_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
         method_meta,
         selected_methods=fg,
         selected_thresholds=_selected_thresholds(settings),
+        aggregate_across_collections=True,
     )
     if power_fdp.is_empty():
         return viz_utils.make_placeholder_chart("No power/FDP data")
-    summary = viz_utils.make_power_fdp_summary(power_fdp)
-    agg = (
-        summary
-        .group_by("method", "method_display", "trace_label", "legend_label",
-                  "is_selected_threshold", "pip_threshold")
-        .agg(pl.col("power").mean(), pl.col("fdp").mean())
-    )
     fig = viz_utils.render_power_fdp_chart(
-        agg,
+        power_fdp,
         facet=False,
         max_fdp=max_fdp,
         fixed_y_scale=True,
