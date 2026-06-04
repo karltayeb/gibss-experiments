@@ -956,6 +956,169 @@ supercollections:
       max_cs_size: 10000
       max_fdp: 0.5
     plots: *t_error_plots
+
+  # --- loc vs scale: model misspecification ---
+  hallmark-loc-vs-scale:
+    collections:
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00
+        alias: loc
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
+        alias: scale
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: &loc_vs_scale_plots
+      - settings:
+          - all_methods
+          - minimal
+        plot_type_groups:
+          - standard
+  c4-loc-vs-scale:
+    collections:
+      - name: design=c4__enrichment=ser_enrich__signal=loc_2.00
+        alias: loc
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
+        alias: scale
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *loc_vs_scale_plots
+  gaussian-loc-vs-scale:
+    collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+        alias: loc
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
+        alias: scale
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *loc_vs_scale_plots
+  uniform-loc-vs-scale:
+    collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
+        alias: loc
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
+        alias: scale
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *loc_vs_scale_plots
+
+  # --- design comparison: c4 vs hallmark ---
+  design-comparison-loc:
+    collections:
+      - name: design=c4__enrichment=ser_enrich__signal=loc_2.00
+        alias: c4
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00
+        alias: hallmark
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *loc_vs_scale_plots
+  design-comparison-scale:
+    collections:
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
+        alias: c4
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
+        alias: hallmark
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *loc_vs_scale_plots
+
+  # --- null calibration: intercept sweep (causal_effect=0) ---
+  hallmark-null-intercept-loc:
+    collections:
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "intercept=-3"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "intercept=-2"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "intercept=-1"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "intercept=0"
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: &null_intercept_plots
+      - settings:
+          - all_methods
+          - minimal
+        plot_type_groups:
+          - standard
+  hallmark-null-intercept-scale:
+    collections:
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "intercept=-3"
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "intercept=-2"
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "intercept=-1"
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "intercept=0"
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *null_intercept_plots
+  c4-null-intercept-loc:
+    collections:
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "intercept=-3"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "intercept=-2"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "intercept=-1"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "intercept=0"
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *null_intercept_plots
+  c4-null-intercept-scale:
+    collections:
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "intercept=-3"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "intercept=-2"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "intercept=-1"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "intercept=0"
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots: *null_intercept_plots
+
 plot_type_groups:
   standard:
     - pip_calibration
