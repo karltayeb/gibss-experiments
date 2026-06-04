@@ -181,6 +181,8 @@ settings:
 supercollections:
   hallmark-signal-loc:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+        alias: null
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_0.50
         alias: mu=0.50
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_1.00
@@ -216,6 +218,8 @@ supercollections:
           - f1
   hallmark-signal-scale:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
+        alias: null
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_0.75
         alias: sigma=0.75
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.00
@@ -241,6 +245,8 @@ supercollections:
     plots: *id001
   c4-signal-loc:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+        alias: null
       - name: design=c4__enrichment=ser_enrich__signal=loc_0.50
         alias: mu=0.50
       - name: design=c4__enrichment=ser_enrich__signal=loc_1.00
@@ -262,6 +268,8 @@ supercollections:
     plots: *id001
   c4-signal-scale:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
+        alias: null
       - name: design=c4__enrichment=ser_enrich__signal=scale_0.75
         alias: sigma=0.75
       - name: design=c4__enrichment=ser_enrich__signal=scale_1.00
@@ -287,6 +295,8 @@ supercollections:
     plots: *id001
   gaussian-rho0.9-signal-loc:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+        alias: null
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50
         alias: mu=0.50
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00
@@ -308,6 +318,8 @@ supercollections:
     plots: *id001
   gaussian-rho0.9-signal-scale:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
+        alias: null
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75
         alias: sigma=0.75
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00
@@ -333,6 +345,8 @@ supercollections:
     plots: *id001
   uniform-rho0.9-signal-loc:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+        alias: null
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50
         alias: mu=0.50
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00
@@ -354,6 +368,8 @@ supercollections:
     plots: *id001
   uniform-rho0.9-signal-scale:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
+        alias: null
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75
         alias: sigma=0.75
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00
@@ -960,6 +976,8 @@ supercollections:
   # --- loc vs scale: model misspecification ---
   hallmark-loc-vs-scale:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+        alias: null
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00
         alias: loc
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
@@ -978,6 +996,8 @@ supercollections:
           - standard
   c4-loc-vs-scale:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+        alias: null
       - name: design=c4__enrichment=ser_enrich__signal=loc_2.00
         alias: loc
       - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
@@ -991,6 +1011,8 @@ supercollections:
     plots: *loc_vs_scale_plots
   gaussian-loc-vs-scale:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+        alias: null
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: loc
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
@@ -1004,6 +1026,8 @@ supercollections:
     plots: *loc_vs_scale_plots
   uniform-loc-vs-scale:
     collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+        alias: null
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: loc
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00

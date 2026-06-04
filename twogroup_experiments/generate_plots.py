@@ -373,6 +373,8 @@ def _make_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
 
 _CS_POWER_FDP_BETAS = [1.0, 0.95, 0.50]
 _CS_BETA_SIZE_INDICES = {0.95: 94, 0.50: 49}  # index into CS_BETA_GRID
+_CS_LBF_MARKERS = [0.0, 2.0]
+_CS_LBF_MARKER_STYLES = ["o", "s"]
 
 
 def _cs_power_fdp_curves(
@@ -454,7 +456,14 @@ def _plot_cs_power_fdp_panel(
         color = viz_utils.method_color(method)
         fdp_arr = [p["fdp"] for p in pts]
         pwr_arr = [p["power"] for p in pts]
+        lbf_arr = np.array([p["ser_log_bf"] for p in pts])
         ax.plot(fdp_arr, pwr_arr, color=color, linewidth=1.5, label=method_display)
+        for thresh, marker in zip(_CS_LBF_MARKERS, _CS_LBF_MARKER_STYLES):
+            mask = lbf_arr >= thresh
+            if mask.any():
+                idx = int(np.where(mask)[0][-1])
+                ax.plot(fdp_arr[idx], pwr_arr[idx], marker=marker, color=color,
+                        markersize=6, zorder=5, linestyle="none")
     ax.set_xlabel("FDP")
     ax.set_ylabel("Power")
     ax.set_xlim(0.0, max_fdp)
