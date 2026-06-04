@@ -181,8 +181,14 @@ settings:
 supercollections:
   hallmark-signal-loc:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
-        alias: null
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_0.50
         alias: mu=0.50
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_1.00
@@ -218,8 +224,14 @@ supercollections:
           - f1
   hallmark-signal-scale:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
-        alias: null
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_0.75
         alias: sigma=0.75
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.00
@@ -245,8 +257,14 @@ supercollections:
     plots: *id001
   c4-signal-loc:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
-        alias: null
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=c4__enrichment=ser_enrich__signal=loc_0.50
         alias: mu=0.50
       - name: design=c4__enrichment=ser_enrich__signal=loc_1.00
@@ -268,8 +286,14 @@ supercollections:
     plots: *id001
   c4-signal-scale:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
-        alias: null
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=c4__enrichment=ser_enrich__signal=scale_0.75
         alias: sigma=0.75
       - name: design=c4__enrichment=ser_enrich__signal=scale_1.00
@@ -295,8 +319,14 @@ supercollections:
     plots: *id001
   gaussian-rho0.9-signal-loc:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
-        alias: null
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50
         alias: mu=0.50
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00
@@ -318,8 +348,14 @@ supercollections:
     plots: *id001
   gaussian-rho0.9-signal-scale:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
-        alias: null
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75
         alias: sigma=0.75
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00
@@ -345,8 +381,14 @@ supercollections:
     plots: *id001
   uniform-rho0.9-signal-loc:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
-        alias: null
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50
         alias: mu=0.50
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00
@@ -368,8 +410,14 @@ supercollections:
     plots: *id001
   uniform-rho0.9-signal-scale:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
-        alias: null
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75
         alias: sigma=0.75
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00
@@ -395,6 +443,14 @@ supercollections:
     plots: *id001
   gaussian-correlation-loc:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_1.50
         alias: rho=0.00
       - name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_1.50
@@ -416,6 +472,14 @@ supercollections:
     plots: *id001
   gaussian-correlation-scale:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_1.75
         alias: rho=0.00
       - name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_1.75
@@ -437,6 +501,14 @@ supercollections:
     plots: *id001
   uniform-correlation-loc:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_1.50
         alias: rho=0.00
       - name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_1.50
@@ -458,6 +530,14 @@ supercollections:
     plots: *id001
   uniform-correlation-scale:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_1.75
         alias: rho=0.00
       - name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_1.75
@@ -479,6 +559,14 @@ supercollections:
     plots: *id001
   gaussian-n-features-loc:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50
         alias: p=100
       - name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_1.50
@@ -498,6 +586,14 @@ supercollections:
     plots: *id001
   gaussian-n-features-scale:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75
         alias: p=100
       - name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_1.75
@@ -517,6 +613,14 @@ supercollections:
     plots: *id001
   uniform-n-features-loc:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50
         alias: p=100
       - name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_1.50
@@ -536,6 +640,14 @@ supercollections:
     plots: *id001
   uniform-n-features-scale:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75
         alias: p=100
       - name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_1.75
@@ -555,6 +667,14 @@ supercollections:
     plots: *id001
   gaussian-correlation-loc-strong:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: rho=0.00
       - name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_2.00
@@ -576,6 +696,14 @@ supercollections:
     plots: *id001
   gaussian-correlation-scale-strong:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_2.25
         alias: rho=0.00
       - name: design=gaussian_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_2.25
@@ -597,6 +725,14 @@ supercollections:
     plots: *id001
   uniform-correlation-loc-strong:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: rho=0.00
       - name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=loc_2.00
@@ -618,6 +754,14 @@ supercollections:
     plots: *id001
   uniform-correlation-scale-strong:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.00_n_features_100__enrichment=ser_enrich__signal=scale_2.25
         alias: rho=0.00
       - name: design=uniform_markov_rho_0.50_n_features_100__enrichment=ser_enrich__signal=scale_2.25
@@ -639,6 +783,14 @@ supercollections:
     plots: *id001
   gaussian-n-features-loc-strong:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: p=100
       - name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_2.00
@@ -658,6 +810,14 @@ supercollections:
     plots: *id001
   gaussian-n-features-scale-strong:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25
         alias: p=100
       - name: design=gaussian_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_2.25
@@ -677,6 +837,14 @@ supercollections:
     plots: *id001
   uniform-n-features-loc-strong:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: p=100
       - name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=loc_2.00
@@ -696,6 +864,14 @@ supercollections:
     plots: *id001
   uniform-n-features-scale-strong:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.25__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.25
         alias: p=100
       - name: design=uniform_markov_rho_0.90_n_features_200__enrichment=ser_enrich__signal=scale_2.25
@@ -779,6 +955,14 @@ supercollections:
     plots: *null_plots
   0010-hallmark-t-error-loc:
     collections:
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
@@ -803,6 +987,14 @@ supercollections:
           - cs
   0010-hallmark-t-error-scale:
     collections:
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=hallmark__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
@@ -822,6 +1014,14 @@ supercollections:
     plots: *t_error_plots
   0010-c4-t-error-loc:
     collections:
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=c4__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
       - name: design=c4__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
@@ -841,6 +1041,14 @@ supercollections:
     plots: *t_error_plots
   0010-c4-t-error-scale:
     collections:
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
       - name: design=c4__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
@@ -860,6 +1068,14 @@ supercollections:
     plots: *t_error_plots
   0010-gaussian-t-error-loc:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
@@ -879,6 +1095,14 @@ supercollections:
     plots: *t_error_plots
   0010-gaussian-t-error-scale:
     collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
@@ -898,6 +1122,14 @@ supercollections:
     plots: *t_error_plots
   0010-uniform-t-error-loc:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00__error=t_df_30
@@ -917,6 +1149,14 @@ supercollections:
     plots: *t_error_plots
   0010-uniform-t-error-scale:
     collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00__error=t_df_30
@@ -976,8 +1216,14 @@ supercollections:
   # --- loc vs scale: model misspecification ---
   hallmark-loc-vs-scale:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
-        alias: null
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=hallmark__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00
         alias: loc
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
@@ -996,8 +1242,14 @@ supercollections:
           - standard
   c4-loc-vs-scale:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
-        alias: null
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=c4__enrichment=ser_enrich__signal=loc_2.00
         alias: loc
       - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
@@ -1011,8 +1263,14 @@ supercollections:
     plots: *loc_vs_scale_plots
   gaussian-loc-vs-scale:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
-        alias: null
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: loc
       - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
@@ -1026,8 +1284,14 @@ supercollections:
     plots: *loc_vs_scale_plots
   uniform-loc-vs-scale:
     collections:
-      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
-        alias: null
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
         alias: loc
       - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
@@ -1043,6 +1307,14 @@ supercollections:
   # --- design comparison: c4 vs hallmark ---
   design-comparison-loc:
     collections:
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=c4__enrichment=null__signal=loc_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=c4__enrichment=ser_enrich__signal=loc_2.00
         alias: c4
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00
@@ -1056,6 +1328,14 @@ supercollections:
     plots: *loc_vs_scale_plots
   design-comparison-scale:
     collections:
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-3.00
+        alias: "null (b=-3)"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-2.00
+        alias: "null (b=-2)"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=-1.00
+        alias: "null (b=-1)"
+      - name: design=c4__enrichment=null__signal=scale_2.00__intercept=0.00
+        alias: "null (b=0)"
       - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
         alias: c4
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
