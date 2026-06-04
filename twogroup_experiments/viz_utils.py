@@ -234,40 +234,44 @@ def expand_power_fdp_from_compact(
     if filtered.is_empty():
         return empty
 
-    group_keys = ["method", "threshold", "method_display", "method_label_base",
-                  "is_thresholded", "is_selected_threshold"]
-    if not aggregate_across_collections:
-        group_keys = ["collection_name"] + group_keys
-
-    summed = (
-        filtered
-        .group_by(group_keys)
-        .agg(
-            pl.col("pip_bin_counts").list.sum(),
-            pl.col("pip_bin_causal_counts").list.sum(),
-        )
-    )
-
-    rows = []
-    for row in summed.iter_rows(named=True):
-        counts = np.asarray(row["pip_bin_counts"], dtype=float)
-        causal = np.asarray(row["pip_bin_causal_counts"], dtype=float)
-        power_arr, fdp_arr = _bins_to_power_fdp(counts, causal)
+    # Accumulate bin arrays element-wise in Python.
+    # (Polars list.sum() in agg() sums within each row → scalar, not element-wise across rows.)
+    bin_acc: dict = {}
+    for row in filtered.iter_rows(named=True):
         col_name = "" if aggregate_across_collections else row.get("collection_name", "")
-        trace_label = (
-            f"{row['method_label_base']} (@{row['threshold']})"
-            if row["is_thresholded"] else row["method_display"]
-        )
-        for k in range(_N_PIP_BINS):
-            rows.append({
-                "simulation_name": col_name,
+        key = (col_name, row["method"], row["threshold"])
+        if key not in bin_acc:
+            bin_acc[key] = {
+                "collection_name": col_name,
                 "method": row["method"],
                 "threshold": row["threshold"],
                 "method_display": row["method_display"],
+                "method_label_base": row["method_label_base"],
                 "is_thresholded": row["is_thresholded"],
                 "is_selected_threshold": row["is_selected_threshold"],
+                "counts": np.zeros(_N_PIP_BINS),
+                "causal": np.zeros(_N_PIP_BINS),
+            }
+        bin_acc[key]["counts"] += np.asarray(row["pip_bin_counts"], dtype=float)
+        bin_acc[key]["causal"] += np.asarray(row["pip_bin_causal_counts"], dtype=float)
+
+    rows = []
+    for acc in bin_acc.values():
+        power_arr, fdp_arr = _bins_to_power_fdp(acc["counts"], acc["causal"])
+        trace_label = (
+            f"{acc['method_label_base']} (@{acc['threshold']})"
+            if acc["is_thresholded"] else acc["method_display"]
+        )
+        for k in range(_N_PIP_BINS):
+            rows.append({
+                "simulation_name": acc["collection_name"],
+                "method": acc["method"],
+                "threshold": acc["threshold"],
+                "method_display": acc["method_display"],
+                "is_thresholded": acc["is_thresholded"],
+                "is_selected_threshold": acc["is_selected_threshold"],
                 "trace_label": trace_label,
-                "legend_label": row["method_display"] if row["is_selected_threshold"] else None,
+                "legend_label": acc["method_display"] if acc["is_selected_threshold"] else None,
                 "pip_threshold": float(_PIP_THRESHOLD_GRID[k]),
                 "power": float(power_arr[k]),
                 "fdp": float(fdp_arr[k]),
