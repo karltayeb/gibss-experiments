@@ -21,6 +21,8 @@ def method_family_label_map() -> dict[str, str]:
         "twogroup_oracle_init":  "TG Oracle Init",
         "twogroup_scale_fam":    "Twogroup Scale",
         "twogroup_loc_fam":      "Twogroup Loc",
+        "linear_fixed":          "Linear SER",
+        "linear_estimated":      "Linear SER (est. var)",
     }
 
 
@@ -40,6 +42,8 @@ def method_family_color_map() -> dict[str, str]:
         "twogroup_oracle_init":  "#994F00",  # dark burnt orange
         "twogroup_scale_fam":    "#FF6347",  # tomato
         "twogroup_loc_fam":      "#C0392B",  # crimson
+        "linear_fixed":          "#8B4513",  # saddle brown
+        "linear_estimated":      "#A0522D",  # sienna
     }
 
 
@@ -412,9 +416,8 @@ def render_pip_calibration(
 
 
 
-_PIP_MARKER_THRESHOLDS = [0.5, 0.9, 0.99]
-_PIP_MARKER_COLORS = ["#e377c2", "#ff7f0e", "#d62728"]  # pink, orange, red
-_PIP_MARKER_STYLES = ["D", "s", "^"]  # diamond, square, triangle
+_PIP_MARKER_THRESHOLDS = [0.5, 0.9]
+_PIP_MARKER_STYLES = ["D", "s"]  # diamond, square
 
 
 def _plot_power_fdp_on_ax(
@@ -443,16 +446,14 @@ def _plot_power_fdp_on_ax(
             pip_arr = trace_df["pip_threshold"].to_numpy()
             fdp_arr = trace_df["fdp"].to_numpy()
             pwr_arr = trace_df["power"].to_numpy()
-            for thresh, mcolor, mstyle in zip(
-                _PIP_MARKER_THRESHOLDS, _PIP_MARKER_COLORS, _PIP_MARKER_STYLES
-            ):
+            for thresh, mstyle in zip(_PIP_MARKER_THRESHOLDS, _PIP_MARKER_STYLES):
                 idx = int(thresh * _N_PIP_BINS)  # pip_threshold[k] = k * 0.005
                 if 0 <= idx < len(pip_arr):
                     mlabel = f"PIP={thresh:g}" if thresh not in marker_legend_added else "_nolegend_"
                     ax.scatter(
                         fdp_arr[idx],
                         pwr_arr[idx],
-                        color=mcolor,
+                        color=color,
                         marker=mstyle,
                         s=60,
                         zorder=5,
