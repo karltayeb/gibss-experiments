@@ -446,7 +446,7 @@ def _plot_power_fdp_on_ax(
             for thresh, mcolor, mstyle in zip(
                 _PIP_MARKER_THRESHOLDS, _PIP_MARKER_COLORS, _PIP_MARKER_STYLES
             ):
-                idx = int(round(thresh * 1000)) - 1  # threshold_grid[i] = (i+1)/1000
+                idx = int(thresh * _N_PIP_BINS)  # pip_threshold[k] = k * 0.005
                 if 0 <= idx < len(pip_arr):
                     mlabel = f"PIP={thresh:g}" if thresh not in marker_legend_added else "_nolegend_"
                     ax.scatter(
