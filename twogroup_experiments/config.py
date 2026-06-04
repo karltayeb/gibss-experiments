@@ -656,12 +656,17 @@ REGISTRY.register_batches(tuple(
 ))
 
 
-# --- full grid: causal_effect x intercept, signal_value matches effect ---
-# effect=0 (null) is covered by NULL_SIMULATION_SPECS; excluded here.
-# scale effects must be positive (scale parameter cannot be negative).
-GRID_EFFECT_LOC_VALUES: tuple[float, ...] = (-2.0, -1.0, 1.0, 2.0)
-GRID_EFFECT_SCALE_VALUES: tuple[float, ...] = (1.0, 2.0)
+# --- full b0 x b enrichment grid ---
+# Naming: design=X__enrichment=b0_{b0}_b_{b}__signal={kind}_{|b|}
+# b=0 is the null case (same ser_enrich function, causal_effect=0; zero-effect
+# causal vars are removed before reporting). scale requires b >= 0.
+GRID_EFFECT_LOC_VALUES: tuple[float, ...] = (-2.0, -1.0, 0.0, 1.0, 2.0)
+GRID_EFFECT_SCALE_VALUES: tuple[float, ...] = (0.0, 1.0, 2.0)
 GRID_INTERCEPT_VALUES: tuple[float, ...] = (-3.0, -2.0, -1.0, 0.0)
+
+
+def _grid_enrichment_name(b0: float, b: float) -> str:
+    return f"b0_{format_float(b0)}_b_{format_float(b)}"
 
 
 def _make_grid_simulation(
@@ -669,25 +674,24 @@ def _make_grid_simulation(
     design_name: str,
     design_sampler,
     signal_kind: str,
-    causal_effect: float,
-    intercept: float,
+    b: float,
+    b0: float,
 ) -> SimulationSpec:
+    abs_b = abs(b)
     if signal_kind == "loc":
-        f1 = fixed_normal(loc=causal_effect, scale=LOC_SCALE_FIXED)
+        f1 = fixed_normal(loc=b, scale=LOC_SCALE_FIXED)
+        signal = _signal_name("loc", b)
     elif signal_kind == "scale":
-        f1 = fixed_normal(loc=0.0, scale=causal_effect)
+        scale_val = abs_b if abs_b > 0 else 1.0  # scale must be positive; b=0 uses prior=1.0
+        f1 = fixed_normal(loc=0.0, scale=scale_val)
+        signal = _signal_name("scale", abs_b)
     else:
         raise ValueError(f"Unknown signal kind: {signal_kind!r}")
     return SimulationSpec(
-        name=_simulation_name(
-            design=design_name,
-            enrichment=SER_ENRICH,
-            signal=_signal_name(signal_kind, causal_effect),
-            intercept=intercept,
-        ),
+        name=f"design={design_name}__enrichment={_grid_enrichment_name(b0, b)}__signal={signal}",
         design_sampler=design_sampler,
-        effect_sampler=partial(uniform_single_effect, causal_effect=causal_effect),
-        intercept=float(intercept),
+        effect_sampler=partial(uniform_single_effect, causal_effect=b),
+        intercept=float(b0),
         f0=F0,
         f1=f1,
         base_seed=BASE_SEED,
@@ -696,8 +700,8 @@ def _make_grid_simulation(
 
 def _grid_signal_effect_pairs() -> list[tuple[str, float]]:
     return (
-        [("loc", e) for e in GRID_EFFECT_LOC_VALUES]
-        + [("scale", e) for e in GRID_EFFECT_SCALE_VALUES]
+        [("loc", b) for b in GRID_EFFECT_LOC_VALUES]
+        + [("scale", b) for b in GRID_EFFECT_SCALE_VALUES]
     )
 
 
@@ -706,12 +710,12 @@ GRID_SIMULATION_SPECS = tuple(
         design_name=design_name,
         design_sampler=DESIGN_KWARGS[design_name]["design_sampler"],
         signal_kind=signal_kind,
-        causal_effect=effect,
-        intercept=intercept,
+        b=b,
+        b0=b0,
     )
     for design_name in SIGNAL_DESIGNS
-    for signal_kind, effect in _grid_signal_effect_pairs()
-    for intercept in GRID_INTERCEPT_VALUES
+    for signal_kind, b in _grid_signal_effect_pairs()
+    for b0 in GRID_INTERCEPT_VALUES
 )
 
 SIMULATION_BY_NAME.update({spec.name: spec for spec in GRID_SIMULATION_SPECS})
