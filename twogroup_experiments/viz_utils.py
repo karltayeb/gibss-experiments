@@ -100,13 +100,18 @@ def make_placeholder_chart(title: str):
     return fig
 
 
+_N_FINE_BINS = 200
+_N_COARSE_BINS = 20
+_FINE_PER_COARSE = _N_FINE_BINS // _N_COARSE_BINS  # 10
+
+
 def expand_pip_calibration_from_compact(
     pip_plot_data: pl.DataFrame,
     method_metadata: pl.DataFrame,
     *,
     selected_thresholds: list[float] | None,
 ) -> pl.DataFrame:
-    """Expand pip_plot_data to per-bin rows for render_pip_calibration."""
+    """Expand pip_plot_data to 20 coarse-bin rows for render_pip_calibration. Aggregates 200 fine bins (width 0.005) into 20 coarse bins (width 0.05)."""
     if pip_plot_data.is_empty():
         return pl.DataFrame(schema={
             "collection_name": pl.String, "simulation_name": pl.String,
@@ -127,17 +132,19 @@ def expand_pip_calibration_from_compact(
     for row in pip_plot_data.iter_rows(named=True):
         counts = row["pip_bin_counts"]
         causal_counts = row["pip_bin_causal_counts"]
-        for b in range(20):
+        for j in range(_N_COARSE_BINS):
+            start = j * _FINE_PER_COARSE
+            stop = start + _FINE_PER_COARSE
             rows.append({
                 "collection_name": row.get("collection_name", ""),
                 "method": row["method"],
                 "threshold": row["threshold"],
-                "pip_bin_index": b,
-                "pip_left": b * 0.05,
-                "pip_right": (b + 1) * 0.05,
-                "pip_mid": (b + 0.5) * 0.05,
-                "n_total": counts[b],
-                "n_causal": causal_counts[b],
+                "pip_bin_index": j,
+                "pip_left": j * 0.05,
+                "pip_right": (j + 1) * 0.05,
+                "pip_mid": (j + 0.5) * 0.05,
+                "n_total": sum(counts[start:stop]),
+                "n_causal": sum(causal_counts[start:stop]),
             })
     expanded = pl.from_dicts(rows, schema={
         "collection_name": pl.String, "method": pl.String, "threshold": pl.Float64,
