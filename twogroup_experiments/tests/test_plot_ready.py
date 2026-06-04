@@ -172,16 +172,14 @@ def test_build_pip_plot_data_schema():
 
     result = plot_ready.build_pip_plot_data(fits_df, sample_metadata, simulations_by_batch)
 
-    assert result.height == 2  # one row per (sample, method, threshold)
+    assert result.height == 2
     assert set(result.columns) == {
         "sample_id", "method", "threshold",
         "causal_indices", "causal_pips",
         "pip_bin_counts", "pip_bin_causal_counts",
-        "power_at_threshold", "fdp_at_threshold",
     }
     assert result["pip_bin_counts"].dtype == pl.List(pl.Int64)
-    assert result["pip_bin_counts"][0].len() == 20
-    assert result["power_at_threshold"][0].len() == 10
+    assert result["pip_bin_counts"][0].len() == 200
 
 
 def test_build_pip_plot_data_causal_pips_correct():

@@ -153,7 +153,8 @@ def _build_sample_metadata_from_manifest(
     return pl.from_dicts(rows)
 
 
-_PIP_THRESHOLD_GRID = [0.01, 0.05, 0.1, 0.2, 0.3, 0.5, 0.8, 0.9, 0.95, 0.99]
+_N_PIP_BINS = 200
+_PIP_BIN_WIDTH = 1.0 / _N_PIP_BINS  # 0.005
 
 
 def build_pip_plot_data(
@@ -161,12 +162,11 @@ def build_pip_plot_data(
     sample_metadata: pl.DataFrame,
     simulations_by_batch: dict[str, pl.DataFrame],
 ) -> pl.DataFrame:
-    """One row per (sample_id, method, threshold). Arrays pre-aggregated for plot time."""
+    """One row per (sample_id, method, threshold). Bin arrays used to derive plots."""
     empty_schema = {
         "sample_id": pl.String, "method": pl.String, "threshold": pl.Float64,
         "causal_indices": pl.List(pl.Int64), "causal_pips": pl.List(pl.Float64),
         "pip_bin_counts": pl.List(pl.Int64), "pip_bin_causal_counts": pl.List(pl.Int64),
-        "power_at_threshold": pl.List(pl.Float64), "fdp_at_threshold": pl.List(pl.Float64),
     }
     fits_with_sid = fits_df.join(
         sample_metadata.select("sample_id", "batch_hash", "replicate"),
@@ -184,21 +184,11 @@ def build_pip_plot_data(
 
         causal_pips = [float(marginal_pip[ci]) for ci in causal_indices]
 
-        bin_idx = np.clip((marginal_pip * 20).astype(int), 0, 19)
+        bin_idx = np.clip((marginal_pip * _N_PIP_BINS).astype(int), 0, _N_PIP_BINS - 1)
         is_causal = np.zeros(len(marginal_pip), dtype=bool)
         is_causal[causal_indices] = True
-        pip_bin_counts = [int((bin_idx == b).sum()) for b in range(20)]
-        pip_bin_causal_counts = [int(((bin_idx == b) & is_causal).sum()) for b in range(20)]
-
-        n_causal = max(len(causal_indices), 1)
-        power_at_threshold = []
-        fdp_at_threshold = []
-        for t in _PIP_THRESHOLD_GRID:
-            selected = marginal_pip >= t
-            sel_causal = int(selected[causal_indices].sum())
-            sel_total = int(selected.sum())
-            power_at_threshold.append(float(sel_causal / n_causal))
-            fdp_at_threshold.append(float((sel_total - sel_causal) / max(sel_total, 1)))
+        pip_bin_counts = [int((bin_idx == b).sum()) for b in range(_N_PIP_BINS)]
+        pip_bin_causal_counts = [int(((bin_idx == b) & is_causal).sum()) for b in range(_N_PIP_BINS)]
 
         rows.append({
             "sample_id": row["sample_id"],
@@ -208,8 +198,6 @@ def build_pip_plot_data(
             "causal_pips": causal_pips,
             "pip_bin_counts": pip_bin_counts,
             "pip_bin_causal_counts": pip_bin_causal_counts,
-            "power_at_threshold": power_at_threshold,
-            "fdp_at_threshold": fdp_at_threshold,
         })
     if not rows:
         return pl.DataFrame(schema=empty_schema)
