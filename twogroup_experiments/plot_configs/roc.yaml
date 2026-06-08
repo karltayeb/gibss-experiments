@@ -1,0 +1,224 @@
+supercollections:
+  hallmark-roc-loc:
+    collections:
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_0.50_with_null
+        alias: loc=0.50
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_1.00_with_null
+        alias: loc=1.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_1.50_with_null
+        alias: loc=1.50
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00_with_null
+        alias: loc=2.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.50_with_null
+        alias: loc=2.50
+      - name: design=hallmark__enrichment=ser_enrich__signal=loc_3.00_with_null
+        alias: loc=3.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+    plots:
+      - settings:
+          - twogroup_methods
+          - minimal
+        plot_type_groups:
+          - roc
+
+  hallmark-roc-scale:
+    collections:
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_0.75_with_null
+        alias: scale=0.75
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.00_with_null
+        alias: scale=1.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.50_with_null
+        alias: scale=1.50
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.75_with_null
+        alias: scale=1.75
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00_with_null
+        alias: scale=2.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_3.00_with_null
+        alias: scale=3.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_4.00_with_null
+        alias: scale=4.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_5.00_with_null
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+    plots:
+      - settings:
+          - twogroup_methods
+          - minimal
+        plot_type_groups:
+          - roc
+
+  c4-roc-loc:
+    collections:
+      - name: design=c4__enrichment=ser_enrich__signal=loc_0.50_with_null
+        alias: loc=0.50
+      - name: design=c4__enrichment=ser_enrich__signal=loc_1.00_with_null
+        alias: loc=1.00
+      - name: design=c4__enrichment=ser_enrich__signal=loc_1.50_with_null
+        alias: loc=1.50
+      - name: design=c4__enrichment=ser_enrich__signal=loc_2.00_with_null
+        alias: loc=2.00
+      - name: design=c4__enrichment=ser_enrich__signal=loc_2.50_with_null
+        alias: loc=2.50
+      - name: design=c4__enrichment=ser_enrich__signal=loc_3.00_with_null
+        alias: loc=3.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+    plots:
+      - settings:
+          - twogroup_methods
+          - minimal
+        plot_type_groups:
+          - roc
+
+  c4-roc-scale:
+    collections:
+      - name: design=c4__enrichment=ser_enrich__signal=scale_0.75_with_null
+        alias: scale=0.75
+      - name: design=c4__enrichment=ser_enrich__signal=scale_1.00_with_null
+        alias: scale=1.00
+      - name: design=c4__enrichment=ser_enrich__signal=scale_1.50_with_null
+        alias: scale=1.50
+      - name: design=c4__enrichment=ser_enrich__signal=scale_1.75_with_null
+        alias: scale=1.75
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.00_with_null
+        alias: scale=2.00
+      - name: design=c4__enrichment=ser_enrich__signal=scale_3.00_with_null
+        alias: scale=3.00
+      - name: design=c4__enrichment=ser_enrich__signal=scale_4.00_with_null
+        alias: scale=4.00
+      - name: design=c4__enrichment=ser_enrich__signal=scale_5.00_with_null
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+    plots:
+      - settings:
+          - twogroup_methods
+          - minimal
+        plot_type_groups:
+          - roc
+
+  gaussian-roc-loc:
+    collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50_with_null
+        alias: loc=0.50
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00_with_null
+        alias: loc=1.00
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50_with_null
+        alias: loc=1.50
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00_with_null
+        alias: loc=2.00
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50_with_null
+        alias: loc=2.50
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00_with_null
+        alias: loc=3.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+    plots:
+      - settings:
+          - twogroup_methods
+          - minimal
+        plot_type_groups:
+          - roc
+
+  gaussian-roc-scale:
+    collections:
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75_with_null
+        alias: scale=0.75
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00_with_null
+        alias: scale=1.00
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50_with_null
+        alias: scale=1.50
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75_with_null
+        alias: scale=1.75
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00_with_null
+        alias: scale=2.00
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00_with_null
+        alias: scale=3.00
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00_with_null
+        alias: scale=4.00
+      - name: design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00_with_null
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+    plots:
+      - settings:
+          - twogroup_methods
+          - minimal
+        plot_type_groups:
+          - roc
+
+  uniform-roc-loc:
+    collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50_with_null
+        alias: loc=0.50
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00_with_null
+        alias: loc=1.00
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50_with_null
+        alias: loc=1.50
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00_with_null
+        alias: loc=2.00
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50_with_null
+        alias: loc=2.50
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00_with_null
+        alias: loc=3.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+    plots:
+      - settings:
+          - twogroup_methods
+          - minimal
+        plot_type_groups:
+          - roc
+
+  uniform-roc-scale:
+    collections:
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75_with_null
+        alias: scale=0.75
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00_with_null
+        alias: scale=1.00
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50_with_null
+        alias: scale=1.50
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75_with_null
+        alias: scale=1.75
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00_with_null
+        alias: scale=2.00
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00_with_null
+        alias: scale=3.00
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00_with_null
+        alias: scale=4.00
+      - name: design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00_with_null
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+    plots:
+      - settings:
+          - twogroup_methods
+          - minimal
+        plot_type_groups:
+          - roc

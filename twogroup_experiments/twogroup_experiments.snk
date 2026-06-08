@@ -4,7 +4,7 @@ import polars as pl
 from pathlib import Path
 
 RESULTS_ROOT = "results"
-PLOT_CONFIG_PATH = "notebooks/plot_config.yaml"
+PLOT_CONFIGS_DIR = Path("plot_configs")
 
 from core import HASH_KEY, rehydrate_node
 from utils import (
@@ -49,7 +49,18 @@ def _resolve_collection_batches(simulations: list) -> list:
     ]
 
 
-_PLOT_CONFIG: dict = _yaml.safe_load(Path(PLOT_CONFIG_PATH).read_text()) or {}
+def _load_plot_configs() -> dict:
+    merged: dict = {}
+    for _p in sorted(PLOT_CONFIGS_DIR.glob("*.yaml")):
+        _cfg = _yaml.safe_load(_p.read_text()) or {}
+        for _k, _v in _cfg.items():
+            if _k not in merged:
+                merged[_k] = _v
+            elif isinstance(merged[_k], dict) and isinstance(_v, dict):
+                merged[_k].update(_v)
+    return merged
+
+_PLOT_CONFIG: dict = _load_plot_configs()
 _COLLECTION_DEFS = _PLOT_CONFIG.get("collections", {})
 _METHOD_COLLECTIONS = _PLOT_CONFIG.get("method_collections", {})
 _PLOT_TYPE_GROUPS: dict[str, list[str]] = _PLOT_CONFIG.get("plot_type_groups", {})
