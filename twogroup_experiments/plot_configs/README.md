@@ -55,7 +55,7 @@ supercollections:
 design={design}__enrichment={enrichment}__signal={kind}_{value}
 ```
 
-Common designs: `hallmark`, `c4`, `gaussian_markov_rho_0.90_n_features_100`, `uniform_markov_rho_0.90_n_features_100`
+Common designs: `hallmark`, `c4`, `gaussian_rho_0.90_n_500_p_100`, `uniform_rho_0.90_n_500_p_100`
 
 Enrichment: `ser_enrich` (non-null SER), `b0_{b0}_b_{b}` (grid, e.g. `b0_-3.00_b_0.00` for null)
 

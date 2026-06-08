@@ -39,10 +39,12 @@ __all__ = [
     "SCALE_GRID",
     "RHO_GRID",
     "N_FEATURE_GRID",
+    "N_SAMPLE_GRID",
     "SIGNAL_LOC_VALUES",
     "SIGNAL_SCALE_VALUES",
     "CORRELATION_RHO_VALUES",
     "N_FEATURE_VALUES",
+    "N_SAMPLE_VALUES",
     "ConfigRegistry",
     "SIMULATION_SPECS",
     "THRESHOLD_SWEEP_SER_SPECS",
@@ -133,11 +135,13 @@ RHO_GRID = (
     0.99,
 )
 N_FEATURE_GRID = (100, 200, 400, 800, 1600)
+N_SAMPLE_GRID = (50, 100, 200, 500, 1000, 2000)
 
 SIGNAL_LOC_VALUES = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0)
 SIGNAL_SCALE_VALUES = (0.75, 1.0, 1.5, 1.75, 2.0, 3.0, 4.0, 5.0)
 CORRELATION_RHO_VALUES = (0.0, 0.5, 0.8, 0.9, 0.95, 0.99)
 N_FEATURE_VALUES = N_FEATURE_GRID
+N_SAMPLE_VALUES = N_SAMPLE_GRID
 
 F0 = PointMass(0.0)
 F1INIT = Normal(loc=0.0, scale=1.0, estimate_loc=True, estimate_scale=True)
@@ -153,6 +157,7 @@ CORRELATION_SCALE_ANCHOR = 1.75
 CORRELATION_SCALE_ANCHOR_STRONG = 2.25
 SIGNAL_RHO = 0.90
 SIGNAL_N_FEATURES = 100
+SIGNAL_N = 500
 SAMPLE_SIZE_RHO = 0.90
 
 
@@ -307,8 +312,8 @@ def _simulation_name(*, design: str, enrichment: str, signal: str, error: str | 
     return base if error is None else f"{base}__error={error}"
 
 
-def _markov_design_name(*, family: str, rho: float, n_features: int) -> str:
-    return f"{family}_markov_rho_{format_float(rho)}_n_features_{int(n_features)}"
+def _markov_design_name(*, family: str, rho: float, n: int, p: int) -> str:
+    return f"{family}_rho_{format_float(rho)}_n_{int(n)}_p_{int(p)}"
 
 
 def _make_simulation(
@@ -357,33 +362,12 @@ def _build_design_kwargs() -> dict[str, dict[str, object]]:
         ("uniform", uniform_markov_X),
     ):
         for rho in RHO_GRID:
-            design_name = _markov_design_name(
-                family=family,
-                rho=rho,
-                n_features=SIGNAL_N_FEATURES,
-            )
-            design_kwargs[design_name] = {
-                "design_sampler": partial(
-                    sampler,
-                    n=500,
-                    p=SIGNAL_N_FEATURES,
-                    rho=rho,
-                )
-            }
-        for n_features in N_FEATURE_GRID:
-            design_name = _markov_design_name(
-                family=family,
-                rho=SAMPLE_SIZE_RHO,
-                n_features=n_features,
-            )
-            design_kwargs[design_name] = {
-                "design_sampler": partial(
-                    sampler,
-                    n=500,
-                    p=n_features,
-                    rho=SAMPLE_SIZE_RHO,
-                )
-            }
+            for n in N_SAMPLE_GRID:
+                for p in N_FEATURE_GRID:
+                    design_name = _markov_design_name(family=family, rho=rho, n=n, p=p)
+                    design_kwargs[design_name] = {
+                        "design_sampler": partial(sampler, n=n, p=p, rho=rho)
+                    }
 
     return design_kwargs
 
@@ -436,27 +420,33 @@ def _atomic_collection_name(
 SIGNAL_DESIGNS = (
     "hallmark",
     "c4",
-    _markov_design_name(
-        family="gaussian", rho=SIGNAL_RHO, n_features=SIGNAL_N_FEATURES
-    ),
-    _markov_design_name(family="uniform", rho=SIGNAL_RHO, n_features=SIGNAL_N_FEATURES),
+    _markov_design_name(family="gaussian", rho=SIGNAL_RHO, n=SIGNAL_N, p=SIGNAL_N_FEATURES),
+    _markov_design_name(family="uniform", rho=SIGNAL_RHO, n=SIGNAL_N, p=SIGNAL_N_FEATURES),
 )
 
 CORRELATION_GAUSSIAN_DESIGNS = tuple(
-    _markov_design_name(family="gaussian", rho=rho, n_features=SIGNAL_N_FEATURES)
+    _markov_design_name(family="gaussian", rho=rho, n=SIGNAL_N, p=SIGNAL_N_FEATURES)
     for rho in CORRELATION_RHO_VALUES
 )
 CORRELATION_UNIFORM_DESIGNS = tuple(
-    _markov_design_name(family="uniform", rho=rho, n_features=SIGNAL_N_FEATURES)
+    _markov_design_name(family="uniform", rho=rho, n=SIGNAL_N, p=SIGNAL_N_FEATURES)
     for rho in CORRELATION_RHO_VALUES
 )
 N_FEATURE_GAUSSIAN_DESIGNS = tuple(
-    _markov_design_name(family="gaussian", rho=SAMPLE_SIZE_RHO, n_features=n_features)
-    for n_features in N_FEATURE_VALUES
+    _markov_design_name(family="gaussian", rho=SAMPLE_SIZE_RHO, n=SIGNAL_N, p=p)
+    for p in N_FEATURE_VALUES
 )
 N_FEATURE_UNIFORM_DESIGNS = tuple(
-    _markov_design_name(family="uniform", rho=SAMPLE_SIZE_RHO, n_features=n_features)
-    for n_features in N_FEATURE_VALUES
+    _markov_design_name(family="uniform", rho=SAMPLE_SIZE_RHO, n=SIGNAL_N, p=p)
+    for p in N_FEATURE_VALUES
+)
+N_SAMPLE_GAUSSIAN_DESIGNS = tuple(
+    _markov_design_name(family="gaussian", rho=SAMPLE_SIZE_RHO, n=n, p=SIGNAL_N_FEATURES)
+    for n in N_SAMPLE_VALUES
+)
+N_SAMPLE_UNIFORM_DESIGNS = tuple(
+    _markov_design_name(family="uniform", rho=SAMPLE_SIZE_RHO, n=n, p=SIGNAL_N_FEATURES)
+    for n in N_SAMPLE_VALUES
 )
 
 
@@ -523,12 +513,8 @@ T_ERROR_DFS = (3, 5, 10, 30)
 T_ERROR_SIGNAL_VALUES: dict[str, dict[str, float]] = {
     "hallmark": {"loc": 2.0, "scale": 2.0},
     "c4": {"loc": 2.0, "scale": 2.0},
-    _markov_design_name(
-        family="gaussian", rho=SIGNAL_RHO, n_features=SIGNAL_N_FEATURES
-    ): {"loc": 2.0, "scale": 2.0},
-    _markov_design_name(
-        family="uniform", rho=SIGNAL_RHO, n_features=SIGNAL_N_FEATURES
-    ): {"loc": 2.0, "scale": 2.0},
+    _markov_design_name(family="gaussian", rho=SIGNAL_RHO, n=SIGNAL_N, p=SIGNAL_N_FEATURES): {"loc": 2.0, "scale": 2.0},
+    _markov_design_name(family="uniform", rho=SIGNAL_RHO, n=SIGNAL_N, p=SIGNAL_N_FEATURES): {"loc": 2.0, "scale": 2.0},
 }
 
 

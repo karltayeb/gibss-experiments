@@ -195,199 +195,199 @@ collections:
       - design=c4__enrichment=null__signal=scale_5.00__intercept=-2.00
       # - design=c4__enrichment=null__signal=scale_5.00__intercept=-1.00
       # - design=c4__enrichment=null__signal=scale_5.00__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50_with_null:
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_0.50_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_0.50__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_0.50__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_0.50__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_0.50__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_0.50
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_0.50__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_0.50__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_0.50__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_0.50__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.00_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.00__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.00__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.00__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.00__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.00__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.00__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.00__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.00__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.50__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.50__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.50__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.50__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.00__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.50_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.50__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.50__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.50__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.50__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.50
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.50__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.50__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.50__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.50__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_3.00_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_3.00__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_3.00__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_3.00__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_3.00__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_3.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_3.00__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_3.00__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_3.00__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=loc_3.00__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_0.75__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_0.75__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_0.75__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_0.75__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_0.75__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_0.75__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_0.75__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_0.75__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.00__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.00__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.00__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.00__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.00__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.00__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.00__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.00__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.50__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.50__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.50__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.50__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.50__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.50__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.50__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.50__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.75__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.75__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.75__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.75__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_2.00__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_2.00__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_2.00__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_2.00__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_3.00__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_3.00__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_3.00__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_3.00__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_3.00__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_3.00__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_3.00__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_3.00__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_4.00__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_4.00__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_4.00__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_4.00__intercept=0.00
-  design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_4.00__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_4.00__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_4.00__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_4.00__intercept=0.00
+  design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00_with_null:
     simulations:
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_5.00__intercept=-3.00
-      - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_5.00__intercept=-2.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_5.00__intercept=-1.00
-      # - design=gaussian_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_5.00__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50_with_null:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_5.00__intercept=-3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_5.00__intercept=-2.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_5.00__intercept=-1.00
+      # - design=gaussian_rho_0.90_n_500_p_100__enrichment=null__signal=scale_5.00__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_0.50_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_0.50
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_0.50__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_0.50__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_0.50__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_0.50__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_0.50
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_0.50__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_0.50__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_0.50__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_0.50__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.00_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.00__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.00__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.00__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.00__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.00__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.00__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.00__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.00__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_1.50
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_1.50__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.50__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.50__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.50__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_1.50__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.00__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.00__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.00__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.00__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.00__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.50_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_2.50
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.50__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.50__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.50__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_2.50__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.50
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.50__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.50__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.50__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_2.50__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_3.00_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=loc_3.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_3.00__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_3.00__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_3.00__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=loc_3.00__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_3.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_3.00__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_3.00__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_3.00__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=loc_3.00__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_0.75
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_0.75__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_0.75__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_0.75__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_0.75__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_0.75__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_0.75__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_0.75__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_0.75__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.00__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.00__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.00__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.00__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.00__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.00__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.00__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.00__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.50
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.50__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.50__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.50__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.50__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.50__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.50__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.50__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.50__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_1.75
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_1.75__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.75__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.75__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.75__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_1.75__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_2.00__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_2.00__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_2.00__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_2.00__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_2.00__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_3.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_3.00__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_3.00__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_3.00__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_3.00__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_3.00__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_3.00__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_3.00__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_3.00__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_4.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_4.00__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_4.00__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_4.00__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_4.00__intercept=0.00
-  design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00_with_null:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_4.00__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_4.00__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_4.00__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_4.00__intercept=0.00
+  design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00_with_null:
     simulations:
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=ser_enrich__signal=scale_5.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_5.00__intercept=-3.00
-      - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_5.00__intercept=-2.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_5.00__intercept=-1.00
-      # - design=uniform_markov_rho_0.90_n_features_100__enrichment=null__signal=scale_5.00__intercept=0.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_5.00__intercept=-3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_5.00__intercept=-2.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_5.00__intercept=-1.00
+      # - design=uniform_rho_0.90_n_500_p_100__enrichment=null__signal=scale_5.00__intercept=0.00
