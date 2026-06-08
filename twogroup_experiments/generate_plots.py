@@ -18,7 +18,7 @@ import plot_ready
 import viz_utils
 
 
-_PLOT_CONFIG_PATH = Path(__file__).parent / "notebooks" / "plot_config.yaml"
+_PLOT_CONFIGS_DIR = Path(__file__).parent / "plot_configs"
 _COLLECTION_ALIAS_ROOT = Path(__file__).parent / "results" / "collections"
 
 PLOT_TYPES = [
@@ -26,6 +26,9 @@ PLOT_TYPES = [
     "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace", "preceding_posterior_mass_ecdf",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
     "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace", "agg_cs_size_power", "agg_cs_calibrated_dot", "agg_preceding_posterior_mass_ecdf",
+    "cs_coverage_size", "agg_cs_coverage_size",
+    "cs_calibration", "agg_cs_calibration",
+    "log_bf_roc", "agg_log_bf_roc",
     "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
 ]
 
@@ -47,7 +50,15 @@ def make_plot(
 
 
 def _load_plot_config() -> dict:
-    return yaml.safe_load(_PLOT_CONFIG_PATH.read_text()) or {}
+    merged: dict = {}
+    for path in sorted(_PLOT_CONFIGS_DIR.glob("*.yaml")):
+        cfg = yaml.safe_load(path.read_text()) or {}
+        for key, val in cfg.items():
+            if key not in merged:
+                merged[key] = val
+            elif isinstance(merged[key], dict) and isinstance(val, dict):
+                merged[key].update(val)
+    return merged
 
 
 def _resolve_settings(cfg: dict, supercollection: str, plot_settings: str) -> dict:
@@ -806,6 +817,82 @@ def _make_agg_cs_coverage_trace(combined_data: dict, settings: dict) -> plt.Figu
     )
 
 
+def _make_cs_coverage_size(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    collection_names = combined_data["collection_names"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS beta trace data")
+    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings))
+    return viz_utils.render_cs_coverage_size_chart(curves, collection_names=collection_names)
+
+
+def _make_agg_cs_coverage_size(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS beta trace data")
+    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings))
+    fig = viz_utils.render_cs_coverage_size_chart(curves, collection_names=[])
+    _set_agg_facecolor(fig)
+    return fig
+
+
+def _make_cs_calibration(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    collection_names = combined_data["collection_names"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS beta trace data")
+    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings))
+    return viz_utils.render_cs_calibration_chart(curves, collection_names=collection_names)
+
+
+def _make_agg_cs_calibration(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS beta trace data")
+    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings))
+    fig = viz_utils.render_cs_calibration_chart(curves, collection_names=[])
+    _set_agg_facecolor(fig)
+    return fig
+
+
+def _make_log_bf_roc(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS data")
+    roc_curves = viz_utils.make_log_bf_roc_curves(
+        cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+    )
+    return viz_utils.render_log_bf_roc_chart(roc_curves)
+
+
+def _make_agg_log_bf_roc(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS data")
+    roc_curves = viz_utils.make_log_bf_roc_curves(
+        cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+    )
+    fig = viz_utils.render_log_bf_roc_chart(roc_curves)
+    _set_agg_facecolor(fig)
+    return fig
+
+
 def _make_agg_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
@@ -942,6 +1029,7 @@ _PLOT_DISPATCH = {
     "cs_power_fdp": _make_cs_power_fdp,
     "cs_beta_trace": _make_cs_beta_trace,
     "cs_coverage_trace": _make_cs_coverage_trace,
+    "cs_coverage_size": _make_cs_coverage_size,
     "agg_pip_calibration": _make_agg_pip_calibration,
     "agg_power_fdp": _make_agg_power_fdp,
     "agg_causal_pip": _make_agg_causal_pip,
@@ -951,6 +1039,11 @@ _PLOT_DISPATCH = {
     "agg_cs_beta_trace": _make_agg_cs_beta_trace,
     "agg_cs_coverage_trace": _make_agg_cs_coverage_trace,
     "agg_cs_size_power": _make_agg_cs_size_power,
+    "agg_cs_coverage_size": _make_agg_cs_coverage_size,
+    "cs_calibration": _make_cs_calibration,
+    "agg_cs_calibration": _make_agg_cs_calibration,
+    "log_bf_roc": _make_log_bf_roc,
+    "agg_log_bf_roc": _make_agg_log_bf_roc,
     "agg_cs_calibrated_dot": _make_agg_cs_calibrated_dot,
     "preceding_posterior_mass_ecdf": _make_preceding_posterior_mass_ecdf,
     "agg_preceding_posterior_mass_ecdf": _make_agg_preceding_posterior_mass_ecdf,

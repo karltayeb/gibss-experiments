@@ -1078,6 +1078,7 @@ def _expand_cs_to_beta_rows(cs_plot_data: pl.DataFrame) -> pl.DataFrame:
     for row in cs_plot_data.iter_rows(named=True):
         ranks = row["rank_of_causal"]
         n_causal = max(len(ranks), 1)
+        n_features = row["n_features"]
         for beta, cs_size in zip(CS_BETA_GRID.tolist(), row["cs_sizes"]):
             n_covered = sum(1 for r in ranks if r < cs_size)
             rows.append({
@@ -1088,6 +1089,7 @@ def _expand_cs_to_beta_rows(cs_plot_data: pl.DataFrame) -> pl.DataFrame:
                 "l": row["l"],
                 "beta": float(beta),
                 "cs_size": cs_size,
+                "cs_size_frac": cs_size / n_features,
                 "covered": n_covered > 0,
                 "power": float(n_covered / n_causal),
                 "ser_log_bf": row["ser_log_bf"],
@@ -1096,14 +1098,14 @@ def _expand_cs_to_beta_rows(cs_plot_data: pl.DataFrame) -> pl.DataFrame:
         return pl.DataFrame(schema={
             "collection_name": pl.String, "sample_id": pl.String,
             "method": pl.String, "threshold": pl.Float64, "l": pl.Int64,
-            "beta": pl.Float64, "cs_size": pl.Int64, "covered": pl.Boolean,
-            "power": pl.Float64, "ser_log_bf": pl.Float64,
+            "beta": pl.Float64, "cs_size": pl.Int64, "cs_size_frac": pl.Float64,
+            "covered": pl.Boolean, "power": pl.Float64, "ser_log_bf": pl.Float64,
         })
     return pl.from_dicts(rows, schema={
         "collection_name": pl.String, "sample_id": pl.String,
         "method": pl.String, "threshold": pl.Float64, "l": pl.Int64,
-        "beta": pl.Float64, "cs_size": pl.Int64, "covered": pl.Boolean,
-        "power": pl.Float64, "ser_log_bf": pl.Float64,
+        "beta": pl.Float64, "cs_size": pl.Int64, "cs_size_frac": pl.Float64,
+        "covered": pl.Boolean, "power": pl.Float64, "ser_log_bf": pl.Float64,
     })
 
 
@@ -1144,6 +1146,56 @@ def _compute_causal_power_rows(
     if not rows:
         return pl.DataFrame(schema=schema)
     return pl.from_dicts(rows, schema=schema)
+
+
+def make_cs_coverage_size_curves(
+    cs_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_thresholds: list[float] | None,
+) -> pl.DataFrame:
+    """Raw coverage vs CS size curves, no BF or size filtering.
+
+    Returns one row per (collection_name, method, method_display, threshold,
+    is_thresholded, beta) with mean empirical coverage and mean CS size across
+    all CS instances at that beta.
+    """
+    empty_schema = {
+        "collection_name": pl.String, "method": pl.String, "method_display": pl.String,
+        "threshold": pl.Float64, "is_thresholded": pl.Boolean, "beta": pl.Float64,
+        "coverage": pl.Float64, "cs_size": pl.Float64, "cs_size_frac": pl.Float64,
+    }
+    if cs_plot_data.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    thresh_mask = (
+        ~pl.col("is_thresholded")
+        | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+    )
+    meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+    valid_pairs = (
+        meta
+        .filter(pl.col("method").is_in(list(selected_methods)))
+        .filter(thresh_mask)
+        .select("method", "threshold")
+    )
+    filtered = cs_plot_data.join(valid_pairs, on=["method", "threshold"], how="inner", nulls_equal=True)
+    expanded = _expand_cs_to_beta_rows(filtered)
+    if expanded.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    return (
+        expanded
+        .group_by("collection_name", "method", "threshold", "beta")
+        .agg(
+            pl.col("covered").cast(pl.Float64).mean().alias("coverage"),
+            pl.col("cs_size").cast(pl.Float64).mean().alias("cs_size"),
+            pl.col("cs_size_frac").mean().alias("cs_size_frac"),
+        )
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .sort("collection_name", "method_display", "threshold", "beta")
+    )
 
 
 def make_cs_beta_trace_summary(
@@ -1939,6 +1991,343 @@ def render_cs_coverage_trace_chart(
         bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
         transform=fig.transFigure,
     )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
+def render_cs_coverage_size_chart(
+    summary: pl.DataFrame,
+    *,
+    collection_names: list[str],
+) -> "plt.Figure":
+    """x=empirical coverage, y=mean CS size, sweeping over beta. No BF or size filtering."""
+    if summary.is_empty():
+        return make_placeholder_chart("No CS beta trace data")
+
+    theme = base_chart_theme()
+    n_rows = len(collection_names)
+    _legend_w = 2.5
+    _fig_w = theme["width"] + _legend_w
+    _plot_frac = theme["width"] / _fig_w
+    fig, axes = plt.subplots(
+        n_rows + 1, 1,
+        figsize=(_fig_w, theme["height"] * (n_rows + 1)),
+        squeeze=False,
+    )
+
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
+    def _plot_row(row_idx: int, row_df: pl.DataFrame) -> None:
+        ax = axes[row_idx, 0]
+        trace_labels = (
+            row_df.select("method", "threshold", "method_display", "is_thresholded")
+            .unique()
+            .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
+        )
+        for trow in trace_labels.iter_rows(named=True):
+            thresh_filter = (
+                pl.col("threshold").is_null() if trow["threshold"] is None
+                else (pl.col("threshold") == trow["threshold"])
+            )
+            trace_df = row_df.filter(
+                (pl.col("method") == trow["method"]) & thresh_filter
+            ).sort("beta")
+            if trace_df.is_empty():
+                continue
+            color = method_color(trow["method"])
+            label = (
+                f"{trow['method_display']} (@{trow['threshold']:g})"
+                if trow["is_thresholded"] else trow["method_display"]
+            )
+            line, = ax.plot(
+                trace_df["coverage"].to_numpy(),
+                trace_df["cs_size_frac"].to_numpy(),
+                color=color,
+                linewidth=2.0,
+            )
+            marker_row = trace_df.filter(pl.col("beta") == 0.95)
+            if not marker_row.is_empty():
+                ax.plot(
+                    marker_row["coverage"].to_numpy(),
+                    marker_row["cs_size_frac"].to_numpy(),
+                    marker="o", markersize=6, color=color, linestyle="none",
+                )
+            if label not in seen_labels:
+                legend_handles.append(line)
+                legend_labels.append(label)
+                seen_labels.add(label)
+        ax.set_xlim(0.0, 1.02)
+        ax.set_ylim(0.0, 1.02)
+        if row_idx == 0:
+            ax.set_title("Coverage vs CS Size")
+        ax.set_xlabel("Empirical coverage")
+        ax.set_ylabel("Mean fraction of variables")
+
+    for row_idx, coll_name in enumerate(collection_names):
+        _plot_row(row_idx, summary.filter(pl.col("collection_name") == coll_name))
+        axes[row_idx, 0].set_title(coll_name, fontsize=9, fontweight="bold")
+
+    _agg = (
+        summary
+        .group_by("method", "method_display", "threshold", "is_thresholded", "beta")
+        .agg(pl.col("coverage").mean(), pl.col("cs_size").mean(), pl.col("cs_size_frac").mean())
+    )
+    _plot_row(n_rows, _agg)
+    axes[n_rows, 0].set_facecolor("#ddeeff")
+    if n_rows > 0:
+        axes[n_rows, 0].set_title("All (aggregate)", fontsize=9, fontweight="bold")
+
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
+        )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
+def make_log_bf_roc_curves(
+    cs_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_thresholds: list[float] | None,
+) -> pl.DataFrame:
+    """ROC curves for log BF discrimination: null (causal_indices empty) vs non-null.
+
+    Returns one row per (method, threshold, point) with fpr, tpr, log_bf columns.
+    Pools all collections.
+    """
+    import numpy as np
+
+    empty_schema = {
+        "method": pl.String, "method_display": pl.String,
+        "threshold": pl.Float64, "is_thresholded": pl.Boolean,
+        "log_bf": pl.Float64, "fpr": pl.Float64, "tpr": pl.Float64,
+    }
+    if cs_plot_data.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+    thresh_mask = (
+        ~pl.col("is_thresholded")
+        | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+    )
+    valid_pairs = (
+        meta.filter(pl.col("method").is_in(list(selected_methods))).filter(thresh_mask)
+        .select("method", "threshold")
+    )
+    filtered = cs_plot_data.join(valid_pairs, on=["method", "threshold"], how="inner", nulls_equal=True)
+    if filtered.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    flat = (
+        filtered
+        .with_columns(
+            (pl.col("causal_indices").list.len() > 0).alias("is_positive")
+        )
+        .select("method", "threshold", "ser_log_bf", "is_positive")
+    )
+
+    rows: list[dict] = []
+    for key, group in flat.group_by("method", "threshold"):
+        method, threshold = key
+        log_bfs = group["ser_log_bf"].to_numpy()
+        labels = group["is_positive"].to_numpy().astype(float)
+        n_pos = int(labels.sum())
+        n_neg = int(len(labels) - n_pos)
+        if n_pos == 0 or n_neg == 0:
+            continue
+        order = np.argsort(-log_bfs)
+        labels_s = labels[order]
+        lbf_s = log_bfs[order]
+        cum_pos = np.cumsum(labels_s)
+        cum_neg = np.cumsum(1 - labels_s)
+        tpr = np.concatenate([[0.0], cum_pos / n_pos])
+        fpr = np.concatenate([[0.0], cum_neg / n_neg])
+        lbf_pts = np.concatenate([[np.inf], lbf_s])
+        meta_row = meta.filter(
+            (pl.col("method") == method) & (
+                pl.col("threshold").is_null() if threshold is None
+                else pl.col("threshold") == threshold
+            )
+        )
+        method_display = meta_row["method_display"][0] if not meta_row.is_empty() else method
+        is_thresholded = bool(meta_row["is_thresholded"][0]) if not meta_row.is_empty() else False
+        for f, t, lb in zip(fpr.tolist(), tpr.tolist(), lbf_pts.tolist()):
+            rows.append({
+                "method": method, "method_display": method_display,
+                "threshold": threshold, "is_thresholded": is_thresholded,
+                "log_bf": lb, "fpr": f, "tpr": t,
+            })
+
+    if not rows:
+        return pl.DataFrame(schema=empty_schema)
+    return pl.from_dicts(rows, schema=empty_schema).sort("method_display", "threshold", "fpr")
+
+
+def render_log_bf_roc_chart(
+    roc_curves: pl.DataFrame,
+) -> "plt.Figure":
+    """Single-panel ROC: x=FPR, y=TPR, sweeping over log BF threshold."""
+    if roc_curves.is_empty():
+        return make_placeholder_chart("No ROC data (need null + non-null collections)")
+
+    theme = base_chart_theme()
+    _legend_w = 2.5
+    _fig_w = theme["width"] + _legend_w
+    _plot_frac = theme["width"] / _fig_w
+    fig, ax = plt.subplots(1, 1, figsize=(_fig_w, theme["height"]))
+
+    ax.plot([0, 1], [0, 1], color="black", linestyle="--", linewidth=1.0, zorder=0)
+
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
+    trace_labels = (
+        roc_curves.select("method", "threshold", "method_display", "is_thresholded")
+        .unique()
+        .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
+    )
+    for trow in trace_labels.iter_rows(named=True):
+        thresh_filter = (
+            pl.col("threshold").is_null() if trow["threshold"] is None
+            else (pl.col("threshold") == trow["threshold"])
+        )
+        curve = roc_curves.filter(
+            (pl.col("method") == trow["method"]) & thresh_filter
+        ).sort("fpr")
+        if curve.is_empty():
+            continue
+        color = method_color(trow["method"])
+        label = (
+            f"{trow['method_display']} (@{trow['threshold']:g})"
+            if trow["is_thresholded"] else trow["method_display"]
+        )
+        line, = ax.plot(
+            curve["fpr"].to_numpy(),
+            curve["tpr"].to_numpy(),
+            color=color, linewidth=2.0,
+        )
+        for lbf_thresh, marker in [(0.0, "o"), (2.0, "s")]:
+            pt = curve.filter(pl.col("log_bf") <= lbf_thresh).head(1)
+            if not pt.is_empty():
+                ax.plot(pt["fpr"][0], pt["tpr"][0],
+                        marker=marker, markersize=6, color=color, linestyle="none", zorder=5)
+        if label not in seen_labels:
+            legend_handles.append(line)
+            legend_labels.append(label)
+            seen_labels.add(label)
+
+    ax.set_xlabel("False positive rate")
+    ax.set_ylabel("True positive rate")
+    ax.set_title("Log BF ROC (null vs non-null)")
+
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
+        )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
+def render_cs_calibration_chart(
+    summary: pl.DataFrame,
+    *,
+    collection_names: list[str],
+) -> "plt.Figure":
+    """CS calibration: x=nominal beta, y=empirical coverage. Diagonal = perfect calibration."""
+    if summary.is_empty():
+        return make_placeholder_chart("No CS beta trace data")
+
+    theme = base_chart_theme()
+    n_rows = len(collection_names)
+    _legend_w = 2.5
+    _fig_w = theme["width"] + _legend_w
+    _plot_frac = theme["width"] / _fig_w
+    fig, axes = plt.subplots(
+        n_rows + 1, 1,
+        figsize=(_fig_w, theme["height"] * (n_rows + 1)),
+        squeeze=False,
+    )
+
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
+    def _plot_row(row_idx: int, row_df: pl.DataFrame) -> None:
+        ax = axes[row_idx, 0]
+        betas = row_df["beta"].unique().sort().to_numpy()
+        if len(betas):
+            ax.plot(betas, betas, color="black", linestyle="--", linewidth=1.0, zorder=0)
+        trace_labels = (
+            row_df.select("method", "threshold", "method_display", "is_thresholded")
+            .unique()
+            .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
+        )
+        for trow in trace_labels.iter_rows(named=True):
+            thresh_filter = (
+                pl.col("threshold").is_null() if trow["threshold"] is None
+                else (pl.col("threshold") == trow["threshold"])
+            )
+            trace_df = row_df.filter(
+                (pl.col("method") == trow["method"]) & thresh_filter
+            ).sort("beta")
+            if trace_df.is_empty():
+                continue
+            color = method_color(trow["method"])
+            label = (
+                f"{trow['method_display']} (@{trow['threshold']:g})"
+                if trow["is_thresholded"] else trow["method_display"]
+            )
+            line, = ax.plot(
+                trace_df["beta"].to_numpy(),
+                trace_df["coverage"].to_numpy(),
+                color=color,
+                linewidth=2.0,
+            )
+            marker_row = trace_df.filter(pl.col("beta") == 0.95)
+            if not marker_row.is_empty():
+                ax.plot(
+                    marker_row["beta"].to_numpy(),
+                    marker_row["coverage"].to_numpy(),
+                    marker="o", markersize=6, color=color, linestyle="none",
+                )
+            if label not in seen_labels:
+                legend_handles.append(line)
+                legend_labels.append(label)
+                seen_labels.add(label)
+        if row_idx == 0:
+            ax.set_title("CS Calibration")
+        ax.set_xlabel("Nominal coverage (β)")
+        ax.set_ylabel("Empirical coverage")
+
+    for row_idx, coll_name in enumerate(collection_names):
+        _plot_row(row_idx, summary.filter(pl.col("collection_name") == coll_name))
+        axes[row_idx, 0].set_title(coll_name, fontsize=9, fontweight="bold")
+
+    _agg = (
+        summary
+        .group_by("method", "method_display", "threshold", "is_thresholded", "beta")
+        .agg(pl.col("coverage").mean())
+    )
+    _plot_row(n_rows, _agg)
+    axes[n_rows, 0].set_facecolor("#ddeeff")
+    if n_rows > 0:
+        axes[n_rows, 0].set_title("All (aggregate)", fontsize=9, fontweight="bold")
+
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
+        )
     fig.tight_layout(rect=[0, 0, _plot_frac, 1])
     return fig
 
