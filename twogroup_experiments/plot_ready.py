@@ -214,6 +214,7 @@ def build_cs_plot_data(
     empty_schema = {
         "sample_id": pl.String, "method": pl.String, "threshold": pl.Float64,
         "l": pl.Int64, "ser_log_bf": pl.Float64,
+        "n_features": pl.Int64,
         "causal_indices": pl.List(pl.Int64), "causal_alpha": pl.List(pl.Float64),
         "rank_of_causal": pl.List(pl.Int64),
         "mass_above_causal": pl.List(pl.Float64), "cs_sizes": pl.List(pl.Int64),
@@ -227,6 +228,7 @@ def build_cs_plot_data(
     for row in fits_with_sid.iter_rows(named=True):
         for l, effect in enumerate(row["single_effects"]):
             alpha = np.asarray(effect["alpha"], dtype=float)
+            alpha = alpha / alpha.sum()
             cs_struct = row["credible_sets"][l]
             causal_indices = [int(ci) for ci in cs_struct["causal_indices"]]
 
@@ -240,8 +242,9 @@ def build_cs_plot_data(
                 float(cumulative[rk - 1]) if rk > 0 else 0.0
                 for rk in rank_of_causal
             ]
+            n_feat = len(alpha)
             cs_sizes = [
-                int(np.searchsorted(cumulative, float(beta), side="left") + 1)
+                min(int(np.searchsorted(cumulative, float(beta), side="left") + 1), n_feat)
                 for beta in CS_BETA_GRID
             ]
             rows.append({
@@ -250,6 +253,7 @@ def build_cs_plot_data(
                 "threshold": row["threshold"],
                 "l": l,
                 "ser_log_bf": float(effect["ser_log_bf"]),
+                "n_features": len(alpha),
                 "causal_indices": causal_indices,
                 "causal_alpha": causal_alpha,
                 "rank_of_causal": rank_of_causal,
@@ -328,8 +332,8 @@ def build_enrich_plot_data(
             .select("replicate", pl.col("simulation").struct.unnest())
             .select(
                 "replicate",
-                pl.col("causal_indices").list.get(0).alias("causal_idx"),
-                pl.col("causal_effects").list.get(0).alias("true_effect"),
+                pl.col("causal_indices").list.get(0, null_on_oob=True).alias("causal_idx"),
+                pl.col("causal_effects").list.get(0, null_on_oob=True).alias("true_effect"),
                 pl.col("intercept").alias("true_intercept"),
             )
         )
@@ -346,6 +350,8 @@ def build_enrich_plot_data(
             for row in fits_df.iter_rows(named=True):
                 sim = rep_to_sim.get(row["replicate"])
                 if sim is None:
+                    continue
+                if sim["causal_idx"] is None:
                     continue
                 causal_idx = int(sim["causal_idx"])
                 mu_list = row["single_effects"][0]["mu"]
