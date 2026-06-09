@@ -14,13 +14,11 @@ from utils import (
     write_parquet,
     write_yaml,
 )
+from manifest_cache import load_manifest_cached
 
-
-configfile: RESULTS_ROOT + "/manifest.json"
-
-
-BATCH_HASH_TO_INFO = config["batches"]
-METHOD_HASH_TO_INFO = config["method_specs"]
+_MANIFEST = load_manifest_cached()
+BATCH_HASH_TO_INFO = _MANIFEST["batches"]
+METHOD_HASH_TO_INFO = _MANIFEST["method_specs"]
 
 
 wildcard_constraints:

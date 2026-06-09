@@ -839,6 +839,7 @@ def write_manifest(path: str | Path | None = None) -> Path:
     return destination
 
 
+
 SIMULATION_SPECS = REGISTRY.simulations
 BATCH_SPECS = REGISTRY.batches
 
