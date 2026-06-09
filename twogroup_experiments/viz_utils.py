@@ -1198,7 +1198,7 @@ def make_cs_coverage_size_curves(
     )
 
 
-def make_cs_beta_trace_summary(
+def make_cs_power_size_coverage_summary(
     cs_plot_data: pl.DataFrame,
     method_metadata: pl.DataFrame,
     *,
@@ -1491,7 +1491,7 @@ def make_adaptive_cs_summary(
 ) -> pl.DataFrame:
     """Per-CS: find smallest beta' >= min_beta where covered=True and cs_size <= max_cs_size.
 
-    Power = mean(achieved) over ALL CS instances (same denominator as make_cs_beta_trace_summary).
+    Power = mean(achieved) over ALL CS instances (same denominator as make_cs_power_size_coverage_summary).
     CSs failing ser_log_bf or max_cs_size filters contribute 0 (achieved=False) to power.
     """
     from utils import CS_BETA_GRID
@@ -1788,7 +1788,7 @@ def render_cs_size_power_chart(
     return fig
 
 
-def render_cs_beta_trace_chart(
+def render_cs_power_size_coverage_trace_chart(
     summary: pl.DataFrame,
     *,
     collection_names: list[str],
@@ -1835,10 +1835,7 @@ def render_cs_beta_trace_chart(
                 if trace_df.is_empty():
                     continue
                 color = method_color(trow["method"])
-                if trow["is_thresholded"]:
-                    label = f"{trow['method_display']} (@{trow['threshold']:g})"
-                else:
-                    label = trow["method_display"]
+                label = trow["method_display"]
                 line, = ax.plot(
                     trace_df["beta"].to_numpy(),
                     trace_df[metric_col].to_numpy(),
@@ -1853,6 +1850,8 @@ def render_cs_beta_trace_chart(
                 betas = row_df["beta"].unique().sort().to_numpy()
                 if len(betas):
                     ax.plot(betas, betas, color="black", linestyle="--", linewidth=1.0)
+            if metric_col == "cs_size":
+                ax.set_yscale("log")
             if row_idx == 0:
                 ax.set_title(metric_title)
             ax.set_xlabel("Nominal coverage (β)")
@@ -1937,10 +1936,7 @@ def render_cs_coverage_trace_chart(
                 if trace_df.is_empty():
                     continue
                 color = method_color(trow["method"])
-                if trow["is_thresholded"]:
-                    label = f"{trow['method_display']} (@{trow['threshold']:g})"
-                else:
-                    label = trow["method_display"]
+                label = trow["method_display"]
                 line, = ax.plot(
                     trace_df["coverage"].to_numpy(),
                     trace_df[metric_col].to_numpy(),
@@ -2000,17 +1996,18 @@ def render_cs_coverage_size_chart(
     *,
     collection_names: list[str],
 ) -> "plt.Figure":
-    """x=empirical coverage, y=mean CS size, sweeping over beta. No BF or size filtering."""
+    """Two panels per row: left=empirical coverage vs CS size, right=nominal beta vs CS size."""
     if summary.is_empty():
         return make_placeholder_chart("No CS beta trace data")
 
     theme = base_chart_theme()
     n_rows = len(collection_names)
     _legend_w = 2.5
-    _fig_w = theme["width"] + _legend_w
-    _plot_frac = theme["width"] / _fig_w
+    _plot_w = theme["width"] * 3
+    _fig_w = _plot_w + _legend_w
+    _plot_frac = _plot_w / _fig_w
     fig, axes = plt.subplots(
-        n_rows + 1, 1,
+        n_rows + 1, 3,
         figsize=(_fig_w, theme["height"] * (n_rows + 1)),
         squeeze=False,
     )
@@ -2020,7 +2017,12 @@ def render_cs_coverage_size_chart(
     seen_labels: set[str] = set()
 
     def _plot_row(row_idx: int, row_df: pl.DataFrame) -> None:
-        ax = axes[row_idx, 0]
+        ax_cov = axes[row_idx, 0]
+        ax_nom = axes[row_idx, 1]
+        ax_cal = axes[row_idx, 2]
+        betas = row_df["beta"].unique().sort().to_numpy()
+        if len(betas):
+            ax_cal.plot(betas, betas, color="black", linestyle="--", linewidth=1.0, zorder=0)
         trace_labels = (
             row_df.select("method", "threshold", "method_display", "is_thresholded")
             .unique()
@@ -2037,33 +2039,60 @@ def render_cs_coverage_size_chart(
             if trace_df.is_empty():
                 continue
             color = method_color(trow["method"])
-            label = (
-                f"{trow['method_display']} (@{trow['threshold']:g})"
-                if trow["is_thresholded"] else trow["method_display"]
-            )
-            line, = ax.plot(
+            label = trow["method_display"]
+            line, = ax_cov.plot(
                 trace_df["coverage"].to_numpy(),
                 trace_df["cs_size_frac"].to_numpy(),
-                color=color,
-                linewidth=2.0,
+                color=color, linewidth=2.0,
             )
             marker_row = trace_df.filter(pl.col("beta") == 0.95)
             if not marker_row.is_empty():
-                ax.plot(
+                ax_cov.plot(
                     marker_row["coverage"].to_numpy(),
                     marker_row["cs_size_frac"].to_numpy(),
+                    marker="o", markersize=6, color=color, linestyle="none",
+                )
+            ax_nom.plot(
+                trace_df["beta"].to_numpy(),
+                trace_df["cs_size_frac"].to_numpy(),
+                color=color, linewidth=2.0,
+            )
+            if not marker_row.is_empty():
+                ax_nom.plot(
+                    marker_row["beta"].to_numpy(),
+                    marker_row["cs_size_frac"].to_numpy(),
+                    marker="o", markersize=6, color=color, linestyle="none",
+                )
+            ax_cal.plot(
+                trace_df["beta"].to_numpy(),
+                trace_df["coverage"].to_numpy(),
+                color=color, linewidth=2.0,
+            )
+            if not marker_row.is_empty():
+                ax_cal.plot(
+                    marker_row["beta"].to_numpy(),
+                    marker_row["coverage"].to_numpy(),
                     marker="o", markersize=6, color=color, linestyle="none",
                 )
             if label not in seen_labels:
                 legend_handles.append(line)
                 legend_labels.append(label)
                 seen_labels.add(label)
-        ax.set_xlim(0.0, 1.02)
-        ax.set_ylim(0.0, 1.02)
+        ax_cov.set_xlim(0.0, 1.02)
+        ax_cov.set_ylim(0.0, 1.02)
+        ax_nom.set_xlim(0.0, 1.02)
+        ax_nom.set_ylim(0.0, 1.02)
+        ax_cal.set_xlim(0.0, 1.02)
+        ax_cal.set_ylim(0.0, 1.02)
         if row_idx == 0:
-            ax.set_title("Coverage vs CS Size")
-        ax.set_xlabel("Empirical coverage")
-        ax.set_ylabel("Mean fraction of variables")
+            ax_cov.set_title("Empirical coverage vs CS size")
+            ax_nom.set_title("Nominal level vs CS size")
+            ax_cal.set_title("Calibration (nominal vs empirical)")
+        ax_cov.set_xlabel("Empirical coverage")
+        ax_nom.set_xlabel("Nominal level (β)")
+        ax_cal.set_xlabel("Nominal level (β)")
+        ax_cov.set_ylabel("Mean fraction of variables")
+        ax_cal.set_ylabel("Empirical coverage")
 
     for row_idx, coll_name in enumerate(collection_names):
         _plot_row(row_idx, summary.filter(pl.col("collection_name") == coll_name))
@@ -2075,7 +2104,8 @@ def render_cs_coverage_size_chart(
         .agg(pl.col("coverage").mean(), pl.col("cs_size").mean(), pl.col("cs_size_frac").mean())
     )
     _plot_row(n_rows, _agg)
-    axes[n_rows, 0].set_facecolor("#ddeeff")
+    for col in range(3):
+        axes[n_rows, col].set_facecolor("#ddeeff")
     if n_rows > 0:
         axes[n_rows, 0].set_title("All (aggregate)", fontsize=9, fontweight="bold")
 
@@ -2084,6 +2114,130 @@ def render_cs_coverage_size_chart(
             legend_handles, legend_labels,
             frameon=False, fontsize=8,
             loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
+        )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
+def make_log_bf_ser_ecdf(
+    cs_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_thresholds: list[float] | None,
+) -> pl.DataFrame:
+    """Raw log BF observations with is_null flag. ECDF computed in render from these raw values."""
+    empty_schema = {
+        "collection_name": pl.String,
+        "method": pl.String, "method_display": pl.String,
+        "threshold": pl.Float64, "is_thresholded": pl.Boolean,
+        "is_null": pl.Boolean, "log_bf": pl.Float64,
+    }
+    if cs_plot_data.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+    thresh_mask = (
+        ~pl.col("is_thresholded")
+        | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+    )
+    valid_pairs = (
+        meta.filter(pl.col("method").is_in(list(selected_methods))).filter(thresh_mask)
+        .select("method", "threshold")
+    )
+    return (
+        cs_plot_data
+        .join(valid_pairs, on=["method", "threshold"], how="inner", nulls_equal=True)
+        .with_columns((pl.col("causal_indices").list.len() == 0).alias("is_null"))
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .select("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_null",
+                (-pl.col("ser_log_bf")).exp().alias("log_bf"))
+    )
+
+
+def render_log_bf_ser_ecdf_chart(
+    raw_data: pl.DataFrame,
+    *,
+    collection_names: list[str],
+) -> "plt.Figure":
+    """ECDF of SER log BF: null (dashed) vs non-null (solid), one row per collection + aggregate.
+
+    ECDF is computed from raw_data within each panel so aggregate pools across collections.
+    """
+    import numpy as np
+    import matplotlib.lines as mlines
+
+    if raw_data.is_empty():
+        return make_placeholder_chart("No log BF ECDF data")
+
+    theme = base_chart_theme()
+    n_rows = len(collection_names)
+    _legend_w = 2.5
+    _fig_w = theme["width"] + _legend_w
+    _plot_frac = theme["width"] / _fig_w
+    fig, axes = plt.subplots(
+        n_rows + 1, 1,
+        figsize=(_fig_w, theme["height"] * (n_rows + 1)),
+        squeeze=False,
+    )
+
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_method_labels: set[str] = set()
+
+    def _ecdf(vals: "np.ndarray") -> "tuple[np.ndarray, np.ndarray]":
+        s = np.sort(vals)
+        return s, np.arange(1, len(s) + 1) / len(s)
+
+    def _plot_row(row_idx: int, row_df: pl.DataFrame) -> None:
+        ax = axes[row_idx, 0]
+        trace_labels = (
+            row_df.select("method", "threshold", "method_display", "is_thresholded")
+            .unique()
+            .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
+        )
+        for trow in trace_labels.iter_rows(named=True):
+            thresh_filter = (
+                pl.col("threshold").is_null() if trow["threshold"] is None
+                else pl.col("threshold") == trow["threshold"]
+            )
+            method_df = row_df.filter(
+                (pl.col("method") == trow["method"]) & thresh_filter
+            )
+            color = method_color(trow["method"])
+            label = trow["method_display"]
+            for is_null, linestyle in ((False, "-"), (True, "--")):
+                vals = method_df.filter(pl.col("is_null") == is_null)["log_bf"].to_numpy()
+                if len(vals) == 0:
+                    continue
+                x, y = _ecdf(vals)
+                line, = ax.plot(x, y, color=color, linewidth=2.0, linestyle=linestyle)
+                if label not in seen_method_labels:
+                    legend_handles.append(line)
+                    legend_labels.append(label)
+                    seen_method_labels.add(label)
+        ax.set_xlabel("BF₀₁ = 1/BF₁₀")
+        ax.set_ylabel("Empirical CDF")
+
+    for row_idx, coll_name in enumerate(collection_names):
+        _plot_row(row_idx, raw_data.filter(pl.col("collection_name") == coll_name))
+        axes[row_idx, 0].set_title(coll_name, fontsize=9, fontweight="bold")
+
+    _plot_row(n_rows, raw_data)
+    axes[n_rows, 0].set_facecolor("#ddeeff")
+    axes[n_rows, 0].set_title("All (aggregate)" if n_rows > 0 else "SER log BF ECDF", fontsize=9, fontweight="bold")
+
+    legend_handles += [
+        mlines.Line2D([], [], color="black", linewidth=2.0, linestyle="-"),
+        mlines.Line2D([], [], color="black", linewidth=2.0, linestyle="--"),
+    ]
+    legend_labels += ["non-null", "null"]
+
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.80),
         )
     fig.tight_layout(rect=[0, 0, _plot_frac, 1])
     return fig
@@ -2204,10 +2358,7 @@ def render_log_bf_roc_chart(
         if curve.is_empty():
             continue
         color = method_color(trow["method"])
-        label = (
-            f"{trow['method_display']} (@{trow['threshold']:g})"
-            if trow["is_thresholded"] else trow["method_display"]
-        )
+        label = trow["method_display"]
         line, = ax.plot(
             curve["fpr"].to_numpy(),
             curve["tpr"].to_numpy(),
@@ -2282,10 +2433,7 @@ def render_cs_calibration_chart(
             if trace_df.is_empty():
                 continue
             color = method_color(trow["method"])
-            label = (
-                f"{trow['method_display']} (@{trow['threshold']:g})"
-                if trow["is_thresholded"] else trow["method_display"]
-            )
+            label = trow["method_display"]
             line, = ax.plot(
                 trace_df["beta"].to_numpy(),
                 trace_df["coverage"].to_numpy(),
