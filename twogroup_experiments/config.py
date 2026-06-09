@@ -514,6 +514,9 @@ T_ERROR_SIGNAL_VALUES: dict[str, dict[str, float]] = {
     "hallmark": {"loc": 2.0, "scale": 2.0},
     "c4": {"loc": 2.0, "scale": 2.0},
     _markov_design_name(family="gaussian", rho=SIGNAL_RHO, n=SIGNAL_N, p=SIGNAL_N_FEATURES): {"loc": 2.0, "scale": 2.0},
+    _markov_design_name(family="gaussian", rho=SIGNAL_RHO, n=SIGNAL_N, p=200): {"loc": 2.0, "scale": 2.0},
+    _markov_design_name(family="gaussian", rho=SIGNAL_RHO, n=SIGNAL_N, p=400): {"loc": 2.0, "scale": 2.0},
+    _markov_design_name(family="gaussian", rho=SIGNAL_RHO, n=SIGNAL_N, p=800): {"loc": 2.0, "scale": 2.0},
     _markov_design_name(family="uniform", rho=SIGNAL_RHO, n=SIGNAL_N, p=SIGNAL_N_FEATURES): {"loc": 2.0, "scale": 2.0},
 }
 
@@ -573,6 +576,80 @@ REGISTRY.register_batches(tuple(
         n_batches=N_BATCHES,
     )
 ))
+
+T_ERROR_NULL_INTERCEPT = -2.0
+
+
+def _make_enrichment_null_simulation(
+    *,
+    design_name: str,
+    design_sampler,
+    signal_kind: str,
+    signal_value: float,
+    error_df: int | None = None,
+) -> SimulationSpec:
+    """Enrichment null: b=0 (no set membership effect), f1 matched to non-null signal."""
+    if signal_kind == "loc":
+        f1 = fixed_normal(loc=signal_value, scale=LOC_SCALE_FIXED)
+    elif signal_kind == "scale":
+        f1 = fixed_normal(loc=0.0, scale=signal_value)
+    else:
+        raise ValueError(f"Unknown signal kind: {signal_kind!r}")
+    name = (
+        f"design={design_name}"
+        f"__enrichment=b0_{format_float(T_ERROR_NULL_INTERCEPT)}_b_{format_float(0.0)}"
+        f"__signal={_signal_name(signal_kind, signal_value)}"
+    )
+    if error_df is not None:
+        name = f"{name}__error=t_df_{error_df}"
+    return SimulationSpec(
+        name=name,
+        design_sampler=design_sampler,
+        effect_sampler=partial(uniform_single_effect, causal_effect=0.0),
+        intercept=T_ERROR_NULL_INTERCEPT,
+        f0=F0,
+        f1=f1,
+        base_seed=BASE_SEED,
+        **({"error_sampler": partial(t_error_sampler, df=error_df)} if error_df is not None else {}),
+    )
+
+
+ENRICHMENT_NULL_SIMULATION_SPECS = tuple(
+    _make_enrichment_null_simulation(
+        design_name=design_name,
+        design_sampler=DESIGN_KWARGS[design_name]["design_sampler"],
+        signal_kind=signal_kind,
+        signal_value=T_ERROR_SIGNAL_VALUES[design_name][signal_kind],
+    )
+    for design_name in T_ERROR_SIGNAL_VALUES
+    for signal_kind in ("loc", "scale")
+)
+
+T_ERROR_NULL_SIMULATION_SPECS = tuple(
+    _make_enrichment_null_simulation(
+        design_name=design_name,
+        design_sampler=DESIGN_KWARGS[design_name]["design_sampler"],
+        signal_kind=signal_kind,
+        signal_value=T_ERROR_SIGNAL_VALUES[design_name][signal_kind],
+        error_df=df,
+    )
+    for design_name in T_ERROR_SIGNAL_VALUES
+    for signal_kind in ("loc", "scale")
+    for df in T_ERROR_DFS
+)
+
+for _specs in (ENRICHMENT_NULL_SIMULATION_SPECS, T_ERROR_NULL_SIMULATION_SPECS):
+    SIMULATION_BY_NAME.update({spec.name: spec for spec in _specs})
+    REGISTRY.register_simulations(_specs)
+    REGISTRY.register_batches(tuple(
+        batch
+        for spec in _specs
+        for batch in batch_specs_for_simulation(
+            spec,
+            replicates_per_batch=REPLICATES_PER_BATCH,
+            n_batches=N_BATCHES,
+        )
+    ))
 
 
 NULL_METHOD_SPECS = DEFAULT_SER_SPECS
