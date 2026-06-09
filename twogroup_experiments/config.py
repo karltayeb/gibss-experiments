@@ -138,7 +138,7 @@ N_FEATURE_GRID = (100, 200, 400, 800, 1600)
 N_SAMPLE_GRID = (50, 100, 200, 500, 1000, 2000)
 
 SIGNAL_LOC_VALUES = (0.5, 1.0, 1.5, 2.0, 2.5, 3.0)
-SIGNAL_SCALE_VALUES = (0.75, 1.0, 1.5, 1.75, 2.0, 3.0, 4.0, 5.0)
+SIGNAL_SCALE_VALUES = (0.75, 1.0, 1.5, 1.75, 2.0, 2.25, 3.0, 4.0, 5.0)
 CORRELATION_RHO_VALUES = (0.0, 0.5, 0.8, 0.9, 0.95, 0.99)
 N_FEATURE_VALUES = N_FEATURE_GRID
 N_SAMPLE_VALUES = N_SAMPLE_GRID
@@ -653,6 +653,57 @@ for _specs in (ENRICHMENT_NULL_SIMULATION_SPECS, T_ERROR_NULL_SIMULATION_SPECS):
 
 
 NULL_METHOD_SPECS = DEFAULT_SER_SPECS
+
+
+# Enrichment null at every signal level for the loc/scale SNR sweep (003, 004).
+# Covers SIGNAL_DESIGNS × SIGNAL_LOC_VALUES + SIGNAL_SCALE_VALUES.
+# Duplicates with ENRICHMENT_NULL_SIMULATION_SPECS (loc_2.0/scale_2.0) are safely ignored by the registry.
+_SIGNAL_SNR_NULL_SPECS = tuple(
+    _make_enrichment_null_simulation(
+        design_name=design_name,
+        design_sampler=DESIGN_KWARGS[design_name]["design_sampler"],
+        signal_kind=signal_kind,
+        signal_value=signal_value,
+    )
+    for design_name in SIGNAL_DESIGNS
+    for signal_kind, signal_value in (
+        [("loc", v) for v in SIGNAL_LOC_VALUES]
+        + [("scale", v) for v in SIGNAL_SCALE_VALUES]
+    )
+)
+SIMULATION_BY_NAME.update({spec.name: spec for spec in _SIGNAL_SNR_NULL_SPECS})
+REGISTRY.register_simulations(_SIGNAL_SNR_NULL_SPECS)
+REGISTRY.register_batches(tuple(
+    batch
+    for spec in _SIGNAL_SNR_NULL_SPECS
+    for batch in batch_specs_for_simulation(spec, replicates_per_batch=REPLICATES_PER_BATCH, n_batches=N_BATCHES)
+))
+
+# Enrichment null at anchor signal (loc_2.0, scale_2.0) for n-sample (001) and n-feature (002) sweeps.
+# 001 uses p=200 designs; 002 uses all N_FEATURE_VALUES; covers gaussian and uniform families.
+_N_SWEEP_NULL_DESIGNS = tuple(
+    _markov_design_name(family=family, rho=SAMPLE_SIZE_RHO, n=n, p=p)
+    for family in ("gaussian", "uniform")
+    for n in N_SAMPLE_VALUES
+    for p in N_FEATURE_VALUES
+)
+_SWEEP_NULL_ANCHOR_SPECS = tuple(
+    _make_enrichment_null_simulation(
+        design_name=design_name,
+        design_sampler=DESIGN_KWARGS[design_name]["design_sampler"],
+        signal_kind=signal_kind,
+        signal_value=2.0,
+    )
+    for design_name in dict.fromkeys(_N_SWEEP_NULL_DESIGNS)  # deduplicate, preserve order
+    for signal_kind in ("loc", "scale")
+)
+SIMULATION_BY_NAME.update({spec.name: spec for spec in _SWEEP_NULL_ANCHOR_SPECS})
+REGISTRY.register_simulations(_SWEEP_NULL_ANCHOR_SPECS)
+REGISTRY.register_batches(tuple(
+    batch
+    for spec in _SWEEP_NULL_ANCHOR_SPECS
+    for batch in batch_specs_for_simulation(spec, replicates_per_batch=REPLICATES_PER_BATCH, n_batches=N_BATCHES)
+))
 
 
 # --- full b0 x b enrichment grid ---

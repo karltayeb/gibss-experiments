@@ -24,13 +24,13 @@ METHOD_HASH_TO_INFO = config["method_specs"]
 
 
 wildcard_constraints:
-    batch_hash       = r"[0-9a-f]{64}",
-    method_hash      = r"[0-9a-f]{64}",
-    collection_alias = r"[A-Za-z0-9_\-=\.]+",
-    supercollection  = r"[A-Za-z0-9_\-\.]+",
-    plot_settings    = r"[A-Za-z0-9_\-]+",
-    plot_type        = r"[A-Za-z0-9_]+",
-    plot_collection  = r"[A-Za-z0-9_]+",
+    batch_hash=r"[0-9a-f]{64}",
+    method_hash=r"[0-9a-f]{64}",
+    collection_alias=r"[A-Za-z0-9_\-=\.]+",
+    supercollection=r"[A-Za-z0-9_\-\.]+",
+    plot_settings=r"[A-Za-z0-9_\-]+",
+    plot_type=r"[A-Za-z0-9_]+",
+    plot_collection=r"[A-Za-z0-9_]+",
 
 
 import yaml as _yaml
@@ -61,13 +61,16 @@ def _load_plot_configs() -> dict:
                 merged[_k].update(_v)
     return merged
 
+
 _PLOT_CONFIG: dict = _load_plot_configs()
 _COLLECTION_DEFS = _PLOT_CONFIG.get("collections", {})
 _METHOD_COLLECTIONS = _PLOT_CONFIG.get("method_collections", {})
 _PLOT_TYPE_GROUPS: dict[str, list[str]] = _PLOT_CONFIG.get("plot_type_groups", {})
 
 _PLOT_COLLECTION_SCS: dict[str, list[str]] = {
-    _p.stem: sorted((_yaml.safe_load(_p.read_text()) or {}).get("supercollections", {}).keys())
+    _p.stem: sorted(
+        (_yaml.safe_load(_p.read_text()) or {}).get("supercollections", {}).keys()
+    )
     for _p in sorted(PLOT_CONFIGS_DIR.glob("*.yaml"))
 }
 
@@ -96,9 +99,12 @@ def _resolve_collection_methods(method_collection_names: list) -> list:
         L = mc.get("L")
         thresholds = mc.get("thresholds")
         for h, node in METHOD_HASH_TO_INFO.items():
-            if h not in seen and _method_passes(node, method_families=mf, L=L, thresholds=thresholds):
+            if h not in seen and _method_passes(
+                node, method_families=mf, L=L, thresholds=thresholds
+            ):
                 seen[h] = {**node, HASH_KEY: h}
     return list(seen.values())
+
 
 _COLLECTION_YAMLS: dict[str, dict] = {}
 for _sc in _PLOT_CONFIG.get("supercollections", {}).values():
@@ -119,11 +125,24 @@ for _sc in _PLOT_CONFIG.get("supercollections", {}).values():
 SUPERCOLLECTIONS = sorted(_PLOT_CONFIG.get("supercollections", {}).keys())
 COLLECTION_ALIASES = sorted(_COLLECTION_YAMLS.keys())
 PLOT_TYPES = [
-    "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
-    "mass_above_causal", "cs_dot_summary", "cs_power_fdp", "cs_beta_trace",
-    "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
-    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace",
-    "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
+    "pip_calibration",
+    "power_fdp",
+    "causal_pip",
+    "causal_rank",
+    "mass_above_causal",
+    "cs_dot_summary",
+    "cs_power_fdp",
+    "cs_beta_trace",
+    "agg_pip_calibration",
+    "agg_power_fdp",
+    "agg_causal_pip",
+    "agg_causal_rank",
+    "agg_mass_above_causal",
+    "agg_cs_power_fdp",
+    "agg_cs_beta_trace",
+    "f1_boxplot",
+    "f1_scatter",
+    "f1_enrich_scatter",
 ]
 
 
@@ -210,13 +229,14 @@ rule fit_twogroup_experiment_batch_method:
         write_yaml(method_spec_node, output.method_spec)
 
 
-
 rule collection_method_metadata:
     input:
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
             for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
+            for method_spec in load_collection_yaml(wildcards.collection_alias)[
+                "method_specs"
+            ]
         ],
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/method_metadata.parquet",
@@ -257,7 +277,9 @@ rule collection_sample_metadata:
             f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
             batch_hash=[
                 batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
+                for batch in load_collection_yaml(wildcards.collection_alias)[
+                    "batches"
+                ]
             ],
         ),
     output:
@@ -284,13 +306,17 @@ rule collection_pip_plot_data:
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
             for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
+            for method_spec in load_collection_yaml(wildcards.collection_alias)[
+                "method_specs"
+            ]
         ],
         simulations=lambda wildcards: expand(
             f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
             batch_hash=[
                 batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
+                for batch in load_collection_yaml(wildcards.collection_alias)[
+                    "batches"
+                ]
             ],
         ),
     output:
@@ -309,7 +335,10 @@ rule collection_pip_plot_data:
             collection, results_root=RESULTS_ROOT
         )
         sample_metadata = pl.read_parquet(input.sample_metadata)
-        write_parquet(build_pip_plot_data(fits_df, sample_metadata, simulations_by_batch), output[0])
+        write_parquet(
+            build_pip_plot_data(fits_df, sample_metadata, simulations_by_batch),
+            output[0],
+        )
 
 
 rule collection_cs_plot_data:
@@ -318,7 +347,9 @@ rule collection_cs_plot_data:
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
             for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
+            for method_spec in load_collection_yaml(wildcards.collection_alias)[
+                "method_specs"
+            ]
         ],
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/cs_plot_data.parquet",
@@ -340,7 +371,9 @@ rule collection_f1_plot_data:
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
             for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
+            for method_spec in load_collection_yaml(wildcards.collection_alias)[
+                "method_specs"
+            ]
             if method_spec["fields"]["name"].startswith("twogroup")
         ],
     output:
@@ -349,7 +382,9 @@ rule collection_f1_plot_data:
         from plot_ready import build_f1_plot_data
 
         collection = load_collection_yaml(wildcards.collection_alias)
-        write_parquet(build_f1_plot_data(collection, results_root=RESULTS_ROOT), output[0])
+        write_parquet(
+            build_f1_plot_data(collection, results_root=RESULTS_ROOT), output[0]
+        )
 
 
 rule collection_enrich_plot_data:
@@ -358,13 +393,17 @@ rule collection_enrich_plot_data:
             f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
             batch_hash=[
                 batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
+                for batch in load_collection_yaml(wildcards.collection_alias)[
+                    "batches"
+                ]
             ],
         ),
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
             for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)["method_specs"]
+            for method_spec in load_collection_yaml(wildcards.collection_alias)[
+                "method_specs"
+            ]
             if method_spec["fields"]["name"].startswith("twogroup")
         ],
     output:
@@ -373,7 +412,9 @@ rule collection_enrich_plot_data:
         from plot_ready import build_enrich_plot_data
 
         collection = load_collection_yaml(wildcards.collection_alias)
-        write_parquet(build_enrich_plot_data(collection, results_root=RESULTS_ROOT), output[0])
+        write_parquet(
+            build_enrich_plot_data(collection, results_root=RESULTS_ROOT), output[0]
+        )
 
 
 rule all_collections:
@@ -398,7 +439,9 @@ rule materialize_supercollection:
             f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/out.txt",
             collection_alias=[
                 item["name"]
-                for item in load_supercollection(wildcards.supercollection)["collections"]
+                for item in load_supercollection(wildcards.supercollection)[
+                    "collections"
+                ]
             ],
         ),
     output:
@@ -434,6 +477,7 @@ rule supercollection_plot:
         f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{{plot_type}}/{{plot_settings}}.pdf",
     run:
         import generate_plots
+
         generate_plots.make_plot(
             wildcards.supercollection,
             wildcards.plot_settings,
@@ -444,22 +488,25 @@ rule supercollection_plot:
 
 rule supercollection_all_plots:
     input:
-        lambda _: [
-            f"{RESULTS_ROOT}/supercollections/{config['supercollection']}/{pt}/{ps}.pdf"
-            for ps, pt in _resolve_sc_plot_pairs(config["supercollection"])
-        ] if "supercollection" in config else [],
+        lambda _: (
+            [
+                f"{RESULTS_ROOT}/supercollections/{config['supercollection']}/{pt}/{ps}.pdf"
+                for ps, pt in _resolve_sc_plot_pairs(config["supercollection"])
+            ]
+            if "supercollection" in config
+            else []
+        ),
 
 
 from config import NULL_METHOD_SPECS as _NULL_METHOD_SPECS
 from core import dehydrate_hashed as _dehydrate_hashed
 
 _NULL_BATCH_HASHES = [
-    h for h, info in BATCH_HASH_TO_INFO.items()
+    h
+    for h, info in BATCH_HASH_TO_INFO.items()
     if "__enrichment=null__" in info["simulation_spec"]["fields"]["name"]
 ]
-_NULL_METHOD_HASHES = [
-    _dehydrate_hashed(m)[HASH_KEY] for m in _NULL_METHOD_SPECS
-]
+_NULL_METHOD_HASHES = [_dehydrate_hashed(m)[HASH_KEY] for m in _NULL_METHOD_SPECS]
 
 
 rule all_null_fits:
