@@ -30,6 +30,7 @@ wildcard_constraints:
     supercollection  = r"[A-Za-z0-9_\-\.]+",
     plot_settings    = r"[A-Za-z0-9_\-]+",
     plot_type        = r"[A-Za-z0-9_]+",
+    plot_collection  = r"[A-Za-z0-9_]+",
 
 
 import yaml as _yaml
@@ -64,6 +65,11 @@ _PLOT_CONFIG: dict = _load_plot_configs()
 _COLLECTION_DEFS = _PLOT_CONFIG.get("collections", {})
 _METHOD_COLLECTIONS = _PLOT_CONFIG.get("method_collections", {})
 _PLOT_TYPE_GROUPS: dict[str, list[str]] = _PLOT_CONFIG.get("plot_type_groups", {})
+
+_PLOT_COLLECTION_SCS: dict[str, list[str]] = {
+    _p.stem: sorted((_yaml.safe_load(_p.read_text()) or {}).get("supercollections", {}).keys())
+    for _p in sorted(PLOT_CONFIGS_DIR.glob("*.yaml"))
+}
 
 
 def _method_passes(node: dict, *, method_families, L, thresholds) -> bool:
@@ -472,3 +478,14 @@ rule all_plots:
             for sc in SUPERCOLLECTIONS
             for ps, pt in _resolve_sc_plot_pairs(sc)
         ],
+
+
+rule plot_collection:
+    input:
+        lambda wc: [
+            f"{RESULTS_ROOT}/supercollections/{sc}/{pt}/{ps}.pdf"
+            for sc in _PLOT_COLLECTION_SCS.get(wc.plot_collection, [])
+            for ps, pt in _resolve_sc_plot_pairs(sc)
+        ],
+    output:
+        touch(f"{RESULTS_ROOT}/plot_collections/{{plot_collection}}.done"),
