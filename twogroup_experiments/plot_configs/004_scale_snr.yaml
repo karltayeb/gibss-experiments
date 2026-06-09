@@ -1,0 +1,445 @@
+collections:
+  # --- hallmark: with-null collections (scale) ---
+  hallmark-scale-0.75-with-null:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_0.75
+      - design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_0.75
+  hallmark-scale-1.00-with-null:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_1.00
+      - design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_1.00
+  hallmark-scale-1.50-with-null:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_1.50
+      - design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_1.50
+  hallmark-scale-1.75-with-null:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_1.75
+      - design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_1.75
+  hallmark-scale-2.00-with-null:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_2.00
+      - design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  hallmark-scale-2.25-with-null:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_2.25
+      - design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_2.25
+  hallmark-scale-3.00-with-null:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_3.00
+      - design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_3.00
+  hallmark-scale-4.00-with-null:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_4.00
+      - design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_4.00
+  hallmark-scale-5.00-with-null:
+    simulations:
+      - design=hallmark__enrichment=ser_enrich__signal=scale_5.00
+      - design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_5.00
+
+  # --- c4: with-null collections (scale) ---
+  c4-scale-0.75-with-null:
+    simulations:
+      - design=c4__enrichment=ser_enrich__signal=scale_0.75
+      - design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_0.75
+  c4-scale-1.00-with-null:
+    simulations:
+      - design=c4__enrichment=ser_enrich__signal=scale_1.00
+      - design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_1.00
+  c4-scale-1.50-with-null:
+    simulations:
+      - design=c4__enrichment=ser_enrich__signal=scale_1.50
+      - design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_1.50
+  c4-scale-1.75-with-null:
+    simulations:
+      - design=c4__enrichment=ser_enrich__signal=scale_1.75
+      - design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_1.75
+  c4-scale-2.00-with-null:
+    simulations:
+      - design=c4__enrichment=ser_enrich__signal=scale_2.00
+      - design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  c4-scale-2.25-with-null:
+    simulations:
+      - design=c4__enrichment=ser_enrich__signal=scale_2.25
+      - design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_2.25
+  c4-scale-3.00-with-null:
+    simulations:
+      - design=c4__enrichment=ser_enrich__signal=scale_3.00
+      - design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_3.00
+  c4-scale-4.00-with-null:
+    simulations:
+      - design=c4__enrichment=ser_enrich__signal=scale_4.00
+      - design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_4.00
+  c4-scale-5.00-with-null:
+    simulations:
+      - design=c4__enrichment=ser_enrich__signal=scale_5.00
+      - design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_5.00
+
+  # --- gaussian-p100: with-null collections (scale) ---
+  gaussian-p100-scale-0.75-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_0.75
+  gaussian-p100-scale-1.00-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_1.00
+  gaussian-p100-scale-1.50-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_1.50
+  gaussian-p100-scale-1.75-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_1.75
+  gaussian-p100-scale-2.00-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  gaussian-p100-scale-2.25-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.25
+  gaussian-p100-scale-3.00-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_3.00
+  gaussian-p100-scale-4.00-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_4.00
+  gaussian-p100-scale-5.00-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_5.00
+
+  # --- uniform-p100: with-null collections (scale) ---
+  uniform-p100-scale-0.75-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_0.75
+  uniform-p100-scale-1.00-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_1.00
+  uniform-p100-scale-1.50-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_1.50
+  uniform-p100-scale-1.75-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_1.75
+  uniform-p100-scale-2.00-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  uniform-p100-scale-2.25-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.25
+  uniform-p100-scale-3.00-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_3.00
+  uniform-p100-scale-4.00-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_4.00
+  uniform-p100-scale-5.00-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_5.00
+
+supercollections:
+  # --- hallmark: non-null, vary scale ---
+  004-hallmark-scale-snr-non-null:
+    collections:
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_0.75
+        alias: scale=0.75
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.00
+        alias: scale=1.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.50
+        alias: scale=1.50
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.75
+        alias: scale=1.75
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
+        alias: scale=2.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.25
+        alias: scale=2.25
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_3.00
+        alias: scale=3.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_4.00
+        alias: scale=4.00
+      - name: design=hallmark__enrichment=ser_enrich__signal=scale_5.00
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - pip_non_null
+          - cs
+          - cs_non_null
+
+  # --- hallmark: with-null, vary scale ---
+  004-hallmark-scale-snr:
+    collections:
+      - name: hallmark-scale-0.75-with-null
+        alias: scale=0.75
+      - name: hallmark-scale-1.00-with-null
+        alias: scale=1.00
+      - name: hallmark-scale-1.50-with-null
+        alias: scale=1.50
+      - name: hallmark-scale-1.75-with-null
+        alias: scale=1.75
+      - name: hallmark-scale-2.00-with-null
+        alias: scale=2.00
+      - name: hallmark-scale-2.25-with-null
+        alias: scale=2.25
+      - name: hallmark-scale-3.00-with-null
+        alias: scale=3.00
+      - name: hallmark-scale-4.00-with-null
+        alias: scale=4.00
+      - name: hallmark-scale-5.00-with-null
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - cs
+          - logbf
+
+  # --- c4: non-null, vary scale ---
+  004-c4-scale-snr-non-null:
+    collections:
+      - name: design=c4__enrichment=ser_enrich__signal=scale_0.75
+        alias: scale=0.75
+      - name: design=c4__enrichment=ser_enrich__signal=scale_1.00
+        alias: scale=1.00
+      - name: design=c4__enrichment=ser_enrich__signal=scale_1.50
+        alias: scale=1.50
+      - name: design=c4__enrichment=ser_enrich__signal=scale_1.75
+        alias: scale=1.75
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
+        alias: scale=2.00
+      - name: design=c4__enrichment=ser_enrich__signal=scale_2.25
+        alias: scale=2.25
+      - name: design=c4__enrichment=ser_enrich__signal=scale_3.00
+        alias: scale=3.00
+      - name: design=c4__enrichment=ser_enrich__signal=scale_4.00
+        alias: scale=4.00
+      - name: design=c4__enrichment=ser_enrich__signal=scale_5.00
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - pip_non_null
+          - cs
+          - cs_non_null
+
+  # --- c4: with-null, vary scale ---
+  004-c4-scale-snr:
+    collections:
+      - name: c4-scale-0.75-with-null
+        alias: scale=0.75
+      - name: c4-scale-1.00-with-null
+        alias: scale=1.00
+      - name: c4-scale-1.50-with-null
+        alias: scale=1.50
+      - name: c4-scale-1.75-with-null
+        alias: scale=1.75
+      - name: c4-scale-2.00-with-null
+        alias: scale=2.00
+      - name: c4-scale-2.25-with-null
+        alias: scale=2.25
+      - name: c4-scale-3.00-with-null
+        alias: scale=3.00
+      - name: c4-scale-4.00-with-null
+        alias: scale=4.00
+      - name: c4-scale-5.00-with-null
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - cs
+          - logbf
+
+  # --- gaussian-p100: non-null, vary scale ---
+  004-gaussian-p100-scale-snr-non-null:
+    collections:
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75
+        alias: scale=0.75
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00
+        alias: scale=1.00
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50
+        alias: scale=1.50
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+        alias: scale=1.75
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
+        alias: scale=2.00
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
+        alias: scale=2.25
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00
+        alias: scale=3.00
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00
+        alias: scale=4.00
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - pip_non_null
+          - cs
+          - cs_non_null
+
+  # --- gaussian-p100: with-null, vary scale ---
+  004-gaussian-p100-scale-snr:
+    collections:
+      - name: gaussian-p100-scale-0.75-with-null
+        alias: scale=0.75
+      - name: gaussian-p100-scale-1.00-with-null
+        alias: scale=1.00
+      - name: gaussian-p100-scale-1.50-with-null
+        alias: scale=1.50
+      - name: gaussian-p100-scale-1.75-with-null
+        alias: scale=1.75
+      - name: gaussian-p100-scale-2.00-with-null
+        alias: scale=2.00
+      - name: gaussian-p100-scale-2.25-with-null
+        alias: scale=2.25
+      - name: gaussian-p100-scale-3.00-with-null
+        alias: scale=3.00
+      - name: gaussian-p100-scale-4.00-with-null
+        alias: scale=4.00
+      - name: gaussian-p100-scale-5.00-with-null
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - cs
+          - logbf
+
+  # --- uniform-p100: non-null, vary scale ---
+  004-uniform-p100-scale-snr-non-null:
+    collections:
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75
+        alias: scale=0.75
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00
+        alias: scale=1.00
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50
+        alias: scale=1.50
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+        alias: scale=1.75
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
+        alias: scale=2.00
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
+        alias: scale=2.25
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00
+        alias: scale=3.00
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00
+        alias: scale=4.00
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - pip_non_null
+          - cs
+          - cs_non_null
+
+  # --- uniform-p100: with-null, vary scale ---
+  004-uniform-p100-scale-snr:
+    collections:
+      - name: uniform-p100-scale-0.75-with-null
+        alias: scale=0.75
+      - name: uniform-p100-scale-1.00-with-null
+        alias: scale=1.00
+      - name: uniform-p100-scale-1.50-with-null
+        alias: scale=1.50
+      - name: uniform-p100-scale-1.75-with-null
+        alias: scale=1.75
+      - name: uniform-p100-scale-2.00-with-null
+        alias: scale=2.00
+      - name: uniform-p100-scale-2.25-with-null
+        alias: scale=2.25
+      - name: uniform-p100-scale-3.00-with-null
+        alias: scale=3.00
+      - name: uniform-p100-scale-4.00-with-null
+        alias: scale=4.00
+      - name: uniform-p100-scale-5.00-with-null
+        alias: scale=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - cs
+          - logbf

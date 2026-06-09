@@ -1,0 +1,129 @@
+method_collections:
+  twogroup_ser:
+    method_families:
+      - twogroup
+      - twogroup_oracle
+      - twogroup_oracle_init
+      - twogroup_scale_fam
+      - twogroup_loc_fam
+    L:
+      - 1
+
+collections:
+  design=null_enrich__enrichment=null_enrich__signal=loc_0.50:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=loc_1.00:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=loc_1.50:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=loc_2.00:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=loc_2.50:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=loc_3.00:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=scale_0.75:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=scale_1.00:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=scale_1.50:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=scale_1.75:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=scale_2.00:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=scale_3.00:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=scale_4.00:
+    method_collections:
+      - twogroup_ser
+  design=null_enrich__enrichment=null_enrich__signal=scale_5.00:
+    method_collections:
+      - twogroup_ser
+
+supercollections:
+  # --- null enrichment: F1 estimation vs signal strength (loc) ---
+  006-null-enrich-signal-loc:
+    collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_0.50
+        alias: mu=0.50
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_1.00
+        alias: mu=1.00
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_1.50
+        alias: mu=1.50
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+        alias: mu=2.00
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.50
+        alias: mu=2.50
+      - name: design=null_enrich__enrichment=null_enrich__signal=loc_3.00
+        alias: mu=3.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+      method_families:
+        - twogroup
+        - twogroup_oracle
+        - twogroup_oracle_init
+        - twogroup_scale_fam
+        - twogroup_loc_fam
+    plots:
+      - settings:
+          - twogroup_methods
+          - twogroup_loc_methods
+          - twogroup_scale_methods
+        plot_type_groups:
+          - f1
+
+  # --- null enrichment: F1 estimation vs signal strength (scale) ---
+  006-null-enrich-signal-scale:
+    collections:
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_0.75
+        alias: sigma=0.75
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_1.00
+        alias: sigma=1.00
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_1.50
+        alias: sigma=1.50
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_1.75
+        alias: sigma=1.75
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
+        alias: sigma=2.00
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_3.00
+        alias: sigma=3.00
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_4.00
+        alias: sigma=4.00
+      - name: design=null_enrich__enrichment=null_enrich__signal=scale_5.00
+        alias: sigma=5.00
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+      method_families:
+        - twogroup
+        - twogroup_oracle
+        - twogroup_oracle_init
+        - twogroup_scale_fam
+        - twogroup_loc_fam
+    plots:
+      - settings:
+          - twogroup_methods
+          - twogroup_loc_methods
+          - twogroup_scale_methods
+        plot_type_groups:
+          - f1

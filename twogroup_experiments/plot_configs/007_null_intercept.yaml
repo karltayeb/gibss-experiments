@@ -1,0 +1,104 @@
+supercollections:
+  # --- hallmark: null calibration, vary intercept (loc) ---
+  007-hallmark-null-intercept-loc:
+    collections:
+      - name: design=hallmark__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
+        alias: "intercept=-3"
+      - name: design=hallmark__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
+        alias: "intercept=-2"
+      - name: design=hallmark__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
+        alias: "intercept=-1"
+      - name: design=hallmark__enrichment=b0_0.00_b_0.00__signal=loc_0.00
+        alias: "intercept=0"
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-loc
+        plot_type_groups:
+          - pip
+          - cs
+          - logbf
+
+  # --- hallmark: null calibration, vary intercept (scale) ---
+  007-hallmark-null-intercept-scale:
+    collections:
+      - name: design=hallmark__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
+        alias: "intercept=-3"
+      - name: design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
+        alias: "intercept=-2"
+      - name: design=hallmark__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
+        alias: "intercept=-1"
+      - name: design=hallmark__enrichment=b0_0.00_b_0.00__signal=scale_0.00
+        alias: "intercept=0"
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - cs
+          - logbf
+
+  # --- c4: null calibration, vary intercept (loc) ---
+  007-c4-null-intercept-loc:
+    collections:
+      - name: design=c4__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
+        alias: "intercept=-3"
+      - name: design=c4__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
+        alias: "intercept=-2"
+      - name: design=c4__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
+        alias: "intercept=-1"
+      - name: design=c4__enrichment=b0_0.00_b_0.00__signal=loc_0.00
+        alias: "intercept=0"
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-loc
+        plot_type_groups:
+          - pip
+          - cs
+          - logbf
+
+  # --- c4: null calibration, vary intercept (scale) ---
+  007-c4-null-intercept-scale:
+    collections:
+      - name: design=c4__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
+        alias: "intercept=-3"
+      - name: design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
+        alias: "intercept=-2"
+      - name: design=c4__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
+        alias: "intercept=-1"
+      - name: design=c4__enrichment=b0_0.00_b_0.00__signal=scale_0.00
+        alias: "intercept=0"
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - cs
+          - logbf

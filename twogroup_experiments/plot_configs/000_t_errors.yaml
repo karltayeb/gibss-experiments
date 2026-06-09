@@ -345,7 +345,7 @@ collections:
       - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00__error=t_df_3
 
 supercollections:
-  0010-all-designs-t-error-loc-non-null:
+  000-all-designs-t-error-loc-non-null:
     collections:
       - name: t-error-agg-loc-normal
         alias: normal
@@ -372,7 +372,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  0010-all-designs-t-error-scale-non-null:
+  000-all-designs-t-error-scale-non-null:
     collections:
       - name: t-error-agg-scale-normal
         alias: normal
@@ -399,7 +399,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  hallmark-t-error-loc-non-null:
+  000-hallmark-t-error-loc-non-null:
     collections:
       - name: design=hallmark__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
@@ -426,7 +426,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  hallmark-t-error-loc:
+  000-hallmark-t-error-loc:
     collections:
       - name: hallmark-t-error-loc-normal-with-null
         alias: normal
@@ -452,7 +452,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  hallmark-t-error-scale-non-null:
+  000-hallmark-t-error-scale-non-null:
     collections:
       - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
@@ -479,7 +479,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  hallmark-t-error-scale:
+  000-hallmark-t-error-scale:
     collections:
       - name: hallmark-t-error-scale-normal-with-null
         alias: normal
@@ -505,7 +505,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  c4-t-error-loc-non-null:
+  000-c4-t-error-loc-non-null:
     collections:
       - name: design=c4__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
@@ -532,7 +532,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  c4-t-error-loc:
+  000-c4-t-error-loc:
     collections:
       - name: c4-t-error-loc-normal-with-null
         alias: normal
@@ -558,7 +558,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  c4-t-error-scale-non-null:
+  000-c4-t-error-scale-non-null:
     collections:
       - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
@@ -585,7 +585,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  c4-t-error-scale:
+  000-c4-t-error-scale:
     collections:
       - name: c4-t-error-scale-normal-with-null
         alias: normal
@@ -611,7 +611,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  gaussian-p100-t-error-loc-non-null:
+  000-gaussian-p100-t-error-loc-non-null:
     collections:
       - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
@@ -638,7 +638,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  gaussian-p100-t-error-loc:
+  000-gaussian-p100-t-error-loc:
     collections:
       - name: gaussian-p100-t-error-loc-normal-with-null
         alias: normal
@@ -664,7 +664,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  gaussian-p100-t-error-scale-non-null:
+  000-gaussian-p100-t-error-scale-non-null:
     collections:
       - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
@@ -691,7 +691,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  gaussian-p100-t-error-scale:
+  000-gaussian-p100-t-error-scale:
     collections:
       - name: gaussian-p100-t-error-scale-normal-with-null
         alias: normal
@@ -717,7 +717,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  gaussian-p200-t-error-loc-non-null:
+  000-gaussian-p200-t-error-loc-non-null:
     collections:
       - name: design=gaussian_rho_0.90_n_500_p_200__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
@@ -744,7 +744,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  gaussian-p200-t-error-loc:
+  000-gaussian-p200-t-error-loc:
     collections:
       - name: gaussian-p200-t-error-loc-normal-with-null
         alias: normal
@@ -770,7 +770,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  gaussian-p200-t-error-scale-non-null:
+  000-gaussian-p200-t-error-scale-non-null:
     collections:
       - name: design=gaussian_rho_0.90_n_500_p_200__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
@@ -797,7 +797,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  gaussian-p200-t-error-scale:
+  000-gaussian-p200-t-error-scale:
     collections:
       - name: gaussian-p200-t-error-scale-normal-with-null
         alias: normal
@@ -823,7 +823,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  gaussian-p400-t-error-loc-non-null:
+  000-gaussian-p400-t-error-loc-non-null:
     collections:
       - name: design=gaussian_rho_0.90_n_500_p_400__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
@@ -850,7 +850,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  gaussian-p400-t-error-loc:
+  000-gaussian-p400-t-error-loc:
     collections:
       - name: gaussian-p400-t-error-loc-normal-with-null
         alias: normal
@@ -876,7 +876,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  gaussian-p400-t-error-scale-non-null:
+  000-gaussian-p400-t-error-scale-non-null:
     collections:
       - name: design=gaussian_rho_0.90_n_500_p_400__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
@@ -903,7 +903,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  gaussian-p400-t-error-scale:
+  000-gaussian-p400-t-error-scale:
     collections:
       - name: gaussian-p400-t-error-scale-normal-with-null
         alias: normal
@@ -929,7 +929,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  gaussian-p800-t-error-loc-non-null:
+  000-gaussian-p800-t-error-loc-non-null:
     collections:
       - name: design=gaussian_rho_0.90_n_500_p_800__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
@@ -956,7 +956,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  gaussian-p800-t-error-loc:
+  000-gaussian-p800-t-error-loc:
     collections:
       - name: gaussian-p800-t-error-loc-normal-with-null
         alias: normal
@@ -982,7 +982,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  gaussian-p800-t-error-scale-non-null:
+  000-gaussian-p800-t-error-scale-non-null:
     collections:
       - name: design=gaussian_rho_0.90_n_500_p_800__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
@@ -1009,7 +1009,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  gaussian-p800-t-error-scale:
+  000-gaussian-p800-t-error-scale:
     collections:
       - name: gaussian-p800-t-error-scale-normal-with-null
         alias: normal
@@ -1035,7 +1035,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  uniform-t-error-loc-non-null:
+  000-uniform-t-error-loc-non-null:
     collections:
       - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
         alias: normal
@@ -1062,7 +1062,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  uniform-t-error-loc:
+  000-uniform-t-error-loc:
     collections:
       - name: uniform-t-error-loc-normal-with-null
         alias: normal
@@ -1088,7 +1088,7 @@ supercollections:
           - pip
           - cs
           - logbf
-  uniform-t-error-scale-non-null:
+  000-uniform-t-error-scale-non-null:
     collections:
       - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
         alias: normal
@@ -1115,7 +1115,7 @@ supercollections:
           - pip_non_null
           - cs
           - cs_non_null
-  uniform-t-error-scale:
+  000-uniform-t-error-scale:
     collections:
       - name: uniform-t-error-scale-normal-with-null
         alias: normal
