@@ -23,12 +23,13 @@ _COLLECTION_ALIAS_ROOT = Path(__file__).parent / "results" / "collections"
 
 PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
-    "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_power_fdp", "cs_beta_trace", "cs_coverage_trace", "preceding_posterior_mass_ecdf",
+    "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_power_fdp", "cs_power_size_coverage_trace", "cs_coverage_trace", "preceding_posterior_mass_ecdf",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
-    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_beta_trace", "agg_cs_coverage_trace", "agg_cs_size_power", "agg_cs_calibrated_dot", "agg_preceding_posterior_mass_ecdf",
+    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_power_size_coverage_trace", "agg_cs_coverage_trace", "agg_cs_size_power", "agg_cs_calibrated_dot", "agg_preceding_posterior_mass_ecdf",
     "cs_coverage_size", "agg_cs_coverage_size",
     "cs_calibration", "agg_cs_calibration",
     "log_bf_roc", "agg_log_bf_roc",
+    "log_bf_ser_ecdf", "agg_log_bf_ser_ecdf",
     "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
 ]
 
@@ -283,7 +284,7 @@ def _make_cs_dot_summary(combined_data: dict, settings: dict) -> plt.Figure:
     collection_names = combined_data["collection_names"]
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS data")
-    summary = viz_utils.make_cs_beta_trace_summary(
+    summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data,
         method_meta,
         selected_methods=fg,
@@ -310,7 +311,7 @@ def _make_cs_calibrated_dot(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS data")
-    beta_summary = viz_utils.make_cs_beta_trace_summary(
+    beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data,
         method_meta,
         selected_methods=fg,
@@ -336,7 +337,7 @@ def _make_agg_cs_calibrated_dot(combined_data: dict, settings: dict) -> plt.Figu
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS data")
-    beta_summary = viz_utils.make_cs_beta_trace_summary(
+    beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data,
         method_meta,
         selected_methods=fg,
@@ -363,7 +364,7 @@ def _make_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS data")
-    beta_summary = viz_utils.make_cs_beta_trace_summary(
+    beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data, method_meta,
         selected_methods=fg,
         selected_thresholds=_selected_thresholds(settings),
@@ -543,7 +544,7 @@ def _make_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
     return fig
 
 
-def _make_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
+def _make_cs_power_size_coverage_trace(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
     collection_names = combined_data["collection_names"]
@@ -552,7 +553,7 @@ def _make_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS beta trace data")
-    beta_summary = viz_utils.make_cs_beta_trace_summary(
+    beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data,
         method_meta,
         selected_methods=fg,
@@ -560,7 +561,7 @@ def _make_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
-    return viz_utils.render_cs_beta_trace_chart(
+    return viz_utils.render_cs_power_size_coverage_trace_chart(
         beta_summary,
         collection_names=collection_names,
         selected_thresholds=_selected_thresholds(settings),
@@ -740,7 +741,7 @@ def _make_agg_cs_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
     return fig
 
 
-def _make_agg_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
+def _make_agg_cs_power_size_coverage_trace(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
     max_cs_size = settings.get("max_cs_size", 10000)
@@ -748,7 +749,7 @@ def _make_agg_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS beta trace data")
-    beta_summary = viz_utils.make_cs_beta_trace_summary(
+    beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data,
         method_meta,
         selected_methods=fg,
@@ -757,7 +758,7 @@ def _make_agg_cs_beta_trace(combined_data: dict, settings: dict) -> plt.Figure:
         min_ser_log_bf=min_log_bf,
     )
     # collection_names=[] renders only the aggregate row (no per-collection rows)
-    return viz_utils.render_cs_beta_trace_chart(
+    return viz_utils.render_cs_power_size_coverage_trace_chart(
         beta_summary,
         collection_names=[],
         selected_thresholds=_selected_thresholds(settings),
@@ -775,7 +776,7 @@ def _make_cs_coverage_trace(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS beta trace data")
-    beta_summary = viz_utils.make_cs_beta_trace_summary(
+    beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data,
         method_meta,
         selected_methods=fg,
@@ -800,7 +801,7 @@ def _make_agg_cs_coverage_trace(combined_data: dict, settings: dict) -> plt.Figu
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS beta trace data")
-    beta_summary = viz_utils.make_cs_beta_trace_summary(
+    beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data,
         method_meta,
         selected_methods=fg,
@@ -893,6 +894,36 @@ def _make_agg_log_bf_roc(combined_data: dict, settings: dict) -> plt.Figure:
     return fig
 
 
+def _make_log_bf_ser_ecdf(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS data")
+    ecdf_data = viz_utils.make_log_bf_ser_ecdf(
+        cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+    )
+    return viz_utils.render_log_bf_ser_ecdf_chart(ecdf_data, collection_names=combined_data["collection_names"])
+
+
+def _make_agg_log_bf_ser_ecdf(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS data")
+    ecdf_data = viz_utils.make_log_bf_ser_ecdf(
+        cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+    )
+    fig = viz_utils.render_log_bf_ser_ecdf_chart(ecdf_data, collection_names=[])
+    _set_agg_facecolor(fig)
+    return fig
+
+
 def _make_agg_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
@@ -902,7 +933,7 @@ def _make_agg_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS data")
-    beta_summary = viz_utils.make_cs_beta_trace_summary(
+    beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data, method_meta,
         selected_methods=fg,
         selected_thresholds=_selected_thresholds(settings),
@@ -1027,7 +1058,7 @@ _PLOT_DISPATCH = {
     "cs_calibrated_dot": _make_cs_calibrated_dot,
     "cs_size_power": _make_cs_size_power,
     "cs_power_fdp": _make_cs_power_fdp,
-    "cs_beta_trace": _make_cs_beta_trace,
+    "cs_power_size_coverage_trace": _make_cs_power_size_coverage_trace,
     "cs_coverage_trace": _make_cs_coverage_trace,
     "cs_coverage_size": _make_cs_coverage_size,
     "agg_pip_calibration": _make_agg_pip_calibration,
@@ -1036,7 +1067,7 @@ _PLOT_DISPATCH = {
     "agg_causal_rank": _make_agg_causal_rank,
     "agg_mass_above_causal": _make_agg_mass_above_causal,
     "agg_cs_power_fdp": _make_agg_cs_power_fdp,
-    "agg_cs_beta_trace": _make_agg_cs_beta_trace,
+    "agg_cs_power_size_coverage_trace": _make_agg_cs_power_size_coverage_trace,
     "agg_cs_coverage_trace": _make_agg_cs_coverage_trace,
     "agg_cs_size_power": _make_agg_cs_size_power,
     "agg_cs_coverage_size": _make_agg_cs_coverage_size,
@@ -1044,6 +1075,8 @@ _PLOT_DISPATCH = {
     "agg_cs_calibration": _make_agg_cs_calibration,
     "log_bf_roc": _make_log_bf_roc,
     "agg_log_bf_roc": _make_agg_log_bf_roc,
+    "log_bf_ser_ecdf": _make_log_bf_ser_ecdf,
+    "agg_log_bf_ser_ecdf": _make_agg_log_bf_ser_ecdf,
     "agg_cs_calibrated_dot": _make_agg_cs_calibrated_dot,
     "preceding_posterior_mass_ecdf": _make_preceding_posterior_mass_ecdf,
     "agg_preceding_posterior_mass_ecdf": _make_agg_preceding_posterior_mass_ecdf,
