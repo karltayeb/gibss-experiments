@@ -140,6 +140,7 @@ supercollections:
       - settings:
           - minimal
           - minimal-scale
+          - minimal_no_linear
         plot_type_groups:
           - pip
           - pip_non_null
@@ -197,6 +198,7 @@ supercollections:
       - settings:
           - minimal
           - minimal-scale
+          - minimal_no_linear
         plot_type_groups:
           - pip
           - cs
@@ -254,6 +256,7 @@ supercollections:
       - settings:
           - minimal
           - minimal-scale
+          - minimal_no_linear
         plot_type_groups:
           - pip
           - pip_non_null
@@ -311,6 +314,7 @@ supercollections:
       - settings:
           - minimal
           - minimal-scale
+          - minimal_no_linear
         plot_type_groups:
           - pip
           - cs
