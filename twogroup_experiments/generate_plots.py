@@ -23,10 +23,10 @@ _COLLECTION_ALIAS_ROOT = Path(__file__).parent / "results" / "collections"
 
 PLOT_TYPES = [
     "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
-    "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_power_fdp", "cs_power_size_coverage_trace", "cs_coverage_trace", "preceding_posterior_mass_ecdf",
+    "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_radius_power", "cs_power_fdp", "cs_power_size_coverage_trace", "cs_coverage_trace", "preceding_posterior_mass_ecdf",
     "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
-    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_power_size_coverage_trace", "agg_cs_coverage_trace", "agg_cs_size_power", "agg_cs_calibrated_dot", "agg_preceding_posterior_mass_ecdf",
-    "cs_coverage_size", "agg_cs_coverage_size",
+    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_power_size_coverage_trace", "agg_cs_coverage_trace", "agg_cs_size_power", "agg_cs_radius_power", "agg_cs_calibrated_dot", "agg_preceding_posterior_mass_ecdf",
+    "cs_coverage_size", "agg_cs_coverage_size", "cs_coverage_radius", "agg_cs_coverage_radius",
     "cs_calibration", "agg_cs_calibration",
     "log_bf_roc", "agg_log_bf_roc",
     "log_bf_ser_ecdf", "agg_log_bf_ser_ecdf",
@@ -374,6 +374,41 @@ def _make_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     nominal = beta_summary.filter(pl.col("beta") == round(min_beta, 2))
     calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_cs_size_power_chart(
+        nominal,
+        calibrated,
+        collection_names=collection_names,
+        min_beta=min_beta,
+        min_ser_log_bf=min_log_bf,
+        max_cs_size=max_cs_size,
+    )
+
+
+def _make_cs_radius_power(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    collection_names = combined_data["collection_names"]
+    min_beta = settings.get("cs_beta", 0.95)
+    max_cs_size = settings.get("max_cs_size", 10000)
+    min_log_bf = settings.get("min_log_bf", 2.0)
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS radius data")
+    radius_summary = viz_utils.make_cs_radius_power_summary(
+        cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+        max_cs_size=max_cs_size,
+        min_ser_log_bf=min_log_bf,
+    )
+    nominal = radius_summary.filter(pl.col("beta") == round(min_beta, 2))
+    calibrated = viz_utils.find_calibrated_radius_summary(
+        radius_summary, cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+        target_coverage=min_beta,
+        min_ser_log_bf=min_log_bf,
+    )
+    return viz_utils.render_cs_radius_power_chart(
         nominal,
         calibrated,
         collection_names=collection_names,
@@ -841,6 +876,47 @@ def _make_agg_cs_coverage_size(combined_data: dict, settings: dict) -> plt.Figur
     return fig
 
 
+def _make_cs_coverage_radius(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    collection_names = combined_data["collection_names"]
+    max_cs_size = settings.get("max_cs_size", 10000)
+    min_log_bf = settings.get("min_log_bf", 2.0)
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS radius data")
+    curves = viz_utils.make_cs_radius_power_summary(
+        cs_data,
+        method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+        max_cs_size=max_cs_size,
+        min_ser_log_bf=min_log_bf,
+    )
+    return viz_utils.render_cs_coverage_radius_chart(curves, collection_names=collection_names)
+
+
+def _make_agg_cs_coverage_radius(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    max_cs_size = settings.get("max_cs_size", 10000)
+    min_log_bf = settings.get("min_log_bf", 2.0)
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS radius data")
+    curves = viz_utils.make_cs_radius_power_summary(
+        cs_data,
+        method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+        max_cs_size=max_cs_size,
+        min_ser_log_bf=min_log_bf,
+    )
+    fig = viz_utils.render_cs_coverage_radius_chart(curves, collection_names=[])
+    _set_agg_facecolor(fig)
+    return fig
+
+
 def _make_cs_calibration(combined_data: dict, settings: dict) -> plt.Figure:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
@@ -943,6 +1019,40 @@ def _make_agg_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     nominal = beta_summary.filter(pl.col("beta") == round(min_beta, 2))
     calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_cs_size_power_chart(
+        nominal,
+        calibrated,
+        collection_names=[],
+        min_beta=min_beta,
+        min_ser_log_bf=min_log_bf,
+        max_cs_size=max_cs_size,
+    )
+
+
+def _make_agg_cs_radius_power(combined_data: dict, settings: dict) -> plt.Figure:
+    cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
+    method_meta = combined_data["method_metadata"]
+    min_beta = settings.get("cs_beta", 0.95)
+    max_cs_size = settings.get("max_cs_size", 10000)
+    min_log_bf = settings.get("min_log_bf", 2.0)
+    fg = _foreground_methods(method_meta, settings)
+    if cs_data.is_empty():
+        return viz_utils.make_placeholder_chart("No CS radius data")
+    radius_summary = viz_utils.make_cs_radius_power_summary(
+        cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+        max_cs_size=max_cs_size,
+        min_ser_log_bf=min_log_bf,
+    )
+    nominal = radius_summary.filter(pl.col("beta") == round(min_beta, 2))
+    calibrated = viz_utils.find_calibrated_radius_summary(
+        radius_summary, cs_data, method_meta,
+        selected_methods=fg,
+        selected_thresholds=_selected_thresholds(settings),
+        target_coverage=min_beta,
+        min_ser_log_bf=min_log_bf,
+    )
+    return viz_utils.render_cs_radius_power_chart(
         nominal,
         calibrated,
         collection_names=[],
@@ -1057,10 +1167,12 @@ _PLOT_DISPATCH = {
     "cs_dot_summary": _make_cs_dot_summary,
     "cs_calibrated_dot": _make_cs_calibrated_dot,
     "cs_size_power": _make_cs_size_power,
+    "cs_radius_power": _make_cs_radius_power,
     "cs_power_fdp": _make_cs_power_fdp,
     "cs_power_size_coverage_trace": _make_cs_power_size_coverage_trace,
     "cs_coverage_trace": _make_cs_coverage_trace,
     "cs_coverage_size": _make_cs_coverage_size,
+    "cs_coverage_radius": _make_cs_coverage_radius,
     "agg_pip_calibration": _make_agg_pip_calibration,
     "agg_power_fdp": _make_agg_power_fdp,
     "agg_causal_pip": _make_agg_causal_pip,
@@ -1070,7 +1182,9 @@ _PLOT_DISPATCH = {
     "agg_cs_power_size_coverage_trace": _make_agg_cs_power_size_coverage_trace,
     "agg_cs_coverage_trace": _make_agg_cs_coverage_trace,
     "agg_cs_size_power": _make_agg_cs_size_power,
+    "agg_cs_radius_power": _make_agg_cs_radius_power,
     "agg_cs_coverage_size": _make_agg_cs_coverage_size,
+    "agg_cs_coverage_radius": _make_agg_cs_coverage_radius,
     "cs_calibration": _make_cs_calibration,
     "agg_cs_calibration": _make_agg_cs_calibration,
     "log_bf_roc": _make_log_bf_roc,

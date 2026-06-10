@@ -158,8 +158,8 @@ def _make_simulations_by_batch():
         "batchA": pl.DataFrame({
             "replicate": [0, 1],
             "simulation": [
-                {"causal_indices": [0], "causal_effects": [1.0]},
-                {"causal_indices": [0], "causal_effects": [1.0]},
+                {"causal_indices": [0], "causal_effects": [1.0], "correlation_with_causal": [[1.0, 0.0, 0.0]]},
+                {"causal_indices": [0], "causal_effects": [1.0], "correlation_with_causal": [[1.0, 0.0, 0.0]]},
             ],
         })
     }
@@ -200,23 +200,23 @@ def test_build_pip_plot_data_causal_pips_correct():
 
 
 def test_build_cs_plot_data_schema():
-    from utils import CS_BETA_GRID
-
     fits_df = _make_pip_fits_df()
     sample_metadata = _make_sample_metadata()
+    simulations_by_batch = _make_simulations_by_batch()
 
-    result = plot_ready.build_cs_plot_data(fits_df, sample_metadata)
+    result = plot_ready.build_cs_plot_data(fits_df, sample_metadata, simulations_by_batch)
 
     # 2 replicates × L=1 effect = 2 rows
     assert result.height == 2
     assert set(result.columns) == {
         "sample_id", "method", "threshold", "l",
         "ser_log_bf", "n_features", "causal_indices", "causal_alpha", "rank_of_causal",
-        "mass_above_causal", "cs_sizes",
+        "mass_above_causal", "cs_sizes", "cs_causal_radius",
     }
     assert result["l"].dtype == pl.Int64
     assert result["n_features"].dtype == pl.Int64
     assert result["cs_sizes"].dtype == pl.List(pl.Int64)
+    assert result["cs_causal_radius"].dtype == pl.List(pl.List(pl.Float64))
 
 
 def test_build_cs_plot_data_cs_sizes_length():
@@ -224,10 +224,73 @@ def test_build_cs_plot_data_cs_sizes_length():
 
     fits_df = _make_pip_fits_df()
     sample_metadata = _make_sample_metadata()
+    simulations_by_batch = _make_simulations_by_batch()
 
-    result = plot_ready.build_cs_plot_data(fits_df, sample_metadata)
+    result = plot_ready.build_cs_plot_data(fits_df, sample_metadata, simulations_by_batch)
 
     for row in result.iter_rows(named=True):
         assert len(row["cs_sizes"]) == len(CS_BETA_GRID)
         assert len(row["rank_of_causal"]) == len(row["causal_indices"])
         assert len(row["mass_above_causal"]) == len(row["causal_indices"])
+        assert len(row["cs_causal_radius"]) == len(row["causal_indices"])
+        assert all(len(radius_by_beta) == len(CS_BETA_GRID) for radius_by_beta in row["cs_causal_radius"])
+
+
+def test_build_cs_plot_data_causal_radius_is_conditional_min_abs_corr():
+    from utils import CS_BETA_GRID
+
+    fits_df = pl.DataFrame({
+        "method": ["cox_L2"],
+        "threshold": [None],
+        "batch_hash": ["batchR"],
+        "replicate": [0],
+        "single_effects": [[
+            {"alpha": [0.60, 0.05, 0.25, 0.10], "mu": [0.0] * 4, "var": [0.1] * 4,
+             "prior_variance": 1.0, "marginal_log_likelihood": -1.0,
+             "null_log_likelihood": -2.0, "ser_log_bf": 3.0, "kl": 0.1},
+            {"alpha": [0.05, 0.05, 0.80, 0.10], "mu": [0.0] * 4, "var": [0.1] * 4,
+             "prior_variance": 1.0, "marginal_log_likelihood": -1.0,
+             "null_log_likelihood": -2.0, "ser_log_bf": 3.0, "kl": 0.1},
+        ]],
+        "credible_sets": [[
+            {"cs": [0, 2], "cs_size": 2, "causal_indices": [0, 2], "causal_in_cs": True,
+             "top_feature": 0, "top_feature_is_causal": True},
+            {"cs": [2], "cs_size": 1, "causal_indices": [0, 2], "causal_in_cs": True,
+             "top_feature": 2, "top_feature_is_causal": True},
+        ]],
+        "fit_summary": [{"n_selected": 4, "n_iter": 3, "converged": True}],
+    })
+    sample_metadata = pl.DataFrame({
+        "sample_id": ["batchR::0"],
+        "batch_hash": ["batchR"],
+        "replicate": [0],
+    })
+    simulations_by_batch = {
+        "batchR": pl.DataFrame({
+            "replicate": [0],
+            "simulation": [{
+                "causal_indices": [0, 2],
+                "causal_effects": [1.0, 1.0],
+                "correlation_with_causal": [
+                    [1.0, -1.0, 1.0, 0.0],
+                    [1.0, -1.0, 1.0, 0.0],
+                ],
+            }],
+        })
+    }
+
+    result = plot_ready.build_cs_plot_data(fits_df, sample_metadata, simulations_by_batch)
+
+    assert result.height == 2
+    row = result.filter(pl.col("l") == 0).row(0, named=True)
+    beta_050 = int((CS_BETA_GRID == 0.50).nonzero()[0][0])
+    beta_085 = int((CS_BETA_GRID == 0.85).nonzero()[0][0])
+    beta_095 = int((CS_BETA_GRID == 0.95).nonzero()[0][0])
+    causal0_radius, causal2_radius = row["cs_causal_radius"]
+
+    assert causal0_radius[beta_050] == 1.0
+    assert causal2_radius[beta_050] is None
+    assert causal0_radius[beta_085] == 1.0
+    assert causal2_radius[beta_085] == 1.0
+    assert causal0_radius[beta_095] == 0.0
+    assert causal2_radius[beta_095] == 0.0

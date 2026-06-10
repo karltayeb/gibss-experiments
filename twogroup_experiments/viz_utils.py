@@ -1126,13 +1126,17 @@ def _compute_causal_power_rows(
         "collection_name": pl.String, "sample_id": pl.String,
         "method": pl.String, "threshold": pl.Float64, "l": pl.Int64,
         "causal_idx": pl.Int64, "beta": pl.Float64, "valid_covered": pl.Boolean,
+        "cs_causal_radius": pl.Float64,
     }
     rows: list[dict] = []
     for row in cs_plot_data.iter_rows(named=True):
         sizes = row["cs_sizes"]
+        radii = row.get("cs_causal_radius")
         ser_valid = row["ser_log_bf"] >= min_ser_log_bf
-        for causal_rank, causal_idx in zip(row["rank_of_causal"], row["causal_indices"]):
-            for beta, cs_size in zip(CS_BETA_GRID.tolist(), sizes):
+        for causal_pos, (causal_rank, causal_idx) in enumerate(zip(row["rank_of_causal"], row["causal_indices"])):
+            radius_by_beta = radii[causal_pos] if radii is not None else [None] * len(sizes)
+            for beta, cs_size, radius in zip(CS_BETA_GRID.tolist(), sizes, radius_by_beta):
+                valid_covered = ser_valid and (cs_size <= max_cs_size) and (causal_rank < cs_size)
                 rows.append({
                     "collection_name": row["collection_name"],
                     "sample_id": row["sample_id"],
@@ -1141,7 +1145,8 @@ def _compute_causal_power_rows(
                     "l": row["l"],
                     "causal_idx": int(causal_idx),
                     "beta": float(beta),
-                    "valid_covered": ser_valid and (cs_size <= max_cs_size) and (causal_rank < cs_size),
+                    "valid_covered": valid_covered,
+                    "cs_causal_radius": float(radius) if valid_covered and radius is not None else None,
                 })
     if not rows:
         return pl.DataFrame(schema=schema)
@@ -1268,6 +1273,153 @@ def make_cs_power_size_coverage_summary(
     return (
         cov_cs.join(power_df, on=["collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta"], how="left", nulls_equal=True)
         .sort("collection_name", "method_display", "threshold", "beta")
+    )
+
+
+make_cs_beta_trace_summary = make_cs_power_size_coverage_summary
+
+
+def make_cs_radius_power_summary(
+    cs_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_thresholds: list[float] | None,
+    max_cs_size: int,
+    min_ser_log_bf: float,
+) -> pl.DataFrame:
+    """Summarize power and mean causal radius across covered causal targets."""
+    empty_schema = {
+        "collection_name": pl.String, "method": pl.String, "method_display": pl.String,
+        "threshold": pl.Float64, "is_thresholded": pl.Boolean,
+        "is_selected_threshold": pl.Boolean, "beta": pl.Float64,
+        "power": pl.Float64, "coverage": pl.Float64, "cs_causal_radius": pl.Float64,
+    }
+    if cs_plot_data.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+    causal_rows = _compute_causal_power_rows(
+        cs_plot_data.filter(pl.col("method").is_in(list(selected_methods))),
+        max_cs_size=max_cs_size,
+        min_ser_log_bf=min_ser_log_bf,
+    )
+    if causal_rows.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    filtered = (
+        causal_rows
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(
+            (
+                ~pl.col("is_thresholded")
+                | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+            ).alias("is_selected_threshold")
+        )
+        .filter(pl.col("is_selected_threshold"))
+    )
+    if filtered.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    per_causal_sample = (
+        filtered
+        .group_by("collection_name", "sample_id", "causal_idx", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
+        .agg(
+            pl.col("valid_covered").any().alias("discovered"),
+            pl.col("cs_causal_radius").max().alias("cs_causal_radius"),
+        )
+    )
+    return (
+        per_causal_sample
+        .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
+        .agg(
+            pl.col("discovered").cast(pl.Float64).mean().alias("power"),
+            pl.col("discovered").cast(pl.Float64).mean().alias("coverage"),
+            pl.col("cs_causal_radius").mean().alias("cs_causal_radius"),
+        )
+        .sort("collection_name", "method_display", "threshold", "beta")
+    )
+
+
+def find_calibrated_radius_summary(
+    radius_trace: pl.DataFrame,
+    cs_plot_data: pl.DataFrame,
+    method_metadata: pl.DataFrame,
+    *,
+    selected_methods: set[str],
+    selected_thresholds: list[float] | None,
+    target_coverage: float,
+    min_ser_log_bf: float,
+) -> pl.DataFrame:
+    """Calibrated beta lookup for radius/power summaries."""
+    group_cols = [
+        "collection_name", "method", "method_display", "threshold",
+        "is_thresholded", "is_selected_threshold",
+    ]
+    group_cols_no_coll = ["method", "method_display", "threshold", "is_thresholded", "is_selected_threshold"]
+    empty_schema = {
+        "collection_name": pl.String, "method": pl.String, "method_display": pl.String,
+        "threshold": pl.Float64, "is_thresholded": pl.Boolean, "is_selected_threshold": pl.Boolean,
+        "calibrated_beta": pl.Float64, "power": pl.Float64, "coverage": pl.Float64,
+        "cs_causal_radius": pl.Float64,
+    }
+    if radius_trace.is_empty() or cs_plot_data.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    meta = method_metadata.select("method", "threshold", "method_display", "is_thresholded")
+    expanded = (
+        cs_plot_data
+        .filter(
+            pl.col("method").is_in(list(selected_methods))
+            & (pl.col("ser_log_bf") >= min_ser_log_bf)
+        )
+        .explode("mass_above_causal", "causal_indices")
+        .join(meta, on=["method", "threshold"], how="left", nulls_equal=True)
+        .with_columns(
+            (
+                ~pl.col("is_thresholded")
+                | (pl.lit(True) if selected_thresholds is None else pl.col("threshold").is_in(selected_thresholds))
+            ).alias("is_selected_threshold")
+        )
+        .filter(pl.col("is_selected_threshold"))
+    )
+    if expanded.is_empty():
+        return pl.DataFrame(schema=empty_schema)
+
+    def _exact_betas(df: pl.DataFrame, grp: list[str]) -> pl.DataFrame:
+        return (
+            df.group_by(grp)
+            .agg(
+                pl.col("mass_above_causal")
+                .quantile(target_coverage, interpolation="higher")
+                .round(2)
+                .clip(0.01, 0.99)
+                .alias("calibrated_beta")
+            )
+        )
+
+    def _lookup_metrics(exact_betas: pl.DataFrame, trace: pl.DataFrame) -> pl.DataFrame:
+        return exact_betas.join(
+            trace.rename({"beta": "calibrated_beta"}),
+            on=group_cols + ["calibrated_beta"],
+            how="left",
+            nulls_equal=True,
+        )
+
+    per_coll = _lookup_metrics(_exact_betas(expanded, group_cols), radius_trace)
+    pooled_trace = (
+        radius_trace
+        .group_by(group_cols_no_coll + ["beta"])
+        .agg(pl.col("power").mean(), pl.col("coverage").mean(), pl.col("cs_causal_radius").mean())
+        .with_columns(pl.lit("All").alias("collection_name"))
+    )
+    pooled = _lookup_metrics(
+        _exact_betas(expanded.with_columns(pl.lit("All").alias("collection_name")), group_cols),
+        pooled_trace,
+    )
+    return (
+        pl.concat([per_coll, pooled], how="diagonal")
+        .sort("collection_name", "method_display", "threshold")
     )
 
 
@@ -1788,6 +1940,115 @@ def render_cs_size_power_chart(
     return fig
 
 
+def render_cs_radius_power_chart(
+    nominal: pl.DataFrame,
+    calibrated: pl.DataFrame,
+    *,
+    collection_names: list[str],
+    min_beta: float,
+    min_ser_log_bf: float,
+    max_cs_size: int,
+) -> "plt.Figure":
+    """Scatter: x=mean causal radius among discovered targets, y=power."""
+    if nominal.is_empty() and calibrated.is_empty():
+        return make_placeholder_chart("No CS radius data")
+
+    theme = base_chart_theme()
+    all_colls = list(collection_names) + ["All"]
+    n_panels = len(all_colls)
+    _legend_w = 2.5
+    _plot_w = theme["width"] * n_panels
+    _fig_w = _plot_w + _legend_w
+    _plot_frac = _plot_w / _fig_w
+
+    def _agg(df: pl.DataFrame) -> pl.DataFrame:
+        if df.is_empty():
+            return df
+        return df.group_by(
+            "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold"
+        ).agg(pl.col("power").mean(), pl.col("cs_causal_radius").mean()).with_columns(
+            pl.lit("All").alias("collection_name")
+        )
+
+    nom_full = pl.concat([nominal, _agg(nominal)], how="diagonal") if not nominal.is_empty() else nominal
+    cal_full = calibrated
+
+    fig, axes = plt.subplots(1, n_panels, figsize=(_fig_w, theme["height"]), squeeze=False)
+    axes = axes[0]
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
+    for panel_idx, coll in enumerate(all_colls):
+        ax = axes[panel_idx]
+        if panel_idx == n_panels - 1:
+            ax.set_facecolor("#ddeeff")
+
+        nom_coll = nom_full.filter(pl.col("collection_name") == coll)
+        cal_coll = cal_full.filter(pl.col("collection_name") == coll)
+        labels = pl.concat([
+            nom_coll.select("method", "method_display", "threshold", "is_thresholded"),
+            cal_coll.select("method", "method_display", "threshold", "is_thresholded"),
+        ], how="diagonal").unique().sort(["is_thresholded", "method_display"])
+
+        for trow in labels.iter_rows(named=True):
+            thresh_filter = (
+                pl.col("threshold").is_null() if trow["threshold"] is None
+                else (pl.col("threshold") == trow["threshold"])
+            )
+            color = method_color(trow["method"])
+            label = trow["method_display"]
+            nom_row = nom_coll.filter((pl.col("method") == trow["method"]) & thresh_filter)
+            cal_row = cal_coll.filter((pl.col("method") == trow["method"]) & thresh_filter)
+
+            nom_x = nom_row["cs_causal_radius"][0] if not nom_row.is_empty() else None
+            nom_y = nom_row["power"][0] if not nom_row.is_empty() else None
+            cal_x = cal_row["cs_causal_radius"][0] if not cal_row.is_empty() else None
+            cal_y = cal_row["power"][0] if not cal_row.is_empty() else None
+
+            if nom_x is not None and nom_y is not None and cal_x is not None and cal_y is not None:
+                ax.plot([nom_x, cal_x], [nom_y, cal_y], color=color, linewidth=0.8, zorder=2)
+            if nom_x is not None and nom_y is not None:
+                sc = ax.scatter([nom_x], [nom_y], color=color, s=60, zorder=3, marker="o")
+                if label not in seen_labels:
+                    legend_handles.append(sc)
+                    legend_labels.append(label)
+                    seen_labels.add(label)
+            if cal_x is not None and cal_y is not None:
+                ax.scatter([cal_x], [cal_y], color=color, s=60, zorder=3,
+                           marker="o", facecolors="none", edgecolors=color, linewidths=1.5)
+
+        ax.set_xlabel("Mean causal radius")
+        ax.set_xlim(0.0, 1.02)
+        ax.set_ylim(0.0, 1.02)
+        ax.set_title(coll, fontsize=8, fontweight="bold")
+        if panel_idx == 0:
+            ax.set_ylabel("Power")
+
+    settings_text = f"min β = {min_beta:.2f}\nmax cs = {max_cs_size}\nmin log BF = {min_ser_log_bf:.1f}"
+    if legend_handles:
+        from matplotlib.lines import Line2D
+        legend_handles += [
+            Line2D([0], [0], marker="o", color="grey", markersize=6, linestyle="none", label="nominal"),
+            Line2D([0], [0], marker="o", color="grey", markersize=6, linestyle="none",
+                   markerfacecolor="none", markeredgewidth=1.5, label="calibrated"),
+        ]
+        legend_labels += ["nominal β", "calibrated β"]
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
+        )
+    fig.text(
+        _plot_frac + 0.03, 0.35, settings_text,
+        fontsize=7, verticalalignment="top",
+        bbox=dict(boxstyle="round,pad=0.4", facecolor="lightyellow", edgecolor="grey", alpha=0.8),
+        transform=fig.transFigure,
+    )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
 def render_cs_power_size_coverage_trace_chart(
     summary: pl.DataFrame,
     *,
@@ -2102,6 +2363,134 @@ def render_cs_coverage_size_chart(
         summary
         .group_by("method", "method_display", "threshold", "is_thresholded", "beta")
         .agg(pl.col("coverage").mean(), pl.col("cs_size").mean(), pl.col("cs_size_frac").mean())
+    )
+    _plot_row(n_rows, _agg)
+    for col in range(3):
+        axes[n_rows, col].set_facecolor("#ddeeff")
+    if n_rows > 0:
+        axes[n_rows, 0].set_title("All (aggregate)", fontsize=9, fontweight="bold")
+
+    if legend_handles:
+        fig.legend(
+            legend_handles, legend_labels,
+            frameon=False, fontsize=8,
+            loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
+        )
+    fig.tight_layout(rect=[0, 0, _plot_frac, 1])
+    return fig
+
+
+def render_cs_coverage_radius_chart(
+    summary: pl.DataFrame,
+    *,
+    collection_names: list[str],
+) -> "plt.Figure":
+    """Three panels per row using causal radius instead of CS size."""
+    if summary.is_empty():
+        return make_placeholder_chart("No CS radius data")
+
+    theme = base_chart_theme()
+    n_rows = len(collection_names)
+    _legend_w = 2.5
+    _plot_w = theme["width"] * 3
+    _fig_w = _plot_w + _legend_w
+    _plot_frac = _plot_w / _fig_w
+    fig, axes = plt.subplots(
+        n_rows + 1, 3,
+        figsize=(_fig_w, theme["height"] * (n_rows + 1)),
+        squeeze=False,
+    )
+
+    legend_handles: list = []
+    legend_labels: list = []
+    seen_labels: set[str] = set()
+
+    def _plot_row(row_idx: int, row_df: pl.DataFrame) -> None:
+        ax_cov = axes[row_idx, 0]
+        ax_nom = axes[row_idx, 1]
+        ax_cal = axes[row_idx, 2]
+        betas = row_df["beta"].unique().sort().to_numpy()
+        if len(betas):
+            ax_cal.plot(betas, betas, color="black", linestyle="--", linewidth=1.0, zorder=0)
+        trace_labels = (
+            row_df.select("method", "threshold", "method_display", "is_thresholded")
+            .unique()
+            .sort("is_thresholded", "method_display", "threshold", nulls_last=True)
+        )
+        for trow in trace_labels.iter_rows(named=True):
+            thresh_filter = (
+                pl.col("threshold").is_null() if trow["threshold"] is None
+                else (pl.col("threshold") == trow["threshold"])
+            )
+            trace_df = row_df.filter(
+                (pl.col("method") == trow["method"]) & thresh_filter
+            ).sort("beta")
+            if trace_df.is_empty():
+                continue
+            color = method_color(trow["method"])
+            label = trow["method_display"]
+            line, = ax_cov.plot(
+                trace_df["coverage"].to_numpy(),
+                trace_df["cs_causal_radius"].to_numpy(),
+                color=color, linewidth=2.0,
+            )
+            marker_row = trace_df.filter(pl.col("beta") == 0.95)
+            if not marker_row.is_empty():
+                ax_cov.plot(
+                    marker_row["coverage"].to_numpy(),
+                    marker_row["cs_causal_radius"].to_numpy(),
+                    marker="o", markersize=6, color=color, linestyle="none",
+                )
+            ax_nom.plot(
+                trace_df["beta"].to_numpy(),
+                trace_df["cs_causal_radius"].to_numpy(),
+                color=color, linewidth=2.0,
+            )
+            if not marker_row.is_empty():
+                ax_nom.plot(
+                    marker_row["beta"].to_numpy(),
+                    marker_row["cs_causal_radius"].to_numpy(),
+                    marker="o", markersize=6, color=color, linestyle="none",
+                )
+            ax_cal.plot(
+                trace_df["beta"].to_numpy(),
+                trace_df["coverage"].to_numpy(),
+                color=color, linewidth=2.0,
+            )
+            if not marker_row.is_empty():
+                ax_cal.plot(
+                    marker_row["beta"].to_numpy(),
+                    marker_row["coverage"].to_numpy(),
+                    marker="o", markersize=6, color=color, linestyle="none",
+                )
+            if label not in seen_labels:
+                legend_handles.append(line)
+                legend_labels.append(label)
+                seen_labels.add(label)
+        ax_cov.set_xlim(0.0, 1.02)
+        ax_cov.set_ylim(0.0, 1.02)
+        ax_nom.set_xlim(0.0, 1.02)
+        ax_nom.set_ylim(0.0, 1.02)
+        ax_cal.set_xlim(0.0, 1.02)
+        ax_cal.set_ylim(0.0, 1.02)
+        if row_idx == 0:
+            ax_cov.set_title("Empirical coverage vs causal radius")
+            ax_nom.set_title("Nominal level vs causal radius")
+            ax_cal.set_title("Calibration (nominal vs empirical)")
+        ax_cov.set_xlabel("Empirical coverage")
+        ax_nom.set_xlabel("Nominal level (β)")
+        ax_cal.set_xlabel("Nominal level (β)")
+        ax_cov.set_ylabel("Mean causal radius")
+        ax_cal.set_ylabel("Empirical coverage")
+
+    for row_idx, coll_name in enumerate(collection_names):
+        _plot_row(row_idx, summary.filter(pl.col("collection_name") == coll_name))
+        axes[row_idx, 0].set_title(coll_name, fontsize=9, fontweight="bold")
+
+    _agg = (
+        summary
+        .group_by("method", "method_display", "threshold", "is_thresholded", "beta")
+        .agg(pl.col("coverage").mean(), pl.col("power").mean(), pl.col("cs_causal_radius").mean())
     )
     _plot_row(n_rows, _agg)
     for col in range(3):

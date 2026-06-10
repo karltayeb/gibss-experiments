@@ -66,7 +66,7 @@ Signal: `loc_{mu}` or `scale_{sigma}`
 | Group | Contents |
 |-------|---------|
 | `standard` | pip_calibration, power_fdp, causal_pip, causal_rank, mass_above_causal (+ agg_ variants) |
-| `cs` | All CS plots: dot_summary, calibrated_dot, size_power, power_fdp, beta_trace, coverage_trace, coverage_size (+ agg_ variants) |
+| `cs` | All CS plots: dot_summary, calibrated_dot, size_power, radius_power, power_fdp, beta_trace, coverage_trace, coverage_size, coverage_radius (+ agg_ variants) |
 | `f1` | f1_boxplot, f1_scatter, f1_enrich_scatter |
 | `coverage_size` | cs_coverage_size, agg_cs_coverage_size |
 

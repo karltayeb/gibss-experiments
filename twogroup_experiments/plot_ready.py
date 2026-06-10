@@ -207,6 +207,7 @@ def build_pip_plot_data(
 def build_cs_plot_data(
     fits_df: pl.DataFrame,
     sample_metadata: pl.DataFrame,
+    simulations_by_batch: dict[str, pl.DataFrame],
 ) -> pl.DataFrame:
     """One row per (sample_id, method, threshold, l). Arrays for CS sweep at each beta."""
     from utils import CS_BETA_GRID
@@ -218,6 +219,7 @@ def build_cs_plot_data(
         "causal_indices": pl.List(pl.Int64), "causal_alpha": pl.List(pl.Float64),
         "rank_of_causal": pl.List(pl.Int64),
         "mass_above_causal": pl.List(pl.Float64), "cs_sizes": pl.List(pl.Int64),
+        "cs_causal_radius": pl.List(pl.List(pl.Float64)),
     }
     fits_with_sid = fits_df.join(
         sample_metadata.select("sample_id", "batch_hash", "replicate"),
@@ -226,6 +228,16 @@ def build_cs_plot_data(
     )
     rows: list[dict] = []
     for row in fits_with_sid.iter_rows(named=True):
+        sim_df = simulations_by_batch[row["batch_hash"]]
+        sim_row = sim_df.filter(pl.col("replicate") == row["replicate"]).row(0, named=True)
+        sim_struct = sim_row["simulation"]
+        corr_by_causal = {
+            int(causal_idx): [float(v) for v in corr]
+            for causal_idx, corr in zip(
+                sim_struct["causal_indices"],
+                sim_struct["correlation_with_causal"],
+            )
+        }
         for l, effect in enumerate(row["single_effects"]):
             alpha = np.asarray(effect["alpha"], dtype=float)
             alpha = alpha / alpha.sum()
@@ -247,6 +259,17 @@ def build_cs_plot_data(
                 min(int(np.searchsorted(cumulative, float(beta), side="left") + 1), n_feat)
                 for beta in CS_BETA_GRID
             ]
+            cs_causal_radius: list[list[float | None]] = []
+            for ci, causal_rank in zip(causal_indices, rank_of_causal):
+                causal_corr = np.abs(np.asarray(corr_by_causal[int(ci)], dtype=float))
+                radius_by_beta: list[float | None] = []
+                for cs_size in cs_sizes:
+                    if causal_rank < cs_size:
+                        prefix = order[:cs_size]
+                        radius_by_beta.append(float(np.min(causal_corr[prefix])))
+                    else:
+                        radius_by_beta.append(None)
+                cs_causal_radius.append(radius_by_beta)
             rows.append({
                 "sample_id": row["sample_id"],
                 "method": row["method"],
@@ -259,6 +282,7 @@ def build_cs_plot_data(
                 "rank_of_causal": rank_of_causal,
                 "mass_above_causal": mass_above_causal,
                 "cs_sizes": cs_sizes,
+                "cs_causal_radius": cs_causal_radius,
             })
     if not rows:
         return pl.DataFrame(schema=empty_schema)

@@ -40,10 +40,37 @@ def manifest_dict() -> dict[str, object]:
     return config_manifest_dict()
 
 
+def correlation_with_causal(X: np.ndarray, causal_indices: Iterable[int]) -> list[list[float]]:
+    """Pearson correlations from each causal feature to every feature."""
+    X_arr = np.asarray(X, dtype=float)
+    centered = X_arr - X_arr.mean(axis=0, keepdims=True)
+    norms = np.linalg.norm(centered, axis=0)
+    rows: list[list[float]] = []
+    for causal_idx in causal_indices:
+        ci = int(causal_idx)
+        if norms[ci] == 0:
+            corr = np.zeros(X_arr.shape[1], dtype=float)
+        else:
+            denom = norms[ci] * norms
+            corr = np.divide(
+                centered[:, ci] @ centered,
+                denom,
+                out=np.zeros(X_arr.shape[1], dtype=float),
+                where=denom > 0,
+            )
+        corr[ci] = 1.0
+        rows.append([float(v) for v in corr])
+    return rows
+
+
 def simulation_struct_without_x(simulation: TwoGroupSimulation) -> dict[str, Any]:
     return {
         "causal_indices": [int(idx) for idx in simulation.causal_indices],
         "causal_effects": [float(value) for value in simulation.causal_effects],
+        "correlation_with_causal": correlation_with_causal(
+            simulation.X,
+            simulation.causal_indices,
+        ),
         "intercept": float(simulation.intercept),
         "b": simulation.b.tolist(),
         "z": simulation.z.tolist(),
@@ -161,5 +188,3 @@ def symlink_output(target_text: str, link_text: str) -> None:
         link.unlink()
     relative_target = os.path.relpath(target, start=link.parent)
     link.symlink_to(relative_target)
-
-

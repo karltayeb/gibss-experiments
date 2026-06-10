@@ -17,6 +17,7 @@ from core import (
     HASH_KEY,
     LOGISTIC_ORACLE,
     SimulationSpec,
+    TwoGroupSimulation,
     bernoulli_markov_X,
     dehydrate_hashed,
     dehydrate_node,
@@ -36,11 +37,13 @@ from utils import (
     fit_batch_method,
     manifest_dict,
     simulate_batch,
+    simulation_struct_without_x,
 )
 from viz_utils import (
     make_method_display_label,
     method_metadata_from_method_spec_json,
     make_cs_beta_trace_summary,
+    make_cs_radius_power_summary,
 )
 from utils import CS_BETA_GRID
 
@@ -450,9 +453,34 @@ def test_t_error_simulation_spec_hash_differs_from_normal_baseline():
             assert simulation_hash(spec) != simulation_hash(SIMULATION_BY_NAME[normal_name])
 
 
+def test_simulation_struct_stores_signed_correlation_with_causal():
+    simulation = TwoGroupSimulation(
+        X=np.array([
+            [-1.0, 1.0, 7.0],
+            [-1.0, 1.0, 7.0],
+            [1.0, -1.0, 7.0],
+            [1.0, -1.0, 7.0],
+        ]),
+        intercept=0.0,
+        causal_indices=[0],
+        causal_effects=[1.0],
+        b=np.array([1.0, 0.0, 0.0]),
+        z=np.array([0, 0, 1, 1]),
+        theta=np.zeros(3),
+        thetahat=np.zeros(3),
+        se=np.ones(3),
+        f0=PointMass(0.0),
+        f1=Normal(loc=1.0, scale=0.1),
+    )
+
+    result = simulation_struct_without_x(simulation)
+
+    assert "X" not in result
+    assert result["correlation_with_causal"] == [[1.0, -1.0, 0.0]]
+
+
 def _make_cs_plot_data(rows: list[dict]) -> pl.DataFrame:
     """Build minimal cs_plot_data for power tests."""
-    beta_idx_095 = int(np.searchsorted(CS_BETA_GRID, 0.95))
     result = []
     for r in rows:
         n_vars = r["n_vars"]
@@ -460,6 +488,10 @@ def _make_cs_plot_data(rows: list[dict]) -> pl.DataFrame:
         causal_indices = r["causal_indices"]
         # cs_sizes: small fixed CS that only covers if rank < 3
         cs_sizes = [3] * len(CS_BETA_GRID)
+        radius = r.get(
+            "cs_causal_radius",
+            [[1.0 if rank < 3 else None for _ in CS_BETA_GRID] for rank in rank_of_causal],
+        )
         result.append({
             "collection_name": r.get("collection_name", "c1"),
             "sample_id": r["sample_id"],
@@ -467,16 +499,18 @@ def _make_cs_plot_data(rows: list[dict]) -> pl.DataFrame:
             "threshold": None,
             "l": r.get("l", 0),
             "ser_log_bf": r.get("ser_log_bf", 5.0),
+            "n_features": n_vars,
             "causal_indices": causal_indices,
             "rank_of_causal": rank_of_causal,
             "cs_sizes": cs_sizes,
+            "cs_causal_radius": radius,
         })
     return pl.from_dicts(result, schema={
         "collection_name": pl.String, "sample_id": pl.String,
         "method": pl.String, "threshold": pl.Float64, "l": pl.Int64,
-        "ser_log_bf": pl.Float64,
+        "ser_log_bf": pl.Float64, "n_features": pl.Int64,
         "causal_indices": pl.List(pl.Int64), "rank_of_causal": pl.List(pl.Int64),
-        "cs_sizes": pl.List(pl.Int64),
+        "cs_sizes": pl.List(pl.Int64), "cs_causal_radius": pl.List(pl.List(pl.Float64)),
     })
 
 
@@ -560,3 +594,30 @@ def test_power_duplicate_cs_does_not_inflate_numerator():
     row = summary.filter((pl.col("beta") == 0.95) & (pl.col("collection_name") == "c1"))
     # 1 sample, 1 causal, covered → power = 1.0 (not 2.0)
     assert abs(row["power"][0] - 1.0) < 1e-9, f"Expected 1.0, got {row['power'][0]}"
+
+
+def test_radius_power_uses_best_duplicate_radius_and_skips_uncovered():
+    cs_data = _make_cs_plot_data([
+        {
+            "sample_id": "s1", "causal_indices": [7], "rank_of_causal": [0],
+            "n_vars": 10, "l": 0, "cs_causal_radius": [[0.2] * len(CS_BETA_GRID)],
+        },
+        {
+            "sample_id": "s1", "causal_indices": [7], "rank_of_causal": [0],
+            "n_vars": 10, "l": 1, "cs_causal_radius": [[0.8] * len(CS_BETA_GRID)],
+        },
+        {
+            "sample_id": "s2", "causal_indices": [7], "rank_of_causal": [5],
+            "n_vars": 10, "l": 0, "cs_causal_radius": [[None] * len(CS_BETA_GRID)],
+        },
+    ])
+
+    summary = make_cs_radius_power_summary(
+        cs_data, _method_meta(),
+        selected_methods={"m1"}, selected_thresholds=None,
+        max_cs_size=10000, min_ser_log_bf=0.0,
+    )
+    row = summary.filter((pl.col("beta") == 0.95) & (pl.col("collection_name") == "c1"))
+
+    assert abs(row["power"][0] - 0.5) < 1e-9
+    assert abs(row["cs_causal_radius"][0] - 0.8) < 1e-9

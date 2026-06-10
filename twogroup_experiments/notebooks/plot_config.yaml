@@ -1605,6 +1605,7 @@ plot_type_groups:
     - cs_dot_summary
     - cs_calibrated_dot
     - cs_size_power
+    - cs_radius_power
     - cs_power_fdp
     - cs_power_size_coverage_trace
     - cs_coverage_trace
@@ -1612,11 +1613,14 @@ plot_type_groups:
     - agg_cs_power_size_coverage_trace
     - agg_cs_coverage_trace
     - agg_cs_size_power
+    - agg_cs_radius_power
     - agg_cs_calibrated_dot
     - preceding_posterior_mass_ecdf
     - agg_preceding_posterior_mass_ecdf
     - cs_coverage_size
     - agg_cs_coverage_size
+    - cs_coverage_radius
+    - agg_cs_coverage_radius
   f1:
     - f1_boxplot
     - f1_scatter
@@ -1624,3 +1628,5 @@ plot_type_groups:
   coverage_size:
     - cs_coverage_size
     - agg_cs_coverage_size
+    - cs_coverage_radius
+    - agg_cs_coverage_radius

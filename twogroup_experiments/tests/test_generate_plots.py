@@ -55,6 +55,43 @@ def test_load_plot_config_has_two_keys():
     assert "settings" in cfg
 
 
+def test_radius_plot_types_are_registered():
+    import generate_plots
+
+    for plot_type in (
+        "cs_radius_power",
+        "agg_cs_radius_power",
+        "cs_coverage_radius",
+        "agg_cs_coverage_radius",
+    ):
+        assert plot_type in generate_plots.PLOT_TYPES
+        assert plot_type in generate_plots._PLOT_DISPATCH
+
+
+def test_radius_plot_types_return_placeholder_for_empty_cs_data():
+    import generate_plots
+
+    combined_data = {
+        "cs_plot_data": pl.DataFrame(),
+        "method_metadata": pl.DataFrame({
+            "method": ["m1"],
+            "threshold": [None],
+            "method_family": ["m1"],
+            "is_thresholded": [False],
+        }),
+        "collection_names": ["c1"],
+    }
+
+    for plot_type in (
+        "cs_radius_power",
+        "agg_cs_radius_power",
+        "cs_coverage_radius",
+        "agg_cs_coverage_radius",
+    ):
+        fig = generate_plots._PLOT_DISPATCH[plot_type](combined_data, {})
+        assert fig.axes
+
+
 def test_foreground_methods_returns_all_except_wrong_threshold():
     import generate_plots
 
