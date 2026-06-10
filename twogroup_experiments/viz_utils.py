@@ -2487,12 +2487,9 @@ def render_f1_boxplot(
 ) -> plt.Figure:
     """4 axes (f1_loc, f1_scale, est_intercept, mu_at_causal).
     X-axis = collections; grouped boxes at each tick, one box per method.
-    Oracle methods excluded.
     """
-    _ORACLE_FAMILIES = {"twogroup_oracle"}
     color_map = method_family_color_map()
 
-    all_data = all_data.filter(~pl.col("method_family").is_in(_ORACLE_FAMILIES))
     present = set(all_data["method_display"].to_list())
 
     if method_order is None:
@@ -2659,7 +2656,6 @@ def render_f1_scatter_chart(
              f1_loc, f1_scale, true_f1_loc, true_f1_scale.
     """
     color_map = method_family_color_map()
-    label_map = method_family_label_map()
     if method_order is None:
         method_order = (
             f1_data.select("method_display", "method_family")
@@ -2688,7 +2684,7 @@ def render_f1_scatter_chart(
             color = color_map.get(fam, "#888888")
             x = fd["f1_loc"].drop_nulls().to_numpy() if not fd.is_empty() else np.array([])
             y = fd["f1_scale"].drop_nulls().to_numpy() if not fd.is_empty() else np.array([])
-            col_label = label_map.get(fam, m) if ri == 0 else None
+            col_label = m if ri == 0 else None
 
             _scatter_with_marginals(
                 fig, outer[ri, ci], x, y, true_x, true_y, color,
@@ -2711,7 +2707,6 @@ def render_f1_enrich_scatter_chart(
                  est_intercept, mu_at_causal, true_intercept, true_effect.
     """
     color_map = method_family_color_map()
-    label_map = method_family_label_map()
     if method_order is None:
         method_order = (
             enrich_data.select("method_display", "method_family")
@@ -2744,7 +2739,7 @@ def render_f1_enrich_scatter_chart(
                 x, y = np.array([]), np.array([])
                 true_x, true_y = None, None
 
-            col_label = label_map.get(fam, m) if ri == 0 else None
+            col_label = m if ri == 0 else None
 
             _scatter_with_marginals(
                 fig, outer[ri, ci], x, y, true_x, true_y, color,
