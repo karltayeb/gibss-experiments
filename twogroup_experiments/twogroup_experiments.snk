@@ -322,15 +322,6 @@ rule collection_pip_plot_data:
                 "method_specs"
             ]
         ],
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)[
-                    "batches"
-                ]
-            ],
-        ),
     output:
         f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/pip_plot_data.parquet",
     run:
@@ -357,6 +348,15 @@ rule collection_cs_plot_data:
     input:
         sources=PLOT_READY_SOURCES,
         sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
+        simulations=lambda wildcards: expand(
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+            batch_hash=[
+                batch[HASH_KEY]
+                for batch in load_collection_yaml(wildcards.collection_alias)[
+                    "batches"
+                ]
+            ],
+        ),
         fits=lambda wildcards: [
             f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
             for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
