@@ -30,6 +30,14 @@ settings:
       - linear_fixed
     thresholds:
       - 2.0
+  minimal_no_linear:
+    method_families:
+      - twogroup_oracle
+      - cox_heavy
+      - cox_light_threshold
+      - logistic_threshold
+    thresholds:
+      - 2.0
   minimal-loc:
     method_families:
       - twogroup_oracle
@@ -97,8 +105,6 @@ plot_type_groups:
     - agg_cs_power_fdp
     - cs_size_power
     - agg_cs_size_power
-    - preceding_posterior_mass_ecdf
-    - agg_preceding_posterior_mass_ecdf
   cs_non_null:
     - cs_coverage_size
     - agg_cs_coverage_size

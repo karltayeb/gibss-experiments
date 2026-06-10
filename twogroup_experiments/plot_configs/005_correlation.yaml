@@ -1,26 +1,148 @@
+collections:
+  gaussian-correlation-loc-rho-0.00-with-null:
+    simulations:
+      - design=gaussian_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=gaussian_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  gaussian-correlation-loc-rho-0.50-with-null:
+    simulations:
+      - design=gaussian_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=gaussian_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  gaussian-correlation-loc-rho-0.80-with-null:
+    simulations:
+      - design=gaussian_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=gaussian_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  gaussian-correlation-loc-rho-0.90-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  gaussian-correlation-loc-rho-0.95-with-null:
+    simulations:
+      - design=gaussian_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=gaussian_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  gaussian-correlation-loc-rho-0.99-with-null:
+    simulations:
+      - design=gaussian_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=gaussian_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+
+  gaussian-correlation-scale-rho-0.00-with-null:
+    simulations:
+      - design=gaussian_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=gaussian_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  gaussian-correlation-scale-rho-0.50-with-null:
+    simulations:
+      - design=gaussian_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=gaussian_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  gaussian-correlation-scale-rho-0.80-with-null:
+    simulations:
+      - design=gaussian_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=gaussian_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  gaussian-correlation-scale-rho-0.90-with-null:
+    simulations:
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  gaussian-correlation-scale-rho-0.95-with-null:
+    simulations:
+      - design=gaussian_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=gaussian_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  gaussian-correlation-scale-rho-0.99-with-null:
+    simulations:
+      - design=gaussian_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=gaussian_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+
+  uniform-correlation-loc-rho-0.00-with-null:
+    simulations:
+      - design=uniform_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=uniform_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  uniform-correlation-loc-rho-0.50-with-null:
+    simulations:
+      - design=uniform_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=uniform_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  uniform-correlation-loc-rho-0.80-with-null:
+    simulations:
+      - design=uniform_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=uniform_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  uniform-correlation-loc-rho-0.90-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  uniform-correlation-loc-rho-0.95-with-null:
+    simulations:
+      - design=uniform_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=uniform_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+  uniform-correlation-loc-rho-0.99-with-null:
+    simulations:
+      - design=uniform_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+      - design=uniform_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_2.00
+
+  uniform-correlation-scale-rho-0.00-with-null:
+    simulations:
+      - design=uniform_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=uniform_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  uniform-correlation-scale-rho-0.50-with-null:
+    simulations:
+      - design=uniform_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=uniform_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  uniform-correlation-scale-rho-0.80-with-null:
+    simulations:
+      - design=uniform_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=uniform_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  uniform-correlation-scale-rho-0.90-with-null:
+    simulations:
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  uniform-correlation-scale-rho-0.95-with-null:
+    simulations:
+      - design=uniform_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=uniform_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+  uniform-correlation-scale-rho-0.99-with-null:
+    simulations:
+      - design=uniform_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+      - design=uniform_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_2.00
+
 supercollections:
-  # --- gaussian: rho sweep (loc, medium signal) ---
+  005-gaussian-correlation-loc-non-null:
+    collections:
+      - name: design=gaussian_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.00
+      - name: design=gaussian_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.50
+      - name: design=gaussian_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.80
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.90
+      - name: design=gaussian_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.95
+      - name: design=gaussian_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.99
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-loc
+        plot_type_groups:
+          - pip
+          - pip_non_null
+          - cs
+          - cs_non_null
+
   005-gaussian-correlation-loc:
     collections:
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-3)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-2)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-1)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_0.00_b_0.00__signal=loc_0.00
-        alias: "null (b=0)"
-      - name: design=gaussian_rho_0.00_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: gaussian-correlation-loc-rho-0.00-with-null
         alias: rho=0.00
-      - name: design=gaussian_rho_0.50_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: gaussian-correlation-loc-rho-0.50-with-null
         alias: rho=0.50
-      - name: design=gaussian_rho_0.80_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: gaussian-correlation-loc-rho-0.80-with-null
         alias: rho=0.80
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: gaussian-correlation-loc-rho-0.90-with-null
         alias: rho=0.90
-      - name: design=gaussian_rho_0.95_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: gaussian-correlation-loc-rho-0.95-with-null
         alias: rho=0.95
-      - name: design=gaussian_rho_0.99_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: gaussian-correlation-loc-rho-0.99-with-null
         alias: rho=0.99
     default_settings:
       thresholds:
@@ -37,28 +159,49 @@ supercollections:
           - cs
           - logbf
 
-  # --- gaussian: rho sweep (scale, medium signal) ---
+  005-gaussian-correlation-scale-non-null:
+    collections:
+      - name: design=gaussian_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.00
+      - name: design=gaussian_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.50
+      - name: design=gaussian_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.80
+      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.90
+      - name: design=gaussian_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.95
+      - name: design=gaussian_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.99
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - pip_non_null
+          - cs
+          - cs_non_null
+
   005-gaussian-correlation-scale:
     collections:
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-3)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-2)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-1)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_0.00_b_0.00__signal=scale_0.00
-        alias: "null (b=0)"
-      - name: design=gaussian_rho_0.00_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: gaussian-correlation-scale-rho-0.00-with-null
         alias: rho=0.00
-      - name: design=gaussian_rho_0.50_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: gaussian-correlation-scale-rho-0.50-with-null
         alias: rho=0.50
-      - name: design=gaussian_rho_0.80_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: gaussian-correlation-scale-rho-0.80-with-null
         alias: rho=0.80
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: gaussian-correlation-scale-rho-0.90-with-null
         alias: rho=0.90
-      - name: design=gaussian_rho_0.95_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: gaussian-correlation-scale-rho-0.95-with-null
         alias: rho=0.95
-      - name: design=gaussian_rho_0.99_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: gaussian-correlation-scale-rho-0.99-with-null
         alias: rho=0.99
     default_settings:
       thresholds:
@@ -75,28 +218,49 @@ supercollections:
           - cs
           - logbf
 
-  # --- uniform: rho sweep (loc, medium signal) ---
+  005-uniform-correlation-loc-non-null:
+    collections:
+      - name: design=uniform_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.00
+      - name: design=uniform_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.50
+      - name: design=uniform_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.80
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.90
+      - name: design=uniform_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.95
+      - name: design=uniform_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=loc_2.00
+        alias: rho=0.99
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-loc
+        plot_type_groups:
+          - pip
+          - pip_non_null
+          - cs
+          - cs_non_null
+
   005-uniform-correlation-loc:
     collections:
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-3)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-2)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-1)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_0.00_b_0.00__signal=loc_0.00
-        alias: "null (b=0)"
-      - name: design=uniform_rho_0.00_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: uniform-correlation-loc-rho-0.00-with-null
         alias: rho=0.00
-      - name: design=uniform_rho_0.50_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: uniform-correlation-loc-rho-0.50-with-null
         alias: rho=0.50
-      - name: design=uniform_rho_0.80_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: uniform-correlation-loc-rho-0.80-with-null
         alias: rho=0.80
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: uniform-correlation-loc-rho-0.90-with-null
         alias: rho=0.90
-      - name: design=uniform_rho_0.95_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: uniform-correlation-loc-rho-0.95-with-null
         alias: rho=0.95
-      - name: design=uniform_rho_0.99_n_500_p_100__enrichment=ser_enrich__signal=loc_1.50
+      - name: uniform-correlation-loc-rho-0.99-with-null
         alias: rho=0.99
     default_settings:
       thresholds:
@@ -113,180 +277,49 @@ supercollections:
           - cs
           - logbf
 
-  # --- uniform: rho sweep (scale, medium signal) ---
+  005-uniform-correlation-scale-non-null:
+    collections:
+      - name: design=uniform_rho_0.00_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.00
+      - name: design=uniform_rho_0.50_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.50
+      - name: design=uniform_rho_0.80_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.80
+      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.90
+      - name: design=uniform_rho_0.95_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.95
+      - name: design=uniform_rho_0.99_n_500_p_100__enrichment=b0_-2.00_b_2.00__signal=scale_2.00
+        alias: rho=0.99
+    default_settings:
+      thresholds:
+        - 2.0
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    plots:
+      - settings:
+          - minimal
+          - minimal-scale
+        plot_type_groups:
+          - pip
+          - pip_non_null
+          - cs
+          - cs_non_null
+
   005-uniform-correlation-scale:
     collections:
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-3)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-2)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-1)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_0.00_b_0.00__signal=scale_0.00
-        alias: "null (b=0)"
-      - name: design=uniform_rho_0.00_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: uniform-correlation-scale-rho-0.00-with-null
         alias: rho=0.00
-      - name: design=uniform_rho_0.50_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: uniform-correlation-scale-rho-0.50-with-null
         alias: rho=0.50
-      - name: design=uniform_rho_0.80_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: uniform-correlation-scale-rho-0.80-with-null
         alias: rho=0.80
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: uniform-correlation-scale-rho-0.90-with-null
         alias: rho=0.90
-      - name: design=uniform_rho_0.95_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
+      - name: uniform-correlation-scale-rho-0.95-with-null
         alias: rho=0.95
-      - name: design=uniform_rho_0.99_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
-        alias: rho=0.99
-    default_settings:
-      thresholds:
-        - 2.0
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    plots:
-      - settings:
-          - minimal
-          - minimal-scale
-        plot_type_groups:
-          - pip
-          - cs
-          - logbf
-
-  # --- gaussian: rho sweep (loc, strong signal) ---
-  005-gaussian-correlation-loc-strong:
-    collections:
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-3)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-2)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-1)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_0.00_b_0.00__signal=loc_0.00
-        alias: "null (b=0)"
-      - name: design=gaussian_rho_0.00_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.00
-      - name: design=gaussian_rho_0.50_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.50
-      - name: design=gaussian_rho_0.80_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.80
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.90
-      - name: design=gaussian_rho_0.95_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.95
-      - name: design=gaussian_rho_0.99_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.99
-    default_settings:
-      thresholds:
-        - 2.0
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    plots:
-      - settings:
-          - minimal
-          - minimal-loc
-        plot_type_groups:
-          - pip
-          - cs
-          - logbf
-
-  # --- gaussian: rho sweep (scale, strong signal) ---
-  005-gaussian-correlation-scale-strong:
-    collections:
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-3)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-2)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-1)"
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=b0_0.00_b_0.00__signal=scale_0.00
-        alias: "null (b=0)"
-      - name: design=gaussian_rho_0.00_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.00
-      - name: design=gaussian_rho_0.50_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.50
-      - name: design=gaussian_rho_0.80_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.80
-      - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.90
-      - name: design=gaussian_rho_0.95_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.95
-      - name: design=gaussian_rho_0.99_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.99
-    default_settings:
-      thresholds:
-        - 2.0
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    plots:
-      - settings:
-          - minimal
-          - minimal-scale
-        plot_type_groups:
-          - pip
-          - cs
-          - logbf
-
-  # --- uniform: rho sweep (loc, strong signal) ---
-  005-uniform-correlation-loc-strong:
-    collections:
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-3)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-2)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
-        alias: "null (b=-1)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_0.00_b_0.00__signal=loc_0.00
-        alias: "null (b=0)"
-      - name: design=uniform_rho_0.00_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.00
-      - name: design=uniform_rho_0.50_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.50
-      - name: design=uniform_rho_0.80_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.80
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.90
-      - name: design=uniform_rho_0.95_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.95
-      - name: design=uniform_rho_0.99_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-        alias: rho=0.99
-    default_settings:
-      thresholds:
-        - 2.0
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    plots:
-      - settings:
-          - minimal
-          - minimal-loc
-        plot_type_groups:
-          - pip
-          - cs
-          - logbf
-
-  # --- uniform: rho sweep (scale, strong signal) ---
-  005-uniform-correlation-scale-strong:
-    collections:
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-3)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-2)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
-        alias: "null (b=-1)"
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=b0_0.00_b_0.00__signal=scale_0.00
-        alias: "null (b=0)"
-      - name: design=uniform_rho_0.00_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.00
-      - name: design=uniform_rho_0.50_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.50
-      - name: design=uniform_rho_0.80_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.80
-      - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.90
-      - name: design=uniform_rho_0.95_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-        alias: rho=0.95
-      - name: design=uniform_rho_0.99_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
+      - name: uniform-correlation-scale-rho-0.99-with-null
         alias: rho=0.99
     default_settings:
       thresholds:

@@ -705,6 +705,25 @@ REGISTRY.register_batches(tuple(
     for batch in batch_specs_for_simulation(spec, replicates_per_batch=REPLICATES_PER_BATCH, n_batches=N_BATCHES)
 ))
 
+# Enrichment null at the standard signal anchors for the correlation sweep (005).
+# Each null matches the non-null simulation's design, f1, and error distribution.
+_CORRELATION_NULL_SPECS = tuple(
+    _make_enrichment_null_simulation(
+        design_name=design_name,
+        design_sampler=DESIGN_KWARGS[design_name]["design_sampler"],
+        signal_kind=signal_kind,
+        signal_value=2.0,
+    )
+    for design_name in CORRELATION_GAUSSIAN_DESIGNS + CORRELATION_UNIFORM_DESIGNS
+    for signal_kind in ("loc", "scale")
+)
+SIMULATION_BY_NAME.update({spec.name: spec for spec in _CORRELATION_NULL_SPECS})
+REGISTRY.register_simulations(_CORRELATION_NULL_SPECS)
+REGISTRY.register_batches(tuple(
+    batch
+    for spec in _CORRELATION_NULL_SPECS
+    for batch in batch_specs_for_simulation(spec, replicates_per_batch=REPLICATES_PER_BATCH, n_batches=N_BATCHES)
+))
 
 # --- full b0 x b enrichment grid ---
 # Naming: design=X__enrichment=b0_{b0}_b_{b}__signal={kind}_{|b|}
@@ -773,6 +792,29 @@ REGISTRY.register_simulations(GRID_SIMULATION_SPECS)
 REGISTRY.register_batches(tuple(
     batch
     for spec in GRID_SIMULATION_SPECS
+    for batch in batch_specs_for_simulation(
+        spec,
+        replicates_per_batch=REPLICATES_PER_BATCH,
+        n_batches=N_BATCHES,
+    )
+))
+
+_CORRELATION_POSITIVE_GRID_SPECS = tuple(
+    _make_grid_simulation(
+        design_name=design_name,
+        design_sampler=DESIGN_KWARGS[design_name]["design_sampler"],
+        signal_kind=signal_kind,
+        b=2.0,
+        b0=T_ERROR_NULL_INTERCEPT,
+    )
+    for design_name in CORRELATION_GAUSSIAN_DESIGNS + CORRELATION_UNIFORM_DESIGNS
+    for signal_kind in ("loc", "scale")
+)
+SIMULATION_BY_NAME.update({spec.name: spec for spec in _CORRELATION_POSITIVE_GRID_SPECS})
+REGISTRY.register_simulations(_CORRELATION_POSITIVE_GRID_SPECS)
+REGISTRY.register_batches(tuple(
+    batch
+    for spec in _CORRELATION_POSITIVE_GRID_SPECS
     for batch in batch_specs_for_simulation(
         spec,
         replicates_per_batch=REPLICATES_PER_BATCH,
