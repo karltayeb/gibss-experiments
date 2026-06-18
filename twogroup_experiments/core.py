@@ -11,7 +11,7 @@ from typing import Any, Iterable, Mapping
 
 import numpy as np
 
-from gibss import cox, engine, linear, localjj, twogroup
+from gibss import cox, engine, linear, localjj, twogroup, twogrouplocaljj
 from gibss.distributions import Normal, NormalMixture, PointMass
 from gseasusie.genesets import load_gene_sets
 
@@ -200,11 +200,31 @@ def _extract_twogroup_state_struct(state: Any) -> dict[str, Any] | None:
     return {
         "f0": _distribution_struct(family_state.f0),
         "f1": _distribution_struct(family_state.f1),
-        "Ez": _to_python(family_state.Ez),
+        "Ez": _to_python(_derive_Ez(state)),
         "update_f0": bool(family_state.update_f0),
         "update_f1": bool(family_state.update_f1),
         "n_null_iter": int(family_state.n_null_iter),
     }
+
+
+def _derive_Ez(state: Any) -> np.ndarray:
+    """Enrichment probability ``Ez = sigmoid(eta + llr)``.
+
+    Mirrors ``twogroup.compute_Ez`` but reconstructs it from the stored state
+    (``llr`` on the family state, linear predictor on the total message) since
+    it is no longer materialized on the family state. Respects a fixed
+    ``Ez_override`` clamp if one was set by a thresholding mode.
+    """
+    family_state = state.family_state
+    override = getattr(family_state, "Ez_override", None)
+    if override is not None:
+        return np.asarray(override, dtype=float)
+    eta = np.asarray(state.total_message.mean, dtype=float)
+    inner = family_state.inner_family_state
+    if hasattr(inner, "intercept"):
+        eta = eta + float(inner.intercept)
+    llr = np.asarray(family_state.llr, dtype=float)
+    return 1.0 / (1.0 + np.exp(-(eta + llr)))
 
 
 def _make_cs_struct(
@@ -345,8 +365,8 @@ def fit_twogroup_method(
     else:
         resolved_f1 = simulation.f1 if f1 is None else f1
     y0 = np.full(simulation.X.shape[0], 0.5, dtype=float)
-    inner_data = localjj.prep_data(simulation.X, y0)
-    inner_state = localjj.initialize_state(
+    inner_data = twogrouplocaljj.prep_data(simulation.X, y0)
+    inner_state = twogrouplocaljj.initialize_state(
         inner_data,
         L=L,
         family_state_kwargs={"estimate_prior_variance": False},
@@ -363,7 +383,7 @@ def fit_twogroup_method(
     fitted = engine.fit_ibss(
         data,
         state,
-        twogroup.default_schedule(localjj.default_schedule()),
+        twogroup.local_default_schedule(twogrouplocaljj.default_schedule()),
     )
     return {
         "state": fitted,

@@ -10,8 +10,10 @@ dependencies = [
     "jax>=0.10.0",
     "marimo>=0.23.5",
     "matplotlib>=3.10.9",
+    "nicegui>=3.13.0",
     "numpy>=2.4.4",
     "polars>=1.40.1",
+    "pypdfium2>=5.9.0",
     "snakemake>=9.20.0",
 ]
 
