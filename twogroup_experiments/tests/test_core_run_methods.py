@@ -32,12 +32,11 @@ def test_run_cox_method_returns_summary_row():
     assert "single_effects" in row and "fit_summary" in row
 
 
-def test_method_spec_single_function_and_run_method_spec():
+def test_run_method_executes_coord():
+    from experiments import loader
     sim = _tiny_simulation()
-    spec = core.MethodSpec(name="cox_heavy__L=1", function=core.run_cox_method,
-                           kwargs={"threshold": None, "time_sign": 1.0, "L": 1})
-    row = core.run_method_spec(spec, sim)
+    coord = {"name": "cox_heavy__L=1", "function": "run_cox_method",
+             "kwargs": {"threshold": None, "time_sign": 1.0, "L": 1}}
+    row = loader.run_method(coord, sim)
     assert row["method"] == "cox_heavy__L=1"
     assert "single_effects" in row
-    assert not hasattr(spec, "fit_function")
-    assert not hasattr(spec, "summarize_function")

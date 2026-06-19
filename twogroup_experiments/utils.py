@@ -12,12 +12,10 @@ import polars as pl
 
 from core import (
     HASH_KEY,
-    MethodSpec,
     SimulationSpec,
     TwoGroupSimulation,
     dehydrate_hashed,
     dehydrate_node,
-    run_method_spec,
     simulate,
     spec_hash,
 )
@@ -108,23 +106,14 @@ def simulate_batch(
 def fit_batch_method(
     simulation_spec: SimulationSpec,
     *,
-    method_spec: MethodSpec,
+    method_coord: dict,
     replicates: Iterable[int],
 ) -> pl.DataFrame:
-    replicate_ids = tuple(int(replicate) for replicate in replicates)
-    if not replicate_ids:
-        raise ValueError("fit_batch_method requires at least one replicate.")
-
+    from experiments.loader import run_method
     rows: list[dict[str, Any]] = []
-    total = len(replicate_ids)
-    for index, replicate in enumerate(replicate_ids, start=1):
-        if index == 1 or index == total or index % 5 == 0:
-            print(
-                f"[twogroup-experiments] fit {method_spec.name} replicate {index}/{total}",
-                flush=True,
-            )
-        simulation = simulate(simulation_spec, replicate)
-        rows.append({"replicate": replicate, **run_method_spec(method_spec, simulation)})
+    for replicate in (int(r) for r in replicates):
+        sim = simulate(simulation_spec, replicate)
+        rows.append({"replicate": replicate, **run_method(method_coord, sim)})
     return pl.from_dicts(rows)
 
 

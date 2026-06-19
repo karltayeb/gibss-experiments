@@ -66,26 +66,27 @@ def test_resolve_simulation_nongaussian_error_in_name():
 def test_expand_method_cartesian_names_and_kwargs():
     entry = {"function": "run_cox_method", "template": {"time_sign": -1.0},
              "over": {"threshold": [0.0, 2.0], "L": [1, 5]}}
-    specs = loader.expand_method("cox_light", entry)
-    names = [s.name for s in specs]
+    coords = loader.expand_method("cox_light", entry)
+    names = [c["name"] for c in coords]
     assert names == [
         "cox_light__threshold=0.00__L=1", "cox_light__threshold=0.00__L=5",
         "cox_light__threshold=2.00__L=1", "cox_light__threshold=2.00__L=5",
     ]
-    s = specs[2]
-    assert s.function.__name__ == "run_cox_method"
-    assert s.kwargs == {"time_sign": -1.0, "threshold": 2.0, "L": 1}
+    c = coords[2]
+    assert c["function"] == "run_cox_method"
+    assert c["kwargs"] == {"time_sign": -1.0, "threshold": 2.0, "L": 1}
 
 
-def test_expand_method_resolves_distribution_kwargs():
+def test_expand_method_preserves_distribution_node_in_kwargs():
     entry = {"function": "run_twogroup_method",
              "template": {"f1": {"Normal": {"loc": 0.0, "scale": 1.0,
                                             "estimate_loc": True, "estimate_scale": True}}},
              "over": {"L": [1]}}
-    specs = loader.expand_method("twogroup", entry)
-    assert specs[0].name == "twogroup__L=1"
-    from gibss.distributions import Normal
-    assert isinstance(specs[0].kwargs["f1"], Normal)
+    coords = loader.expand_method("twogroup", entry)
+    assert coords[0]["name"] == "twogroup__L=1"
+    # kwargs keeps raw distribution node (NOT yet resolved); resolve_method resolves it
+    assert isinstance(coords[0]["kwargs"]["f1"], dict)
+    assert "Normal" in coords[0]["kwargs"]["f1"]
 
 
 def test_library_methods_expands_all_entries():
@@ -103,18 +104,19 @@ def test_library_methods_expands_all_entries():
 def test_manifest_dict_shape():
     lib = _library_for_tests()
     spec = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian")
-    method = loader.expand_method("cox_heavy",
+    coord = loader.expand_method("cox_heavy",
         {"function": "run_cox_method", "template": {"threshold": None, "time_sign": 1.0},
          "over": {"L": [1]}})[0]
-    manifest = loader.manifest_dict(lib, {spec.name: spec}, {method.name: method})
+    manifest = loader.manifest_dict(lib, {spec.name: spec}, {coord["name"]: coord})
     assert set(manifest) == {"batches", "method_specs"}
     (batch_hash, batch_node), = manifest["batches"].items()
     assert batch_node["__spec_hash__"] == batch_hash
     assert batch_node["simulation_spec"]["__spec_hash__"]
     assert list(batch_node["replicates"]) == list(range(50))
-    (method_hash, method_node), = manifest["method_specs"].items()
-    assert method_node["__spec_hash__"] == method_hash
-    assert method_node["fields"]["name"] == "cox_heavy__L=1"
+    (mhash, method_node), = manifest["method_specs"].items()
+    assert method_node["__spec_hash__"] == mhash
+    # coordinate dict serializes with name at top level (not under "fields")
+    assert method_node["name"] == "cox_heavy__L=1"
 
 
 def test_expand_collections_within_and_over():
@@ -199,8 +201,8 @@ def test_load_sc_bundle_tags_collections(tmp_path):
             sims_df = utils.simulate_batch(spec, replicates=reps)
             sample_md = __import__("plot_ready").build_sample_metadata(bh, sims_df)
             for mname, mspec in loader.resolve_methods_for_sc(lib, cfg["supercollections"]["fixture-sc"]).items():
-                mh = core.dehydrate_hashed(mspec)[core.HASH_KEY]
-                fits = utils.fit_batch_method(spec, method_spec=mspec, replicates=reps).with_columns(pl.lit(bh).alias("batch_hash"))
+                mh = loader.method_hash(mspec)
+                fits = utils.fit_batch_method(spec, method_coord=mspec, replicates=reps).with_columns(pl.lit(bh).alias("batch_hash"))
                 red = __import__("plot_ready").build_pip_plot_data(fits, sample_md, sims_df)
                 out = results / "by_batch" / bh / "fits" / mh / "reductions" / "pip.parquet"
                 out.parent.mkdir(parents=True, exist_ok=True)
@@ -231,3 +233,43 @@ def test_simulation_coordinate_and_hash_stable():
     # stable across calls; differs when a value changes
     assert h == loader.sim_hash(loader.simulation_coordinate(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian"))
     assert h != loader.sim_hash(loader.simulation_coordinate(lib, "gaussian_p100", "ser_b2", "loc_2.0", "t_df_5"))
+
+
+# ---------------------------------------------------------------------------
+# P1.3 — MethodSpec dropped; methods are coordinate dicts
+# ---------------------------------------------------------------------------
+
+def _resolved_tiny_sim():
+    """Build a SimulationSpec (with hash) for method-execution tests."""
+    from functools import partial
+    import core
+    from gibss.distributions import Normal, PointMass
+    spec = core.SimulationSpec(
+        design_sampler=partial(core.gaussian_markov_X, n=30, p=8, rho=0.5),
+        effect_sampler=partial(core.uniform_single_effect, causal_effect=2.0),
+        intercept=-1.0,
+        f0=PointMass(0.0),
+        f1=Normal(loc=2.0, scale=0.1, estimate_loc=False, estimate_scale=False),
+        error_sampler=None,
+        base_seed=1,
+        hash="tinyhash",
+        name="tiny",
+    )
+    return core.simulate(spec, 0)
+
+
+def test_expand_method_returns_coordinates():
+    entry = {"function": "run_cox_method", "template": {"time_sign": -1.0},
+             "over": {"threshold": [2.0], "L": [1]}}
+    coords = loader.expand_method("cox_light", entry)
+    assert [c["name"] for c in coords] == ["cox_light__threshold=2.00__L=1"]
+    assert coords[0]["function"] == "run_cox_method"
+    assert coords[0]["kwargs"] == {"time_sign": -1.0, "threshold": 2.0, "L": 1}
+
+
+def test_run_method_executes(tmp_path):
+    sim = _resolved_tiny_sim()
+    coord = {"name": "cox_heavy__L=1", "function": "run_cox_method",
+             "kwargs": {"threshold": None, "time_sign": 1.0, "L": 1}}
+    row = loader.run_method(coord, sim)
+    assert row["method"] == "cox_heavy__L=1" and "single_effects" in row

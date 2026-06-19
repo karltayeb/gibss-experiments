@@ -83,20 +83,29 @@ def resolve_distributions_in_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
             for k, v in kwargs.items()}
 
 
-def expand_method(base_name: str, entry: dict[str, Any]) -> list[core.MethodSpec]:
+def expand_method(base_name: str, entry: dict[str, Any]) -> list[dict]:
     if "__" in base_name:
         raise ValueError(f"Method base name must not contain '__': {base_name!r}")
-    fn = resolve_callable(entry["function"])
     template = dict(entry.get("template") or {})
     over = entry.get("over") or {"_dummy": [None]}
     keys = list(over.keys())
-    specs: list[core.MethodSpec] = []
+    out: list[dict] = []
     for combo in itertools.product(*(over[k] for k in keys)):
-        over_kwargs = {k: v for k, v in zip(keys, combo) if k != "_dummy"}
-        suffix = "".join(f"__{k}={format_over_value(v)}" for k, v in over_kwargs.items())
-        kwargs = resolve_distributions_in_kwargs({**template, **over_kwargs})
-        specs.append(core.MethodSpec(name=f"{base_name}{suffix}", function=fn, kwargs=kwargs))
-    return specs
+        ov = {k: v for k, v in zip(keys, combo) if k != "_dummy"}
+        suffix = "".join(f"__{k}={format_over_value(v)}" for k, v in ov.items())
+        out.append(method_coordinate(f"{base_name}{suffix}", entry["function"], {**template, **ov}))
+    return out
+
+
+def resolve_method(coord: dict) -> tuple:
+    """Return (name, fn, resolved_kwargs) for a method coordinate."""
+    return coord["name"], resolve_callable(coord["function"]), resolve_distributions_in_kwargs(coord["kwargs"])
+
+
+def run_method(coord: dict, simulation) -> dict:
+    """Execute a method coordinate against a simulation and return a result row."""
+    name, fn, kwargs = resolve_method(coord)
+    return {"method": name, **fn(simulation, **kwargs)}
 
 
 def load_library(experiments_dir: Path | None = None) -> dict[str, Any]:
@@ -119,11 +128,11 @@ def batch_specs_for_simulation(spec, *, replicates_per_batch: int, n_batches: in
     ]
 
 
-def library_methods(library: dict[str, Any]) -> dict[str, core.MethodSpec]:
-    out: dict[str, core.MethodSpec] = {}
+def library_methods(library: dict[str, Any]) -> dict[str, dict]:
+    out: dict[str, dict] = {}
     for base, entry in library["methods"].items():
-        for spec in expand_method(base, entry):
-            out[spec.name] = spec
+        for coord in expand_method(base, entry):
+            out[coord["name"]] = coord
     return out
 
 
@@ -182,16 +191,16 @@ def load_config(experiments_dir: Path | None = None) -> dict[str, Any]:
     return {"library": library, "supercollections": supercollections}
 
 
-def resolve_methods_for_sc(library: dict[str, Any], sc: dict[str, Any]) -> dict[str, core.MethodSpec]:
+def resolve_methods_for_sc(library: dict[str, Any], sc: dict[str, Any]) -> dict[str, dict]:
     lib_methods = library_methods(library)
-    out: dict[str, core.MethodSpec] = {}
+    out: dict[str, dict] = {}
     for item in sc.get("methods", []):
         if isinstance(item, str):
             out[item] = lib_methods[item]
         else:  # inline def: single-key map base -> entry
             (base, entry), = item.items()
-            for spec in expand_method(base, entry):
-                out[spec.name] = spec
+            for coord in expand_method(base, entry):
+                out[coord["name"]] = coord
     return out
 
 
@@ -236,15 +245,15 @@ def all_simulations(config: dict[str, Any]) -> dict[str, core.SimulationSpec]:
     return out
 
 
-def all_methods(config: dict[str, Any]) -> dict[str, core.MethodSpec]:
-    out: dict[str, core.MethodSpec] = {}
+def all_methods(config: dict[str, Any]) -> dict[str, dict]:
+    out: dict[str, dict] = {}
     for sc in config["supercollections"].values():
         out.update(resolve_methods_for_sc(config["library"], sc))
     return out
 
 
 def manifest_dict(library: dict[str, Any], simulations: dict[str, core.SimulationSpec],
-                  methods: dict[str, core.MethodSpec]) -> dict[str, Any]:
+                  methods: dict[str, dict]) -> dict[str, Any]:
     defaults = library["defaults"]
     batches: dict[str, Any] = {}
     for spec in simulations.values():
@@ -305,8 +314,8 @@ def reduction_inputs(library: dict[str, Any], manifest: dict[str, Any],
     return paths
 
 
-def _method_hashes(methods: dict[str, core.MethodSpec]) -> dict[str, str]:
-    return {name: dehydrate_hashed(spec)[HASH_KEY] for name, spec in methods.items()}
+def _method_hashes(methods: dict[str, dict]) -> dict[str, str]:
+    return {c["name"]: method_hash(c) for c in methods.values()}
 
 
 def collection_method_pairs(config: dict[str, Any], sc_name: str) -> dict[str, dict]:
@@ -418,14 +427,14 @@ def sim_hash(coordinate) -> str: return spec_hash(coordinate)
 def method_hash(coordinate) -> str: return spec_hash(coordinate)
 
 
-def method_metadata(methods: dict[str, core.MethodSpec]) -> pl.DataFrame:
+def method_metadata(methods: dict[str, dict]) -> pl.DataFrame:
     label_map = method_family_label_map()
     oracle_map = method_family_oracle_label_map()
     rows = []
     for name, spec in methods.items():
         family = name.split("__")[0]
-        L = int(spec.kwargs.get("L", 1))
-        threshold = spec.kwargs.get("threshold")
+        L = int(spec["kwargs"].get("L", 1))
+        threshold = spec["kwargs"].get("threshold")
         is_thresholded = threshold is not None
         is_oracle = "oracle" in family
         family_label = label_map.get(family, family)

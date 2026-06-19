@@ -32,13 +32,6 @@ class SimulationSpec:
 
 
 @dataclass(frozen=True)
-class MethodSpec:
-    name: str
-    function: Any
-    kwargs: dict[str, Any]
-
-
-@dataclass(frozen=True)
 class TwoGroupSimulation:
     X: np.ndarray
     intercept: float
@@ -465,19 +458,15 @@ def run_linear_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any
     return summarize_linear_method(fit_linear_method(simulation, **kwargs), simulation, **kwargs)
 
 
-LOGISTIC_ORACLE = MethodSpec(
-    name="logistic_oracle_L1",
-    function=run_logistic_method,
-    kwargs={
+LOGISTIC_ORACLE = {
+    "name": "logistic_oracle_L1",
+    "function": "run_logistic_method",
+    "kwargs": {
         "response_source": "z",
         "threshold": None,
         "L": 1,
     },
-)
-
-
-def run_method_spec(method_spec: MethodSpec, simulation: TwoGroupSimulation) -> dict[str, Any]:
-    return {"method": method_spec.name, **method_spec.function(simulation, **method_spec.kwargs)}
+}
 
 
 def identity_design_sampler(rng: np.random.Generator) -> np.ndarray:
