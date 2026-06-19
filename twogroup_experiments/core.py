@@ -454,6 +454,22 @@ def summarize_linear_method(
     }
 
 
+def run_cox_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any]:
+    return summarize_cox_method(fit_cox_method(simulation, **kwargs), simulation, **kwargs)
+
+
+def run_logistic_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any]:
+    return summarize_logistic_method(fit_logistic_method(simulation, **kwargs), simulation, **kwargs)
+
+
+def run_twogroup_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any]:
+    return summarize_twogroup_method(fit_twogroup_method(simulation, **kwargs), simulation, **kwargs)
+
+
+def run_linear_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any]:
+    return summarize_linear_method(fit_linear_method(simulation, **kwargs), simulation, **kwargs)
+
+
 TWOGROUP_DEFAULT_F1INIT = Normal(
     loc=0.0,
     scale=1.0,
