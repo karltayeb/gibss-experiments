@@ -7,7 +7,6 @@ from typing import Any
 
 import numpy as np
 
-from gibss import cox, engine, linear, localjj, twogroup, twogrouplocaljj
 from gibss.distributions import Normal, NormalMixture, PointMass
 @dataclass
 class SimulationSpec:
@@ -233,222 +232,6 @@ def _make_fit_summary_struct(
     }
 
 
-def fit_cox_method(simulation: TwoGroupSimulation, *, threshold, time_sign, L=1):
-    score = _score(simulation)
-    if threshold is None:
-        event_type = np.ones_like(score, dtype=int)
-    else:
-        event_type = (score > float(threshold)).astype(int)
-    data = cox.prep_data(
-        simulation.X,
-        event_time=time_sign * score,
-        event_type=event_type,
-    )
-    state = cox.initialize_state(
-        data,
-        L=L,
-        family_state_kwargs={"estimate_prior_variance": False},
-    )
-    fitted = engine.fit_ibss(data, state, cox.default_schedule())
-    return {
-        "state": fitted,
-        "threshold": threshold,
-        "n_selected": int(event_type.sum()),
-    }
-
-
-def summarize_cox_method(
-    fit_obj,
-    simulation: TwoGroupSimulation,
-    *,
-    threshold,
-    time_sign,
-    L=1,
-):
-    del time_sign, threshold, L
-    state = fit_obj["state"]
-    n_effects = len(state.single_effects)
-    return {
-        "threshold": fit_obj["threshold"],
-        "single_effects": [_extract_ser_struct(state, l) for l in range(n_effects)],
-        "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_effects)],
-        "family_state": _extract_family_state_struct(state),
-        "two_group_state": _extract_twogroup_state_struct(state),
-        "fit_summary": _make_fit_summary_struct(state, simulation, fit_obj["n_selected"]),
-    }
-
-
-def fit_logistic_method(
-    simulation: TwoGroupSimulation, *, response_source, threshold=None, L=1
-):
-    if response_source == "z":
-        y = np.asarray(simulation.z, dtype=float)
-    elif response_source == "score_threshold":
-        if threshold is None:
-            raise ValueError("score_threshold logistic method requires a threshold.")
-        y = (_score(simulation) > float(threshold)).astype(float)
-    else:
-        raise ValueError(f"Unsupported logistic response_source: {response_source}")
-
-    data = localjj.prep_data(simulation.X, y)
-    state = localjj.initialize_state(
-        data,
-        L=L,
-        family_state_kwargs={"estimate_prior_variance": False},
-    )
-    fitted = engine.fit_ibss(data, state, localjj.default_schedule())
-    return {
-        "state": fitted,
-        "threshold": threshold,
-        "n_selected": int(np.asarray(y).sum()),
-    }
-
-
-def summarize_logistic_method(
-    fit_obj,
-    simulation: TwoGroupSimulation,
-    *,
-    response_source,
-    threshold=None,
-    L=1,
-):
-    del response_source, threshold, L
-    state = fit_obj["state"]
-    n_effects = len(state.single_effects)
-    return {
-        "threshold": fit_obj["threshold"],
-        "single_effects": [_extract_ser_struct(state, l) for l in range(n_effects)],
-        "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_effects)],
-        "family_state": _extract_family_state_struct(state),
-        "two_group_state": _extract_twogroup_state_struct(state),
-        "fit_summary": _make_fit_summary_struct(state, simulation, fit_obj["n_selected"]),
-    }
-
-
-def fit_twogroup_method(
-    simulation: TwoGroupSimulation,
-    *,
-    f1,
-    L=1,
-    oracle_init=False,
-    n_null_iter=20,
-    n_intercept_iter=20,
-):
-    if oracle_init:
-        resolved_f1 = Normal(
-            loc=simulation.f1.loc,
-            scale=simulation.f1.scale,
-            estimate_loc=f1.estimate_loc,
-            estimate_scale=f1.estimate_scale,
-        )
-    else:
-        resolved_f1 = simulation.f1 if f1 is None else f1
-    y0 = np.full(simulation.X.shape[0], 0.5, dtype=float)
-    inner_data = twogrouplocaljj.prep_data(simulation.X, y0)
-    inner_state = twogrouplocaljj.initialize_state(
-        inner_data,
-        L=L,
-        family_state_kwargs={"estimate_prior_variance": False},
-    )
-    data = twogroup.prep_data(simulation.X, bhat=simulation.thetahat, se=simulation.se)
-    state = twogroup.initialize_state(
-        data,
-        inner_state=inner_state,
-        f0=simulation.f0,
-        f1=resolved_f1,
-        n_null_iter=n_null_iter,
-        n_intercept_iter=n_intercept_iter,
-    )
-    fitted = engine.fit_ibss(
-        data,
-        state,
-        twogroup.local_default_schedule(twogrouplocaljj.default_schedule()),
-    )
-    return {
-        "state": fitted,
-        "threshold": None,
-        "n_selected": None,
-    }
-
-
-def summarize_twogroup_method(
-    fit_obj,
-    simulation: TwoGroupSimulation,
-    *,
-    f1,
-    L=1,
-    oracle_init=False,
-    n_null_iter=20,
-    n_intercept_iter=20,
-):
-    del f1, L, oracle_init, n_null_iter, n_intercept_iter
-    state = fit_obj["state"]
-    n_effects = len(state.single_effects)
-    return {
-        "threshold": fit_obj["threshold"],
-        "single_effects": [_extract_ser_struct(state, l) for l in range(n_effects)],
-        "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_effects)],
-        "family_state": _extract_family_state_struct(state),
-        "two_group_state": _extract_twogroup_state_struct(state),
-        "fit_summary": _make_fit_summary_struct(state, simulation, fit_obj["n_selected"]),
-    }
-
-
-def fit_linear_method(
-    simulation: TwoGroupSimulation,
-    *,
-    estimate_residual_variance: bool,
-    L: int = 1,
-) -> dict[str, Any]:
-    data = linear.prep_data(simulation.X, simulation.thetahat)
-    state = linear.initialize_state(
-        data,
-        L=L,
-        family_state_kwargs={
-            "estimate_residual_variance": estimate_residual_variance,
-            "residual_variance": 1.0,
-        },
-    )
-    fitted = engine.fit_ibss(data, state, linear.default_schedule())
-    return {"state": fitted}
-
-
-def summarize_linear_method(
-    fit_obj,
-    simulation: TwoGroupSimulation,
-    *,
-    estimate_residual_variance: bool,
-    L: int = 1,
-) -> dict[str, Any]:
-    del estimate_residual_variance, L
-    state = fit_obj["state"]
-    n_effects = len(state.single_effects)
-    return {
-        "threshold": None,
-        "single_effects": [_extract_ser_struct(state, l) for l in range(n_effects)],
-        "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_effects)],
-        "family_state": _extract_family_state_struct(state),
-        "two_group_state": None,
-        "fit_summary": _make_fit_summary_struct(state, simulation, None),
-    }
-
-
-def run_cox_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any]:
-    return summarize_cox_method(fit_cox_method(simulation, **kwargs), simulation, **kwargs)
-
-
-def run_logistic_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any]:
-    return summarize_logistic_method(fit_logistic_method(simulation, **kwargs), simulation, **kwargs)
-
-
-def run_twogroup_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any]:
-    return summarize_twogroup_method(fit_twogroup_method(simulation, **kwargs), simulation, **kwargs)
-
-
-def run_linear_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any]:
-    return summarize_linear_method(fit_linear_method(simulation, **kwargs), simulation, **kwargs)
-
-
 def _callable_path(func: Any) -> str:
     module_name = getattr(func, "__module__", None)
     qualname = getattr(func, "__qualname__", None)
@@ -487,3 +270,12 @@ from simulations.design.markov import gaussian_markov_X, uniform_markov_X
 from simulations.design.genesets import hallmark_gene_sets_X, c4_gene_sets_X
 from simulations.effect.effects import uniform_single_effect
 from simulations.error.errors import t_error_sampler
+
+# ---------------------------------------------------------------------------
+# Re-exports from fits/ sub-package
+# (keeps core.<name> working; inspect.getfile follows the real definition)
+# ---------------------------------------------------------------------------
+from fits.cox import fit_cox_method, summarize_cox_method, run_cox_method
+from fits.logistic import fit_logistic_method, summarize_logistic_method, run_logistic_method
+from fits.twogroup import fit_twogroup_method, summarize_twogroup_method, run_twogroup_method
+from fits.linear import fit_linear_method, summarize_linear_method, run_linear_method

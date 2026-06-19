@@ -32,6 +32,11 @@ def test_run_cox_method_returns_summary_row():
     assert "single_effects" in row and "fit_summary" in row
 
 
+def test_run_method_getfile():
+    import inspect, core
+    assert inspect.getfile(core.run_twogroup_method).endswith("fits/twogroup.py")
+
+
 def test_run_method_executes_coord():
     from experiments import loader
     sim = _tiny_simulation()
