@@ -130,6 +130,49 @@ def library_methods(library: dict[str, Any]) -> dict[str, core.MethodSpec]:
     return out
 
 
+_SIM_FIELDS = ("design", "enrichment", "signal", "error")
+
+
+def _as_list(value: Any) -> list:
+    return value if isinstance(value, list) else [value]
+
+
+def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) -> list[dict]:
+    if "simulations" in block:  # explicit one-off
+        sims = [resolve_simulation(library, s["design"], s["enrichment"],
+                                   s["signal"], s.get("error", "gaussian"))[0]
+                for s in block["simulations"]]
+        return [{"name": block["name"], "alias": block.get("alias", block["name"]), "simulations": sims}]
+
+    template = dict(block["template"])
+    over = block.get("over") or {}
+    over_keys = list(over.keys())
+    results: list[dict] = []
+    for combo in (itertools.product(*(over[k] for k in over_keys)) if over_keys else [()]):
+        over_map = dict(zip(over_keys, combo))
+        fields = {**template, **over_map}
+        # within-collection product over any list-valued template field
+        member_lists = {f: _as_list(fields.get(f, "gaussian" if f == "error" else None))
+                        for f in _SIM_FIELDS}
+        sims = []
+        for d, e, s, err in itertools.product(member_lists["design"], member_lists["enrichment"],
+                                              member_lists["signal"], member_lists["error"]):
+            sims.append(resolve_simulation(library, d, e, s, err)[0])
+        suffix = "".join(f"__{k}={over_map[k]}" for k in over_keys)
+        name = f"{sc_name}{suffix}" if over_keys else sc_name
+        alias = block.get("alias") or "__".join(str(over_map[k]) for k in over_keys) or sc_name
+        results.append({"name": name, "alias": alias, "simulations": sims})
+    return results
+
+
+def expand_collections(library: dict[str, Any], sc_name: str, collections_entry: Any) -> list[dict]:
+    blocks = collections_entry if isinstance(collections_entry, list) else [collections_entry]
+    out: list[dict] = []
+    for block in blocks:
+        out.extend(_expand_block(library, sc_name, block))
+    return out
+
+
 def manifest_dict(library: dict[str, Any], simulations: dict[str, core.SimulationSpec],
                   methods: dict[str, core.MethodSpec]) -> dict[str, Any]:
     defaults = library["defaults"]

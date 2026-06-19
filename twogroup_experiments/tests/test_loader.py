@@ -115,3 +115,20 @@ def test_manifest_dict_shape():
     (method_hash, method_node), = manifest["method_specs"].items()
     assert method_node["__spec_hash__"] == method_hash
     assert method_node["fields"]["name"] == "cox_heavy__L=1"
+
+
+def test_expand_collections_within_and_over():
+    lib = _library_for_tests()
+    lib["signals"]["loc_1.0"] = {"f0": {"PointMass": {"value": 0.0}},
+        "f1": {"Normal": {"loc": 1.0, "scale": 0.1, "estimate_loc": False, "estimate_scale": False}}}
+    lib["enrichments"]["null_b0"] = {"function": "uniform_single_effect",
+                                     "arguments": {"causal_effect": 0.0}, "intercept": -2.0}
+    entry = {"template": {"design": "gaussian_p100",
+                          "enrichment": ["ser_b2", "null_b0"], "error": "gaussian"},
+             "over": {"signal": ["loc_1.0", "loc_2.0"]}}
+    colls = loader.expand_collections(lib, "sc", entry)
+    assert [c["name"] for c in colls] == ["sc__signal=loc_1.0", "sc__signal=loc_2.0"]
+    assert [c["alias"] for c in colls] == ["loc_1.0", "loc_2.0"]
+    # within-collection: ser + null pair
+    assert {s.name for s in colls[0]["simulations"]} == {
+        "gaussian_p100__ser_b2__loc_1.0", "gaussian_p100__null_b0__loc_1.0"}
