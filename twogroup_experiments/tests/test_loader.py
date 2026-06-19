@@ -205,7 +205,9 @@ def test_load_sc_bundle_tags_collections(tmp_path):
             for mname, mspec in loader.resolve_methods_for_sc(lib, cfg["supercollections"]["fixture-sc"]).items():
                 mh = loader.method_hash(mspec)
                 fits = utils.fit_batch_method(spec, method_coord=mspec, replicates=reps).with_columns(pl.lit(bh).alias("batch_hash"))
-                red = __import__("plot_ready").build_pip_plot_data(fits, sample_md, sims_df)
+                from reductions import ReductionContext
+                from reductions.pip import build as build_pip
+                red = build_pip(ReductionContext(fits=fits, sims=sims_df, sample_metadata=sample_md, sim_coordinate={}))
                 out = results / "by_batch" / bh / "fits" / mh / "reductions" / "pip.parquet"
                 out.parent.mkdir(parents=True, exist_ok=True)
                 red.write_parquet(out)
