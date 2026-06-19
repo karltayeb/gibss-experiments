@@ -46,10 +46,12 @@ def _make_twogroup_fixture(tmp_path):
 
 def test_build_pip_plot_data_atomic(tmp_path):
     fits_df, sims_df, sample_md, _ = _make_atomic_fixture(tmp_path)
+    bh = sample_md["batch_hash"][0]
     out = plot_ready.build_pip_plot_data(fits_df, sample_md, sims_df)
-    assert out["sample_id"].to_list() == [f"{sample_md['batch_hash'][0]}::0",
-                                          f"{sample_md['batch_hash'][0]}::1"]
+    assert out["sample_id"].to_list() == [f"{bh}::0", f"{bh}::1"]
     assert "pip_bin_counts" in out.columns
+    assert "batch_hash" in out.columns
+    assert all(v == bh for v in out["batch_hash"].to_list())
 
 
 def test_build_cs_plot_data_atomic(tmp_path):
@@ -58,8 +60,9 @@ def test_build_cs_plot_data_atomic(tmp_path):
     bh = sample_md["batch_hash"][0]
     expected_sample_ids = {f"{bh}::0", f"{bh}::1"}
     assert set(out["sample_id"].to_list()) == expected_sample_ids
-    for col in ("sample_id", "method", "threshold", "l", "causal_indices"):
+    for col in ("sample_id", "batch_hash", "method", "threshold", "l", "causal_indices"):
         assert col in out.columns
+    assert all(v == bh for v in out["batch_hash"].to_list())
 
 
 def test_build_f1_plot_data_atomic(tmp_path):
@@ -68,8 +71,9 @@ def test_build_f1_plot_data_atomic(tmp_path):
     bh = sample_md["batch_hash"][0]
     expected_sample_ids = {f"{bh}::0", f"{bh}::1"}
     assert set(out["sample_id"].to_list()) == expected_sample_ids
-    for col in ("sample_id", "method", "f1_loc", "f1_scale", "true_f1_loc", "true_f1_scale"):
+    for col in ("sample_id", "batch_hash", "method", "f1_loc", "f1_scale", "true_f1_loc", "true_f1_scale"):
         assert col in out.columns
+    assert all(v == bh for v in out["batch_hash"].to_list())
 
 
 def test_build_enrich_plot_data_atomic(tmp_path):
@@ -78,5 +82,6 @@ def test_build_enrich_plot_data_atomic(tmp_path):
     bh = sample_md["batch_hash"][0]
     expected_sample_ids = {f"{bh}::0", f"{bh}::1"}
     assert set(out["sample_id"].to_list()) == expected_sample_ids
-    for col in ("sample_id", "method", "est_intercept", "mu_at_causal", "true_intercept", "true_effect"):
+    for col in ("sample_id", "batch_hash", "method", "est_intercept", "mu_at_causal", "true_intercept", "true_effect"):
         assert col in out.columns
+    assert all(v == bh for v in out["batch_hash"].to_list())

@@ -131,7 +131,7 @@ def build_pip_plot_data(
 ) -> pl.DataFrame:
     """One row per (sample_id, method, threshold). Bin arrays used to derive plots."""
     empty_schema = {
-        "sample_id": pl.String, "method": pl.String, "threshold": pl.Float64,
+        "sample_id": pl.String, "batch_hash": pl.String, "method": pl.String, "threshold": pl.Float64,
         "causal_indices": pl.List(pl.Int64), "causal_pips": pl.List(pl.Float64),
         "pip_bin_counts": pl.List(pl.Int64), "pip_bin_causal_counts": pl.List(pl.Int64),
     }
@@ -159,6 +159,7 @@ def build_pip_plot_data(
 
         rows.append({
             "sample_id": row["sample_id"],
+            "batch_hash": row["batch_hash"],
             "method": row["method"],
             "threshold": row["threshold"],
             "causal_indices": causal_indices,
@@ -180,7 +181,7 @@ def build_cs_plot_data(
     from utils import CS_BETA_GRID
 
     empty_schema = {
-        "sample_id": pl.String, "method": pl.String, "threshold": pl.Float64,
+        "sample_id": pl.String, "batch_hash": pl.String, "method": pl.String, "threshold": pl.Float64,
         "l": pl.Int64, "ser_log_bf": pl.Float64,
         "n_features": pl.Int64,
         "causal_indices": pl.List(pl.Int64), "causal_alpha": pl.List(pl.Float64),
@@ -239,6 +240,7 @@ def build_cs_plot_data(
                 cs_causal_radius.append(radius_by_beta)
             rows.append({
                 "sample_id": row["sample_id"],
+                "batch_hash": row["batch_hash"],
                 "method": row["method"],
                 "threshold": row["threshold"],
                 "l": l,
@@ -267,6 +269,7 @@ def build_f1_plot_data(
     """
     schema = {
         "sample_id": pl.String,
+        "batch_hash": pl.String,
         "method": pl.String,
         "f1_loc": pl.Float64,
         "f1_scale": pl.Float64,
@@ -284,6 +287,7 @@ def build_f1_plot_data(
         f1 = row["two_group_state"]["f1"]
         rows.append({
             "sample_id": f"{batch_hash}::{int(row['replicate'])}",
+            "batch_hash": batch_hash,
             "method": row["method"],
             "f1_loc": float(f1["loc"]) if f1["loc"] is not None else None,
             "f1_scale": float(f1["scale"]) if f1["scale"] is not None else None,
@@ -309,6 +313,7 @@ def build_enrich_plot_data(
     """
     schema = {
         "sample_id": pl.String,
+        "batch_hash": pl.String,
         "method": pl.String,
         "est_intercept": pl.Float64,
         "mu_at_causal": pl.Float64,
@@ -339,6 +344,7 @@ def build_enrich_plot_data(
         mu_list = row["single_effects"][0]["mu"]
         rows.append({
             "sample_id": f"{batch_hash}::{int(row['replicate'])}",
+            "batch_hash": batch_hash,
             "method": row["method"],
             "est_intercept": float(row["family_state"]["intercept"]),
             "mu_at_causal": float(mu_list[causal_idx]) if causal_idx < len(mu_list) else None,
