@@ -86,3 +86,32 @@ def test_expand_method_resolves_distribution_kwargs():
     assert specs[0].name == "twogroup__L=1"
     from gibss.distributions import Normal
     assert isinstance(specs[0].kwargs["f1"], Normal)
+
+
+def test_library_methods_expands_all_entries():
+    lib = _library_for_tests()
+    lib["methods"] = {
+        "cox_heavy": {"function": "run_cox_method",
+                      "template": {"threshold": None, "time_sign": 1.0}, "over": {"L": [1]}},
+        "cox_light": {"function": "run_cox_method", "template": {"time_sign": -1.0},
+                      "over": {"threshold": [2.0], "L": [1]}},
+    }
+    methods = loader.library_methods(lib)
+    assert set(methods) == {"cox_heavy__L=1", "cox_light__threshold=2.00__L=1"}
+
+
+def test_manifest_dict_shape():
+    lib = _library_for_tests()
+    spec, name = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian")
+    method = loader.expand_method("cox_heavy",
+        {"function": "run_cox_method", "template": {"threshold": None, "time_sign": 1.0},
+         "over": {"L": [1]}})[0]
+    manifest = loader.manifest_dict(lib, {name: spec}, {method.name: method})
+    assert set(manifest) == {"batches", "method_specs"}
+    (batch_hash, batch_node), = manifest["batches"].items()
+    assert batch_node["__spec_hash__"] == batch_hash
+    assert batch_node["simulation_spec"]["__spec_hash__"]
+    assert list(batch_node["replicates"]) == list(range(50))
+    (method_hash, method_node), = manifest["method_specs"].items()
+    assert method_node["__spec_hash__"] == method_hash
+    assert method_node["fields"]["name"] == "cox_heavy__L=1"

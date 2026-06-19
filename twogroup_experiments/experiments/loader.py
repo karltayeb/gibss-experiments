@@ -8,7 +8,9 @@ from typing import Any
 import yaml
 
 import core
+from core import HASH_KEY, dehydrate_hashed
 from gibss import distributions as _distributions
+from utils import BatchSpec
 
 EXPERIMENTS_DIR = Path(__file__).resolve().parent
 
@@ -107,3 +109,47 @@ def load_library(experiments_dir: Path | None = None) -> dict[str, Any]:
                     "methods", "reductions", "analyses", "analysis_groups"):
         data.setdefault(section, {})
     return data
+
+
+def batch_specs_for_simulation(spec, *, replicates_per_batch: int, n_batches: int) -> list[BatchSpec]:
+    return [
+        BatchSpec(
+            name=f"{spec.name}__batch{i}",
+            simulation_spec=spec,
+            replicates=tuple(range(i * replicates_per_batch, (i + 1) * replicates_per_batch)),
+        )
+        for i in range(n_batches)
+    ]
+
+
+def library_methods(library: dict[str, Any]) -> dict[str, core.MethodSpec]:
+    out: dict[str, core.MethodSpec] = {}
+    for base, entry in library["methods"].items():
+        for spec in expand_method(base, entry):
+            out[spec.name] = spec
+    return out
+
+
+def manifest_dict(library: dict[str, Any], simulations: dict[str, core.SimulationSpec],
+                  methods: dict[str, core.MethodSpec]) -> dict[str, Any]:
+    defaults = library["defaults"]
+    batches: dict[str, Any] = {}
+    for spec in simulations.values():
+        for batch in batch_specs_for_simulation(
+            spec,
+            replicates_per_batch=int(defaults["replicates_per_batch"]),
+            n_batches=int(defaults["n_batches"]),
+        ):
+            sim_node = dehydrate_hashed(batch.simulation_spec)
+            node = {
+                "name": batch.name,
+                "simulation_spec": sim_node,
+                "replicates": list(batch.replicates),
+            }
+            node[HASH_KEY] = dehydrate_hashed(batch)[HASH_KEY]
+            batches[node[HASH_KEY]] = node
+    method_specs: dict[str, Any] = {}
+    for spec in methods.values():
+        node = dehydrate_hashed(spec)
+        method_specs[node[HASH_KEY]] = node
+    return {"batches": batches, "method_specs": method_specs}
