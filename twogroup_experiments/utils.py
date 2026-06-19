@@ -34,9 +34,9 @@ CS_BETA_GRID = np.append(np.round(np.arange(0.01, 1.00, 0.01), 2), 1.0)
 
 
 def manifest_dict() -> dict[str, object]:
-    from config import manifest_dict as config_manifest_dict
-
-    return config_manifest_dict()
+    from experiments import loader
+    cfg = loader.load_config()
+    return loader.manifest_dict(cfg["library"], loader.all_simulations(cfg), loader.all_methods(cfg))
 
 
 def correlation_with_causal(X: np.ndarray, causal_indices: Iterable[int]) -> list[list[float]]:

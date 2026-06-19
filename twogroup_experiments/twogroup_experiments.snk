@@ -193,6 +193,7 @@ rule materialize_twogroup_experiment_batch:
         batch_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
         simulation_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulation_spec.yaml",
         simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+        sample_metadata=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/sample_metadata.parquet",
     run:
         info = BATCH_HASH_TO_INFO[wildcards.batch_hash]
         simulation_spec_node = info["simulation_spec"]
@@ -204,6 +205,8 @@ rule materialize_twogroup_experiment_batch:
         write_parquet(simulations_df, output.simulations)
         write_yaml(info, output.batch_spec)
         write_yaml(simulation_spec_node, output.simulation_spec)
+        from plot_ready import build_sample_metadata
+        write_parquet(build_sample_metadata(wildcards.batch_hash, simulations_df), output.sample_metadata)
 
 
 rule fit_twogroup_experiment_batch_method:
