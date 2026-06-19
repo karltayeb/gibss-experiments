@@ -3,15 +3,12 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass, fields, is_dataclass
 import hashlib
 import json
-import math
 from typing import Any
 
 import numpy as np
 
 from gibss import cox, engine, linear, localjj, twogroup, twogrouplocaljj
 from gibss.distributions import Normal, NormalMixture, PointMass
-from gseasusie.genesets import load_gene_sets
-
 @dataclass
 class SimulationSpec:
     design_sampler: Any
@@ -452,127 +449,6 @@ def run_linear_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any
     return summarize_linear_method(fit_linear_method(simulation, **kwargs), simulation, **kwargs)
 
 
-def identity_design_sampler(rng: np.random.Generator) -> np.ndarray:
-    del rng
-    return np.eye(3, dtype=float)
-
-
-def hallmark_gene_sets_X(rng: np.random.Generator) -> np.ndarray:
-    del rng
-    gene_sets = load_gene_sets(source="msigdb", collection="h.all")
-    return gene_sets.to_sparse()
-
-
-def c4_gene_sets_X(rng: np.random.Generator) -> np.ndarray:
-    del rng
-    gene_sets = load_gene_sets(source="msigdb", collection="c4.all")
-    return gene_sets.to_sparse()
-
-
-def gaussian_markov_X(
-    rng: np.random.Generator, *, n: int, p: int, rho: float
-) -> np.ndarray:
-    """
-    Generate ``n`` independent Gaussian Markov chains of length ``p``.
-
-    Each row is a stationary AR(1) process across columns with
-    ``X[i, j + 1] | X[i, j] ~ N(rho * X[i, j], 1 - rho**2)``.
-    """
-    if n < 0 or p < 0:
-        raise ValueError("n and p must be non-negative.")
-    if abs(rho) > 1:
-        raise ValueError("gaussian_markov_X requires |rho| <= 1.")
-    X = np.empty((n, p), dtype=float)
-    if n == 0 or p == 0:
-        return X
-    X[:, 0] = rng.normal(size=n)
-    innovation_scale = float(np.sqrt(max(0.0, 1.0 - rho**2)))
-    for j in range(1, p):
-        X[:, j] = rho * X[:, j - 1] + innovation_scale * rng.normal(size=n)
-    return X
-
-
-def bernoulli_markov_X(
-    n: int, p: int, m: int, prob: float, rho: float, rng: np.random.Generator
-) -> np.ndarray:
-    """
-    Generate ``n`` independent binomial Markov chains of length ``p``.
-
-    The returned matrix has entries in ``{0, ..., m}``. Each row is built as
-    the sum of ``m`` independent Bernoulli Markov chains with stationary
-    success probability ``prob``. Adjacent-column correlation is ``rho``.
-    """
-    if n < 0 or p < 0:
-        raise ValueError("n and p must be non-negative.")
-    if m < 0:
-        raise ValueError("m must be non-negative.")
-    if not (0.0 <= prob <= 1.0):
-        raise ValueError("prob must be in [0, 1].")
-    if not (0.0 <= rho <= 1.0):
-        raise ValueError("bernoulli_markov_X requires rho in [0, 1].")
-    X = np.empty((n, p), dtype=int)
-    if n == 0 or p == 0:
-        return X
-    if m == 0:
-        X.fill(0)
-        return X
-
-    states = rng.binomial(1, prob, size=(n, m)).astype(int)
-    X[:, 0] = states.sum(axis=1)
-    for j in range(1, p):
-        copy_mask = rng.random(size=(n, m)) < rho
-        redraw = rng.binomial(1, prob, size=(n, m)).astype(int)
-        states = np.where(copy_mask, states, redraw)
-        X[:, j] = states.sum(axis=1)
-    return X
-
-
-def uniform_markov_X(
-    rng: np.random.Generator, *, n: int, p: int, rho: float
-) -> np.ndarray:
-    """
-    Generate ``n`` independent uniform Markov chains of length ``p``.
-
-    Each row is formed by applying the Gaussian CDF coordinatewise to a
-    stationary Gaussian AR(1) chain. Marginals are Uniform(0, 1), and the
-    within-row dependence is induced by a Gaussian copula with latent
-    adjacent-column correlation ``rho``.
-    """
-    gaussian_X = gaussian_markov_X(rng, n=n, p=p, rho=rho)
-    gaussian_cdf = np.vectorize(
-        lambda x: 0.5 * (1.0 + math.erf(float(x) / math.sqrt(2.0))),
-        otypes=[float],
-    )
-    return gaussian_cdf(gaussian_X)
-
-
-def null_enrich_X(rng: np.random.Generator, *, n: int = 4384) -> np.ndarray:
-    del rng
-    return np.zeros((n, 1), dtype=float)
-
-
-def uniform_single_effect(
-    X: np.ndarray,
-    rng: np.random.Generator,
-    causal_effect: float,
-) -> tuple[list[int], list[float]]:
-    if causal_effect == 0.0:
-        return [], []
-    index = int(rng.integers(0, X.shape[1]))
-    return [index], [float(causal_effect)]
-
-
-def t_error_sampler(
-    rng: np.random.Generator,
-    se: np.ndarray,
-    *,
-    df: float,
-) -> np.ndarray:
-    """Standardized t-distributed error: unit variance regardless of df."""
-    scale = se * np.sqrt((df - 2.0) / df)
-    return rng.standard_t(df, size=len(se)) * scale
-
-
 def _callable_path(func: Any) -> str:
     module_name = getattr(func, "__module__", None)
     qualname = getattr(func, "__qualname__", None)
@@ -601,3 +477,13 @@ def canonical_json_bytes(node: Any) -> bytes:
 
 def spec_hash(spec_node: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json_bytes(spec_node)).hexdigest()
+
+
+# ---------------------------------------------------------------------------
+# Re-exports from simulations/ sub-package
+# (keeps getattr(core, name) working; inspect.getfile follows the real definition)
+# ---------------------------------------------------------------------------
+from simulations.design.markov import gaussian_markov_X, uniform_markov_X
+from simulations.design.genesets import hallmark_gene_sets_X, c4_gene_sets_X
+from simulations.effect.effects import uniform_single_effect
+from simulations.error.errors import t_error_sampler

@@ -8,6 +8,12 @@ from experiments import loader
 from gibss.distributions import Normal, PointMass
 
 
+def test_sampler_getfile_points_at_submodule():
+    import inspect, core
+    assert inspect.getfile(core.gaussian_markov_X).endswith("simulations/design/markov.py")
+    assert inspect.getfile(core.uniform_single_effect).endswith("simulations/effect/effects.py")
+
+
 def test_format_float():
     assert loader.format_float(2.0) == "2.00"
     assert loader.format_float(0.5) == "0.50"
