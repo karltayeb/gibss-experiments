@@ -23,6 +23,90 @@ The content hash (`batch_hash`/`method_hash`, the `by_batch/<hash>/` path key) s
 
 Clean break on hashes (already accepted on this branch; nothing to preserve).
 
+## 1a. Two representations: config coordinate vs resolved Spec
+
+v1 conflated two roles in `SimulationSpec`/`MethodSpec`: the runtime carrier **and** the serialization/hash unit (hence all the dehydrate machinery). v2 splits them:
+
+- **Config coordinate (declarative, plain data)** — the YAML keys + resolved library sub-dicts. This is the hashed, stored, manifest-persisted **identity**. No class needed; it's dicts/YAML.
+- **`SimulationSpec` (resolved, executable)** — built by the loader *from* the coordinate, holding live objects (`partial`s, distributions). Consumed by `core.simulate`. **Transient** (built in the rule process, discarded), with **no** hashing/serialization role.
+
+A "spec" object earns its place in proportion to how **composite** the stage is:
+
+- **`MethodSpec` — dropped.** A method is just `function(**kwargs)` + a name; the dataclass bundled three values and added no behavior. The fit site resolves inline:
+  ```python
+  fn = resolve_callable(coord.function)
+  row = {"method": coord.name, **fn(simulation, **resolve_kwargs(coord))}   # kwargs: mini-schema dists resolved
+  ```
+- **`SimulationSpec` — kept**, but solely as the **resolved parameter-object** for the simulate engine. Its value is that `core.simulate` takes *resolved objects*, never a config blob — so the engine stays ignorant of YAML/library/resolution and is testable from hand-built samplers/distributions (as `tests/test_core_run_methods.py` already does). At ~8 fields, a bundle beats a long arg list. (The decoupling comes from "resolved args, not config" — the dataclass is just ergonomics.)
+
+### `SimulationSpec` in v2
+
+```python
+@dataclass                              # not frozen; no hashing/serialization role
+class SimulationSpec:
+    design_sampler: Callable            # partial(gaussian_markov_X, n=..., p=..., rho=...)
+    effect_sampler: Callable            # partial(uniform_single_effect, causal_effect=2.0)
+    intercept: float
+    f0: Any                             # PointMass / Normal / ...
+    f1: Any
+    error_sampler: Callable | None      # None == standard normal
+    base_seed: int
+    hash: str                           # config-hash from the loader: seeding + by_batch path key
+    name: str = ""                      # human label for logs/debug only
+```
+
+Instance for `hallmark__ser_b2__loc_2.0`:
+```python
+SimulationSpec(
+    design_sampler = partial(hallmark_gene_sets_X),
+    effect_sampler = partial(uniform_single_effect, causal_effect=2.0),
+    intercept      = -2.0,
+    f0             = PointMass(0.0),
+    f1             = Normal(loc=2.0, scale=0.1, estimate_loc=False, estimate_scale=False),
+    error_sampler  = None,
+    base_seed      = 20260501,
+    hash           = "9846f5a5...",     # = sha256(canonical_json(coordinate))
+    name           = "hallmark__ser_b2__loc_2.0",
+)
+```
+
+The coordinate it resolves from (the hashed/stored config — *not* the Spec):
+```python
+{
+  "design":     {"function": "hallmark_gene_sets_X", "arguments": {}},
+  "enrichment": {"function": "uniform_single_effect", "arguments": {"causal_effect": 2.0}, "intercept": -2.0},
+  "signal":     {"f0": {"PointMass": {"value": 0.0}},
+                 "f1": {"Normal": {"loc": 2.0, "scale": 0.1, "estimate_loc": false, "estimate_scale": false}}},
+  "error":      null,
+  "base_seed":  20260501,
+}
+```
+
+Connection:
+```python
+def resolve_simulation(library, design, enrichment, signal, error) -> SimulationSpec:
+    coord = coordinate(library, design, enrichment, signal, error)
+    return SimulationSpec(
+        design_sampler = _partial(coord["design"]),
+        effect_sampler = _partial(coord["enrichment"]),
+        intercept      = coord["enrichment"]["intercept"],
+        f0             = resolve_distribution(coord["signal"]["f0"]),
+        f1             = resolve_distribution(coord["signal"]["f1"]),
+        error_sampler  = None if coord["error"] is None else _partial(coord["error"]),
+        base_seed      = coord["base_seed"],
+        hash           = spec_hash(coord),
+        name           = sim_name(design, enrichment, signal, error),
+    )
+
+def simulate(spec: SimulationSpec, replicate: int):           # pure execution; no YAML, no dehydrate
+    rng = np.random.default_rng(replicate_seed(spec.base_seed, spec.hash, replicate))
+    X = spec.design_sampler(rng)
+    causal_idx, causal_eff = spec.effect_sampler(X, rng)
+    # ... f0/f1.sample(...), error_sampler ...
+```
+
+Key change from v1: `hash` is a **field set by the loader from the coordinate**; `simulate` uses `spec.hash` for seeding instead of v1's `simulation_hash(spec)` (which dehydrated the spec). No dehydrate call anywhere; `SimulationSpec` is no longer frozen/hashable.
+
 ## 2. Module reorganization
 
 Organize the run-code into cohesive per-item (or per-family) modules so each item's code surface is a single file (precise fingerprints, §3). Re-export from `core` so the YAML `function:` contract (`resolve_callable = getattr(core, name)`) still resolves; `inspect.getfile(fn)` follows the real definition.
@@ -32,7 +116,7 @@ simulations/   designs.py, effects.py, errors.py      # samplers (gaussian_marko
 fits/          cox.py, logistic.py, twogroup.py, linear.py   # run_*/fit_*/summarize_*
 reductions/    pip.py, cs.py, f1.py, enrich.py
 analyses/      pip.py, cs.py, logbf.py, f1.py          # the _make_*/render_* fns, grouped by family
-core.py        simulate(), spec dataclasses, spec_hash, re-exports
+core.py        simulate(), SimulationSpec (resolved bundle; MethodSpec dropped), spec_hash, re-exports
 ```
 
 - Re-export: `from simulations.designs import *`, `from fits.cox import *`, etc. in `core` (or a thin `core/__init__`), preserving the flat `getattr(core, name)` lookup.
