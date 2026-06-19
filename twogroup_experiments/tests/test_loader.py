@@ -157,3 +157,29 @@ def test_resolve_sc_analyses_pairs():
     pairs = loader.resolve_sc_analyses(cfg, "fixture-sc")
     assert ("pip_calibration", "minimal") in pairs
     assert ("agg_pip_calibration", "minimal") in pairs
+
+
+def test_reduction_scope_and_paths():
+    cfg = loader.load_config(FIXTURE_DIR)
+    lib = cfg["library"]
+    assert loader.reduction_scope(lib, "pip") == "fit"
+    p = loader.reduction_output("BH", "MH", "pip", "fit")
+    assert p == "results/by_batch/BH/fits/MH/reductions/pip.parquet"
+
+
+def test_analysis_inputs_only_required_reductions(tmp_path):
+    cfg = loader.load_config(FIXTURE_DIR)
+    manifest = loader.manifest_dict(cfg["library"], loader.all_simulations(cfg), loader.all_methods(cfg))
+    inputs = loader.analysis_inputs(cfg, manifest, "fixture-sc", "pip_calibration")
+    # pip_calibration requires [pip]; every path ends in /reductions/pip.parquet
+    assert inputs and all(p.endswith("/reductions/pip.parquet") for p in inputs)
+
+
+def test_method_metadata_columns():
+    cfg = loader.load_config(FIXTURE_DIR)
+    methods = loader.all_methods(cfg)
+    md = loader.method_metadata(methods)
+    assert {"method", "method_family", "L", "threshold", "is_thresholded",
+            "is_oracle", "method_display"} <= set(md.columns)
+    fams = set(md["method_family"].to_list())
+    assert fams == {"cox_heavy", "twogroup"}

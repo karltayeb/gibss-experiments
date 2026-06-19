@@ -5,12 +5,15 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
+import polars as pl
 import yaml
 
 import core
 from core import HASH_KEY, dehydrate_hashed
 from gibss import distributions as _distributions
 from utils import BatchSpec
+from viz_utils import (make_method_display_label, method_family_label_map,
+                       method_family_oracle_label_map)
 
 EXPERIMENTS_DIR = Path(__file__).resolve().parent
 
@@ -269,3 +272,113 @@ def manifest_dict(library: dict[str, Any], simulations: dict[str, core.Simulatio
         node = dehydrate_hashed(spec)
         method_specs[node[HASH_KEY]] = node
     return {"batches": batches, "method_specs": method_specs}
+
+
+RESULTS_ROOT = "results"
+
+
+def batch_hashes_for_simulation(library: dict[str, Any], spec: core.SimulationSpec) -> list[str]:
+    defaults = library["defaults"]
+    out = []
+    for batch in batch_specs_for_simulation(
+        spec, replicates_per_batch=int(defaults["replicates_per_batch"]),
+        n_batches=int(defaults["n_batches"])):
+        out.append(dehydrate_hashed(batch)[HASH_KEY])
+    return out
+
+
+def reduction_scope(library: dict[str, Any], reduction: str) -> str:
+    needs = library["reductions"][reduction].get("needs", {})
+    return "fit" if needs.get("fits") else "batch"
+
+
+def reduction_output(batch_hash: str, method_hash: str | None, reduction: str, scope: str) -> str:
+    if scope == "fit":
+        return f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/reductions/{reduction}.parquet"
+    return f"{RESULTS_ROOT}/by_batch/{batch_hash}/reductions/{reduction}.parquet"
+
+
+def reduction_inputs(library: dict[str, Any], manifest: dict[str, Any],
+                     batch_hash: str, method_hash: str, reduction: str) -> list[str]:
+    needs = library["reductions"][reduction].get("needs", {})
+    paths = []
+    if needs.get("fits"):
+        paths.append(f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/fits.parquet")
+    if needs.get("simulations"):
+        paths.append(f"{RESULTS_ROOT}/by_batch/{batch_hash}/simulations.parquet")
+    if needs.get("sample_metadata"):
+        paths.append(f"{RESULTS_ROOT}/by_batch/{batch_hash}/sample_metadata.parquet")
+    return paths
+
+
+def _method_hashes(methods: dict[str, core.MethodSpec]) -> dict[str, str]:
+    return {name: dehydrate_hashed(spec)[HASH_KEY] for name, spec in methods.items()}
+
+
+def collection_method_pairs(config: dict[str, Any], sc_name: str) -> dict[str, dict]:
+    library = config["library"]
+    sc = config["supercollections"][sc_name]
+    methods = resolve_methods_for_sc(library, sc)
+    mhash = _method_hashes(methods)
+    out: dict[str, dict] = {}
+    for coll in supercollection_collections(library, sc_name, sc):
+        pairs = []
+        for spec in coll["simulations"]:
+            for bh in batch_hashes_for_simulation(library, spec):
+                for mname, mh in mhash.items():
+                    pairs.append((bh, mh, mname))
+        out[coll["name"]] = {"alias": coll["alias"], "pairs": pairs}
+    return out
+
+
+def analysis_inputs(config: dict[str, Any], manifest: dict[str, Any],
+                    sc_name: str, analysis: str) -> list[str]:
+    library = config["library"]
+    requires = library["analyses"][analysis].get("requires", [])
+    cmp = collection_method_pairs(config, sc_name)
+    paths: list[str] = []
+    seen: set[str] = set()
+    for reduction in requires:
+        scope = reduction_scope(library, reduction)
+        mfilter = library["reductions"][reduction].get("needs", {}).get("method_filter")
+        for coll in cmp.values():
+            for bh, mh, mname in coll["pairs"]:
+                if mfilter is not None and not mname.split("__")[0].startswith(mfilter):
+                    continue
+                mh_arg = None if scope == "batch" else mh
+                p = reduction_output(bh, mh_arg, reduction, scope)
+                if p not in seen:
+                    seen.add(p)
+                    paths.append(p)
+    return paths
+
+
+def method_metadata(methods: dict[str, core.MethodSpec]) -> pl.DataFrame:
+    label_map = method_family_label_map()
+    oracle_map = method_family_oracle_label_map()
+    rows = []
+    for name, spec in methods.items():
+        family = name.split("__")[0]
+        L = int(spec.kwargs.get("L", 1))
+        threshold = spec.kwargs.get("threshold")
+        is_thresholded = threshold is not None
+        is_oracle = "oracle" in family
+        family_label = label_map.get(family, family)
+        oracle_label = oracle_map.get(family, "Oracle")
+        suffix = "SER" if L == 1 else f"SuSiE [L={L}]"
+        base = f"{family_label} {suffix}"
+        rows.append({
+            "method": name,
+            "method_family": family,
+            "L": L,
+            "threshold": float(threshold) if threshold is not None else None,
+            "is_thresholded": is_thresholded,
+            "is_oracle": is_oracle,
+            "method_display": make_method_display_label(
+                method_label_base=base, threshold=threshold,
+                is_thresholded=is_thresholded, is_oracle=is_oracle, oracle_label=oracle_label),
+            "method_display_base": make_method_display_label(
+                method_label_base=base, threshold=None, is_thresholded=False,
+                is_oracle=is_oracle, oracle_label=oracle_label),
+        })
+    return pl.from_dicts(rows)
