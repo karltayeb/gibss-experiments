@@ -1,0 +1,14 @@
+supercollections:
+  000-all-designs-t-error-loc:
+    collections:
+      template:
+        design: [hallmark, c4, gaussian_p100, uniform_p100]
+        enrichment: ser_b2
+        signal: loc_2.0
+      over: {error: [gaussian, t_df_30, t_df_10, t_df_5, t_df_3]}
+    methods: [twogroup_oracle__L=1, cox_heavy__L=1, cox_light__threshold=2.00__L=1]
+    default_args: {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+    outputs:
+      - name: minimal
+        method_filter: [twogroup_oracle__L=1, cox_heavy__L=1, cox_light__threshold=2.00__L=1]
+        analyses: [pip, cs]
