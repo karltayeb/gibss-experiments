@@ -322,28 +322,21 @@ def batch_hashes_for_simulation(library: dict[str, Any], spec: core.SimulationSp
     return [spec.hash]
 
 
-def reduction_scope(library: dict[str, Any], reduction: str) -> str:
-    needs = library["reductions"][reduction].get("needs", {})
-    return "fit" if needs.get("fits") else "batch"
+def reduction_output(batch_hash: str, method_hash: str, reduction: str) -> str:
+    return f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/reductions/{reduction}.parquet"
 
 
-def reduction_output(batch_hash: str, method_hash: str | None, reduction: str, scope: str) -> str:
-    if scope == "fit":
-        return f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/reductions/{reduction}.parquet"
-    return f"{RESULTS_ROOT}/by_batch/{batch_hash}/reductions/{reduction}.parquet"
+def reduction_inputs(manifest: dict[str, Any], batch_hash: str, method_hash: str) -> list[str]:
+    base = f"{RESULTS_ROOT}/by_batch/{batch_hash}"
+    return [
+        f"{base}/fits/{method_hash}/fits.parquet",
+        f"{base}/simulations.parquet",
+        f"{base}/sample_metadata.parquet",
+    ]
 
 
-def reduction_inputs(library: dict[str, Any], manifest: dict[str, Any],
-                     batch_hash: str, method_hash: str, reduction: str) -> list[str]:
-    needs = library["reductions"][reduction].get("needs", {})
-    paths = []
-    if needs.get("fits"):
-        paths.append(f"{RESULTS_ROOT}/by_batch/{batch_hash}/fits/{method_hash}/fits.parquet")
-    if needs.get("simulations"):
-        paths.append(f"{RESULTS_ROOT}/by_batch/{batch_hash}/simulations.parquet")
-    if needs.get("sample_metadata"):
-        paths.append(f"{RESULTS_ROOT}/by_batch/{batch_hash}/sample_metadata.parquet")
-    return paths
+def reduction_method_filter(library: dict[str, Any], reduction: str) -> str | None:
+    return library["reductions"][reduction].get("method_filter")
 
 
 def _method_hashes(methods: dict[str, dict]) -> dict[str, str]:
@@ -374,14 +367,12 @@ def analysis_inputs(config: dict[str, Any], manifest: dict[str, Any],
     paths: list[str] = []
     seen: set[str] = set()
     for reduction in requires:
-        scope = reduction_scope(library, reduction)
-        mfilter = library["reductions"][reduction].get("needs", {}).get("method_filter")
+        mfilter = reduction_method_filter(library, reduction)
         for coll in cmp.values():
             for bh, mh, mname in coll["pairs"]:
                 if mfilter is not None and not mname.split("__")[0].startswith(mfilter):
                     continue
-                mh_arg = None if scope == "batch" else mh
-                p = reduction_output(bh, mh_arg, reduction, scope)
+                p = reduction_output(bh, mh, reduction)
                 if p not in seen:
                     seen.add(p)
                     paths.append(p)
@@ -414,16 +405,14 @@ def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
     bundle: dict[str, Any] = {}
     collection_names = [info["alias"] for info in cmp.values()]
     for reduction in requires:
-        scope = reduction_scope(library, reduction)
-        mfilter = library["reductions"][reduction].get("needs", {}).get("method_filter")
+        mfilter = reduction_method_filter(library, reduction)
         frames = []
         for info in cmp.values():
             sub = []
             for bh, mh, mname in info["pairs"]:
                 if mfilter is not None and not mname.split("__")[0].startswith(mfilter):
                     continue
-                mh_arg = None if scope == "batch" else mh
-                path = f"{results_root}/{reduction_output(bh, mh_arg, reduction, scope).split('/', 1)[1]}"
+                path = f"{results_root}/{reduction_output(bh, mh, reduction).split('/', 1)[1]}"
                 df = pl.read_parquet(path)
                 sub.append(df)
             if sub:

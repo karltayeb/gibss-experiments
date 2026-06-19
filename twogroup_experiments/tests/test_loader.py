@@ -163,11 +163,8 @@ def test_resolve_sc_analyses_pairs():
     assert ("agg_pip_calibration", "minimal") in pairs
 
 
-def test_reduction_scope_and_paths():
-    cfg = loader.load_config(FIXTURE_DIR)
-    lib = cfg["library"]
-    assert loader.reduction_scope(lib, "pip") == "fit"
-    p = loader.reduction_output("BH", "MH", "pip", "fit")
+def test_reduction_output_path():
+    p = loader.reduction_output("BH", "MH", "pip")
     assert p == "results/by_batch/BH/fits/MH/reductions/pip.parquet"
 
 
@@ -299,3 +296,12 @@ def test_code_files_point_at_modules():
     assert any(f.endswith("core.py") for f in files)
     rfiles = loader.reduction_code_files("pip", lib)
     assert rfiles == [f for f in rfiles if f.endswith("reductions/pip.py")]
+
+
+def test_reduction_inputs_fixed_set():
+    paths = loader.reduction_inputs({}, "BH", "MH")
+    assert paths == [
+        "results/by_batch/BH/fits/MH/fits.parquet",
+        "results/by_batch/BH/simulations.parquet",
+        "results/by_batch/BH/sample_metadata.parquet",
+    ]

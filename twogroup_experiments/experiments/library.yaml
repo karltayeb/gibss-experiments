@@ -113,16 +113,14 @@ methods:
 reductions:
   pip:
     function: build_pip_plot_data
-    needs: {fits: true, sample_metadata: true}
   cs:
     function: build_cs_plot_data
-    needs: {fits: true, sample_metadata: true}
   f1:
     function: build_f1_plot_data
-    needs: {fits: true, method_filter: twogroup}
+    method_filter: is_twogroup
   enrich:
     function: build_enrich_plot_data
-    needs: {fits: true, method_filter: twogroup}
+    method_filter: is_twogroup
 
 analyses:
   pip_calibration:         {requires: [pip]}

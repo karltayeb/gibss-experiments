@@ -16,7 +16,7 @@ methods:
                          n_null_iter: 2, n_intercept_iter: 2},
               over: {L: [1]}}
 reductions:
-  pip: {function: build_pip_plot_data, needs: {fits: true, sample_metadata: true}}
+  pip: {function: build_pip_plot_data}
 analyses:
   pip_calibration: {function: render_pip_calibration, requires: [pip]}
   agg_pip_calibration: {function: render_agg_pip_calibration, requires: [pip]}
