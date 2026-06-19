@@ -117,10 +117,10 @@ reductions:
     function: build_cs_plot_data
   f1:
     function: build_f1_plot_data
-    method_filter: is_twogroup
+    method_filter: twogroup
   enrich:
     function: build_enrich_plot_data
-    method_filter: is_twogroup
+    method_filter: twogroup
 
 analyses:
   pip_calibration:         {requires: [pip]}
