@@ -97,6 +97,8 @@ rule atomic_reduction:
         sims = pl.read_parquet(f"{RESULTS_ROOT}/by_batch/{wildcards.batch_hash}/simulations.parquet")
         sim_node = BATCH_HASH_TO_INFO[wildcards.batch_hash]["simulation_spec"]
         red = wildcards.reduction
+        # Dispatch is keyed by reduction name + per-reduction builder arg shape.
+        # Adding a reduction requires a new arm here (and a batch-scoped rule if it has no fits).
         if red == "pip":
             df = fn(fits, sample_md, sims)
         elif red == "cs":
@@ -106,7 +108,11 @@ rule atomic_reduction:
         elif red == "enrich":
             df = fn(fits, sims, sim_node)
         else:
-            raise KeyError(red)
+            raise ValueError(
+                f"atomic_reduction: no dispatch arm for reduction {red!r}. "
+                "Reductions are not fully generic — add an arm here with the correct "
+                "builder arg shape (and a batch-scoped rule if the reduction has no fits)."
+            )
         write_parquet(df, output[0])
 
 

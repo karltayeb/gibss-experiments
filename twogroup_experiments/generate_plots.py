@@ -8,8 +8,6 @@ matplotlib.use("pdf")
 import matplotlib.pyplot as plt
 import numpy as np
 import polars as pl
-import yaml
-
 _parent = str(Path(__file__).parent)
 if _parent not in sys.path:
     sys.path.insert(0, _parent)
@@ -18,100 +16,12 @@ import plot_ready
 import viz_utils
 
 
-_PLOT_CONFIGS_DIR = Path(__file__).parent / "plot_configs"
-_COLLECTION_ALIAS_ROOT = Path(__file__).parent / "results" / "collections"
-
-PLOT_TYPES = [
-    "pip_calibration", "power_fdp", "causal_pip", "causal_rank",
-    "mass_above_causal", "cs_dot_summary", "cs_calibrated_dot", "cs_size_power", "cs_radius_power", "cs_power_fdp", "cs_power_size_coverage_trace", "cs_coverage_trace", "preceding_posterior_mass_ecdf",
-    "agg_pip_calibration", "agg_power_fdp", "agg_causal_pip", "agg_causal_rank",
-    "agg_mass_above_causal", "agg_cs_power_fdp", "agg_cs_power_size_coverage_trace", "agg_cs_coverage_trace", "agg_cs_size_power", "agg_cs_radius_power", "agg_cs_calibrated_dot", "agg_preceding_posterior_mass_ecdf",
-    "cs_coverage_size", "agg_cs_coverage_size", "cs_coverage_radius", "agg_cs_coverage_radius",
-    "cs_calibration", "agg_cs_calibration",
-    "log_bf_roc", "agg_log_bf_roc",
-    "log_bf_ser_ecdf", "agg_log_bf_ser_ecdf",
-    "f1_boxplot", "f1_scatter", "f1_enrich_scatter",
-]
-
-
-def make_plot(
-    supercollection: str,
-    plot_settings: str,
-    plot_type: str,
-    output_path: str,
-) -> None:
-    """Generate one plot-type PDF for a (supercollection, plot_settings) combo."""
-    cfg = _load_plot_config()
-    settings = _resolve_settings(cfg, supercollection, plot_settings)
-    combined_data = _load_supercollection_data(cfg, supercollection)
-    fig = ANALYSIS_RENDERERS[plot_type](combined_data, settings)
-    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(output_path, bbox_inches="tight")
-    plt.close(fig)
-
-
 def render_analysis(bundle: dict, args: dict, analysis: str, output_path: str) -> None:
     """Render a single analysis type and save to output_path."""
     fig = ANALYSIS_RENDERERS[analysis](bundle, args)
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, bbox_inches="tight")
     plt.close(fig)
-
-
-def _load_plot_config() -> dict:
-    merged: dict = {}
-    for path in sorted(_PLOT_CONFIGS_DIR.glob("*.yaml")):
-        cfg = yaml.safe_load(path.read_text()) or {}
-        for key, val in cfg.items():
-            if key not in merged:
-                merged[key] = val
-            elif isinstance(merged[key], dict) and isinstance(val, dict):
-                merged[key].update(val)
-    return merged
-
-
-def _resolve_settings(cfg: dict, supercollection: str, plot_settings: str) -> dict:
-    defaults = cfg["supercollections"][supercollection].get("default_settings", {})
-    overrides = cfg["settings"].get(plot_settings) or {}
-    return {**defaults, **overrides}
-
-
-def _load_supercollection_data(cfg: dict, supercollection: str) -> dict:
-    coll_list = cfg["supercollections"][supercollection]["collections"]
-    aliases = {item["name"]: item.get("alias", item["name"]) for item in coll_list}
-    bundles = {
-        item["name"]: plot_ready.load_plot_ready_collection(
-            _COLLECTION_ALIAS_ROOT / item["name"]
-        )
-        for item in coll_list
-    }
-    combined_method_metadata = (
-        pl.concat([b["method_metadata"] for b in bundles.values()])
-        .unique(subset=["method", "threshold"])
-    )
-
-    def _tag(key: str) -> pl.DataFrame:
-        return pl.concat([
-            b[key].with_columns(pl.lit(aliases.get(name, name)).alias("collection_name"))
-            for name, b in bundles.items()
-        ])
-
-    def _tag_optional(key: str) -> pl.DataFrame:
-        frames = [
-            b[key].with_columns(pl.lit(aliases.get(name, name)).alias("collection_name"))
-            for name, b in bundles.items()
-            if key in b and not b[key].is_empty()
-        ]
-        return pl.concat(frames) if frames else pl.DataFrame()
-
-    return {
-        "method_metadata": combined_method_metadata,
-        "collection_names": [aliases.get(item["name"], item["name"]) for item in coll_list],
-        "pip_plot_data": _tag("pip_plot_data"),
-        "cs_plot_data": _tag("cs_plot_data"),
-        "f1_plot_data": _tag_optional("f1_plot_data"),
-        "enrich_plot_data": _tag_optional("enrich_plot_data"),
-    }
 
 
 def _foreground_methods(method_metadata: pl.DataFrame, settings: dict) -> set[str]:
