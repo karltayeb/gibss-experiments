@@ -1,22 +1,20 @@
 import sys
-
-import polars as pl
 from pathlib import Path
 
-RESULTS_ROOT = "results"
-PLOT_READY_SOURCES = ["plot_ready.py", "utils.py"]
-PLOT_RENDER_SOURCES = ["generate_plots.py", "viz_utils.py", "plot_ready.py"]
+import polars as pl
 
-from core import rehydrate_node
-from utils import fit_batch_method, simulate_batch, write_parquet, write_yaml
+RESULTS_ROOT = "results"
+
+from utils import fit_batch_method, simulate_batch, write_parquet
+from plot_ready import build_sample_metadata
 from experiments import loader
 from manifest_cache import load_manifest_cached
 
-_MANIFEST = load_manifest_cached()
-_CONFIG = loader.load_config()
-BATCH_HASH_TO_INFO = _MANIFEST["batches"]
-METHOD_HASH_TO_INFO = _MANIFEST["method_specs"]
-SUPERCOLLECTIONS = sorted(_CONFIG["supercollections"].keys())
+MANIFEST = load_manifest_cached()
+CONFIG = loader.load_config()
+LIBRARY = CONFIG["library"]
+SUPERCOLLECTIONS = sorted(CONFIG["supercollections"].keys())
+
 
 wildcard_constraints:
     batch_hash=r"[0-9a-f]{64}",
@@ -30,105 +28,104 @@ wildcard_constraints:
 def _all_analysis_targets():
     targets = []
     for sc in SUPERCOLLECTIONS:
-        for analysis, args_name in loader.resolve_sc_analyses(_CONFIG, sc):
-            targets.append(f"{RESULTS_ROOT}/supercollections/{sc}/{analysis}/{args_name}.pdf")
+        for analysis, args_name in loader.resolve_sc_analyses(CONFIG, sc):
+            targets.append(
+                f"{RESULTS_ROOT}/supercollections/{sc}/{analysis}/{args_name}.pdf"
+            )
     return targets
 
 
-rule materialize_twogroup_experiment_batch:
+def _all_analysis_names():
+    """Union of all analysis names referenced by any supercollection."""
+    seen = set()
+    for sc in SUPERCOLLECTIONS:
+        for analysis, _ in loader.resolve_sc_analyses(CONFIG, sc):
+            seen.add(analysis)
+    return sorted(seen)
+
+
+# ---------------------------------------------------------------------------
+# Generic simulate rule
+# ---------------------------------------------------------------------------
+
+rule simulate:
     output:
-        batch_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
-        simulation_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulation_spec.yaml",
         simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
         sample_metadata=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/sample_metadata.parquet",
-    run:
-        info = BATCH_HASH_TO_INFO[wildcards.batch_hash]
-        simulation_spec_node = info["simulation_spec"]
-        simulation_spec = rehydrate_node(simulation_spec_node)
-        simulations_df = simulate_batch(
-            simulation_spec,
-            replicates=info["replicates"],
-        )
-        write_parquet(simulations_df, output.simulations)
-        write_yaml(info, output.batch_spec)
-        write_yaml(simulation_spec_node, output.simulation_spec)
-        from plot_ready import build_sample_metadata
-        write_parquet(build_sample_metadata(wildcards.batch_hash, simulations_df), output.sample_metadata)
-
-
-rule fit_twogroup_experiment_batch_method:
     input:
-        batch_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/batch_spec.yaml",
-        simulation_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulation_spec.yaml",
-        simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+        code=lambda wc: loader.simulation_code_files(
+            MANIFEST["batches"][wc.batch_hash]["coordinate"], LIBRARY
+        ),
+    run:
+        b = MANIFEST["batches"][wildcards.batch_hash]
+        spec = loader.resolve_simulation_from_coord(b["coordinate"])
+        df = simulate_batch(spec, replicates=b["replicates"])
+        write_parquet(df, output.simulations)
+        write_parquet(build_sample_metadata(wildcards.batch_hash, df), output.sample_metadata)
+
+
+# ---------------------------------------------------------------------------
+# Generic fit rule
+# ---------------------------------------------------------------------------
+
+rule fit:
     output:
-        method_spec=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/method_spec.yaml",
         fits=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
-    run:
-        batch_info = BATCH_HASH_TO_INFO[wildcards.batch_hash]
-        simulation_spec_node = batch_info["simulation_spec"]
-        method_spec_node = METHOD_HASH_TO_INFO[wildcards.method_hash]
-        simulation_spec = rehydrate_node(simulation_spec_node)
-        method_spec = rehydrate_node(method_spec_node)
-        fits_df = fit_batch_method(
-            simulation_spec,
-            method_spec=method_spec,
-            replicates=batch_info["replicates"],
-        )
-        write_parquet(fits_df, output.fits)
-        write_yaml(method_spec_node, output.method_spec)
-
-
-rule atomic_reduction:
-    output:
-        f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/reductions/{{reduction}}.parquet"
     input:
-        sources=PLOT_READY_SOURCES,
-        deps=lambda wc: loader.reduction_inputs(_CONFIG["library"], _MANIFEST,
-                                                wc.batch_hash, wc.method_hash, wc.reduction),
-    run:
-        import plot_ready, polars as pl
-        lib = _CONFIG["library"]
-        fn = getattr(plot_ready, lib["reductions"][wildcards.reduction]["function"])
-        fits = pl.read_parquet(
-            f"{RESULTS_ROOT}/by_batch/{wildcards.batch_hash}/fits/{wildcards.method_hash}/fits.parquet"
-        ).with_columns(pl.lit(wildcards.batch_hash).alias("batch_hash"))
-        sample_md = pl.read_parquet(f"{RESULTS_ROOT}/by_batch/{wildcards.batch_hash}/sample_metadata.parquet")
-        sims = pl.read_parquet(f"{RESULTS_ROOT}/by_batch/{wildcards.batch_hash}/simulations.parquet")
-        sim_node = BATCH_HASH_TO_INFO[wildcards.batch_hash]["simulation_spec"]
-        red = wildcards.reduction
-        # Dispatch is keyed by reduction name + per-reduction builder arg shape.
-        # Adding a reduction requires a new arm here (and a batch-scoped rule if it has no fits).
-        if red == "pip":
-            df = fn(fits, sample_md, sims)
-        elif red == "cs":
-            df = fn(fits, sample_md, sims)
-        elif red == "f1":
-            df = fn(fits, sim_node)
-        elif red == "enrich":
-            df = fn(fits, sims, sim_node)
-        else:
-            raise ValueError(
-                f"atomic_reduction: no dispatch arm for reduction {red!r}. "
-                "Reductions are not fully generic — add an arm here with the correct "
-                "builder arg shape (and a batch-scoped rule if the reduction has no fits)."
+        simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+        code=lambda wc: (
+            loader.method_code_files(MANIFEST["methods"][wc.method_hash], LIBRARY)
+            + loader.simulation_code_files(
+                MANIFEST["batches"][wc.batch_hash]["coordinate"], LIBRARY
             )
-        write_parquet(df, output[0])
-
-
-rule supercollection_analysis:
-    output:
-        f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{{analysis}}/{{args_name}}.pdf"
-    input:
-        sources=PLOT_RENDER_SOURCES,
-        deps=lambda wc: loader.analysis_inputs(_CONFIG, _MANIFEST, wc.supercollection, wc.analysis),
+        ),
     run:
-        import generate_plots
-        bundle = loader.load_sc_bundle(_CONFIG, wildcards.supercollection,
-                                       loader.analysis_requires(_CONFIG, wildcards.analysis))
-        args = loader.resolve_args(_CONFIG, wildcards.supercollection, wildcards.args_name)
-        generate_plots.render_analysis(bundle, args, wildcards.analysis, output[0])
+        b = MANIFEST["batches"][wildcards.batch_hash]
+        spec = loader.resolve_simulation_from_coord(b["coordinate"])
+        method_coord = MANIFEST["methods"][wildcards.method_hash]
+        df = fit_batch_method(spec, method_coord=method_coord, replicates=b["replicates"])
+        write_parquet(df, output.fits)
 
+
+# ---------------------------------------------------------------------------
+# Loop-generated reduce_<name> rules (one per reduction in LIBRARY)
+# ---------------------------------------------------------------------------
+
+for _r in LIBRARY["reductions"]:
+    rule:
+        name: f"reduce_{_r}"
+        output:
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/reductions/{_r}.parquet"
+        input:
+            fits=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
+            sims=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+            sample_md=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/sample_metadata.parquet",
+        params:
+            coordinate=lambda wc, r=_r: MANIFEST["batches"][wc.batch_hash]["coordinate"],
+        script:
+            f"reductions/{_r}.py"
+
+
+# ---------------------------------------------------------------------------
+# Loop-generated analyze_<analysis> rules (one per analysis referenced by SCs)
+# ---------------------------------------------------------------------------
+
+for _a in _all_analysis_names():
+    rule:
+        name: f"analyze_{_a}"
+        output:
+            f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{_a}/{{args_name}}.pdf"
+        input:
+            deps=lambda wc, a=_a: loader.analysis_inputs(
+                CONFIG, MANIFEST, wc.supercollection, a
+            ),
+        script:
+            f"analyses/{loader.analysis_family(_a)}.py"
+
+
+# ---------------------------------------------------------------------------
+# all_plots target
+# ---------------------------------------------------------------------------
 
 rule all_plots:
     input:

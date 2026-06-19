@@ -52,3 +52,22 @@ def build(ctx: ReductionContext) -> pl.DataFrame:
     true_loc = float(f1_params["loc"]) if f1_params.get("loc") is not None else None
     true_scale = float(f1_params["scale"]) if f1_params.get("scale") is not None else None
     return build_f1_plot_data(ctx.fits, true_loc=true_loc, true_scale=true_scale)
+
+
+if "snakemake" in globals():
+    import sys as _sys
+    from pathlib import Path as _Path
+    _parent = str(_Path(__file__).parent.parent)
+    if _parent not in _sys.path:
+        _sys.path.insert(0, _parent)
+    import polars as pl
+    from reductions import ReductionContext
+    bh, mh = snakemake.wildcards.batch_hash, snakemake.wildcards.method_hash
+    fits = pl.read_parquet(snakemake.input.fits).with_columns(pl.lit(bh).alias("batch_hash"))
+    ctx = ReductionContext(
+        fits=fits,
+        sims=pl.read_parquet(snakemake.input.sims),
+        sample_metadata=pl.read_parquet(snakemake.input.sample_md),
+        sim_coordinate=snakemake.params.coordinate,
+    )
+    build(ctx).write_parquet(snakemake.output[0])

@@ -497,6 +497,20 @@ def analysis_code_files(analysis: str) -> list[str]:
     return [_file(generate_plots.ANALYSIS_RENDERERS[analysis])]
 
 
+def analysis_family(analysis: str) -> str:
+    """Return the family module name (pip|cs|logbf|f1) for an analysis name."""
+    from analyses import pip, cs, logbf, f1
+    if analysis in pip.RENDERERS:
+        return "pip"
+    if analysis in cs.RENDERERS:
+        return "cs"
+    if analysis in logbf.RENDERERS:
+        return "logbf"
+    if analysis in f1.RENDERERS:
+        return "f1"
+    raise KeyError(f"Unknown analysis (not in any family RENDERERS): {analysis!r}")
+
+
 def method_metadata(methods: dict[str, dict]) -> pl.DataFrame:
     label_map = method_family_label_map()
     oracle_map = method_family_oracle_label_map()

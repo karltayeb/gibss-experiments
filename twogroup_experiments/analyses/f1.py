@@ -116,3 +116,18 @@ RENDERERS = {
     "f1_scatter": _make_f1_scatter,
     "f1_enrich_scatter": _make_f1_enrich_scatter,
 }
+
+if "snakemake" in globals():
+    import sys as _sys
+    from pathlib import Path as _Path
+    _parent = str(_Path(__file__).parent.parent)
+    if _parent not in _sys.path:
+        _sys.path.insert(0, _parent)
+    import generate_plots
+    from experiments import loader as _loader
+    _wc = snakemake.wildcards
+    _cfg_obj = _loader.load_config()
+    _bundle = _loader.load_sc_bundle(_cfg_obj, _wc.supercollection,
+                                     _loader.analysis_requires(_cfg_obj, _wc.analysis))
+    _args = _loader.resolve_args(_cfg_obj, _wc.supercollection, _wc.args_name)
+    generate_plots.render_analysis(_bundle, _args, _wc.analysis, snakemake.output[0])

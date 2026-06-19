@@ -17,7 +17,7 @@ def load_manifest_cached(cache_path: str | Path | None = None) -> dict:
         return json.loads(cache_path.read_text(encoding="utf-8"))
     from experiments import loader
     cfg = loader.load_config()
-    data = loader.manifest_dict(cfg["library"], loader.all_simulations(cfg), loader.all_methods(cfg))
+    data = loader.manifest_dict(cfg["library"], cfg)
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     cache_path.write_text(json.dumps(data), encoding="utf-8")
     return data
