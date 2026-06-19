@@ -173,6 +173,79 @@ def expand_collections(library: dict[str, Any], sc_name: str, collections_entry:
     return out
 
 
+def load_config(experiments_dir: Path | None = None) -> dict[str, Any]:
+    base = Path(experiments_dir) if experiments_dir is not None else EXPERIMENTS_DIR
+    library = load_library(base)
+    supercollections: dict[str, Any] = {}
+    for path in sorted(base.glob("*.yaml")):
+        if path.name == "library.yaml":
+            continue
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        supercollections.update(data.get("supercollections", {}) or {})
+    return {"library": library, "supercollections": supercollections}
+
+
+def resolve_methods_for_sc(library: dict[str, Any], sc: dict[str, Any]) -> dict[str, core.MethodSpec]:
+    lib_methods = library_methods(library)
+    out: dict[str, core.MethodSpec] = {}
+    for item in sc.get("methods", []):
+        if isinstance(item, str):
+            out[item] = lib_methods[item]
+        else:  # inline def: single-key map base -> entry
+            (base, entry), = item.items()
+            for spec in expand_method(base, entry):
+                out[spec.name] = spec
+    return out
+
+
+def supercollection_collections(library: dict[str, Any], sc_name: str, sc: dict[str, Any]) -> list[dict]:
+    return expand_collections(library, sc_name, sc["collections"])
+
+
+def flatten_analyses(library: dict[str, Any], analyses_list: list[str]) -> list[str]:
+    groups = library["analysis_groups"]
+    analyses = library["analyses"]
+    overlap = set(groups) & set(analyses)
+    if overlap:
+        raise ValueError(f"Analysis/group name collision: {sorted(overlap)}")
+    out: list[str] = []
+    for item in analyses_list:
+        names = groups[item] if item in groups else [item]
+        for n in names:
+            if n not in analyses:
+                raise KeyError(f"Unknown analysis: {n!r}")
+            if n not in out:
+                out.append(n)
+    return out
+
+
+def resolve_sc_analyses(config: dict[str, Any], sc_name: str) -> list[tuple[str, str]]:
+    library = config["library"]
+    sc = config["supercollections"][sc_name]
+    seen: dict[tuple[str, str], None] = {}
+    for output in sc.get("outputs", []):
+        for analysis in flatten_analyses(library, output.get("analyses", [])):
+            seen[(analysis, output["name"])] = None
+    return list(seen.keys())
+
+
+def all_simulations(config: dict[str, Any]) -> dict[str, core.SimulationSpec]:
+    library = config["library"]
+    out: dict[str, core.SimulationSpec] = {}
+    for sc_name, sc in config["supercollections"].items():
+        for coll in supercollection_collections(library, sc_name, sc):
+            for spec in coll["simulations"]:
+                out[spec.name] = spec
+    return out
+
+
+def all_methods(config: dict[str, Any]) -> dict[str, core.MethodSpec]:
+    out: dict[str, core.MethodSpec] = {}
+    for sc in config["supercollections"].values():
+        out.update(resolve_methods_for_sc(config["library"], sc))
+    return out
+
+
 def manifest_dict(library: dict[str, Any], simulations: dict[str, core.SimulationSpec],
                   methods: dict[str, core.MethodSpec]) -> dict[str, Any]:
     defaults = library["defaults"]

@@ -1,0 +1,24 @@
+defaults: {base_seed: 20260501, replicates_per_batch: 2, n_batches: 1}
+designs:
+  gaussian_p8: {function: gaussian_markov_X, arguments: {n: 30, p: 8, rho: 0.5}}
+enrichments:
+  ser_b2:  {function: uniform_single_effect, arguments: {causal_effect: 2.0}, intercept: -2.0}
+  null_b0: {function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+signals:
+  loc_2.0: {f0: {PointMass: {value: 0.0}},
+            f1: {Normal: {loc: 2.0, scale: 0.1, estimate_loc: false, estimate_scale: false}}}
+errors:
+  gaussian: null
+methods:
+  cox_heavy: {function: run_cox_method, template: {threshold: null, time_sign: 1.0}, over: {L: [1]}}
+  twogroup:  {function: run_twogroup_method,
+              template: {f1: {Normal: {loc: 0.0, scale: 1.0, estimate_loc: true, estimate_scale: true}},
+                         n_null_iter: 2, n_intercept_iter: 2},
+              over: {L: [1]}}
+reductions:
+  pip: {function: build_pip_plot_data, needs: {fits: true, sample_metadata: true}}
+analyses:
+  pip_calibration: {function: render_pip_calibration, requires: [pip]}
+  agg_pip_calibration: {function: render_agg_pip_calibration, requires: [pip]}
+analysis_groups:
+  pip: [pip_calibration, agg_pip_calibration]

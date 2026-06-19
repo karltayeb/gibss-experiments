@@ -132,3 +132,28 @@ def test_expand_collections_within_and_over():
     # within-collection: ser + null pair
     assert {s.name for s in colls[0]["simulations"]} == {
         "gaussian_p100__ser_b2__loc_1.0", "gaussian_p100__null_b0__loc_1.0"}
+
+
+FIXTURE_DIR = Path(__file__).resolve().parent / "fixtures" / "experiments"
+
+
+def test_load_config_and_accessors():
+    cfg = loader.load_config(FIXTURE_DIR)
+    assert "fixture-sc" in cfg["supercollections"]
+    sims = loader.all_simulations(cfg)
+    assert {"gaussian_p8__ser_b2__loc_2.0", "gaussian_p8__null_b0__loc_2.0"} <= set(sims)
+    methods = loader.all_methods(cfg)
+    assert {"cox_heavy__L=1", "twogroup__L=1"} == set(methods)
+
+
+def test_flatten_analyses_expands_groups_and_dedups():
+    cfg = loader.load_config(FIXTURE_DIR)
+    flat = loader.flatten_analyses(cfg["library"], ["pip", "pip_calibration"])
+    assert flat == ["pip_calibration", "agg_pip_calibration"]
+
+
+def test_resolve_sc_analyses_pairs():
+    cfg = loader.load_config(FIXTURE_DIR)
+    pairs = loader.resolve_sc_analyses(cfg, "fixture-sc")
+    assert ("pip_calibration", "minimal") in pairs
+    assert ("agg_pip_calibration", "minimal") in pairs
