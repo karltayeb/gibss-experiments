@@ -53,7 +53,7 @@ the simulations experiments actually consume, with compact expansion for sweeps.
 ```
 experiments/
   library.yaml        # shared: defaults, designs, enrichments, signals,
-                      #         errors, methods, plot_type_groups
+                      #         errors, methods, reductions, analyses, analysis_groups
   003_loc_snr.yaml    # supercollections: {...}   (proof migration)
   000_t_errors.yaml   # supercollections: {...}   (proof migration)
   ...                 # remaining 001,002,004-007 ported in follow-ups
@@ -126,7 +126,21 @@ methods:                                    # -> one MethodSpec per (template x 
       n_intercept_iter: 20
     over: {L: [1, 5]}                        # -> twogroup__L=1, twogroup__L=5
 
-plot_type_groups:                           # unchanged from current main.yaml
+reductions:                                 # (sims + fits) -> compact cacheable parquet
+  sample_metadata: {function: build_sample_metadata, needs: {simulations: true}}
+  method_metadata: {function: build_method_metadata, needs: {fits: true}}
+  pip: {function: build_pip_plot_data,
+        needs: {fits: true, simulations: true, reductions: [sample_metadata]}}
+  cs:  {function: build_cs_plot_data,
+        needs: {fits: true, simulations: true, reductions: [sample_metadata]}}
+  f1:  {function: build_f1_plot_data, needs: {fits: true, method_filter: twogroup}}
+
+analyses:                                   # reduction bundle -> artifact (PDF for now)
+  pip_calibration:     {function: render_pip_calibration, requires: [pip, method_metadata]}
+  agg_pip_calibration: {function: render_agg_pip_calibration, requires: [pip, method_metadata]}
+  power_fdp:           {function: render_power_fdp, requires: [pip, method_metadata]}
+
+analysis_groups:                            # was plot_type_groups
   pip: [pip_calibration, agg_pip_calibration, power_fdp, agg_power_fdp]
   cs:  [...]
 ```
@@ -139,7 +153,7 @@ row dict — see Method expansion.
 ### supercollection
 
 Each supercollection has exactly three concerns: **collections**, **methods**,
-**plots**.
+**outputs** (analyses — plots and, later, tables/stats).
 
 ```yaml
 supercollections:
@@ -158,16 +172,17 @@ supercollections:
     # generated method names (see Method expansion). inline method defs also allowed
     # here (same schema as library.methods), merged into method scope for this SC only.
 
-    default_plot_args:                       # shared numeric knobs (was default_settings)
+    default_args:                            # shared numeric knobs (was default_settings)
       min_log_bf: 2.0
       max_cs_size: 10000
       max_fdp: 0.5
 
-    plots:
-      - method_filter: [twogroup__L=1, cox_light__threshold=2.00__L=1]  # subset, by name
-        plot_args: {max_fdp: 0.5}            # overrides default_plot_args
-        plot_type_groups: [pip, cs]
-        # plot_types: [...] also allowed (explicit list, like current)
+    outputs:                                 # was plots
+      - name: minimal                        # -> args_name in the output path
+        method_filter: [twogroup__L=1, cox_light__threshold=2.00__L=1]  # subset, by name
+        args: {max_fdp: 0.5}                 # overrides default_args
+        analysis_groups: [pip, cs]
+        # analyses: [...] also allowed (explicit list)
 ```
 
 #### Method expansion semantics
@@ -241,6 +256,72 @@ Therefore **the `over:` axis is the facet/aggregation dimension**: `over: {signa
 variant collapses them into one panel. Whatever is placed in `over` is what `agg_`
 pools. No structural change to the plot layer's aggregation logic is required.
 
+## Reductions + analyses layer
+
+Generalizes the fixed `collection_*_plot_data` rules + plot types into two pluggable,
+data-driven stages. Same `function`+args pattern as the rest of the config.
+
+- **reduction** (per *collection*): `function(inputs) -> dataframe`, written to a
+  cacheable parquet. The cache boundary. Declares `needs`:
+  - `simulations: true` — consume the collection's batch `simulations.parquet`.
+  - `fits: true` — consume the collection's `(batch x method)` `fits.parquet`,
+    optionally narrowed by a reduction-level `method_filter` (e.g. f1 = twogroup-only).
+  - `reductions: [name, ...]` — consume sibling reductions (e.g. `pip` needs
+    `sample_metadata`). Resolved by the same generic rule with a different wildcard.
+  Reductions are **parameter-free by name**: a variant is a new named reduction (no
+  args encoded in the path; consistent with 1:1 methods).
+- **analysis** (per *supercollection*): `function(bundle, args, output)` writes an
+  artifact. Declares `requires: [reduction, ...]`. Output is **PDF for now**; an
+  `output: pdf|csv|json` format field (tables/stats as peer artifacts) is a noted
+  future extension, not built here.
+
+### Mapping to snakemake (two generic rules)
+
+Snakemake rules are static; reductions/analyses are dynamic from YAML. Two generic
+rules keyed by name-wildcards, with lambda input-functions consulting the loader,
+replace the 8 hardcoded rules.
+
+```python
+rule collection_reduction:
+    output: f"{ROOT}/collections/{{collection}}/reductions/{{reduction}}.parquet"
+    input:
+        sources = PLOT_READY_SOURCES,
+        deps = lambda wc: reduction_inputs(wc.collection, wc.reduction)
+    run:
+        fn = loader.reduction_function(wc.reduction)
+        write_parquet(fn(load_reduction_inputs(wc.collection, wc.reduction)), output[0])
+
+rule supercollection_analysis:
+    output: f"{ROOT}/supercollections/{{sc}}/{{analysis}}/{{args_name}}.pdf"
+    input:
+        sources = PLOT_RENDER_SOURCES,
+        deps = lambda wc: analysis_inputs(wc.sc, wc.analysis)
+    run:
+        fn   = loader.analysis_function(wc.analysis)
+        args = loader.resolve_args(wc.sc, wc.analysis, wc.args_name)
+        bundle = load_sc_bundle(wc.sc, loader.analysis_requires(wc.analysis))  # concat + tag
+        fn(bundle, args=args, output=output[0])
+```
+
+- `reduction_inputs(collection, reduction)` → by_batch sims/fits paths (per `needs`,
+  fits narrowed by reduction `method_filter`) + sibling-reduction parquet paths.
+  Reduction→reduction edges resolve automatically (same rule, different wildcard).
+- `analysis_inputs(sc, analysis)` → for each collection in the SC, for each reduction
+  in `analysis.requires`: `collections/<collection>/reductions/<r>.parquet`. **This is
+  the dependency-driven materialization** — only reductions some requested analysis
+  needs get built (no more "all 7 per collection").
+- The per-supercollection **combine** (concat collections, tag `collection_name`) stays
+  in-memory in `load_sc_bundle` at render — no separate rule, matching today's
+  `_load_supercollection_data`. agg vs non-agg analyses pool/facet this bundle (see
+  Aggregation levels).
+- `args_name` is the output entry's `name`; `resolve_args` merges SC `default_args`
+  with the entry's `args`. `method_filter` is render-time foreground selection.
+
+Wildcard constraints: `reduction`/`analysis` ∈ `[A-Za-z0-9_]+`, `args_name` ∈
+`[A-Za-z0-9_\-]+`. Targets enumerated by `_resolve_sc_analyses(sc)` →
+`(analysis, args_name)` pairs (expanding `analysis_groups`); path
+`supercollections/<sc>/<analysis>/<args_name>.pdf`.
+
 ## Loader (`experiments/loader.py`)
 
 Pure-Python module, no snakemake dependency, unit-testable:
@@ -261,6 +342,9 @@ Pure-Python module, no snakemake dependency, unit-testable:
 - Collection/supercollection accessors replacing `_load_plot_configs`,
   `_COLLECTION_YAMLS`, `_resolve_collection_batches`, `_resolve_collection_methods`,
   `load_collection_yaml`, `load_supercollection`, `_resolve_sc_plot_pairs`.
+- Reduction/analysis layer (above): `reduction_function`, `reduction_inputs`,
+  `analysis_function`, `analysis_requires`, `analysis_inputs`, `resolve_args`,
+  `load_sc_bundle`, `_resolve_sc_analyses`.
 
 `BatchSpec`s are built per simulation from `defaults.replicates_per_batch`/`n_batches`
 (reusing `config_builders.batch_specs_for_simulation` logic, relocated into the loader).
@@ -277,22 +361,34 @@ Pure-Python module, no snakemake dependency, unit-testable:
 - `all_null_fits`: replace `from config import NULL_METHOD_SPECS` with a loader query.
 - Content-addressed rules (`materialize_*`, `fit_*`) unchanged — still hash-keyed via
   the manifest and `core.rehydrate_node`.
+- Replace the 7 `collection_*_plot_data`/metadata rules + `supercollection_plot` with
+  the **two generic rules** `collection_reduction` and `supercollection_analysis`
+  (see Reductions + analyses layer). `twogroup_experiments_target`/
+  `materialize_supercollection`/`all_plots` rebuild their target lists from
+  `_resolve_sc_analyses` (analysis × args_name) instead of the fixed 7-parquet +
+  plot-type enumeration.
 
 ### generate_plots.py
 
-`generate_plots.py` reads `plot_configs/` directly and must be ported to the loader:
+`generate_plots.py` reads `plot_configs/` directly and must be ported to the loader.
+Its per-plot-type render functions (`_make_*`) become the **analysis functions**
+referenced by `analyses` (`render_pip_calibration`, …); their bodies are largely
+unchanged — only how `combined_data`/`args` reach them changes.
 
-- `_load_plot_config`, `_resolve_settings`, `_load_supercollection_data` →
-  loader-backed supercollection accessors (collections list, aliases, plot bundles).
+- `make_plot` → the `supercollection_analysis` rule body: `load_sc_bundle` builds
+  `combined_data` (replacing `_load_supercollection_data`); `resolve_args` builds
+  `args` (replacing `_load_plot_config`/`_resolve_settings`); dispatch is by
+  `analysis` name (replacing the `_PLOT_DISPATCH` table, or keep the table keyed by
+  analysis name).
 - `_foreground_methods` currently filters by `method_families` + `thresholds`; it
-  becomes **explicit-name membership** against the plot entry's `method_filter`
+  becomes **explicit-name membership** against the output entry's `method_filter`
   (intersected with the supercollection's `methods`). The `method_families`/
   `thresholds`/`is_thresholded` filtering and `_method_family` name-stripping are
-  deleted (threshold is now passive metadata, methods are 1:1 by name). `plot_args`
+  deleted (threshold is now passive metadata, methods are 1:1 by name). `args`
   replaces the merged `default_settings`/named-`settings` dict (`min_log_bf`,
   `max_cs_size`, `max_fdp`, …) and no longer carries `thresholds`.
-- `agg_`/non-`agg_` dispatch and the per-plot-type render functions are unchanged;
-  only how `combined_data` and `settings` are assembled changes.
+- `agg_`/non-`agg_` remain distinct analyses (separate render fns), pooling/faceting
+  the combined bundle as today.
 
 ## core.py changes (MethodSpec collapse)
 
@@ -318,9 +414,13 @@ The method node in the manifest loses `summarize_function`; `plot_ready`'s
 
 ## Deletions
 
-- `config.py`, `config_builders.py`, `config_registry.py` (after both proof configs
-  migrate and the snakefile no longer imports them).
-- `plot_configs/` once all numbered files are ported (kept during the proof phase).
+- `config.py`, `config_builders.py`, `config_registry.py` — deleted on the branch
+  (no coexistence; snakefile + `manifest_cache.py` no longer import them).
+- `plot_configs/` — replaced by `experiments/` (deleted on the branch; only the ported
+  `003`/`000` supercollections exist until the rest are ported in follow-ups).
+- The 7 `collection_*_plot_data`/metadata snakemake rules + `supercollection_plot` +
+  `_resolve_sc_plot_pairs` + the fixed `PLOT_TYPES` list — replaced by the two generic
+  rules + `_resolve_sc_analyses`.
 - Unused module-level `MethodSpec` constants in `core.py` (`COX_HEAVY`, etc.) and the
   `build_*_registry`/alias helpers, if nothing else references them after the cutover
   (verify before removing).
@@ -334,18 +434,24 @@ Port two supercollection files exercising the tricky paths:
 - `000_t_errors` — non-trivial `error` sampler entries (`t_df_*`).
 
 Plus the `library.yaml` entries they need (hallmark/c4/gaussian_p100/uniform_p100
-designs; ser_b2/null_b0 enrichments; loc/scale signals; t-error errors; the method set).
-Remaining files (001, 002, 004-007) ported in follow-ups; `config.py` retained until then.
+designs; ser_b2/null_b0 enrichments; loc/scale signals; t-error errors; the method set;
+the reductions + analyses these supercollections use). Remaining files (001, 002,
+004-007) ported in follow-ups; on this branch they are simply absent (no coexistence).
 
 ## Testing
 
 - Loader unit tests: distribution parsing; within vs across (`over`) expansion;
   product correctness; manifest node shape matches `core.dehydrate_hashed`; hash
   stability across repeated loads; collection name/alias derivation + uniqueness.
+- Method expansion: `template`×`over` → expected distinct names + kwargs.
+- Reduction/analysis resolution: `reduction_inputs` returns correct sims/fits/sibling
+  paths per `needs`; `analysis_inputs` returns only `requires` reductions (assert an
+  unrequested reduction is NOT in the DAG — the dependency-driven win).
 - Snakemake dry-run (`-n`) on the migrated `003`/`000` supercollections: DAG resolves,
-  expected `by_batch`/`collections` targets enumerated.
-- One end-to-end tiny fit (single replicate) through `materialize` → `fit` to confirm
-  rehydration works against loader-emitted manifest nodes.
+  expected `by_batch`/`collections/reductions`/`supercollections` targets enumerated.
+- One end-to-end tiny fit (single replicate) through `materialize` → `fit` →
+  `collection_reduction` → `supercollection_analysis` to confirm rehydration + the two
+  generic rules work against loader-emitted manifest nodes.
 
 ## Future work (not in this spec)
 
