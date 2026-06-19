@@ -107,19 +107,26 @@ errors:                                     # -> error_sampler (null => None => 
   gaussian: null
   t_df_5:   {function: t_error_sampler, arguments: {df: 5}}
 
-methods:                                    # -> MethodSpec(name, fit, summarize, kwargs)
-  cox_heavy_L1:
+methods:                                    # -> one MethodSpec per (template x over) combo
+  cox_heavy:
     fit: fit_cox_method
     summarize: summarize_cox_method
-    kwargs: {threshold: null, time_sign: 1.0, L: 1}
-  twogroup_L1:
+    template: {threshold: null, time_sign: 1.0}
+    over: {L: [1]}                           # -> cox_heavy__L=1
+  cox_light:
+    fit: fit_cox_method
+    summarize: summarize_cox_method
+    template: {time_sign: -1.0}
+    over: {threshold: [0.0, 1.0, 2.0, 3.0, 4.0], L: [1, 5]}
+    # -> cox_light__threshold=2.00__L=1, ... (10 distinct methods)
+  twogroup:
     fit: fit_twogroup_method
     summarize: summarize_twogroup_method
-    kwargs:
+    template:
       f1: {Normal: {loc: 0.0, scale: 1.0, estimate_loc: true, estimate_scale: true}}
-      L: 1
       n_null_iter: 20
       n_intercept_iter: 20
+    over: {L: [1, 5]}                        # -> twogroup__L=1, twogroup__L=5
 
 plot_type_groups:                           # unchanged from current main.yaml
   pip: [pip_calibration, agg_pip_calibration, power_fdp, agg_power_fdp]
@@ -147,9 +154,9 @@ supercollections:
         # => 6 collections; each = {ser_b2, null_b0} x that signal
         # alias defaults to the over-value key (e.g. loc=2.00 style label)
 
-    methods: [cox_heavy_L1, twogroup_L1]     # select from library
-    # inline method defs also allowed here (same schema as library.methods),
-    # merged into method scope for this supercollection only.
+    methods: [cox_heavy__L=1, cox_light__threshold=2.00__L=1, twogroup__L=1]
+    # generated method names (see Method expansion). inline method defs also allowed
+    # here (same schema as library.methods), merged into method scope for this SC only.
 
     default_plot_args:                       # shared numeric knobs (was default_settings)
       min_log_bf: 2.0
@@ -157,11 +164,32 @@ supercollections:
       max_fdp: 0.5
 
     plots:
-      - method_filter: [twogroup_L1]         # subset of this SC's methods, by name
-        plot_args: {thresholds: [2.0]}       # overrides default_plot_args
+      - method_filter: [twogroup__L=1, cox_light__threshold=2.00__L=1]  # subset, by name
+        plot_args: {max_fdp: 0.5}            # overrides default_plot_args
         plot_type_groups: [pip, cs]
         # plot_types: [...] also allowed (explicit list, like current)
 ```
+
+#### Method expansion semantics
+
+A `methods` library entry is `{fit, summarize, template, over}`. All keys in
+`template` and `over` are passed as **kwargs to the fit function**. `over` is the
+cartesian sweep: each combination of `over` values yields **one distinct named
+`MethodSpec`**, so name ↔ fit is 1:1. `template` holds the shared kwargs.
+
+Generated method name: `{base}__{over-key}={over-value}` for each `over` key
+(joined). A method with no real sweep uses a single-value `over` (e.g.
+`over: {L: [1]}`).
+
+Unlike collections, methods have no "joint" axis: a method is one fit. Therefore
+**lists inside `template` are literal kwarg values, not an expansion** — only `over`
+expands. (Collections expand `template` lists into joint members; methods do not.)
+
+`threshold` is now just one such kwarg. There is no special threshold/family
+machinery: distinct thresholds are distinct named methods. `threshold` still flows
+through `fit_obj["threshold"]` into `method_metadata` as **passive metadata** for
+series labels/ordering, but it is never a filter dimension. `method_filter` selects
+methods purely by name.
 
 #### Collection expansion semantics
 
@@ -219,7 +247,8 @@ Pure-Python module, no snakemake dependency, unit-testable:
 - `resolve_distribution(node)` — distribution mini-schema → gibss distribution.
 - `resolve_simulation(design, enrichment, signal, error)` → `SimulationSpec`
   (builds `partial(fn, **arguments)` samplers, `f0`/`f1`, intercept, `base_seed`).
-- `resolve_method(name_or_inline)` → `MethodSpec`.
+- `resolve_methods(entry)` → `[MethodSpec]` via `template`×`over` expansion (1:1
+  name↔fit); `resolve_method(name_or_inline)` resolves a reference/inline def.
 - `expand_collection(entry)` → `[(collection_name, alias, [SimulationSpec])]`.
 - `load_supercollections()` — parse numbered files; resolve collections + methods +
   plots into in-memory structures.
@@ -253,9 +282,11 @@ Pure-Python module, no snakemake dependency, unit-testable:
   loader-backed supercollection accessors (collections list, aliases, plot bundles).
 - `_foreground_methods` currently filters by `method_families` + `thresholds`; it
   becomes **explicit-name membership** against the plot entry's `method_filter`
-  (intersected with the supercollection's `methods`). `plot_args` replaces the merged
-  `default_settings`/named-`settings` dict (`min_log_bf`, `max_cs_size`, `max_fdp`,
-  `thresholds`, …).
+  (intersected with the supercollection's `methods`). The `method_families`/
+  `thresholds`/`is_thresholded` filtering and `_method_family` name-stripping are
+  deleted (threshold is now passive metadata, methods are 1:1 by name). `plot_args`
+  replaces the merged `default_settings`/named-`settings` dict (`min_log_bf`,
+  `max_cs_size`, `max_fdp`, …) and no longer carries `thresholds`.
 - `agg_`/non-`agg_` dispatch and the per-plot-type render functions are unchanged;
   only how `combined_data` and `settings` are assembled changes.
 
