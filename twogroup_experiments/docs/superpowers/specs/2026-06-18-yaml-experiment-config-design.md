@@ -126,19 +126,16 @@ methods:                                    # -> one MethodSpec per (template x 
       n_intercept_iter: 20
     over: {L: [1, 5]}                        # -> twogroup__L=1, twogroup__L=5
 
-reductions:                                 # (sims + fits) -> compact cacheable parquet
-  sample_metadata: {function: build_sample_metadata, needs: {simulations: true}}
-  method_metadata: {function: build_method_metadata, needs: {fits: true}}
-  pip: {function: build_pip_plot_data,
-        needs: {fits: true, simulations: true, reductions: [sample_metadata]}}
-  cs:  {function: build_cs_plot_data,
-        needs: {fits: true, simulations: true, reductions: [sample_metadata]}}
-  f1:  {function: build_f1_plot_data, needs: {fits: true, method_filter: twogroup}}
+reductions:                                 # pure transform of one batch's data -> parquet
+  pip: {function: build_pip_plot_data, needs: {fits: true, sample_metadata: true}}
+  cs:  {function: build_cs_plot_data,  needs: {fits: true, sample_metadata: true}}
+  f1:  {function: build_f1_plot_data,  needs: {fits: true, method_filter: twogroup}}
 
 analyses:                                   # reduction bundle -> artifact (PDF for now)
-  pip_calibration:     {function: render_pip_calibration, requires: [pip, method_metadata]}
-  agg_pip_calibration: {function: render_agg_pip_calibration, requires: [pip, method_metadata]}
-  power_fdp:           {function: render_power_fdp, requires: [pip, method_metadata]}
+  pip_calibration:     {function: render_pip_calibration, requires: [pip]}
+  agg_pip_calibration: {function: render_agg_pip_calibration, requires: [pip]}
+  power_fdp:           {function: render_power_fdp, requires: [pip]}
+  # method_metadata is always in the bundle (loader-supplied); not a `requires` reduction
 
 analysis_groups:                            # named shortcuts to lists of analyses
   pip: [pip_calibration, agg_pip_calibration, power_fdp, agg_power_fdp]
@@ -266,27 +263,34 @@ pools. No structural change to the plot layer's aggregation logic is required.
 Generalizes the fixed `collection_*_plot_data` rules + plot types into two pluggable,
 data-driven stages. Same `function`+args pattern as the rest of the config.
 
-**Reductions are fit-level (atomic), not collection-level.** A reduction runs over a
-single `by_batch` atomic unit and is content-addressed there, so a `(batch, method)`
-fit shared by many collections is reduced **once** and reused everywhere. Collections
-are **purely logical** — a set of `(batch, method)` pairs + alias — and are assembled
-by an in-memory concat at analysis time. There is no `collections/.../reductions/` dir
-and no collection-level cache.
+**Reductions are fit-level (atomic) and have no sibling dependencies.** A reduction is a
+pure transform of **one batch's data** — its own `fits.parquet` plus that batch's
+materialize outputs (`simulations.parquet`, `sample_metadata.parquet`). It is
+content-addressed under `by_batch/`, so a `(batch, method)` fit shared by many
+collections is reduced **once** and reused everywhere. Collections are **purely
+logical** — a set of `(batch, method)` pairs + alias — assembled by an in-memory concat
+at analysis time. No `collections/.../reductions/` dir, no collection-level cache.
 
-- **reduction** (atomic): `function(inputs) -> dataframe`, written next to the atomic
-  unit. Declares `needs`, which also fixes its **scope**:
-  - `simulations: true` → **per-batch** scope, output
-    `by_batch/<batch_hash>/reductions/<reduction>.parquet`.
+Metadata that pip/cs/etc. need is *not* a reduction:
+
+- **`sample_metadata`** (per-batch sim-derived facts: n, p, rho, signal, causal info) is
+  emitted by the **materialize rule** as a second output beside `simulations.parquet` —
+  computed once per batch, read by every fit-reduction of that batch.
+- **`method_metadata`** (method name/threshold/display) is config-derived and supplied
+  by the **loader** in-memory at analysis time. No rule, no file.
+
+So a reduction declares only **which upstream files it reads**:
+
+- **reduction** (atomic): `function(inputs) -> dataframe`. `needs` fixes scope + inputs:
+  - `simulations`/`sample_metadata: true` → consume the batch's materialize outputs.
   - `fits: true` → **per-(batch,method)** scope, output
-    `by_batch/<batch_hash>/fits/<method_hash>/reductions/<reduction>.parquet`. (Whether
-    a method participates at all is the analysis-level `method_filter`; a reduction-
-    level `method_filter`, e.g. f1 = twogroup-only, restricts which methods this
-    reduction is even defined for.)
-  - `reductions: [name, ...]` → consume sibling atomic reductions at the same unit
-    (e.g. `pip` needs `sample_metadata` for the same batch). Same generic rule,
-    different wildcard, so edges resolve automatically.
-  Reductions are **parameter-free by name**: a variant is a new named reduction (no
-  args encoded in the path; consistent with 1:1 methods).
+    `by_batch/<batch_hash>/fits/<method_hash>/reductions/<reduction>.parquet`; a
+    reduction-level `method_filter` (e.g. f1 = twogroup-only) restricts which methods
+    this reduction is defined for.
+  - a reduction needing only sims (no fits) is **per-batch** scope, output
+    `by_batch/<batch_hash>/reductions/<reduction>.parquet`.
+  Reductions are **parameter-free by name**: a variant is a new named reduction (no args
+  in the path; consistent with 1:1 methods).
 - **analysis** (per *supercollection*): `function(bundle, args, output)` writes an
   artifact. Declares `requires: [reduction, ...]`. Output is **PDF for now**; an
   `output: pdf|csv|json` format field (tables/stats as peer artifacts) is a noted
@@ -326,8 +330,9 @@ rule supercollection_analysis:
         fn(bundle, args=args, output=output[0])
 ```
 
-- `reduction_inputs(...)` → the atomic unit's `simulations.parquet`/`fits.parquet`
-  (per `needs`) + sibling-reduction parquets at the same unit.
+- `reduction_inputs(...)` → only the atomic unit's upstream files per `needs`
+  (`fits.parquet`, `simulations.parquet`, `sample_metadata.parquet`) — all materialize/
+  fit outputs. No sibling reductions.
 - `analysis_inputs(sc, analysis)` → for each collection in the SC, for each
   `(batch, method)` in the collection (methods ∩ analysis `method_filter`), for each
   reduction in `analysis.requires`: the atomic reduction parquet. **This is the
@@ -335,9 +340,9 @@ rule supercollection_analysis:
   declares get built, and each atomic reduction is shared across every collection/SC
   that references that fit.
 - `load_sc_bundle` (in-memory, no rule): for each collection, gather its atomic
-  reduction parquets, concat, tag `collection_name=alias`; then concat across
-  collections. Replaces `_load_supercollection_data`. agg vs non-agg analyses
-  pool/facet this bundle (see Aggregation levels).
+  reduction parquets, concat, tag `collection_name=alias`; concat across collections;
+  attach `method_metadata` from the loader. Replaces `_load_supercollection_data`.
+  agg vs non-agg analyses pool/facet this bundle (see Aggregation levels).
 - `args_name` is the output entry's `name`; `resolve_args` merges SC `default_args`
   with the entry's `args`. `method_filter` is render-time foreground selection.
 
@@ -369,7 +374,8 @@ Pure-Python module, no snakemake dependency, unit-testable:
   `load_collection_yaml`, `load_supercollection`, `_resolve_sc_plot_pairs`.
 - Reduction/analysis layer (above): `reduction_function`, `reduction_inputs`,
   `analysis_function`, `analysis_requires`, `analysis_inputs`, `resolve_args`,
-  `load_sc_bundle`, `_resolve_sc_analyses`.
+  `load_sc_bundle`, `_resolve_sc_analyses`, plus `method_metadata()` built in-memory
+  from the resolved method specs (no fits needed).
 
 `BatchSpec`s are built per simulation from `defaults.replicates_per_batch`/`n_batches`
 (reusing `config_builders.batch_specs_for_simulation` logic, relocated into the loader).
@@ -384,8 +390,11 @@ Pure-Python module, no snakemake dependency, unit-testable:
   `_method_family`) with loader-backed equivalents that consume the new
   collection/method-filter model.
 - `all_null_fits`: replace `from config import NULL_METHOD_SPECS` with a loader query.
-- Content-addressed rules (`materialize_*`, `fit_*`) unchanged — still hash-keyed via
-  the manifest and `core.rehydrate_node`.
+- Content-addressed rules (`materialize_*`, `fit_*`) stay hash-keyed via the manifest
+  and `core.rehydrate_node`. `materialize_*` gains one output: `sample_metadata.parquet`
+  (per-batch sim-derived facts, was `collection_sample_metadata`), computed once per
+  batch and read by that batch's fit-reductions. `method_metadata` is no longer a rule —
+  the loader builds it in-memory for analyses.
 - Replace the 7 `collection_*_plot_data`/metadata rules + `supercollection_plot` with
   the **two generic rules** `atomic_reduction` and `supercollection_analysis`
   (see Reductions + analyses layer). `twogroup_experiments_target`/
@@ -469,9 +478,10 @@ the reductions + analyses these supercollections use). Remaining files (001, 002
   product correctness; manifest node shape matches `core.dehydrate_hashed`; hash
   stability across repeated loads; collection name/alias derivation + uniqueness.
 - Method expansion: `template`×`over` → expected distinct names + kwargs.
-- Reduction/analysis resolution: `reduction_inputs` returns correct sims/fits/sibling
-  paths per `needs`; `analysis_inputs` returns only `requires` reductions (assert an
-  unrequested reduction is NOT in the DAG — the dependency-driven win).
+- Reduction/analysis resolution: `reduction_inputs` returns correct upstream
+  fits/sims/sample_metadata paths per `needs` (no sibling reductions); `analysis_inputs`
+  returns only `requires` reductions (assert an unrequested reduction is NOT in the DAG
+  — the dependency-driven win).
 - Snakemake dry-run (`-n`) on the migrated `003`/`000` supercollections: DAG resolves,
   expected `by_batch` reduction + `supercollections` targets enumerated.
 - One end-to-end tiny fit (single replicate) through `materialize` → `fit` →
