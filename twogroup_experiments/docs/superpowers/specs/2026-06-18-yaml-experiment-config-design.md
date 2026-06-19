@@ -140,10 +140,15 @@ analyses:                                   # reduction bundle -> artifact (PDF 
   agg_pip_calibration: {function: render_agg_pip_calibration, requires: [pip, method_metadata]}
   power_fdp:           {function: render_power_fdp, requires: [pip, method_metadata]}
 
-analysis_groups:                            # was plot_type_groups
+analysis_groups:                            # named shortcuts to lists of analyses
   pip: [pip_calibration, agg_pip_calibration, power_fdp, agg_power_fdp]
   cs:  [...]
 ```
+
+An output entry's `analyses:` list mixes group-name shortcuts and individual analysis
+names; the loader flattens each item (in `analysis_groups` → expand, else an analysis
+name) and dedups. Group and analysis names share one namespace and must be disjoint
+(validated at load) so resolution is unambiguous.
 
 All `function` names (designs, enrichments, errors, methods) resolve to importable
 top-level callables in `core.py` (same `module:qualname` contract `core._callable_path`
@@ -181,8 +186,7 @@ supercollections:
       - name: minimal                        # -> args_name in the output path
         method_filter: [twogroup__L=1, cox_light__threshold=2.00__L=1]  # subset, by name
         args: {max_fdp: 0.5}                 # overrides default_args
-        analysis_groups: [pip, cs]
-        # analyses: [...] also allowed (explicit list)
+        analyses: [pip, cs, log_bf_roc]      # mixes group shortcuts + one-off analysis names
 ```
 
 #### Method expansion semantics
@@ -339,7 +343,8 @@ rule supercollection_analysis:
 
 Wildcard constraints: `reduction`/`analysis` ∈ `[A-Za-z0-9_]+`, `args_name` ∈
 `[A-Za-z0-9_\-]+`. Targets enumerated by `_resolve_sc_analyses(sc)` →
-`(analysis, args_name)` pairs (expanding `analysis_groups`); path
+`(analysis, args_name)` pairs (flattening each output's `analyses:` list — group
+shortcuts + one-offs — and deduping); path
 `supercollections/<sc>/<analysis>/<args_name>.pdf`.
 
 ## Loader (`experiments/loader.py`)
