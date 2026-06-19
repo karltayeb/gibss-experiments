@@ -236,6 +236,28 @@ A human-readable simulation name is auto-derived from the component library keys
 spec metadata for debugging/plot labels. Names are no longer load-bearing for path
 resolution (hashes are).
 
+#### Naming & formatting (determinism)
+
+Generated names must be reproducible so author references resolve. The critical case is
+**method names**: `methods:`/`method_filter:` reference the names the loader *generates*
+from `template`×`over`, so the formatting must be pinned.
+
+- Generated name = `{base}__{key}={value}` per `over` key, in **declared (insertion)
+  order** of the `over` mapping (joined by `__`).
+- `value` formatting: `float` → `format_float` (`f"{x:.2f}"`, e.g. `2.0` → `2.00`);
+  `int` → bare (`1`); `bool` → `true`/`false`; `None` → `none`; `str` → verbatim.
+- Collection names = `{supercollection}__{over-key}={over-value}`; collection `over`
+  values are **library keys** (strings, e.g. `loc_2.0`) used verbatim. Collections are
+  logical (not paths), so this drives only labels/aliases.
+- Simulation human names = `{design}__{enrichment}__{signal}` (+`__{error}` when not
+  `gaussian`) from library keys — deterministic by construction.
+
+Only the analysis output path is on disk: `supercollections/<sc>/<analysis>/
+<args_name>.pdf`, where `sc`/`analysis`/`args_name` are author-chosen identifiers
+constrained to the wildcard charset. Method/collection names are YAML/column/label
+identifiers, not path components (paths use content hashes), so the `=`/`.` in
+`threshold=2.00` is safe.
+
 #### Aggregation levels (and how `agg_` plots fit)
 
 Two distinct aggregation levels exist today and map directly onto this model:
@@ -296,10 +318,19 @@ So a reduction declares only **which upstream files it reads**:
   `output: pdf|csv|json` format field (tables/stats as peer artifacts) is a noted
   future extension, not built here.
 
-*Escape hatch (not built):* if a future reduction needs cross-fit context within a
+*Decomposition verified:* every current builder is atomic. `build_pip_plot_data`
+(`plot_ready.py:160`) and `build_cs_plot_data` (`:207`) emit one row per
+`(sample_id, method[, l])` from a single fit row + the matching `(batch, replicate)`
+sim — no cross-sample/method/batch aggregation. `build_f1_plot_data` (`:292`) /
+`build_enrich_plot_data` (`:338`) are per-`(batch, method)`. The cross-sample/collection
+aggregation is already deferred to render (`expand_*_from_compact` + `group_by` over the
+concatenated bundle), which is precisely why atomic reductions lose nothing.
+`sample_id = batch_hash::replicate` is globally unique, so concat yields unique
+`(sample_id, method)` rows.
+
+*Escape hatch (not built):* if a future reduction ever needs cross-fit context within a
 collection (e.g. ranking methods against each other), add a second declared
-`scope: collection` tier (map atomic, then reduce). None exist today — all current
-reductions are atomic + concat.
+`scope: collection` tier (map atomic, then reduce). None needed today.
 
 ### Mapping to snakemake (two generic rules)
 
@@ -477,7 +508,9 @@ the reductions + analyses these supercollections use). Remaining files (001, 002
 - Loader unit tests: distribution parsing; within vs across (`over`) expansion;
   product correctness; manifest node shape matches `core.dehydrate_hashed`; hash
   stability across repeated loads; collection name/alias derivation + uniqueness.
-- Method expansion: `template`×`over` → expected distinct names + kwargs.
+- Method expansion: `template`×`over` → expected distinct names + kwargs, with pinned
+  name formatting (`threshold: 2.0` → `...threshold=2.00...`, `L: 1` → `...L=1`,
+  multi-key `over` joined in declared order) so author `method_filter` refs resolve.
 - Reduction/analysis resolution: `reduction_inputs` returns correct upstream
   fits/sims/sample_metadata paths per `needs` (no sibling reductions); `analysis_inputs`
   returns only `requires` reductions (assert an unrequested reduction is NOT in the DAG
