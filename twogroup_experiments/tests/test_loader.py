@@ -183,3 +183,28 @@ def test_method_metadata_columns():
             "is_oracle", "method_display"} <= set(md.columns)
     fams = set(md["method_family"].to_list())
     assert fams == {"cox_heavy", "twogroup"}
+
+
+def test_load_sc_bundle_tags_collections(tmp_path):
+    import polars as pl
+    import core, utils
+    cfg = loader.load_config(FIXTURE_DIR)
+    lib = cfg["library"]
+    results = tmp_path / "results"
+    # materialize + fit + reduce one collection's units for reduction "pip"
+    for coll in loader.supercollection_collections(lib, "fixture-sc", cfg["supercollections"]["fixture-sc"]):
+        for spec in coll["simulations"]:
+            reps = (0, 1)
+            bh = core.dehydrate_hashed(utils.BatchSpec(name=f"{spec.name}__batch0", simulation_spec=spec, replicates=reps))[core.HASH_KEY]
+            sims_df = utils.simulate_batch(spec, replicates=reps)
+            sample_md = __import__("plot_ready").build_sample_metadata(bh, sims_df)
+            for mname, mspec in loader.resolve_methods_for_sc(lib, cfg["supercollections"]["fixture-sc"]).items():
+                mh = core.dehydrate_hashed(mspec)[core.HASH_KEY]
+                fits = utils.fit_batch_method(spec, method_spec=mspec, replicates=reps).with_columns(pl.lit(bh).alias("batch_hash"))
+                red = __import__("plot_ready").build_pip_plot_data(fits, sample_md, sims_df)
+                out = results / "by_batch" / bh / "fits" / mh / "reductions" / "pip.parquet"
+                out.parent.mkdir(parents=True, exist_ok=True)
+                red.write_parquet(out)
+    bundle = loader.load_sc_bundle(cfg, "fixture-sc", ["pip"], results_root=str(results))
+    assert "pip_plot_data" in bundle and "method_metadata" in bundle
+    assert set(bundle["pip_plot_data"]["collection_name"].unique().to_list()) == {"loc_2.0"}

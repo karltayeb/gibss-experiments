@@ -353,6 +353,56 @@ def analysis_inputs(config: dict[str, Any], manifest: dict[str, Any],
     return paths
 
 
+def resolve_args(config: dict[str, Any], sc_name: str, args_name: str) -> dict[str, Any]:
+    sc = config["supercollections"][sc_name]
+    defaults = dict(sc.get("default_args", {}) or {})
+    for output in sc.get("outputs", []):
+        if output["name"] == args_name:
+            return {**defaults, **(output.get("args") or {}),
+                    "method_filter": output.get("method_filter", [])}
+    raise KeyError(f"No output named {args_name!r} in supercollection {sc_name!r}")
+
+
+def analysis_requires(config: dict[str, Any], analysis: str) -> list[str]:
+    return list(config["library"]["analyses"][analysis].get("requires", []))
+
+
+def analysis_function(config: dict[str, Any], analysis: str):
+    import generate_plots
+    return generate_plots.ANALYSIS_RENDERERS[analysis]
+
+
+def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
+                   results_root: str = RESULTS_ROOT) -> dict[str, Any]:
+    library = config["library"]
+    cmp = collection_method_pairs(config, sc_name)
+    bundle: dict[str, Any] = {}
+    collection_names = [info["alias"] for info in cmp.values()]
+    for reduction in requires:
+        scope = reduction_scope(library, reduction)
+        mfilter = library["reductions"][reduction].get("needs", {}).get("method_filter")
+        frames = []
+        for info in cmp.values():
+            sub = []
+            for bh, mh, mname in info["pairs"]:
+                if mfilter is not None and not mname.split("__")[0].startswith(mfilter):
+                    continue
+                mh_arg = None if scope == "batch" else mh
+                path = f"{results_root}/{reduction_output(bh, mh_arg, reduction, scope).split('/', 1)[1]}"
+                df = pl.read_parquet(path)
+                sub.append(df)
+            if sub:
+                merged = pl.concat(sub, how="diagonal_relaxed").with_columns(
+                    pl.lit(info["alias"]).alias("collection_name"))
+                frames.append(merged)
+        bundle[f"{reduction}_plot_data"] = (
+            pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame())
+    bundle["method_metadata"] = method_metadata(
+        resolve_methods_for_sc(library, config["supercollections"][sc_name]))
+    bundle["collection_names"] = collection_names
+    return bundle
+
+
 def method_metadata(methods: dict[str, core.MethodSpec]) -> pl.DataFrame:
     label_map = method_family_label_map()
     oracle_map = method_family_oracle_label_map()
