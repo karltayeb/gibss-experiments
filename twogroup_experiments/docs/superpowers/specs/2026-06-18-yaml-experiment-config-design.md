@@ -37,11 +37,12 @@ the simulations experiments actually consume, with compact expansion for sweeps.
   `results/by_batch/<hash>/` results are orphaned (not migrated). Cache reuse is a
   fully separable post-hoc concern (see Future work) that does not intersect loader
   development, so it is out of scope here.
-- **`core.py` stays.** `SimulationSpec`, `MethodSpec`, `BatchSpec`, the
-  `dehydrate/rehydrate/spec_hash` machinery, `simulate`, all `fit_*`/`summarize_*`
-  methods, and all sampler functions remain. The loader reuses
-  `core.dehydrate_hashed` so manifest node shapes are unchanged and the snakefile
-  rehydration path is untouched.
+- **`core.py` mostly stays.** `SimulationSpec`, `BatchSpec`, the
+  `dehydrate/rehydrate/spec_hash` machinery, `simulate`, all samplers, and the
+  `fit_*`/`summarize_*` helpers remain. The loader reuses `core.dehydrate_hashed` so
+  the simulation/batch manifest node shapes and the snakefile rehydration path are
+  unchanged. The one change: `MethodSpec` collapses `fit_function`+`summarize_function`
+  into a single `function` (see "MethodSpec collapse").
 - The numbered-file split is preserved (renamed `plot_configs/` → `experiments/`).
 - **No coexistence.** Done on a new branch. `config.py` and the registry are deleted
   on that branch; the snakefile switches over fully. Experiments not yet ported are
@@ -109,19 +110,16 @@ errors:                                     # -> error_sampler (null => None => 
 
 methods:                                    # -> one MethodSpec per (template x over) combo
   cox_heavy:
-    fit: fit_cox_method
-    summarize: summarize_cox_method
+    function: run_cox_method                 # single entrypoint -> summary row
     template: {threshold: null, time_sign: 1.0}
     over: {L: [1]}                           # -> cox_heavy__L=1
   cox_light:
-    fit: fit_cox_method
-    summarize: summarize_cox_method
+    function: run_cox_method
     template: {time_sign: -1.0}
     over: {threshold: [0.0, 1.0, 2.0, 3.0, 4.0], L: [1, 5]}
     # -> cox_light__threshold=2.00__L=1, ... (10 distinct methods)
   twogroup:
-    fit: fit_twogroup_method
-    summarize: summarize_twogroup_method
+    function: run_twogroup_method
     template:
       f1: {Normal: {loc: 0.0, scale: 1.0, estimate_loc: true, estimate_scale: true}}
       n_null_iter: 20
@@ -133,8 +131,10 @@ plot_type_groups:                           # unchanged from current main.yaml
   cs:  [...]
 ```
 
-`function`/`fit`/`summarize` names resolve to importable top-level callables in
-`core.py` (same `module:qualname` contract `core._callable_path` already enforces).
+All `function` names (designs, enrichments, errors, methods) resolve to importable
+top-level callables in `core.py` (same `module:qualname` contract `core._callable_path`
+already enforces). A method's `function` is a single entrypoint returning the summary
+row dict — see Method expansion.
 
 ### supercollection
 
@@ -172,10 +172,13 @@ supercollections:
 
 #### Method expansion semantics
 
-A `methods` library entry is `{fit, summarize, template, over}`. All keys in
-`template` and `over` are passed as **kwargs to the fit function**. `over` is the
-cartesian sweep: each combination of `over` values yields **one distinct named
-`MethodSpec`**, so name ↔ fit is 1:1. `template` holds the shared kwargs.
+A `methods` library entry is `{function, template, over}`. `function` is a single
+method entrypoint (`run_<method>(simulation, **kwargs) -> summary-row dict`); fit and
+summarize are no longer separate spec fields (they were always paired, same kwargs,
+same rule — see "MethodSpec collapse" below). All keys in `template` and `over` are
+passed as **kwargs to `function`**. `over` is the cartesian sweep: each combination of
+`over` values yields **one distinct named `MethodSpec`**, so name ↔ method is 1:1.
+`template` holds the shared kwargs.
 
 Generated method name: `{base}__{over-key}={over-value}` for each `over` key
 (joined). A method with no real sweep uses a single-value `over` (e.g.
@@ -186,10 +189,10 @@ Unlike collections, methods have no "joint" axis: a method is one fit. Therefore
 expands. (Collections expand `template` lists into joint members; methods do not.)
 
 `threshold` is now just one such kwarg. There is no special threshold/family
-machinery: distinct thresholds are distinct named methods. `threshold` still flows
-through `fit_obj["threshold"]` into `method_metadata` as **passive metadata** for
-series labels/ordering, but it is never a filter dimension. `method_filter` selects
-methods purely by name.
+machinery: distinct thresholds are distinct named methods. `threshold` still appears
+in the cox/logistic summary row → `method_metadata` as **passive metadata** for series
+labels/ordering, but it is never a filter dimension. `method_filter` selects methods
+purely by name.
 
 #### Collection expansion semantics
 
@@ -248,7 +251,8 @@ Pure-Python module, no snakemake dependency, unit-testable:
 - `resolve_simulation(design, enrichment, signal, error)` → `SimulationSpec`
   (builds `partial(fn, **arguments)` samplers, `f0`/`f1`, intercept, `base_seed`).
 - `resolve_methods(entry)` → `[MethodSpec]` via `template`×`over` expansion (1:1
-  name↔fit); `resolve_method(name_or_inline)` resolves a reference/inline def.
+  name↔method; `template`+`over` keys → kwargs to `function`); `resolve_method(
+  name_or_inline)` resolves a reference/inline def.
 - `expand_collection(entry)` → `[(collection_name, alias, [SimulationSpec])]`.
 - `load_supercollections()` — parse numbered files; resolve collections + methods +
   plots into in-memory structures.
@@ -289,6 +293,28 @@ Pure-Python module, no snakemake dependency, unit-testable:
   `max_cs_size`, `max_fdp`, …) and no longer carries `thresholds`.
 - `agg_`/non-`agg_` dispatch and the per-plot-type render functions are unchanged;
   only how `combined_data` and `settings` are assembled changes.
+
+## core.py changes (MethodSpec collapse)
+
+`fit_*` and `summarize_*` are always paired, take the same kwargs, and run
+back-to-back in the same rule (`fit_batch_method` → `run_method_spec` then
+`summarize_method_spec`); `fit_obj` is never persisted. So the spec carries one
+callable, not two:
+
+- Add four thin entrypoints to `core.py`:
+  `run_cox_method`, `run_logistic_method`, `run_twogroup_method`, `run_linear_method`,
+  each `run_X(simulation, **kwargs)` = `summarize_X(fit_X(simulation, **kwargs),
+  simulation, **kwargs)`. Existing `fit_*`/`summarize_*` stay as internal helpers.
+- `MethodSpec`: replace `fit_function` + `summarize_function` with a single
+  `function`. Drop `summarize_method_spec`; `run_method_spec(method_spec, simulation)`
+  returns the summary row (`{"method": name, **function(simulation, **kwargs)}`).
+- `utils.fit_batch_method`: `row = run_method_spec(method_spec, simulation)` (drop the
+  separate summarize call).
+- Delete the unused module-level `MethodSpec` constants (`COX_HEAVY`, etc.) — the
+  library replaces them.
+
+The method node in the manifest loses `summarize_function`; `plot_ready`'s
+`is_thresholded` read is reworked alongside the threshold-machinery removal.
 
 ## Deletions
 
