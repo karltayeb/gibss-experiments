@@ -403,6 +403,27 @@ def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
     return bundle
 
 
+from core import spec_hash
+
+
+def simulation_coordinate(library, design, enrichment, signal, error) -> dict:
+    return {
+        "design": library["designs"][design],
+        "enrichment": library["enrichments"][enrichment],
+        "signal": library["signals"][signal],
+        "error": library["errors"][error],          # None for "gaussian"
+        "base_seed": int(library["defaults"]["base_seed"]),
+    }
+
+
+def method_coordinate(name, function, kwargs_raw) -> dict:
+    return {"name": name, "function": function, "kwargs": kwargs_raw}
+
+
+def sim_hash(coordinate) -> str: return spec_hash(coordinate)
+def method_hash(coordinate) -> str: return spec_hash(coordinate)
+
+
 def method_metadata(methods: dict[str, core.MethodSpec]) -> pl.DataFrame:
     label_map = method_family_label_map()
     oracle_map = method_family_oracle_label_map()

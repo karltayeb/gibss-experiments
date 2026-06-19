@@ -208,3 +208,17 @@ def test_load_sc_bundle_tags_collections(tmp_path):
     bundle = loader.load_sc_bundle(cfg, "fixture-sc", ["pip"], results_root=str(results))
     assert "pip_plot_data" in bundle and "method_metadata" in bundle
     assert set(bundle["pip_plot_data"]["collection_name"].unique().to_list()) == {"loc_2.0"}
+
+
+def test_simulation_coordinate_and_hash_stable():
+    lib = _library_for_tests()  # existing helper in this file
+    c1 = loader.simulation_coordinate(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian")
+    assert c1["design"] == lib["designs"]["gaussian_p100"]
+    assert c1["enrichment"]["intercept"] == -2.0
+    assert c1["error"] is None
+    assert c1["base_seed"] == 20260501
+    h = loader.sim_hash(c1)
+    assert isinstance(h, str) and len(h) == 64
+    # stable across calls; differs when a value changes
+    assert h == loader.sim_hash(loader.simulation_coordinate(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian"))
+    assert h != loader.sim_hash(loader.simulation_coordinate(lib, "gaussian_p100", "ser_b2", "loc_2.0", "t_df_5"))
