@@ -28,3 +28,14 @@ def test_run_cox_method_returns_summary_row():
     row = core.run_cox_method(sim, threshold=None, time_sign=1.0, L=1)
     assert row.get("method") is None or "single_effects" in row  # row is the summarize dict
     assert "single_effects" in row and "fit_summary" in row
+
+
+def test_method_spec_single_function_and_run_method_spec():
+    sim = _tiny_simulation()
+    spec = core.MethodSpec(name="cox_heavy__L=1", function=core.run_cox_method,
+                           kwargs={"threshold": None, "time_sign": 1.0, "L": 1})
+    row = core.run_method_spec(spec, sim)
+    assert row["method"] == "cox_heavy__L=1"
+    assert "single_effects" in row
+    assert not hasattr(spec, "fit_function")
+    assert not hasattr(spec, "summarize_function")

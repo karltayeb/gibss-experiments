@@ -33,8 +33,7 @@ class SimulationSpec:
 @dataclass(frozen=True)
 class MethodSpec:
     name: str
-    fit_function: Any
-    summarize_function: Any
+    function: Any
     kwargs: dict[str, Any]
 
 
@@ -470,43 +469,9 @@ def run_linear_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any
     return summarize_linear_method(fit_linear_method(simulation, **kwargs), simulation, **kwargs)
 
 
-TWOGROUP_DEFAULT_F1INIT = Normal(
-    loc=0.0,
-    scale=1.0,
-    estimate_loc=True,
-    estimate_scale=True,
-)
-
-TWOGROUP_SCALE_FAM_F1INIT = Normal(
-    loc=0.0,
-    scale=1.0,
-    estimate_loc=False,
-    estimate_scale=True,
-)
-
-TWOGROUP_LOC_FAM_F1INIT = Normal(
-    loc=0.0,
-    scale=0.1,
-    estimate_loc=True,
-    estimate_scale=False,
-)
-
-
-COX_HEAVY = MethodSpec(
-    name="cox_heavy_L1",
-    fit_function=fit_cox_method,
-    summarize_function=summarize_cox_method,
-    kwargs={
-        "threshold": None,
-        "time_sign": 1.0,
-        "L": 1,
-    },
-)
-
 LOGISTIC_ORACLE = MethodSpec(
     name="logistic_oracle_L1",
-    fit_function=fit_logistic_method,
-    summarize_function=summarize_logistic_method,
+    function=run_logistic_method,
     kwargs={
         "response_source": "z",
         "threshold": None,
@@ -514,81 +479,9 @@ LOGISTIC_ORACLE = MethodSpec(
     },
 )
 
-_TG_ITER_KWARGS = {"n_null_iter": 20, "n_intercept_iter": 20}
 
-TWOGROUP_ORACLE = MethodSpec(
-    name="twogroup_oracle_L1",
-    fit_function=fit_twogroup_method,
-    summarize_function=summarize_twogroup_method,
-    kwargs={"f1": None, "L": 1, **_TG_ITER_KWARGS},
-)
-
-TWOGROUP = MethodSpec(
-    name="twogroup_L1",
-    fit_function=fit_twogroup_method,
-    summarize_function=summarize_twogroup_method,
-    kwargs={"f1": TWOGROUP_DEFAULT_F1INIT, "L": 1, **_TG_ITER_KWARGS},
-)
-
-TWOGROUP_ORACLE_INIT = MethodSpec(
-    name="twogroup_oracle_init_L1",
-    fit_function=fit_twogroup_method,
-    summarize_function=summarize_twogroup_method,
-    kwargs={"f1": TWOGROUP_DEFAULT_F1INIT, "oracle_init": True, "L": 1, **_TG_ITER_KWARGS},
-)
-
-TWOGROUP_SCALE_FAM = MethodSpec(
-    name="twogroup_scale_fam_L1",
-    fit_function=fit_twogroup_method,
-    summarize_function=summarize_twogroup_method,
-    kwargs={"f1": TWOGROUP_SCALE_FAM_F1INIT, "L": 1, **_TG_ITER_KWARGS},
-)
-
-TWOGROUP_LOC_FAM = MethodSpec(
-    name="twogroup_loc_fam_L1",
-    fit_function=fit_twogroup_method,
-    summarize_function=summarize_twogroup_method,
-    kwargs={"f1": TWOGROUP_LOC_FAM_F1INIT, "L": 1, **_TG_ITER_KWARGS},
-)
-
-LOGISTIC_THRESHOLD_2_0 = MethodSpec(
-    name="logistic_threshold_L1",
-    fit_function=fit_logistic_method,
-    summarize_function=summarize_logistic_method,
-    kwargs={
-        "response_source": "score_threshold",
-        "threshold": 2.0,
-        "L": 1,
-    },
-)
-
-COX_LIGHT_THRESHOLD_2_0 = MethodSpec(
-    name="cox_light_threshold_L1",
-    fit_function=fit_cox_method,
-    summarize_function=summarize_cox_method,
-    kwargs={
-        "threshold": 2.0,
-        "time_sign": -1.0,
-        "L": 1,
-    },
-)
-
-
-def run_method_spec(method_spec: MethodSpec, simulation: TwoGroupSimulation):
-    return method_spec.fit_function(simulation, **method_spec.kwargs)
-
-
-def summarize_method_spec(
-    method_spec: MethodSpec,
-    fit_obj,
-    simulation: TwoGroupSimulation,
-) -> dict[str, Any]:
-    row = method_spec.summarize_function(
-        fit_obj,
-        simulation,
-        **method_spec.kwargs,
-    )
-    return {"method": method_spec.name, **row}
+def run_method_spec(method_spec: MethodSpec, simulation: TwoGroupSimulation) -> dict[str, Any]:
+    return {"method": method_spec.name, **method_spec.function(simulation, **method_spec.kwargs)}
 
 
 def identity_design_sampler(rng: np.random.Generator) -> np.ndarray:

@@ -20,7 +20,6 @@ from core import (
     run_method_spec,
     simulate,
     spec_hash,
-    summarize_method_spec,
 )
 
 
@@ -125,13 +124,7 @@ def fit_batch_method(
                 flush=True,
             )
         simulation = simulate(simulation_spec, replicate)
-        fit_obj = run_method_spec(method_spec, simulation)
-        rows.append(
-            {
-                "replicate": replicate,
-                **summarize_method_spec(method_spec, fit_obj, simulation),
-            }
-        )
+        rows.append({"replicate": replicate, **run_method_spec(method_spec, simulation)})
     return pl.from_dicts(rows)
 
 
