@@ -1,45 +1,47 @@
-# Pipeline v2: config-hash, module reorg, code fingerprints, predicate filters
+# Pipeline v2: config-hash, module layout, native code-tracking, predicate filters
 
 **Date:** 2026-06-19
-**Status:** Design note (addendum to `2026-06-18-yaml-experiment-config-design.md`). Not yet planned/implemented.
+**Status:** Design note (addendum to `2026-06-18-yaml-experiment-config-design.md`). Converged; not yet planned/implemented.
 
-This refines the YAML-config pipeline (v1, implemented on branch `yaml-experiment-config`) to fix code-change invalidation, simplify the spec serialization, and make reduction/analysis scoping declarative. The four-stage path is unchanged: **simulate → fit → reduce → analyze**, driven by **four generic snakemake rules** (one per stage).
+Refines the YAML-config pipeline (v1, implemented on branch `yaml-experiment-config`) to: hash on config identity (drop the dehydrate/rehydrate serializer), reorganize run-code into cohesive modules so snakemake tracks code changes natively, and make reduction/analysis scoping declarative via predicates. The four-stage path is unchanged: **simulate → fit → reduce → analyze**.
 
-## Motivation
+## Motivation (v1 issues)
 
-v1 issues surfaced in review/use:
-- **Code-change invalidation is broken.** Generic rules take a whole-file `input.sources` (`plot_ready.py`, `generate_plots.py`). Adding a reduction edits the shared file → *all* reductions rerun (over-trigger); a helper change outside the listed files → *no* rerun (under-trigger). `simulate`/`fit` declare *no* source inputs at all → editing a sampler or solver reruns nothing (stale data on the expensive stages).
-- **`rehydrate_node` + the dehydrate/canonicalize machinery (~250 lines of `core.py`)** exists to reconstruct live spec objects in the rule process. In a YAML framework the YAML *is* the serialization — the rule can re-resolve from config instead.
-- **Reduction `needs` and string `method_filter`** are heavier/fragiler than necessary.
+- **Code-change invalidation broken.** Generic rules took a whole-file `input.sources` (`plot_ready.py`, …): adding a reduction reran *all* reductions (over-trigger); a helper change outside the listed files reran *nothing* (under-trigger). `simulate`/`fit` declared *no* source inputs → editing a sampler or solver reran nothing (silent-stale on the expensive stages).
+- **`rehydrate_node` + the dehydrate/canonicalize machinery (~250 lines of `core.py`)** existed to reconstruct live spec objects in the rule process. In a YAML framework the YAML *is* the serialization — the rule re-resolves from config instead.
+- **Reduction `needs` and string `method_filter`** heavier/fragiler than necessary.
+- **`MethodSpec`** is a degenerate `function`+`kwargs` bundle adding no behavior.
 
-## 1. Config-hash + drop rehydrate
+## 1. Data model: two representations, two tiers
 
-The content hash (`batch_hash`/`method_hash`, the `by_batch/<hash>/` path key) should encode **config identity only** — function *paths* + arguments + distribution params + `base_seed` — **not** code bodies. (If code changed the hash, every path would re-shard on a one-line fix.) Code-body invalidation is snakemake's job (§3), not the hash's.
+**Two representations**
+- **Config coordinate (declarative data).** The YAML keys + resolved library sub-dicts. This is the hashed, manifest-stored **identity**. No class — dicts/YAML.
+- **`SimulationSpec` (resolved, executable).** Built by the loader from the coordinate, holding live objects (`partial`s, distributions). Consumed by `core.simulate`. Transient (built in the rule process, discarded); **no** hashing/serialization role.
 
-- **Hash:** `spec_hash = sha256(canonical_json(resolved_coordinate))`, where the coordinate is the resolved library sub-dicts: `{design: {function, arguments}, enrichment: {function, arguments, intercept}, signal: {f0, f1}, error: {function, arguments}|null, base_seed}` for sims; `{function, kwargs}` (distributions as their `{Normal: {...}}` mini-schema) for methods. This is the same data `dehydrate_spec` produced, minus the partial/callable graph wrapping.
-- **Reconstruction:** the manifest stores the **YAML coordinate** per batch (`design/enrichment/signal/error` keys + `replicates`) and per method (base + over-combo, or the generated name). The rule re-resolves: `loader.resolve_simulation(library, *coord)` / `loader.resolve_method(...)`. The rule process already does `from experiments import loader`, so this is trivial.
+**Two tiers (flat, not nested)**
+- **reduce** — atomic, per `(batch, method)`. Pure function of *one* batch's data (`fits` + `simulations` + `sample_metadata`). Content-addressed under `by_batch/`; a fit shared by many collections is reduced once and reused. **Reductions do not compose** (no reduction→reduction).
+- **analyze** — per supercollection. Consumes a **set** of reductions (`requires: [...]`, many-to-many) **plus loader-supplied metadata** (method_metadata, aliases, coordinates). **Never reads raw sims/fits** — if a plot needs sim/fit-level data, add a (possibly trivial) reduction. `analyses/` is a *sibling* of `reductions/`, not nested.
+
+## 2. Config-hash + drop rehydrate
+
+The content hash (`batch_hash`/`method_hash`, the `by_batch/<hash>/` path key) encodes **config identity only** — function *paths* + arguments + distribution params + `base_seed` — **not** code bodies. (Code in the hash would re-shard every path on a one-line fix.) Code-body invalidation is snakemake's job (§4), not the hash's.
+
+- **Hash:** `spec_hash = sha256(canonical_json(coordinate))`. For sims the coordinate is `{design: {function, arguments}, enrichment: {function, arguments, intercept}, signal: {f0, f1}, error: {function, arguments}|null, base_seed}`; for methods `{function, kwargs}` (distributions as `{Normal: {...}}` mini-schema).
+- **Reconstruction:** the manifest stores the **coordinate** per batch (`design/enrichment/signal/error` keys + `replicates`) and per method (generated name + base/over, or just the resolvable name). The rule re-resolves via `loader.resolve_simulation(...)` / `loader.resolve_method(...)` (the rule process already imports `loader`).
 - **Delete from `core.py`:** `dehydrate_node`, `rehydrate_node`, `canonicalize_node`, `_dehydrate_constructed_instance`, `dehydrate_spec`, `rehydrate_spec`, `dehydrate_simulation_semantics`, `build_hash_registry`, `build_alias_registry`, `dehydrate_hashed`. **Keep** `canonical_json_bytes`, `spec_hash`, `_callable_path` (path validation).
-- **Touch:** `loader` (new config-hash + coordinate manifest, drop dehydrate calls), snakefile rules (re-resolve), `reductions` that read the old dehydrated node shape (`build_f1`/`build_enrich` read `sim_spec_node["fields"]["f1"]["fields"]` → read the signal coordinate's `f1` params instead).
 
-Clean break on hashes (already accepted on this branch; nothing to preserve).
+Clean break on hashes (already accepted on this branch).
 
-## 1a. Two representations: config coordinate vs resolved Spec
+### `SimulationSpec` (v2) and `MethodSpec` (dropped)
 
-v1 conflated two roles in `SimulationSpec`/`MethodSpec`: the runtime carrier **and** the serialization/hash unit (hence all the dehydrate machinery). v2 splits them:
+A "spec" object earns its place in proportion to how composite the stage is.
 
-- **Config coordinate (declarative, plain data)** — the YAML keys + resolved library sub-dicts. This is the hashed, stored, manifest-persisted **identity**. No class needed; it's dicts/YAML.
-- **`SimulationSpec` (resolved, executable)** — built by the loader *from* the coordinate, holding live objects (`partial`s, distributions). Consumed by `core.simulate`. **Transient** (built in the rule process, discarded), with **no** hashing/serialization role.
-
-A "spec" object earns its place in proportion to how **composite** the stage is:
-
-- **`MethodSpec` — dropped.** A method is just `function(**kwargs)` + a name; the dataclass bundled three values and added no behavior. The fit site resolves inline:
+- **`MethodSpec` — dropped.** A method is just `function(**kwargs)` + a name; the fit site resolves inline:
   ```python
-  fn = resolve_callable(coord.function)
-  row = {"method": coord.name, **fn(simulation, **resolve_kwargs(coord))}   # kwargs: mini-schema dists resolved
+  fn  = resolve_callable(coord.function)
+  row = {"method": coord.name, **fn(simulation, **resolve_kwargs(coord))}
   ```
-- **`SimulationSpec` — kept**, but solely as the **resolved parameter-object** for the simulate engine. Its value is that `core.simulate` takes *resolved objects*, never a config blob — so the engine stays ignorant of YAML/library/resolution and is testable from hand-built samplers/distributions (as `tests/test_core_run_methods.py` already does). At ~8 fields, a bundle beats a long arg list. (The decoupling comes from "resolved args, not config" — the dataclass is just ergonomics.)
-
-### `SimulationSpec` in v2
+- **`SimulationSpec` — kept**, solely as the resolved parameter-object that keeps `core.simulate` ignorant of YAML/library/resolution (testable from hand-built samplers, as `tests/test_core_run_methods.py` does). Not frozen; carries a loader-set `hash` field used for seeding + as the `by_batch` path key.
 
 ```python
 @dataclass                              # not frozen; no hashing/serialization role
@@ -51,159 +53,139 @@ class SimulationSpec:
     f1: Any
     error_sampler: Callable | None      # None == standard normal
     base_seed: int
-    hash: str                           # config-hash from the loader: seeding + by_batch path key
+    hash: str                           # config-hash from the loader: seeding + path key
     name: str = ""                      # human label for logs/debug only
-```
 
-Instance for `hallmark__ser_b2__loc_2.0`:
-```python
-SimulationSpec(
-    design_sampler = partial(hallmark_gene_sets_X),
-    effect_sampler = partial(uniform_single_effect, causal_effect=2.0),
-    intercept      = -2.0,
-    f0             = PointMass(0.0),
-    f1             = Normal(loc=2.0, scale=0.1, estimate_loc=False, estimate_scale=False),
-    error_sampler  = None,
-    base_seed      = 20260501,
-    hash           = "9846f5a5...",     # = sha256(canonical_json(coordinate))
-    name           = "hallmark__ser_b2__loc_2.0",
-)
-```
-
-The coordinate it resolves from (the hashed/stored config — *not* the Spec):
-```python
-{
-  "design":     {"function": "hallmark_gene_sets_X", "arguments": {}},
-  "enrichment": {"function": "uniform_single_effect", "arguments": {"causal_effect": 2.0}, "intercept": -2.0},
-  "signal":     {"f0": {"PointMass": {"value": 0.0}},
-                 "f1": {"Normal": {"loc": 2.0, "scale": 0.1, "estimate_loc": false, "estimate_scale": false}}},
-  "error":      null,
-  "base_seed":  20260501,
-}
-```
-
-Connection:
-```python
-def resolve_simulation(library, design, enrichment, signal, error) -> SimulationSpec:
-    coord = coordinate(library, design, enrichment, signal, error)
-    return SimulationSpec(
-        design_sampler = _partial(coord["design"]),
-        effect_sampler = _partial(coord["enrichment"]),
-        intercept      = coord["enrichment"]["intercept"],
-        f0             = resolve_distribution(coord["signal"]["f0"]),
-        f1             = resolve_distribution(coord["signal"]["f1"]),
-        error_sampler  = None if coord["error"] is None else _partial(coord["error"]),
-        base_seed      = coord["base_seed"],
-        hash           = spec_hash(coord),
-        name           = sim_name(design, enrichment, signal, error),
-    )
-
-def simulate(spec: SimulationSpec, replicate: int):           # pure execution; no YAML, no dehydrate
+def simulate(spec: SimulationSpec, replicate: int):    # pure execution; no YAML, no dehydrate
     rng = np.random.default_rng(replicate_seed(spec.base_seed, spec.hash, replicate))
     X = spec.design_sampler(rng)
     causal_idx, causal_eff = spec.effect_sampler(X, rng)
     # ... f0/f1.sample(...), error_sampler ...
 ```
 
-Key change from v1: `hash` is a **field set by the loader from the coordinate**; `simulate` uses `spec.hash` for seeding instead of v1's `simulation_hash(spec)` (which dehydrated the spec). No dehydrate call anywhere; `SimulationSpec` is no longer frozen/hashable.
+## 3. Module layout
 
-## 2. Module reorganization
-
-Organize the run-code into cohesive per-item (or per-family) modules so each item's code surface is a single file (precise fingerprints, §3). Re-export from `core` so the YAML `function:` contract (`resolve_callable = getattr(core, name)`) still resolves; `inspect.getfile(fn)` follows the real definition.
+Organize run-code into **cohesive modules** — a function plus the helpers it depends on share a file (so the file boundary captures the real code surface; §4). Re-export from `core` so the YAML `function:` contract (`resolve_callable = getattr(core, name)`) still resolves; `inspect.getfile(fn)` follows the real definition.
 
 ```
-simulations/   designs.py, effects.py, errors.py      # samplers (gaussian_markov_X, uniform_single_effect, t_error_sampler, ...)
-fits/          cox.py, logistic.py, twogroup.py, linear.py   # run_*/fit_*/summarize_*
-reductions/    pip.py, cs.py, f1.py, enrich.py
-analyses/      pip.py, cs.py, logbf.py, f1.py          # the _make_*/render_* fns, grouped by family
-core.py        simulate(), SimulationSpec (resolved bundle; MethodSpec dropped), spec_hash, re-exports
+simulations/
+  design/    markov.py     # gaussian_markov_X + uniform_markov_X (shared AR(1) core)
+             genesets.py   # hallmark + c4 (shared load_gene_sets)
+  effect/    effects.py    # uniform_single_effect (+ future)
+  error/     errors.py     # t_error_sampler
+             # NO signal/ — signals are distribution DATA (config), resolved by shared
+             #              resolve_distribution; editing a signal = config change = hash rerun
+fits/        cox.py logistic.py twogroup.py linear.py     # run_<method> + fit_/summarize_
+reductions/  pip.py cs.py f1.py enrich.py
+analyses/    pip.py cs.py logbf.py f1.py                  # grouped by family (38 renderers; per-renderer not worth it)
+core.py      simulate(), SimulationSpec, spec_hash, resolve_distribution, re-exports
 ```
 
-- Re-export: `from simulations.designs import *`, `from fits.cox import *`, etc. in `core` (or a thin `core/__init__`), preserving the flat `getattr(core, name)` lookup.
-- Granularity knob = module organization: one reduction per module → per-reduction precision; renderers grouped by family → per-family precision (avoids 38 one-renderer files while staying far better than whole-file).
+Principle: **distinct code → distinct file; shared code → same file; config-only differences (args, signal params) ride the hash, not a code file.** `ser_b2`/`null_b0` share `uniform_single_effect`; `t_df_3..30` share `t_error_sampler` — one file each, differences are args. `gaussian`/`uniform` markov share the AR(1) core → one file (splitting them would hide the `uniform→gaussian` dependency from the file-mtime trigger). Granularity knob = file organization.
 
-## 3. Code fingerprints (the rerun fix) — generic rules preserved
+## 4. Rules + native code-tracking — split by how the output is keyed
 
-Keep **four generic rules**. Each carries a `params` code-fingerprint over the file(s) defining the user-code it runs; snakemake's `params` rerun-trigger (v9) reruns only the items whose file changed, and adding an item doesn't perturb others' fingerprints.
+Code-change invalidation is **native snakemake** (mtime on the right files), enabled by §3's layout. The mechanism differs by stage because the output key differs:
 
+**Name-keyed stages (reduce, analyze) → loop-generated per-item rules.** Their paths carry a readable discriminator, so generate one rule per library item; the static `script:` path gives native script-mtime tracking for free — no `code` lambda, no fingerprint helper.
 ```python
-def code_fingerprint(*fns) -> str:
-    return sha256(b"".join(Path(inspect.getfile(f)).read_bytes() for f in fns)).hexdigest()
+for r in LIBRARY["reductions"]:
+    rule:
+        name:   f"reduce_{r}"
+        output: f"{ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/reductions/{r}.parquet"
+        input:  deps = lambda wc, r=r: reduction_inputs(wc, r)     # early-bind r (late-binding closure trap)
+        script: f"reductions/{r}.py"                                # static path -> native mtime tracking
 ```
+- **Early-bind the loop var (`r=r`) in EVERY deferred lambda** — without it all generated rules close over the final `r`. `output`/`script` f-strings are evaluated eagerly, so they're safe; only lambdas need the snapshot. Same for the analyze loop.
+- Edit `reductions/pip.py` → only `reduce_pip` reruns → only analyses requiring `pip` rerun. Add `reductions/new.py` → nothing else reruns. Data-driven (loop over the library), explicit, idiomatic.
 
-| Stage | rule `params.code` over | invalidation granularity |
-|---|---|---|
-| simulate | this sim's `design`+`effect`+`error` sampler files (+ `core.simulate`) | per sampler-set |
-| fit | this method's function file (`fits/<family>.py`) | per method family |
-| reduce | `reductions/<name>.py` | per reduction |
-| analyze | `analyses/<family>.py` | per analysis family |
+**Hash-keyed stages (simulate, fit) → one generic rule each.** Their paths are content hashes with no per-item name to route on, so they stay generic and dispatch via the manifest. Code-tracking via a per-item **`code` lambda input** (native mtime on the resolved module file(s)):
+```python
+rule fit:
+    output: f"{ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet"
+    input:
+        code = lambda wc: (method_code_files(MANIFEST["methods"][wc.method_hash]["name"], LIBRARY)
+                           + simulation_code_files(MANIFEST["batches"][wc.batch_hash]["coordinate"], LIBRARY)),
+    run:
+        b      = MANIFEST["batches"][wc.batch_hash]
+        spec   = resolve_simulation(LIBRARY, *b["coordinate"])
+        method = resolve_method(LIBRARY, MANIFEST["methods"][wc.method_hash]["name"])
+        write_parquet(fit_batch_method(spec, method, replicates=b["replicates"]), output.fits)
+```
+- `*_code_files` map an item → its defining module file(s) via `inspect.getfile`:
+  ```python
+  def _file(fn): return inspect.getfile(getattr(fn, "func", fn))   # unwrap partials
+  def simulation_code_files(coord, lib):
+      s = resolve_simulation(lib, *coord); fns = [core.simulate, s.design_sampler, s.effect_sampler]
+      if s.error_sampler is not None: fns.append(s.error_sampler)
+      return sorted({_file(f) for f in fns})
+  def method_code_files(name, lib): return [_file(resolve_method(lib, name).function)]
+  ```
+- **fit depends on sim code too** (it re-simulates to obtain `X`, which `simulations.parquet` omits) — so a sampler bugfix correctly reruns sims *and* fits.
+- **Precision matters most on fit** (expensive gibss models) — this is where the `code` lambda earns its keep; per-item rules aren't possible (hash-keyed).
+- simulate: same mechanism; cheap, so coarse would also be acceptable.
 
-Decisions:
-- **File-hash, not transitive AST inference.** A decorator that walks the body to hash referenced globals/helpers was considered and rejected: distinguishing own-code vs third-party, serializing constant values, and AST edge cases make it fragile, and its failure mode is *silent under-hash* (stale cache) — the very bug being fixed. The file boundary captures body + in-file constants/helpers automatically, with zero introspection and trivial debuggability ("did the file change? then it reruns"). `code_fingerprint` is the thin glue; the precision lever is where code lives (§2).
-- **Third-party (gibss/numpy) is opaque.** Don't hash their source. Pin gibss version (or `--forcerun` on the rare editable-gibss edit). Fingerprints cover our files only.
-- Drop the coarse whole-file `input.sources`; the `params.code` fingerprint replaces it.
+**Limitations (accept/handle explicitly):** native mtime is **per-file** — editing `design/markov.py` reruns both gaussian and uniform sims (correct — shared code). **Imports aren't followed**: shared libs like `viz_utils` (used by analyses) aren't tracked unless listed — if a `viz_utils` change should retrigger analyses, add it to that analysis module's effective deps (or list `viz_utils.py`). Third-party (`gibss`/`numpy`) is opaque — pin versions / `--forcerun` on the rare editable edit.
 
-### Uniform entrypoints (kills the per-name dispatch)
+This drops the v1 coarse `sources` **and** the proposed custom `code_fingerprint` — all native.
 
-With the reorg, give each stage a uniform entrypoint signature so the generic rule body is `fn = resolve(...); fn(ctx)` with **no `if reduction == "pip" ...` branching** (the wart the v1 final review flagged):
-- **reduce:** every builder is `build(ctx) -> df`, where `ctx` exposes `fits`, `sims`, `sample_metadata`, `sim_coordinate`; the builder reads what it needs.
-- **fit:** already uniform — `run_<method>(simulation, **kwargs) -> row`.
-- **simulate:** uniform via `core.simulate(spec, replicate)`.
-- **analyze:** already uniform — `render(bundle, args) -> figure`.
+## 5. Reductions: drop `needs`
 
-Adding an item becomes purely: a new module + a library entry. No rule edit.
+Every reduction is fit-scoped with a fixed input set (`fits`, `simulations`, `sample_metadata`). So:
+- **Drop the `needs` toggle dict.** The reduce rule always wires `(fits, simulations, sample_metadata)` and passes a uniform `ctx`; the builder reads what it needs. (Also fixes the v1 latent bug where pip/cs read `simulations.parquet` without declaring it.)
+- **Scope:** hardwire fit-scope (per-`(batch, method)`). No sim-only reduction exists today (`sample_metadata` is a materialize output). If a pure sim-summary reduction ever appears, add a `scope: batch` field then (escape hatch).
+- A reduction entry collapses to `{function}` (+ optional `method_filter`, §6).
+- **Uniform entrypoint:** every builder is `build(ctx) -> df` (`ctx` exposes `fits`, `sims`, `sample_metadata`, `sim_coordinate`) — no per-name dispatch.
 
-## 4. Reductions lose `needs`
+## 6. Predicate filters
 
-Every reduction is fit-scoped and its input set is fixed (`fits`, `simulations`, `sample_metadata`). So:
-- **Drop the `needs` toggle dict.** The generic `reduce` rule always wires `(fits, simulations, sample_metadata)` as inputs and passes them in `ctx`. (This also fixes the v1 latent bug where pip/cs read `simulations.parquet` without declaring it.)
-- **Scope:** hardwire fit-scope (per-`(batch, method)`). The only thing `needs.fits` also encoded was fit-vs-batch scope; no sim-only reduction exists today (the one such thing, `sample_metadata`, is a materialize output). If a pure simulation-summary (sim-only, per-batch) reduction ever appears, reintroduce a single `scope: batch` field then — the spec's existing escape hatch.
+Importable boolean predicates (resolved via `resolve_callable`), applied at **DAG-construction time** (they see *config*, not materialized data).
 
-A reduction library entry collapses to `{function}` (+ optional `method_filter`, §5).
-
-> Analyses keep `requires: [reduction, ...]` — that genuinely varies (pip analyses need `pip`, cs need `cs`) and drives which reductions get built.
-
-## 5. Predicate filters
-
-Replace string/group filtering with importable boolean predicates, resolved via `resolve_callable`, applied at **DAG-construction time** (so they see *config*, not materialized data).
-
-- **`method_filter(method_spec: MethodSpec) -> bool`** on a **reduction** — which methods the reduction is valid for (f1/enrich read `two_group_state`, `None` for non-twogroup). Replaces `startswith("twogroup")`. Applied wherever the loader enumerates `(batch, method)` pairs (`collection_method_pairs`, `analysis_inputs`, `load_sc_bundle`).
+- **`method_filter(method_spec: MethodSpec) -> bool`** on a **reduction** — which methods it's valid for (f1/enrich read `two_group_state`, `None` for non-twogroup). Replaces `startswith("twogroup")`. Applied where the loader enumerates `(batch, method)` pairs.
   ```yaml
   reductions:
     f1:     {function: build_f1_plot_data, method_filter: is_twogroup}
     enrich: {function: build_enrich_plot_data, method_filter: is_twogroup}
   ```
-- **`simulation_filter(sim_descriptor) -> bool`** on an **analysis** — which sims to pool into this plot. Excluding null sims is a *plotting* choice, not a reduction one (the `pip` reduction is identical for null/non-null; `causal_pip`/`mass_above_causal` are just meaningless on nulls). This replaces the old `pip_non_null`/`cs_non_null` plot_type_group hack. Applied in `analysis_inputs` (depend only on passing sims' reductions) and `load_sc_bundle` (pool only passing sims).
+- **`simulation_filter(sim_descriptor) -> bool`** on an **analysis** — which sims to pool into the plot (e.g. exclude null sims from `causal_pip`/`mass_above_causal`; the `pip` reduction is identical for null/non-null — exclusion is a *plotting* choice). Replaces the old `pip_non_null`/`cs_non_null` group hack. Applied in `analysis_inputs` (depend only on passing sims' reductions) and `load_sc_bundle` (pool only passing sims).
   ```yaml
   analyses:
-    pip_calibration: {requires: [pip]}                                  # all sims (null = calibration/FDP arm)
-    causal_pip:      {requires: [pip], simulation_filter: has_causal}   # non-null only
+    pip_calibration: {requires: [pip]}                                 # all sims (null = calibration/FDP arm)
+    causal_pip:      {requires: [pip], simulation_filter: has_causal}  # non-null only
   ```
 
-### Predicate input contracts
+**Predicate input contracts** (config-knowable only; cheap + pure; run once per item at DAG build):
 - `method_filter(method_spec)` — `MethodSpec` (`.function`, `.kwargs`, `.name`).
-- `simulation_filter(sim_descriptor)` — the **resolved coordinate dict**, NOT the `SimulationSpec` (whose `effect_sampler` is a `partial` you'd have to introspect):
+- `simulation_filter(sim_descriptor)` — the **resolved coordinate dict** (not the `SimulationSpec`):
   ```python
   {design, enrichment: {function, arguments, intercept}, signal: {f0, f1}, error}
+  # e.g. def has_causal(s): return s["enrichment"]["arguments"].get("causal_effect", 0) != 0
   ```
-  e.g. `def has_causal(s): return s["enrichment"]["arguments"].get("causal_effect", 0) != 0` — declarative, no partial-poking.
+Data-dependent selection ("causal MAF > x") can't be a DAG-time filter — that's a post-hoc filter inside the analysis on the loaded bundle.
 
-### Boundaries
-- Predicates decide on **config-knowable** properties only (null vs non-null, signal kind, error type). Data-dependent selection ("causal MAF > x") can't be a DAG-time filter — that'd be a post-hoc filter inside the analysis on the loaded bundle.
-- Predicates must be **cheap + pure** (run once per item at DAG build).
+## Worked example (003 `hallmark__ser_b2__loc_2.0`, method `twogroup__L=1`, reduction `pip`)
+
+| job | `code` deps (what reruns it) | rule form |
+|---|---|---|
+| simulate `…loc_2.0` | `core.py`, `design/genesets.py`, `effect/effects.py` | generic + `code` input |
+| fit `…twogroup__L=1` | `fits/twogroup.py` + the simulate deps (re-simulates) | generic + `code` input |
+| reduce `pip` | `reductions/pip.py` | loop-generated `reduce_pip`, `script:` |
+| analyze `pip_calibration` | `analyses/pip.py` (+ `viz_utils` if listed) | loop-generated `analyze_pip_calibration`, `script:` |
+
+Edit `reductions/pip.py` → only pip reductions + pip-requiring analyses rerun. Edit `fits/twogroup.py` → only twogroup fits (+ their reductions/analyses). Change `gaussian_p100`'s `rho` (config) → only that sim reruns via the hash, no code file touched.
+
+## Carried-over fixes (from v1 review)
+
+- Rule names read as `simulate` / `fit` / `reduce_<name>` / `analyze_<name>` (drop `materialize_twogroup_experiment_batch` jargon).
+- `notebooks/dashboard.py` + `scripts/symlink_plots.py` still reference deleted `config`/`plot_configs` — port or remove.
+- Port remaining experiments `001/002/004-007` to the new format.
 
 ## Open decisions
 
-- **Output-level `method_filter`** (the render-time foreground name-list in a supercollection `output`) is a *different* thing from the reduction-level predicate — it picks which methods to *draw*. Keep it an explicit name list, or unify it to a predicate too? (Lean: keep as list — explicit foreground is usually hand-picked.)
-- **Analysis family granularity** for `analyses/<family>.py` — group by required reduction (pip/cs/logbf/f1), or finer? Coarser = simpler, slightly more rerun on a family edit.
-
-## Carried-over small fixes (from v1 review)
-
-- Rule names: the four generic rules read as `simulate` / `fit` / `reduce` / `analyze` (drop `materialize_twogroup_experiment_batch` jargon).
-- `notebooks/dashboard.py` + `scripts/symlink_plots.py` still reference deleted `config`/`plot_configs` — port or remove.
-- Remaining experiments `001/002/004-007` ported to the new format.
+- **Output-level `method_filter`** (render-time foreground name-list in a supercollection `output`) — keep as an explicit list (lean) or unify to a predicate.
+- **Analysis family granularity** — group `analyses/<family>.py` by required reduction (lean), or finer.
 
 ## Not in scope
 
 - Cache-reuse hash-injection (v1 spec "Future work") — independent.
-- Data-dependent filters (post-hoc, inside analyses).
+- Data-dependent (post-hoc) analysis filters.
