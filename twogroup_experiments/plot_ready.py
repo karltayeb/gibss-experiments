@@ -112,44 +112,11 @@ def build_simulation_metadata(collection: dict[str, Any]) -> pl.DataFrame:
     return pl.from_dicts(rows)
 
 
-def build_sample_metadata(
-    collection_batches: list[dict[str, Any]],
-    simulations_by_batch: dict[str, pl.DataFrame],
-) -> pl.DataFrame:
-    rows = []
-    for batch in collection_batches:
-        batch_hash = batch[HASH_KEY]
-        batch_name = _batch_name(batch)
-        for replicate in simulations_by_batch[batch_hash]["replicate"].to_list():
-            rows.append(
-                {
-                    "sample_id": f"{batch_hash}::{int(replicate)}",
-                    "batch_hash": batch_hash,
-                    "batch_name": batch_name,
-                    "replicate": int(replicate),
-                }
-            )
-    return pl.from_dicts(rows)
-
-
-def _build_sample_metadata_from_manifest(
-    collection: dict[str, Any],
-    simulations_by_batch: dict[str, pl.DataFrame],
-) -> pl.DataFrame:
-    """Build sample metadata using __spec_hash__ key (for use with real manifest)."""
-    rows = []
-    for batch in collection["batches"]:
-        batch_hash = batch[HASH_KEY]
-        batch_name = _batch_name(batch)
-        for replicate in simulations_by_batch[batch_hash]["replicate"].to_list():
-            rows.append(
-                {
-                    "sample_id": f"{batch_hash}::{int(replicate)}",
-                    "batch_hash": batch_hash,
-                    "batch_name": batch_name,
-                    "replicate": int(replicate),
-                }
-            )
+def build_sample_metadata(batch_hash: str, simulations_df: pl.DataFrame) -> pl.DataFrame:
+    rows = [
+        {"sample_id": f"{batch_hash}::{int(rep)}", "batch_hash": batch_hash, "replicate": int(rep)}
+        for rep in simulations_df["replicate"].to_list()
+    ]
     return pl.from_dicts(rows)
 
 
