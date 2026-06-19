@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import itertools
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -59,6 +60,44 @@ def resolve_simulation(library: dict[str, Any], design: str, enrichment: str,
         error_sampler=error_sampler,
     )
     return spec, name
+
+
+def format_over_value(value: Any) -> str:
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if value is None:
+        return "none"
+    if isinstance(value, float):
+        return format_float(value)
+    if isinstance(value, int):
+        return str(value)
+    return str(value)
+
+
+def _is_distribution_node(value: Any) -> bool:
+    return (isinstance(value, dict) and len(value) == 1
+            and next(iter(value)) in ("Normal", "PointMass", "NormalMixture"))
+
+
+def resolve_distributions_in_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    return {k: (resolve_distribution(v) if _is_distribution_node(v) else v)
+            for k, v in kwargs.items()}
+
+
+def expand_method(base_name: str, entry: dict[str, Any]) -> list[core.MethodSpec]:
+    if "__" in base_name:
+        raise ValueError(f"Method base name must not contain '__': {base_name!r}")
+    fn = resolve_callable(entry["function"])
+    template = dict(entry.get("template") or {})
+    over = entry.get("over") or {"_dummy": [None]}
+    keys = list(over.keys())
+    specs: list[core.MethodSpec] = []
+    for combo in itertools.product(*(over[k] for k in keys)):
+        over_kwargs = {k: v for k, v in zip(keys, combo) if k != "_dummy"}
+        suffix = "".join(f"__{k}={format_over_value(v)}" for k, v in over_kwargs.items())
+        kwargs = resolve_distributions_in_kwargs({**template, **over_kwargs})
+        specs.append(core.MethodSpec(name=f"{base_name}{suffix}", function=fn, kwargs=kwargs))
+    return specs
 
 
 def load_library(experiments_dir: Path | None = None) -> dict[str, Any]:

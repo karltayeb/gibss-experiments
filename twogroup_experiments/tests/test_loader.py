@@ -61,3 +61,28 @@ def test_resolve_simulation_nongaussian_error_in_name():
     assert name == "gaussian_p100__ser_b2__loc_2.0__t_df_5"
     assert spec.error_sampler is not None
     assert spec.error_sampler.keywords == {"df": 5}
+
+
+def test_expand_method_cartesian_names_and_kwargs():
+    entry = {"function": "run_cox_method", "template": {"time_sign": -1.0},
+             "over": {"threshold": [0.0, 2.0], "L": [1, 5]}}
+    specs = loader.expand_method("cox_light", entry)
+    names = [s.name for s in specs]
+    assert names == [
+        "cox_light__threshold=0.00__L=1", "cox_light__threshold=0.00__L=5",
+        "cox_light__threshold=2.00__L=1", "cox_light__threshold=2.00__L=5",
+    ]
+    s = specs[2]
+    assert s.function.__name__ == "run_cox_method"
+    assert s.kwargs == {"time_sign": -1.0, "threshold": 2.0, "L": 1}
+
+
+def test_expand_method_resolves_distribution_kwargs():
+    entry = {"function": "run_twogroup_method",
+             "template": {"f1": {"Normal": {"loc": 0.0, "scale": 1.0,
+                                            "estimate_loc": True, "estimate_scale": True}}},
+             "over": {"L": [1]}}
+    specs = loader.expand_method("twogroup", entry)
+    assert specs[0].name == "twogroup__L=1"
+    from gibss.distributions import Normal
+    assert isinstance(specs[0].kwargs["f1"], Normal)
