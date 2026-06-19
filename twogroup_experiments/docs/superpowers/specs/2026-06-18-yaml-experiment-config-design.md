@@ -34,15 +34,18 @@ the simulations experiments actually consume, with compact expansion for sweeps.
 ## Non-goals / decisions
 
 - **Clean break on hashes.** New construction yields new content hashes; existing
-  `results/by_batch/<hash>/` results are orphaned (not migrated). A hash-injection
-  migration step (map new hashes → existing dirs to skip recompute) is noted as
-  possible future work, not built here.
+  `results/by_batch/<hash>/` results are orphaned (not migrated). Cache reuse is a
+  fully separable post-hoc concern (see Future work) that does not intersect loader
+  development, so it is out of scope here.
 - **`core.py` stays.** `SimulationSpec`, `MethodSpec`, `BatchSpec`, the
   `dehydrate/rehydrate/spec_hash` machinery, `simulate`, all `fit_*`/`summarize_*`
   methods, and all sampler functions remain. The loader reuses
   `core.dehydrate_hashed` so manifest node shapes are unchanged and the snakefile
   rehydration path is untouched.
 - The numbered-file split is preserved (renamed `plot_configs/` → `experiments/`).
+- **No coexistence.** Done on a new branch. `config.py` and the registry are deleted
+  on that branch; the snakefile switches over fully. Experiments not yet ported are
+  simply unavailable until ported — acceptable on a feature branch.
 
 ## File layout
 
@@ -186,6 +189,27 @@ A human-readable simulation name is auto-derived from the component library keys
 spec metadata for debugging/plot labels. Names are no longer load-bearing for path
 resolution (hashes are).
 
+#### Aggregation levels (and how `agg_` plots fit)
+
+Two distinct aggregation levels exist today and map directly onto this model:
+
+- **Level 1 — within-collection pooling.** The snakefile `collection_*` rules build
+  one `plot_ready` bundle per collection by pooling *all member simulations'* fits.
+  This is expressed by **template lists**: `enrichment: [ser_b2, null_b0]` or
+  `design: [hallmark, c4, gaussian_p100, uniform_p100]` produces a single collection
+  whose members are pooled. (The old `t-error-agg-*` collections — one collection
+  listing 4 designs — are exactly this.)
+- **Level 2 — across-collection (`agg_` plot types).** `make_plot` loads every
+  collection in the supercollection, tags each with its alias as `collection_name`,
+  then non-`agg_` plots facet by collection (`facet_by_simulation=True`,
+  `collection_names=[...]`) while `agg_` plots pool across collections
+  (`group_by` drops `collection_name` / `aggregate_across_collections=True`).
+
+Therefore **the `over:` axis is the facet/aggregation dimension**: `over: {signal:
+[loc_0.5..3.0]}` yields 6 collections; the non-`agg_` variant facets the 6, the `agg_`
+variant collapses them into one panel. Whatever is placed in `over` is what `agg_`
+pools. No structural change to the plot layer's aggregation logic is required.
+
 ## Loader (`experiments/loader.py`)
 
 Pure-Python module, no snakemake dependency, unit-testable:
@@ -221,6 +245,20 @@ Pure-Python module, no snakemake dependency, unit-testable:
 - Content-addressed rules (`materialize_*`, `fit_*`) unchanged — still hash-keyed via
   the manifest and `core.rehydrate_node`.
 
+### generate_plots.py
+
+`generate_plots.py` reads `plot_configs/` directly and must be ported to the loader:
+
+- `_load_plot_config`, `_resolve_settings`, `_load_supercollection_data` →
+  loader-backed supercollection accessors (collections list, aliases, plot bundles).
+- `_foreground_methods` currently filters by `method_families` + `thresholds`; it
+  becomes **explicit-name membership** against the plot entry's `method_filter`
+  (intersected with the supercollection's `methods`). `plot_args` replaces the merged
+  `default_settings`/named-`settings` dict (`min_log_bf`, `max_cs_size`, `max_fdp`,
+  `thresholds`, …).
+- `agg_`/non-`agg_` dispatch and the per-plot-type render functions are unchanged;
+  only how `combined_data` and `settings` are assembled changes.
+
 ## Deletions
 
 - `config.py`, `config_builders.py`, `config_registry.py` (after both proof configs
@@ -254,6 +292,10 @@ Remaining files (001, 002, 004-007) ported in follow-ups; `config.py` retained u
 
 ## Future work (not in this spec)
 
-Hash-injection migration: a one-time map from new spec hashes to existing
-`results/by_batch/<old_hash>/` directories, to reuse already-computed fits and avoid a
-full recompute after the clean-break cutover.
+**Cache reuse via hash injection.** A standalone post-hoc script, independent of loader
+development: for each new spec, rebuild its dehydrated semantic node and look it up in
+the existing `results/manifest_cache.json`. Where an old hash with an equivalent
+semantic node exists, symlink/rename the old `results/by_batch/<old_hash>/` directory
+to the new hash to skip recompute. (Where the new YAML resolves to byte-identical
+partials/distributions, the hash is already identical and no mapping is needed.) This
+touches only result directories + the cache file, never the loader or schema.
