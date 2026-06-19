@@ -289,3 +289,13 @@ def test_manifest_dict_coordinate_shape():
     assert list(b["replicates"]) == list(range(2))   # fixture replicates_per_batch=2
     mh, mc = next(iter(m["methods"].items()))
     assert mc["name"] and "function" in mc
+
+
+def test_code_files_point_at_modules():
+    cfg = loader.load_config(FIXTURE_DIR); lib = cfg["library"]
+    coord = loader.simulation_coordinate(lib, "gaussian_p8", "ser_b2", "loc_2.0", "gaussian")
+    files = loader.simulation_code_files(coord, lib)
+    assert any(f.endswith("simulations/design/markov.py") for f in files)
+    assert any(f.endswith("core.py") for f in files)
+    rfiles = loader.reduction_code_files("pip", lib)
+    assert rfiles == [f for f in rfiles if f.endswith("reductions/pip.py")]

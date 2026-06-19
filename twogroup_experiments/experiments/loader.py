@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import importlib
+import inspect
 import itertools
 from functools import partial
 from pathlib import Path
@@ -452,6 +454,58 @@ def method_coordinate(name, function, kwargs_raw) -> dict:
 
 def sim_hash(coordinate) -> str: return spec_hash(coordinate)
 def method_hash(coordinate) -> str: return spec_hash(coordinate)
+
+
+# ---------------------------------------------------------------------------
+# Code-tracking helpers: map coordinates → source file paths for Snakemake
+# ---------------------------------------------------------------------------
+
+def _file(fn) -> str:
+    """Return the source file of fn, unwrapping functools.partial."""
+    return inspect.getfile(getattr(fn, "func", fn))
+
+
+def resolve_simulation_from_coord(coord: dict[str, Any]) -> core.SimulationSpec:
+    """Build a SimulationSpec from a prebuilt coordinate dict (no library lookup)."""
+    enrich = coord["enrichment"]
+    sig = coord["signal"]
+    return core.SimulationSpec(
+        design_sampler=_partial_from_entry(coord["design"]),
+        effect_sampler=_partial_from_entry(enrich),
+        intercept=float(enrich["intercept"]),
+        f0=resolve_distribution(sig["f0"]),
+        f1=resolve_distribution(sig["f1"]),
+        error_sampler=None if coord["error"] is None else _partial_from_entry(coord["error"]),
+        base_seed=coord["base_seed"],
+        hash=sim_hash(coord),
+        name="",
+    )
+
+
+def simulation_code_files(coord: dict[str, Any], library: dict[str, Any]) -> list[str]:
+    """Return sorted unique source files for core.simulate + the sim's samplers."""
+    spec = resolve_simulation_from_coord(coord)
+    fns = [core.simulate, spec.design_sampler, spec.effect_sampler]
+    if spec.error_sampler is not None:
+        fns.append(spec.error_sampler)
+    return sorted({_file(f) for f in fns})
+
+
+def method_code_files(method_coord: dict[str, Any], library: dict[str, Any]) -> list[str]:
+    """Return the source file of the resolved fit function for a method coordinate."""
+    return [_file(resolve_callable(method_coord["function"]))]
+
+
+def reduction_code_files(reduction: str, library: dict[str, Any]) -> list[str]:
+    """Return the source file of reductions.<reduction>.build."""
+    mod = importlib.import_module(f"reductions.{reduction}")
+    return [_file(getattr(mod, "build"))]
+
+
+def analysis_code_files(analysis: str) -> list[str]:
+    """Return the source file of the renderer for the given analysis."""
+    import generate_plots
+    return [_file(generate_plots.ANALYSIS_RENDERERS[analysis])]
 
 
 def method_metadata(methods: dict[str, dict]) -> pl.DataFrame:
