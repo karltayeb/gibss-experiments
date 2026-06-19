@@ -9,7 +9,7 @@ import polars as pl
 import yaml
 
 import core
-from core import HASH_KEY, dehydrate_hashed
+from core import spec_hash
 from gibss import distributions as _distributions
 from utils import BatchSpec
 from viz_utils import (make_method_display_label, method_family_label_map,
@@ -148,7 +148,12 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
         sims = [resolve_simulation(library, s["design"], s["enrichment"],
                                    s["signal"], s.get("error", "gaussian"))
                 for s in block["simulations"]]
-        return [{"name": block["name"], "alias": block.get("alias", block["name"]), "simulations": sims}]
+        coords = [{"coordinate": simulation_coordinate(library, s["design"], s["enrichment"],
+                                                       s["signal"], s.get("error", "gaussian")),
+                   "name": spec.name}
+                  for s, spec in zip(block["simulations"], sims)]
+        return [{"name": block["name"], "alias": block.get("alias", block["name"]),
+                 "simulations": sims, "coordinates": coords}]
 
     template = dict(block["template"])
     over = block.get("over") or {}
@@ -161,13 +166,17 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
         member_lists = {f: _as_list(fields.get(f, "gaussian" if f == "error" else None))
                         for f in _SIM_FIELDS}
         sims = []
+        coords = []
         for d, e, s, err in itertools.product(member_lists["design"], member_lists["enrichment"],
                                               member_lists["signal"], member_lists["error"]):
-            sims.append(resolve_simulation(library, d, e, s, err))
+            spec = resolve_simulation(library, d, e, s, err)
+            sims.append(spec)
+            coords.append({"coordinate": simulation_coordinate(library, d, e, s, err),
+                           "name": spec.name})
         suffix = "".join(f"__{k}={over_map[k]}" for k in over_keys)
         name = f"{sc_name}{suffix}" if over_keys else sc_name
         alias = block.get("alias") or "__".join(str(over_map[k]) for k in over_keys) or sc_name
-        results.append({"name": name, "alias": alias, "simulations": sims})
+        results.append({"name": name, "alias": alias, "simulations": sims, "coordinates": coords})
     return results
 
 
@@ -252,42 +261,63 @@ def all_methods(config: dict[str, Any]) -> dict[str, dict]:
     return out
 
 
-def manifest_dict(library: dict[str, Any], simulations: dict[str, core.SimulationSpec],
-                  methods: dict[str, dict]) -> dict[str, Any]:
-    defaults = library["defaults"]
+def _all_sim_coordinates(config: dict[str, Any]) -> list[dict]:
+    """Yield deduplicated (coordinate, name) pairs across all supercollections."""
+    library = config["library"]
+    seen: dict[str, dict] = {}  # hash -> {"coordinate": ..., "name": ...}
+    for sc_name, sc in config["supercollections"].items():
+        for coll in supercollection_collections(library, sc_name, sc):
+            for member in coll["coordinates"]:
+                h = sim_hash(member["coordinate"])
+                seen.setdefault(h, member)
+    return list(seen.values())
+
+
+def _all_method_coordinates(config: dict[str, Any]) -> list[dict]:
+    """Yield deduplicated method coordinate dicts across all supercollections."""
+    seen: dict[str, dict] = {}  # hash -> coord
+    for sc in config["supercollections"].values():
+        for coord in resolve_methods_for_sc(config["library"], sc).values():
+            h = method_hash(coord)
+            seen.setdefault(h, coord)
+    return list(seen.values())
+
+
+def manifest_dict(library: dict[str, Any], config: dict[str, Any]) -> dict[str, Any]:
+    """Build manifest keyed by content hashes.
+
+    Returns::
+
+        {"batches": {hash: {"coordinate": ..., "replicates": [...], "hash": ..., "name": ...}},
+         "methods":  {hash: {...coord_fields..., "hash": ...}}}
+
+    n_batches=1 (one batch per simulation coordinate);
+    replicates = range(replicates_per_batch).
+    """
+    rpb = int(library["defaults"]["replicates_per_batch"])
     batches: dict[str, Any] = {}
-    for spec in simulations.values():
-        for batch in batch_specs_for_simulation(
-            spec,
-            replicates_per_batch=int(defaults["replicates_per_batch"]),
-            n_batches=int(defaults["n_batches"]),
-        ):
-            sim_node = dehydrate_hashed(batch.simulation_spec)
-            node = {
-                "name": batch.name,
-                "simulation_spec": sim_node,
-                "replicates": list(batch.replicates),
-            }
-            node[HASH_KEY] = dehydrate_hashed(batch)[HASH_KEY]
-            batches[node[HASH_KEY]] = node
-    method_specs: dict[str, Any] = {}
-    for spec in methods.values():
-        node = dehydrate_hashed(spec)
-        method_specs[node[HASH_KEY]] = node
-    return {"batches": batches, "method_specs": method_specs}
+    for member in _all_sim_coordinates(config):
+        coord = member["coordinate"]
+        h = sim_hash(coord)
+        batches[h] = {
+            "coordinate": coord,
+            "replicates": list(range(rpb)),
+            "hash": h,
+            "name": member["name"],
+        }
+    methods: dict[str, Any] = {}
+    for mcoord in _all_method_coordinates(config):
+        h = method_hash(mcoord)
+        methods[h] = {**mcoord, "hash": h}
+    return {"batches": batches, "methods": methods}
 
 
 RESULTS_ROOT = "results"
 
 
 def batch_hashes_for_simulation(library: dict[str, Any], spec: core.SimulationSpec) -> list[str]:
-    defaults = library["defaults"]
-    out = []
-    for batch in batch_specs_for_simulation(
-        spec, replicates_per_batch=int(defaults["replicates_per_batch"]),
-        n_batches=int(defaults["n_batches"])):
-        out.append(dehydrate_hashed(batch)[HASH_KEY])
-    return out
+    """Return the batch hash for a simulation spec (n_batches=1; hash = sim_hash of coordinate)."""
+    return [spec.hash]
 
 
 def reduction_scope(library: dict[str, Any], reduction: str) -> str:
@@ -404,9 +434,6 @@ def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
         resolve_methods_for_sc(library, config["supercollections"][sc_name]))
     bundle["collection_names"] = collection_names
     return bundle
-
-
-from core import spec_hash
 
 
 def simulation_coordinate(library, design, enrichment, signal, error) -> dict:

@@ -11,11 +11,9 @@ import numpy as np
 import polars as pl
 
 from core import (
-    HASH_KEY,
     SimulationSpec,
     TwoGroupSimulation,
-    dehydrate_hashed,
-    dehydrate_node,
+    _distribution_struct,
     simulate,
     spec_hash,
 )
@@ -34,7 +32,7 @@ CS_BETA_GRID = np.append(np.round(np.arange(0.01, 1.00, 0.01), 2), 1.0)
 def manifest_dict() -> dict[str, object]:
     from experiments import loader
     cfg = loader.load_config()
-    return loader.manifest_dict(cfg["library"], loader.all_simulations(cfg), loader.all_methods(cfg))
+    return loader.manifest_dict(cfg["library"], cfg)
 
 
 def correlation_with_causal(X: np.ndarray, causal_indices: Iterable[int]) -> list[list[float]]:
@@ -74,8 +72,8 @@ def simulation_struct_without_x(simulation: TwoGroupSimulation) -> dict[str, Any
         "theta": simulation.theta.tolist(),
         "thetahat": simulation.thetahat.tolist(),
         "se": simulation.se.tolist(),
-        "f0": dehydrate_node(simulation.f0),
-        "f1": dehydrate_node(simulation.f1),
+        "f0": _distribution_struct(simulation.f0),
+        "f1": _distribution_struct(simulation.f1),
     }
 
 

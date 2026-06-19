@@ -7,7 +7,7 @@ from typing import Any
 import numpy as np
 import polars as pl
 
-from core import HASH_KEY
+_HASH_KEY = "__spec_hash__"  # legacy key for old dehydrated nodes (P3.3 will remove)
 from utils import attach_spec_metadata
 from viz_utils import method_metadata_from_method_spec_json, make_method_display_label
 
@@ -103,7 +103,7 @@ def build_simulation_metadata(collection: dict[str, Any]) -> pl.DataFrame:
     for batch in collection["batches"]:
         rows.append(
             {
-                "batch_hash": batch[HASH_KEY],
+                "batch_hash": batch[_HASH_KEY],
                 "batch_name": _batch_name(batch),
                 "simulation_spec": json.dumps(_batch_sim_node(batch), sort_keys=True),
                 "simulation_name": _batch_sim_name(batch),
@@ -377,9 +377,9 @@ def union_collection_yaml_nodes(
     seen_methods: dict[str, dict] = {}
     for node in collection_nodes:
         for batch in node["batches"]:
-            seen_batches.setdefault(batch[HASH_KEY], batch)
+            seen_batches.setdefault(batch[_HASH_KEY], batch)
         for method in node["method_specs"]:
-            seen_methods.setdefault(method[HASH_KEY], method)
+            seen_methods.setdefault(method[_HASH_KEY], method)
     return build_collection_yaml_node(
         name=name,
         batch_nodes=list(seen_batches.values()),

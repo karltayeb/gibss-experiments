@@ -102,21 +102,17 @@ def test_library_methods_expands_all_entries():
 
 
 def test_manifest_dict_shape():
-    lib = _library_for_tests()
-    spec = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian")
-    coord = loader.expand_method("cox_heavy",
-        {"function": "run_cox_method", "template": {"threshold": None, "time_sign": 1.0},
-         "over": {"L": [1]}})[0]
-    manifest = loader.manifest_dict(lib, {spec.name: spec}, {coord["name"]: coord})
-    assert set(manifest) == {"batches", "method_specs"}
-    (batch_hash, batch_node), = manifest["batches"].items()
-    assert batch_node["__spec_hash__"] == batch_hash
-    assert batch_node["simulation_spec"]["__spec_hash__"]
-    assert list(batch_node["replicates"]) == list(range(50))
-    (mhash, method_node), = manifest["method_specs"].items()
-    assert method_node["__spec_hash__"] == mhash
-    # coordinate dict serializes with name at top level (not under "fields")
-    assert method_node["name"] == "cox_heavy__L=1"
+    """Deprecated shape test retained for reference; new shape is tested by test_manifest_dict_coordinate_shape."""
+    cfg = loader.load_config(FIXTURE_DIR)
+    manifest = loader.manifest_dict(cfg["library"], cfg)
+    assert set(manifest) == {"batches", "methods"}
+    (batch_hash, batch_node), = list(manifest["batches"].items())[:1]
+    assert batch_node["hash"] == batch_hash
+    assert "coordinate" in batch_node
+    assert "replicates" in batch_node
+    (mhash, method_node), = list(manifest["methods"].items())[:1]
+    assert method_node["hash"] == mhash
+    assert "name" in method_node
 
 
 def test_expand_collections_within_and_over():
@@ -171,7 +167,7 @@ def test_reduction_scope_and_paths():
 
 def test_analysis_inputs_only_required_reductions(tmp_path):
     cfg = loader.load_config(FIXTURE_DIR)
-    manifest = loader.manifest_dict(cfg["library"], loader.all_simulations(cfg), loader.all_methods(cfg))
+    manifest = loader.manifest_dict(cfg["library"], cfg)
     inputs = loader.analysis_inputs(cfg, manifest, "fixture-sc", "pip_calibration")
     # pip_calibration requires [pip]; every path ends in /reductions/pip.parquet
     assert inputs and all(p.endswith("/reductions/pip.parquet") for p in inputs)
@@ -189,7 +185,7 @@ def test_method_metadata_columns():
 
 def test_load_sc_bundle_tags_collections(tmp_path):
     import polars as pl
-    import core, utils
+    import utils
     cfg = loader.load_config(FIXTURE_DIR)
     lib = cfg["library"]
     results = tmp_path / "results"
@@ -197,7 +193,7 @@ def test_load_sc_bundle_tags_collections(tmp_path):
     for coll in loader.supercollection_collections(lib, "fixture-sc", cfg["supercollections"]["fixture-sc"]):
         for spec in coll["simulations"]:
             reps = (0, 1)
-            bh = core.dehydrate_hashed(utils.BatchSpec(name=f"{spec.name}__batch0", simulation_spec=spec, replicates=reps))[core.HASH_KEY]
+            bh = spec.hash  # coordinate-based batch hash (n_batches=1)
             sims_df = utils.simulate_batch(spec, replicates=reps)
             sample_md = __import__("plot_ready").build_sample_metadata(bh, sims_df)
             for mname, mspec in loader.resolve_methods_for_sc(lib, cfg["supercollections"]["fixture-sc"]).items():
@@ -273,3 +269,15 @@ def test_run_method_executes(tmp_path):
              "kwargs": {"threshold": None, "time_sign": 1.0, "L": 1}}
     row = loader.run_method(coord, sim)
     assert row["method"] == "cox_heavy__L=1" and "single_effects" in row
+
+
+def test_manifest_dict_coordinate_shape():
+    cfg = loader.load_config(FIXTURE_DIR)
+    m = loader.manifest_dict(cfg["library"], cfg)
+    assert set(m) == {"batches", "methods"}
+    bh, b = next(iter(m["batches"].items()))
+    assert b["hash"] == bh
+    assert set(b["coordinate"]) == {"design", "enrichment", "signal", "error", "base_seed"}
+    assert list(b["replicates"]) == list(range(2))   # fixture replicates_per_batch=2
+    mh, mc = next(iter(m["methods"].items()))
+    assert mc["name"] and "function" in mc

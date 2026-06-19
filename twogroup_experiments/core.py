@@ -1,22 +1,16 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, fields, is_dataclass
-from functools import partial
 import hashlib
-import importlib
-import inspect
 import json
 import math
-from typing import Any, Iterable, Mapping
+from typing import Any
 
 import numpy as np
 
 from gibss import cox, engine, linear, localjj, twogroup, twogrouplocaljj
 from gibss.distributions import Normal, NormalMixture, PointMass
 from gseasusie.genesets import load_gene_sets
-
-HASH_KEY = "__spec_hash__"
-
 
 @dataclass
 class SimulationSpec:
@@ -458,17 +452,6 @@ def run_linear_method(simulation: TwoGroupSimulation, **kwargs) -> dict[str, Any
     return summarize_linear_method(fit_linear_method(simulation, **kwargs), simulation, **kwargs)
 
 
-LOGISTIC_ORACLE = {
-    "name": "logistic_oracle_L1",
-    "function": "run_logistic_method",
-    "kwargs": {
-        "response_source": "z",
-        "threshold": None,
-        "L": 1,
-    },
-}
-
-
 def identity_design_sampler(rng: np.random.Generator) -> np.ndarray:
     del rng
     return np.eye(3, dtype=float)
@@ -590,49 +573,6 @@ def t_error_sampler(
     return rng.standard_t(df, size=len(se)) * scale
 
 
-def canonicalize_node(node: Any) -> Any:
-    if isinstance(node, dict) and HASH_KEY in node:
-        node = {key: value for key, value in node.items() if key != HASH_KEY}
-    if is_dataclass(node):
-        return {
-            "type": "dataclass",
-            "path": _callable_path(type(node)),
-            "fields": {
-                field.name: canonicalize_node(getattr(node, field.name))
-                for field in fields(node)
-            },
-        }
-    if isinstance(node, tuple) and hasattr(node, "_fields"):
-        return {
-            "type": "namedtuple",
-            "path": _callable_path(type(node)),
-            "fields": {
-                field: canonicalize_node(getattr(node, field)) for field in node._fields
-            },
-        }
-    if isinstance(node, tuple):
-        return {
-            "type": "tuple",
-            "items": [canonicalize_node(value) for value in node],
-        }
-    if isinstance(node, dict):
-        return {str(key): canonicalize_node(value) for key, value in node.items()}
-    if isinstance(node, list):
-        return [canonicalize_node(value) for value in node]
-    if isinstance(node, np.ndarray):
-        return [canonicalize_node(value) for value in node.tolist()]
-    if isinstance(node, np.generic):
-        return canonicalize_node(node.item())
-    if hasattr(node, "tolist") and not isinstance(node, (str, bytes)):
-        try:
-            return canonicalize_node(node.tolist())
-        except Exception:
-            pass
-    if isinstance(node, (str, int, float, bool)) or node is None:
-        return node
-    raise TypeError(f"Unsupported node for canonicalization: {type(node)!r}")
-
-
 def _callable_path(func: Any) -> str:
     module_name = getattr(func, "__module__", None)
     qualname = getattr(func, "__qualname__", None)
@@ -648,183 +588,10 @@ def _callable_path(func: Any) -> str:
     return f"{module_name}:{qualname}"
 
 
-def _load_callable(path: str) -> Any:
-    module_name, qualname = path.split(":", maxsplit=1)
-    value = importlib.import_module(module_name)
-    for attr in qualname.split("."):
-        value = getattr(value, attr)
-    return value
-
-
-def _dehydrate_constructed_instance(node: Any) -> dict[str, Any] | None:
-    if isinstance(node, type):
-        return None
-    if callable(node):
-        return None
-    node_type = type(node)
-    if node_type.__module__ == "builtins":
-        return None
-
-    try:
-        signature = inspect.signature(node_type)
-    except (TypeError, ValueError):
-        return None
-
-    kwargs: dict[str, Any] = {}
-    for parameter in signature.parameters.values():
-        if parameter.kind in (
-            inspect.Parameter.POSITIONAL_ONLY,
-            inspect.Parameter.VAR_POSITIONAL,
-            inspect.Parameter.VAR_KEYWORD,
-        ):
-            return None
-        if hasattr(node, parameter.name):
-            kwargs[parameter.name] = dehydrate_node(getattr(node, parameter.name))
-            continue
-        if parameter.default is inspect._empty:
-            return None
-
-    return {
-        "type": "partial",
-        "call": True,
-        "func": dehydrate_node(node_type),
-        "args": dehydrate_node(()),
-        "kwargs": kwargs,
-    }
-
-
-def dehydrate_node(node: Any) -> Any:
-    if is_dataclass(node):
-        return {
-            "type": "dataclass",
-            "path": _callable_path(type(node)),
-            "fields": {
-                field.name: dehydrate_node(getattr(node, field.name))
-                for field in fields(node)
-            },
-        }
-    if isinstance(node, tuple) and hasattr(node, "_fields"):
-        return {
-            "type": "namedtuple",
-            "path": _callable_path(type(node)),
-            "fields": {
-                field: dehydrate_node(getattr(node, field)) for field in node._fields
-            },
-        }
-    if isinstance(node, tuple):
-        return {
-            "type": "tuple",
-            "items": [dehydrate_node(value) for value in node],
-        }
-    if isinstance(node, partial):
-        return {
-            "type": "partial",
-            "func": dehydrate_node(node.func),
-            "args": dehydrate_node(node.args),
-            "kwargs": dehydrate_node(node.keywords or {}),
-        }
-    constructed = _dehydrate_constructed_instance(node)
-    if constructed is not None:
-        return constructed
-    if callable(node):
-        return {"type": "callable", "path": _callable_path(node)}
-    if isinstance(node, dict):
-        return {str(key): dehydrate_node(value) for key, value in node.items()}
-    if isinstance(node, (list, np.ndarray, np.generic)):
-        return canonicalize_node(node)
-    if hasattr(node, "tolist") and not isinstance(node, (str, bytes)):
-        try:
-            return canonicalize_node(node.tolist())
-        except Exception:
-            pass
-    if isinstance(node, (str, int, float, bool)) or node is None:
-        return node
-    raise TypeError(f"Unsupported node for dehydration: {type(node)!r}")
-
-
-def dehydrate_hashed(node: Any) -> dict[str, Any]:
-    dehydrated = dehydrate_node(node)
-    if not isinstance(dehydrated, dict):
-        raise TypeError(
-            "dehydrate_hashed requires an object that dehydrates to a dict."
-        )
-    return {**dehydrated, HASH_KEY: spec_hash(dehydrated)}
-
-
-def dehydrate_spec(spec: SimulationSpec) -> dict[str, Any]:
-    result = {}
-    for field in fields(spec):
-        value = getattr(spec, field.name)
-        if value is None and field.default is None:
-            continue
-        result[field.name] = dehydrate_node(value)
-    return result
-
-
-def dehydrate_simulation_semantics(spec: SimulationSpec) -> dict[str, Any]:
-    return {
-        "design_sampler": dehydrate_node(spec.design_sampler),
-        "effect_sampler": dehydrate_node(spec.effect_sampler),
-        "intercept": dehydrate_node(spec.intercept),
-        "f0": dehydrate_node(spec.f0),
-        "f1": dehydrate_node(spec.f1),
-        "base_seed": dehydrate_node(spec.base_seed),
-    }
-
-
-def rehydrate_node(node: Any) -> Any:
-    if isinstance(node, list):
-        return [rehydrate_node(value) for value in node]
-    if not isinstance(node, dict):
-        return node
-    if HASH_KEY in node:
-        node = {key: value for key, value in node.items() if key != HASH_KEY}
-
-    node_type = node.get("type")
-    if node_type == "callable":
-        return _load_callable(node["path"])
-    if node_type == "partial":
-        func = rehydrate_node(node["func"])
-        args = rehydrate_node(node["args"])
-        kwargs = rehydrate_node(node["kwargs"])
-        if node.get("call", False):
-            return func(*args, **kwargs)
-        return partial(func, *args, **kwargs)
-    if node_type == "tuple":
-        return tuple(rehydrate_node(value) for value in node["items"])
-    if node_type == "dataclass":
-        dataclass_type = _load_callable(node["path"])
-        values = {
-            key: rehydrate_node(value) for key, value in node.get("fields", {}).items()
-        }
-        return dataclass_type(**values)
-    if node_type == "namedtuple":
-        namedtuple_type = _load_callable(node["path"])
-        fields = {
-            key: rehydrate_node(value) for key, value in node.get("fields", {}).items()
-        }
-        return namedtuple_type(**fields)
-    return {key: rehydrate_node(value) for key, value in node.items()}
-
-
-def rehydrate_spec(node: dict[str, Any]) -> SimulationSpec:
-    canonical_node = canonicalize_node(node)
-    return SimulationSpec(
-        name=str(canonical_node["name"]),
-        design_sampler=rehydrate_node(canonical_node["design_sampler"]),
-        effect_sampler=rehydrate_node(canonical_node["effect_sampler"]),
-        intercept=float(canonical_node["intercept"]),
-        f0=rehydrate_node(canonical_node["f0"]),
-        f1=rehydrate_node(canonical_node["f1"]),
-        base_seed=int(canonical_node["base_seed"]),
-        error_sampler=rehydrate_node(canonical_node["error_sampler"])
-            if "error_sampler" in canonical_node else None,
-    )
-
-
 def canonical_json_bytes(node: Any) -> bytes:
+    """Stable JSON serialization for plain-Python coordinate dicts."""
     return json.dumps(
-        canonicalize_node(node),
+        node,
         sort_keys=True,
         separators=(",", ":"),
         ensure_ascii=True,
@@ -834,49 +601,3 @@ def canonical_json_bytes(node: Any) -> bytes:
 
 def spec_hash(spec_node: dict[str, Any]) -> str:
     return hashlib.sha256(canonical_json_bytes(spec_node)).hexdigest()
-
-
-def _iter_specs(
-    specs: Iterable[SimulationSpec] | Mapping[str, SimulationSpec],
-) -> Iterable[SimulationSpec]:
-    if isinstance(specs, Mapping):
-        return specs.values()
-    return specs
-
-
-def build_hash_registry(
-    specs: Iterable[SimulationSpec] | Mapping[str, SimulationSpec],
-) -> dict[str, SimulationSpec]:
-    registry: dict[str, SimulationSpec] = {}
-    semantics_by_hash: dict[str, dict[str, Any]] = {}
-    for spec in _iter_specs(specs):
-        digest = spec_hash(dehydrate_spec(spec))
-        semantics = canonicalize_node(dehydrate_spec(spec))
-        if digest in semantics_by_hash and semantics_by_hash[digest] != semantics:
-            raise ValueError(f"Inconsistent semantic spec for hash {digest}")
-        semantics_by_hash.setdefault(digest, semantics)
-        registry.setdefault(digest, spec)
-    return registry
-
-
-def build_alias_registry(
-    specs: Iterable[SimulationSpec] | Mapping[str, SimulationSpec],
-) -> dict[str, str]:
-    if isinstance(specs, Mapping):
-        registry: dict[str, str] = {}
-        for alias, spec in specs.items():
-            if alias in registry:
-                raise ValueError(f"Duplicate alias: {alias}")
-            registry[alias] = spec_hash(dehydrate_spec(spec))
-        return registry
-
-    registry: dict[str, str] = {}
-    raise TypeError(
-        "build_alias_registry now requires an alias-to-spec mapping, not bare specs."
-    )
-
-
-def alias_to_hash_mapping(
-    simulation_dispatch: Mapping[str, SimulationSpec],
-) -> dict[str, str]:
-    return build_alias_registry(simulation_dispatch)
