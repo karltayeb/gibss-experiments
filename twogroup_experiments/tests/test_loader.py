@@ -305,3 +305,46 @@ def test_reduction_inputs_fixed_set():
         "results/by_batch/BH/simulations.parquet",
         "results/by_batch/BH/sample_metadata.parquet",
     ]
+
+
+# ---------------------------------------------------------------------------
+# P4.1 — predicates module + method_filter/simulation_filter as predicates
+# ---------------------------------------------------------------------------
+
+from experiments import predicates
+
+
+def test_predicates():
+    assert predicates.is_twogroup({"function": "run_twogroup_method"})
+    assert not predicates.is_twogroup({"function": "run_cox_method"})
+    assert predicates.has_causal({"enrichment": {"arguments": {"causal_effect": 2.0}}})
+    assert not predicates.has_causal({"enrichment": {"arguments": {"causal_effect": 0.0}}})
+
+
+def test_method_filter_predicate_selects_twogroup_only():
+    """analysis_inputs for an analysis whose reduction uses method_filter: is_twogroup
+    must yield only paths whose method coord has function == run_twogroup_method."""
+    cfg = loader.load_config(FIXTURE_DIR)
+    manifest = loader.manifest_dict(cfg["library"], cfg)
+    # f1 reduction has method_filter: is_twogroup in fixture library; use f1_boxplot
+    # fixture library only has pip, so we test via a custom lib with is_twogroup filter
+    # Instead verify via collection_method_pairs that filtered pairs are twogroup-only.
+    library = cfg["library"]
+    library["reductions"]["pip_twogroup_only"] = {
+        "function": "build_pip_plot_data",
+        "method_filter": "is_twogroup",
+    }
+    library["analyses"]["pip_twogroup_only_calibration"] = {
+        "requires": ["pip_twogroup_only"],
+    }
+    inputs = loader.analysis_inputs(cfg, manifest, "fixture-sc", "pip_twogroup_only_calibration")
+    # all paths should contain the twogroup method hash, not cox
+    all_methods = loader.all_methods(cfg)
+    twogroup_coords = [c for c in all_methods.values() if c["function"] == "run_twogroup_method"]
+    cox_coords = [c for c in all_methods.values() if c["function"] == "run_cox_method"]
+    twogroup_hashes = {loader.method_hash(c) for c in twogroup_coords}
+    cox_hashes = {loader.method_hash(c) for c in cox_coords}
+    # every path must contain a twogroup hash
+    assert all(any(mh in p for mh in twogroup_hashes) for p in inputs)
+    # no path should contain a cox hash
+    assert not any(any(mh in p for mh in cox_hashes) for p in inputs)

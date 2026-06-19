@@ -12,6 +12,7 @@ import yaml
 
 import core
 from core import spec_hash
+from experiments import predicates as _predicates
 from gibss import distributions as _distributions
 from utils import BatchSpec
 from viz_utils import (make_method_display_label, method_family_label_map,
@@ -28,6 +29,13 @@ def resolve_callable(name: str) -> Any:
     if not hasattr(core, name):
         raise KeyError(f"Unknown callable in core: {name!r}")
     return getattr(core, name)
+
+
+def resolve_predicate(name: str):
+    """Resolve a predicate function from experiments.predicates by name."""
+    if not hasattr(_predicates, name):
+        raise KeyError(f"Unknown predicate in experiments.predicates: {name!r}")
+    return getattr(_predicates, name)
 
 
 def resolve_distribution(node: dict[str, Any]) -> Any:
@@ -339,11 +347,19 @@ def reduction_method_filter(library: dict[str, Any], reduction: str) -> str | No
     return library["reductions"][reduction].get("method_filter")
 
 
+def analysis_simulation_filter(library: dict[str, Any], analysis: str) -> str | None:
+    return library["analyses"][analysis].get("simulation_filter")
+
+
 def _method_hashes(methods: dict[str, dict]) -> dict[str, str]:
     return {c["name"]: method_hash(c) for c in methods.values()}
 
 
 def collection_method_pairs(config: dict[str, Any], sc_name: str) -> dict[str, dict]:
+    """Return per-collection dicts with 'alias' and 'pairs'.
+
+    Each pair is (batch_hash, method_hash, method_name, method_coord, sim_coordinate).
+    """
     library = config["library"]
     sc = config["supercollections"][sc_name]
     methods = resolve_methods_for_sc(library, sc)
@@ -351,10 +367,12 @@ def collection_method_pairs(config: dict[str, Any], sc_name: str) -> dict[str, d
     out: dict[str, dict] = {}
     for coll in supercollection_collections(library, sc_name, sc):
         pairs = []
-        for spec in coll["simulations"]:
+        for member, spec in zip(coll["coordinates"], coll["simulations"]):
+            sim_coord = member["coordinate"]
             for bh in batch_hashes_for_simulation(library, spec):
                 for mname, mh in mhash.items():
-                    pairs.append((bh, mh, mname))
+                    mcoord = methods[mname]
+                    pairs.append((bh, mh, mname, mcoord, sim_coord))
         out[coll["name"]] = {"alias": coll["alias"], "pairs": pairs}
     return out
 
@@ -363,14 +381,19 @@ def analysis_inputs(config: dict[str, Any], manifest: dict[str, Any],
                     sc_name: str, analysis: str) -> list[str]:
     library = config["library"]
     requires = library["analyses"][analysis].get("requires", [])
+    sim_filter_name = analysis_simulation_filter(library, analysis)
+    sim_pred = resolve_predicate(sim_filter_name) if sim_filter_name is not None else None
     cmp = collection_method_pairs(config, sc_name)
     paths: list[str] = []
     seen: set[str] = set()
     for reduction in requires:
-        mfilter = reduction_method_filter(library, reduction)
+        mfilter_name = reduction_method_filter(library, reduction)
+        method_pred = resolve_predicate(mfilter_name) if mfilter_name is not None else None
         for coll in cmp.values():
-            for bh, mh, mname in coll["pairs"]:
-                if mfilter is not None and not mname.split("__")[0].startswith(mfilter):
+            for bh, mh, mname, mcoord, sim_coord in coll["pairs"]:
+                if method_pred is not None and not method_pred(mcoord):
+                    continue
+                if sim_pred is not None and not sim_pred(sim_coord):
                     continue
                 p = reduction_output(bh, mh, reduction)
                 if p not in seen:
@@ -399,18 +422,23 @@ def analysis_function(config: dict[str, Any], analysis: str):
 
 
 def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
-                   results_root: str = RESULTS_ROOT) -> dict[str, Any]:
+                   results_root: str = RESULTS_ROOT,
+                   simulation_filter: str | None = None) -> dict[str, Any]:
     library = config["library"]
     cmp = collection_method_pairs(config, sc_name)
     bundle: dict[str, Any] = {}
     collection_names = [info["alias"] for info in cmp.values()]
+    sim_pred = resolve_predicate(simulation_filter) if simulation_filter is not None else None
     for reduction in requires:
-        mfilter = reduction_method_filter(library, reduction)
+        mfilter_name = reduction_method_filter(library, reduction)
+        method_pred = resolve_predicate(mfilter_name) if mfilter_name is not None else None
         frames = []
         for info in cmp.values():
             sub = []
-            for bh, mh, mname in info["pairs"]:
-                if mfilter is not None and not mname.split("__")[0].startswith(mfilter):
+            for bh, mh, mname, mcoord, sim_coord in info["pairs"]:
+                if method_pred is not None and not method_pred(mcoord):
+                    continue
+                if sim_pred is not None and not sim_pred(sim_coord):
                     continue
                 path = f"{results_root}/{reduction_output(bh, mh, reduction).split('/', 1)[1]}"
                 df = pl.read_parquet(path)

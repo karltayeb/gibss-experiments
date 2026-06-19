@@ -117,20 +117,20 @@ reductions:
     function: build_cs_plot_data
   f1:
     function: build_f1_plot_data
-    method_filter: twogroup
+    method_filter: is_twogroup
   enrich:
     function: build_enrich_plot_data
-    method_filter: twogroup
+    method_filter: is_twogroup
 
 analyses:
   pip_calibration:         {requires: [pip]}
   agg_pip_calibration:     {requires: [pip]}
   power_fdp:               {requires: [pip]}
   agg_power_fdp:           {requires: [pip]}
-  causal_pip:              {requires: [pip]}
-  agg_causal_pip:          {requires: [pip]}
-  mass_above_causal:       {requires: [pip]}
-  agg_mass_above_causal:   {requires: [pip]}
+  causal_pip:              {requires: [pip], simulation_filter: has_causal}
+  agg_causal_pip:          {requires: [pip], simulation_filter: has_causal}
+  mass_above_causal:       {requires: [pip], simulation_filter: has_causal}
+  agg_mass_above_causal:   {requires: [pip], simulation_filter: has_causal}
   cs_power_fdp:            {requires: [cs]}
   agg_cs_power_fdp:        {requires: [cs]}
   cs_size_power:           {requires: [cs]}
