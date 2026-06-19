@@ -117,6 +117,9 @@ reductions:
   f1:
     function: build_f1_plot_data
     needs: {fits: true, method_filter: twogroup}
+  enrich:
+    function: build_enrich_plot_data
+    needs: {fits: true, method_filter: twogroup}
 
 analyses:
   pip_calibration:         {requires: [pip]}
@@ -144,7 +147,7 @@ analyses:
   agg_log_bf_roc:          {requires: [cs]}
   f1_boxplot:              {requires: [f1]}
   f1_scatter:              {requires: [f1]}
-  f1_enrich_scatter:       {requires: [f1]}
+  f1_enrich_scatter:       {requires: [enrich]}
 
 analysis_groups:
   pip: [pip_calibration, agg_pip_calibration, power_fdp, agg_power_fdp]
