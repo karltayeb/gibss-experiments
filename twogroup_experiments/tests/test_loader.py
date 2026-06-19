@@ -44,8 +44,8 @@ def _library_for_tests():
 
 def test_resolve_simulation_builds_spec_and_name():
     lib = _library_for_tests()
-    spec, name = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian")
-    assert name == "gaussian_p100__ser_b2__loc_2.0"
+    spec = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian")
+    assert spec.name == "gaussian_p100__ser_b2__loc_2.0"
     assert spec.intercept == -2.0
     assert spec.base_seed == 20260501
     assert spec.error_sampler is None
@@ -57,8 +57,8 @@ def test_resolve_simulation_builds_spec_and_name():
 
 def test_resolve_simulation_nongaussian_error_in_name():
     lib = _library_for_tests()
-    spec, name = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "t_df_5")
-    assert name == "gaussian_p100__ser_b2__loc_2.0__t_df_5"
+    spec = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "t_df_5")
+    assert spec.name == "gaussian_p100__ser_b2__loc_2.0__t_df_5"
     assert spec.error_sampler is not None
     assert spec.error_sampler.keywords == {"df": 5}
 
@@ -102,11 +102,11 @@ def test_library_methods_expands_all_entries():
 
 def test_manifest_dict_shape():
     lib = _library_for_tests()
-    spec, name = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian")
+    spec = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian")
     method = loader.expand_method("cox_heavy",
         {"function": "run_cox_method", "template": {"threshold": None, "time_sign": 1.0},
          "over": {"L": [1]}})[0]
-    manifest = loader.manifest_dict(lib, {name: spec}, {method.name: method})
+    manifest = loader.manifest_dict(lib, {spec.name: spec}, {method.name: method})
     assert set(manifest) == {"batches", "method_specs"}
     (batch_hash, batch_node), = manifest["batches"].items()
     assert batch_node["__spec_hash__"] == batch_hash
@@ -208,6 +208,15 @@ def test_load_sc_bundle_tags_collections(tmp_path):
     bundle = loader.load_sc_bundle(cfg, "fixture-sc", ["pip"], results_root=str(results))
     assert "pip_plot_data" in bundle and "method_metadata" in bundle
     assert set(bundle["pip_plot_data"]["collection_name"].unique().to_list()) == {"loc_2.0"}
+
+
+def test_resolve_simulation_sets_hash_and_fields():
+    lib = _library_for_tests()
+    spec = loader.resolve_simulation(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian")
+    assert spec.hash == loader.sim_hash(loader.simulation_coordinate(lib, "gaussian_p100", "ser_b2", "loc_2.0", "gaussian"))
+    assert spec.design_sampler.func.__name__ == "gaussian_markov_X"
+    assert spec.error_sampler is None
+    assert spec.name == "gaussian_p100__ser_b2__loc_2.0"
 
 
 def test_simulation_coordinate_and_hash_stable():

@@ -43,28 +43,22 @@ def _partial_from_entry(entry: dict[str, Any]):
 
 
 def resolve_simulation(library: dict[str, Any], design: str, enrichment: str,
-                       signal: str, error: str) -> tuple[core.SimulationSpec, str]:
-    design_entry = library["designs"][design]
-    enrich_entry = library["enrichments"][enrichment]
-    signal_entry = library["signals"][signal]
-    error_entry = library["errors"][error]
-
-    name = f"{design}__{enrichment}__{signal}"
-    if error != "gaussian":
-        name = f"{name}__{error}"
-
-    error_sampler = None if error_entry is None else _partial_from_entry(error_entry)
-    spec = core.SimulationSpec(
+                       signal: str, error: str) -> core.SimulationSpec:
+    coord = simulation_coordinate(library, design, enrichment, signal, error)
+    enrich = coord["enrichment"]
+    sig = coord["signal"]
+    name = f"{design}__{enrichment}__{signal}" + ("" if error == "gaussian" else f"__{error}")
+    return core.SimulationSpec(
+        design_sampler=_partial_from_entry(coord["design"]),
+        effect_sampler=_partial_from_entry(enrich),
+        intercept=float(enrich["intercept"]),
+        f0=resolve_distribution(sig["f0"]),
+        f1=resolve_distribution(sig["f1"]),
+        error_sampler=None if coord["error"] is None else _partial_from_entry(coord["error"]),
+        base_seed=coord["base_seed"],
+        hash=sim_hash(coord),
         name=name,
-        design_sampler=_partial_from_entry(design_entry),
-        effect_sampler=_partial_from_entry(enrich_entry),
-        intercept=float(enrich_entry["intercept"]),
-        f0=resolve_distribution(signal_entry["f0"]),
-        f1=resolve_distribution(signal_entry["f1"]),
-        base_seed=int(library["defaults"]["base_seed"]),
-        error_sampler=error_sampler,
     )
-    return spec, name
 
 
 def format_over_value(value: Any) -> str:
@@ -143,7 +137,7 @@ def _as_list(value: Any) -> list:
 def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) -> list[dict]:
     if "simulations" in block:  # explicit one-off
         sims = [resolve_simulation(library, s["design"], s["enrichment"],
-                                   s["signal"], s.get("error", "gaussian"))[0]
+                                   s["signal"], s.get("error", "gaussian"))
                 for s in block["simulations"]]
         return [{"name": block["name"], "alias": block.get("alias", block["name"]), "simulations": sims}]
 
@@ -160,7 +154,7 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
         sims = []
         for d, e, s, err in itertools.product(member_lists["design"], member_lists["enrichment"],
                                               member_lists["signal"], member_lists["error"]):
-            sims.append(resolve_simulation(library, d, e, s, err)[0])
+            sims.append(resolve_simulation(library, d, e, s, err))
         suffix = "".join(f"__{k}={over_map[k]}" for k in over_keys)
         name = f"{sc_name}{suffix}" if over_keys else sc_name
         alias = block.get("alias") or "__".join(str(over_map[k]) for k in over_keys) or sc_name

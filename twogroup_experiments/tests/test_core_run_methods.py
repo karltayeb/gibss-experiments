@@ -12,13 +12,15 @@ def _tiny_simulation():
     from functools import partial
     from gibss.distributions import Normal, PointMass
     spec = SimulationSpec(
-        name="tiny",
         design_sampler=partial(core.gaussian_markov_X, n=30, p=8, rho=0.5),
         effect_sampler=partial(core.uniform_single_effect, causal_effect=2.0),
         intercept=-1.0,
         f0=PointMass(0.0),
         f1=Normal(loc=2.0, scale=0.1, estimate_loc=False, estimate_scale=False),
+        error_sampler=None,
         base_seed=1,
+        hash="tinyhash",
+        name="tiny",
     )
     return simulate(spec, 0)
 

@@ -18,16 +18,17 @@ from gseasusie.genesets import load_gene_sets
 HASH_KEY = "__spec_hash__"
 
 
-@dataclass(frozen=True)
+@dataclass
 class SimulationSpec:
-    name: str
     design_sampler: Any
     effect_sampler: Any
     intercept: float
     f0: Any
     f1: Any
+    error_sampler: Any
     base_seed: int
-    error_sampler: Any = None
+    hash: str
+    name: str = ""
 
 
 @dataclass(frozen=True)
@@ -97,10 +98,6 @@ def _distribution_struct(distribution: Any) -> dict[str, Any]:
     return base
 
 
-def simulation_hash(simulation_spec: SimulationSpec) -> str:
-    return spec_hash(dehydrate_spec(simulation_spec))
-
-
 def replicate_seed(base_seed: int, simulation_hash: str, replicate: int) -> int:
     digest = hashlib.sha256(
         f"{int(base_seed)}:{simulation_hash}:{int(replicate)}".encode("ascii")
@@ -118,9 +115,8 @@ def simulate(simulation_spec: SimulationSpec, replicate: int):
     - realized simulations are regenerated on demand rather than cached.
     - fit results, not simulations, are the intended cache boundary.
     """
-    sim_hash = simulation_hash(simulation_spec)
     rng = np.random.default_rng(
-        replicate_seed(simulation_spec.base_seed, sim_hash, int(replicate))
+        replicate_seed(simulation_spec.base_seed, simulation_spec.hash, int(replicate))
     )
     X = simulation_spec.design_sampler(rng)
     causal_indices, causal_effects = simulation_spec.effect_sampler(X, rng)
