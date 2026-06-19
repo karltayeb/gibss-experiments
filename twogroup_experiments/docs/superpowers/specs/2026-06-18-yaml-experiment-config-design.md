@@ -239,9 +239,10 @@ resolution (hashes are).
 
 Two distinct aggregation levels exist today and map directly onto this model:
 
-- **Level 1 — within-collection pooling.** The snakefile `collection_*` rules build
-  one `plot_ready` bundle per collection by pooling *all member simulations'* fits.
-  This is expressed by **template lists**: `enrichment: [ser_b2, null_b0]` or
+- **Level 1 — within-collection pooling.** `load_sc_bundle` concatenates the atomic
+  reductions of *all of a collection's `(batch, method)` members* under one
+  `collection_name` tag, so the collection is treated as a single pooled unit. This is
+  expressed by **template lists**: `enrichment: [ser_b2, null_b0]` or
   `design: [hallmark, c4, gaussian_p100, uniform_p100]` produces a single collection
   whose members are pooled. (The old `t-error-agg-*` collections — one collection
   listing 4 designs — are exactly this.)
@@ -261,19 +262,36 @@ pools. No structural change to the plot layer's aggregation logic is required.
 Generalizes the fixed `collection_*_plot_data` rules + plot types into two pluggable,
 data-driven stages. Same `function`+args pattern as the rest of the config.
 
-- **reduction** (per *collection*): `function(inputs) -> dataframe`, written to a
-  cacheable parquet. The cache boundary. Declares `needs`:
-  - `simulations: true` — consume the collection's batch `simulations.parquet`.
-  - `fits: true` — consume the collection's `(batch x method)` `fits.parquet`,
-    optionally narrowed by a reduction-level `method_filter` (e.g. f1 = twogroup-only).
-  - `reductions: [name, ...]` — consume sibling reductions (e.g. `pip` needs
-    `sample_metadata`). Resolved by the same generic rule with a different wildcard.
+**Reductions are fit-level (atomic), not collection-level.** A reduction runs over a
+single `by_batch` atomic unit and is content-addressed there, so a `(batch, method)`
+fit shared by many collections is reduced **once** and reused everywhere. Collections
+are **purely logical** — a set of `(batch, method)` pairs + alias — and are assembled
+by an in-memory concat at analysis time. There is no `collections/.../reductions/` dir
+and no collection-level cache.
+
+- **reduction** (atomic): `function(inputs) -> dataframe`, written next to the atomic
+  unit. Declares `needs`, which also fixes its **scope**:
+  - `simulations: true` → **per-batch** scope, output
+    `by_batch/<batch_hash>/reductions/<reduction>.parquet`.
+  - `fits: true` → **per-(batch,method)** scope, output
+    `by_batch/<batch_hash>/fits/<method_hash>/reductions/<reduction>.parquet`. (Whether
+    a method participates at all is the analysis-level `method_filter`; a reduction-
+    level `method_filter`, e.g. f1 = twogroup-only, restricts which methods this
+    reduction is even defined for.)
+  - `reductions: [name, ...]` → consume sibling atomic reductions at the same unit
+    (e.g. `pip` needs `sample_metadata` for the same batch). Same generic rule,
+    different wildcard, so edges resolve automatically.
   Reductions are **parameter-free by name**: a variant is a new named reduction (no
   args encoded in the path; consistent with 1:1 methods).
 - **analysis** (per *supercollection*): `function(bundle, args, output)` writes an
   artifact. Declares `requires: [reduction, ...]`. Output is **PDF for now**; an
   `output: pdf|csv|json` format field (tables/stats as peer artifacts) is a noted
   future extension, not built here.
+
+*Escape hatch (not built):* if a future reduction needs cross-fit context within a
+collection (e.g. ranking methods against each other), add a second declared
+`scope: collection` tier (map atomic, then reduce). None exist today — all current
+reductions are atomic + concat.
 
 ### Mapping to snakemake (two generic rules)
 
@@ -282,14 +300,15 @@ rules keyed by name-wildcards, with lambda input-functions consulting the loader
 replace the 8 hardcoded rules.
 
 ```python
-rule collection_reduction:
-    output: f"{ROOT}/collections/{{collection}}/reductions/{{reduction}}.parquet"
+# fit-scoped reduction (sim-scoped reduction is the analogous rule without method_hash)
+rule atomic_reduction:
+    output: f"{ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/reductions/{{reduction}}.parquet"
     input:
         sources = PLOT_READY_SOURCES,
-        deps = lambda wc: reduction_inputs(wc.collection, wc.reduction)
+        deps = lambda wc: reduction_inputs(wc.batch_hash, wc.method_hash, wc.reduction)
     run:
         fn = loader.reduction_function(wc.reduction)
-        write_parquet(fn(load_reduction_inputs(wc.collection, wc.reduction)), output[0])
+        write_parquet(fn(load_reduction_inputs(wc.batch_hash, wc.method_hash, wc.reduction)), output[0])
 
 rule supercollection_analysis:
     output: f"{ROOT}/supercollections/{{sc}}/{{analysis}}/{{args_name}}.pdf"
@@ -299,21 +318,22 @@ rule supercollection_analysis:
     run:
         fn   = loader.analysis_function(wc.analysis)
         args = loader.resolve_args(wc.sc, wc.analysis, wc.args_name)
-        bundle = load_sc_bundle(wc.sc, loader.analysis_requires(wc.analysis))  # concat + tag
+        bundle = load_sc_bundle(wc.sc, loader.analysis_requires(wc.analysis))  # gather+concat+tag
         fn(bundle, args=args, output=output[0])
 ```
 
-- `reduction_inputs(collection, reduction)` → by_batch sims/fits paths (per `needs`,
-  fits narrowed by reduction `method_filter`) + sibling-reduction parquet paths.
-  Reduction→reduction edges resolve automatically (same rule, different wildcard).
-- `analysis_inputs(sc, analysis)` → for each collection in the SC, for each reduction
-  in `analysis.requires`: `collections/<collection>/reductions/<r>.parquet`. **This is
-  the dependency-driven materialization** — only reductions some requested analysis
-  needs get built (no more "all 7 per collection").
-- The per-supercollection **combine** (concat collections, tag `collection_name`) stays
-  in-memory in `load_sc_bundle` at render — no separate rule, matching today's
-  `_load_supercollection_data`. agg vs non-agg analyses pool/facet this bundle (see
-  Aggregation levels).
+- `reduction_inputs(...)` → the atomic unit's `simulations.parquet`/`fits.parquet`
+  (per `needs`) + sibling-reduction parquets at the same unit.
+- `analysis_inputs(sc, analysis)` → for each collection in the SC, for each
+  `(batch, method)` in the collection (methods ∩ analysis `method_filter`), for each
+  reduction in `analysis.requires`: the atomic reduction parquet. **This is the
+  dependency-driven materialization** — only the reductions a requested analysis
+  declares get built, and each atomic reduction is shared across every collection/SC
+  that references that fit.
+- `load_sc_bundle` (in-memory, no rule): for each collection, gather its atomic
+  reduction parquets, concat, tag `collection_name=alias`; then concat across
+  collections. Replaces `_load_supercollection_data`. agg vs non-agg analyses
+  pool/facet this bundle (see Aggregation levels).
 - `args_name` is the output entry's `name`; `resolve_args` merges SC `default_args`
   with the entry's `args`. `method_filter` is render-time foreground selection.
 
@@ -362,7 +382,7 @@ Pure-Python module, no snakemake dependency, unit-testable:
 - Content-addressed rules (`materialize_*`, `fit_*`) unchanged — still hash-keyed via
   the manifest and `core.rehydrate_node`.
 - Replace the 7 `collection_*_plot_data`/metadata rules + `supercollection_plot` with
-  the **two generic rules** `collection_reduction` and `supercollection_analysis`
+  the **two generic rules** `atomic_reduction` and `supercollection_analysis`
   (see Reductions + analyses layer). `twogroup_experiments_target`/
   `materialize_supercollection`/`all_plots` rebuild their target lists from
   `_resolve_sc_analyses` (analysis × args_name) instead of the fixed 7-parquet +
@@ -448,10 +468,12 @@ the reductions + analyses these supercollections use). Remaining files (001, 002
   paths per `needs`; `analysis_inputs` returns only `requires` reductions (assert an
   unrequested reduction is NOT in the DAG — the dependency-driven win).
 - Snakemake dry-run (`-n`) on the migrated `003`/`000` supercollections: DAG resolves,
-  expected `by_batch`/`collections/reductions`/`supercollections` targets enumerated.
+  expected `by_batch` reduction + `supercollections` targets enumerated.
 - One end-to-end tiny fit (single replicate) through `materialize` → `fit` →
-  `collection_reduction` → `supercollection_analysis` to confirm rehydration + the two
+  `atomic_reduction` → `supercollection_analysis` to confirm rehydration + the two
   generic rules work against loader-emitted manifest nodes.
+- Atomic reduction reuse: a fit shared by two collections produces exactly one
+  reduction parquet (one job), referenced by both.
 
 ## Future work (not in this spec)
 
