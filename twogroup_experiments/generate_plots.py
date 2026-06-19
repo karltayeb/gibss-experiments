@@ -44,7 +44,15 @@ def make_plot(
     cfg = _load_plot_config()
     settings = _resolve_settings(cfg, supercollection, plot_settings)
     combined_data = _load_supercollection_data(cfg, supercollection)
-    fig = _PLOT_DISPATCH[plot_type](combined_data, settings)
+    fig = ANALYSIS_RENDERERS[plot_type](combined_data, settings)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, bbox_inches="tight")
+    plt.close(fig)
+
+
+def render_analysis(bundle: dict, args: dict, analysis: str, output_path: str) -> None:
+    """Render a single analysis type and save to output_path."""
+    fig = ANALYSIS_RENDERERS[analysis](bundle, args)
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output_path, bbox_inches="tight")
     plt.close(fig)
@@ -106,26 +114,10 @@ def _load_supercollection_data(cfg: dict, supercollection: str) -> dict:
     }
 
 
-def _selected_thresholds(settings: dict) -> list[float] | None:
-    if "thresholds" in settings:
-        val = settings["thresholds"]
-        return [float(t) for t in val] if val else None
-    if "threshold" in settings:
-        return [float(settings["threshold"])]
-    return None
-
-
 def _foreground_methods(method_metadata: pl.DataFrame, settings: dict) -> set[str]:
-    thresholds = _selected_thresholds(settings)
-    method_families = settings.get("method_families")
-    threshold_mask = (
-        ~pl.col("is_thresholded")
-        | (pl.lit(True) if thresholds is None else pl.col("threshold").is_in(thresholds))
-    )
-    df = method_metadata.filter(threshold_mask)
-    if method_families is not None:
-        df = df.filter(pl.col("method_family").is_in(method_families))
-    return set(df["method"].to_list())
+    requested = set(settings.get("method_filter", []))
+    present = set(method_metadata["method"].to_list())
+    return requested & present
 
 
 def _method_order(method_metadata: pl.DataFrame, foreground: set[str]) -> list[str]:
@@ -145,7 +137,6 @@ def _make_pip_calibration(combined_data: dict, settings: dict) -> plt.Figure:
     summary = viz_utils.expand_pip_calibration_from_compact(
         pip_plot.filter(pl.col("method").is_in(fg)),
         method_meta,
-        selected_thresholds=_selected_thresholds(settings),
     )
     if summary.is_empty():
         return viz_utils.make_placeholder_chart("No PIP calibration data")
@@ -165,7 +156,6 @@ def _make_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
         pip_plot,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
     )
     if power_fdp.is_empty():
         return viz_utils.make_placeholder_chart("No power/FDP data")
@@ -229,7 +219,6 @@ def _make_preceding_posterior_mass_ecdf(combined_data: dict, settings: dict) -> 
     summary = viz_utils.make_preceding_mass_ecdf_summary(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
     )
     return viz_utils.render_preceding_mass_ecdf_chart(
         summary, collection_names=combined_data["collection_names"]
@@ -245,7 +234,6 @@ def _make_agg_preceding_posterior_mass_ecdf(combined_data: dict, settings: dict)
     summary = viz_utils.make_preceding_mass_ecdf_summary(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
     )
     return viz_utils.render_preceding_mass_ecdf_chart(summary, collection_names=[])
 
@@ -288,7 +276,6 @@ def _make_cs_dot_summary(combined_data: dict, settings: dict) -> plt.Figure:
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -315,11 +302,10 @@ def _make_cs_calibrated_dot(combined_data: dict, settings: dict) -> plt.Figure:
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
-    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_adaptive_cs_dot_chart(
         calibrated,
         collection_names=collection_names,
@@ -341,11 +327,10 @@ def _make_agg_cs_calibrated_dot(combined_data: dict, settings: dict) -> plt.Figu
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
-    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_adaptive_cs_dot_chart(
         calibrated,
         collection_names=[],
@@ -367,12 +352,11 @@ def _make_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
     nominal = beta_summary.filter(pl.col("beta") == round(min_beta, 2))
-    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_cs_size_power_chart(
         nominal,
         calibrated,
@@ -396,7 +380,6 @@ def _make_cs_radius_power(combined_data: dict, settings: dict) -> plt.Figure:
     radius_summary = viz_utils.make_cs_radius_power_summary(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -404,7 +387,6 @@ def _make_cs_radius_power(combined_data: dict, settings: dict) -> plt.Figure:
     calibrated = viz_utils.find_calibrated_radius_summary(
         radius_summary, cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         target_coverage=min_beta,
         min_ser_log_bf=min_log_bf,
     )
@@ -524,17 +506,12 @@ def _cs_power_fdp_filtered_raw(
 ) -> pl.DataFrame | None:
     cs_data = combined_data.get("cs_plot_data", pl.DataFrame())
     method_meta = combined_data["method_metadata"]
-    thresholds = _selected_thresholds(settings)
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return None
-    _thresh_mask = (
-        pl.col("threshold").is_null()
-        | (pl.lit(True) if thresholds is None else pl.col("threshold").is_in(thresholds))
-    )
     raw = (
         cs_data
-        .filter(pl.col("method").is_in(fg) & _thresh_mask)
+        .filter(pl.col("method").is_in(fg))
         .join(
             method_meta.select("method", "threshold", "method_display", "is_thresholded"),
             on=["method", "threshold"],
@@ -592,14 +569,12 @@ def _make_cs_power_size_coverage_trace(combined_data: dict, settings: dict) -> p
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
     return viz_utils.render_cs_power_size_coverage_trace_chart(
         beta_summary,
         collection_names=collection_names,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -617,7 +592,6 @@ def _make_agg_pip_calibration(combined_data: dict, settings: dict) -> plt.Figure
     summary = viz_utils.expand_pip_calibration_from_compact(
         pip_plot.filter(pl.col("method").is_in(fg)),
         method_meta,
-        selected_thresholds=_selected_thresholds(settings),
     )
     if summary.is_empty():
         return viz_utils.make_placeholder_chart("No PIP calibration data")
@@ -647,7 +621,6 @@ def _make_agg_power_fdp(combined_data: dict, settings: dict) -> plt.Figure:
         pip_plot,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         aggregate_across_collections=True,
     )
     if power_fdp.is_empty():
@@ -788,7 +761,6 @@ def _make_agg_cs_power_size_coverage_trace(combined_data: dict, settings: dict) 
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -796,7 +768,6 @@ def _make_agg_cs_power_size_coverage_trace(combined_data: dict, settings: dict) 
     return viz_utils.render_cs_power_size_coverage_trace_chart(
         beta_summary,
         collection_names=[],
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -815,14 +786,12 @@ def _make_cs_coverage_trace(combined_data: dict, settings: dict) -> plt.Figure:
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
     return viz_utils.render_cs_coverage_trace_chart(
         beta_summary,
         collection_names=collection_names,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -840,14 +809,12 @@ def _make_agg_cs_coverage_trace(combined_data: dict, settings: dict) -> plt.Figu
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
     return viz_utils.render_cs_coverage_trace_chart(
         beta_summary,
         collection_names=[],
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -860,7 +827,7 @@ def _make_cs_coverage_size(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS beta trace data")
-    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings))
+    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg)
     return viz_utils.render_cs_coverage_size_chart(curves, collection_names=collection_names)
 
 
@@ -870,7 +837,7 @@ def _make_agg_cs_coverage_size(combined_data: dict, settings: dict) -> plt.Figur
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS beta trace data")
-    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings))
+    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg)
     fig = viz_utils.render_cs_coverage_size_chart(curves, collection_names=[])
     _set_agg_facecolor(fig)
     return fig
@@ -889,7 +856,6 @@ def _make_cs_coverage_radius(combined_data: dict, settings: dict) -> plt.Figure:
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -908,7 +874,6 @@ def _make_agg_cs_coverage_radius(combined_data: dict, settings: dict) -> plt.Fig
         cs_data,
         method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -924,7 +889,7 @@ def _make_cs_calibration(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS beta trace data")
-    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings))
+    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg)
     return viz_utils.render_cs_calibration_chart(curves, collection_names=collection_names)
 
 
@@ -934,7 +899,7 @@ def _make_agg_cs_calibration(combined_data: dict, settings: dict) -> plt.Figure:
     fg = _foreground_methods(method_meta, settings)
     if cs_data.is_empty():
         return viz_utils.make_placeholder_chart("No CS beta trace data")
-    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings))
+    curves = viz_utils.make_cs_coverage_size_curves(cs_data, method_meta, selected_methods=fg)
     fig = viz_utils.render_cs_calibration_chart(curves, collection_names=[])
     _set_agg_facecolor(fig)
     return fig
@@ -949,7 +914,6 @@ def _make_log_bf_roc(combined_data: dict, settings: dict) -> plt.Figure:
     roc_curves = viz_utils.make_log_bf_roc_curves(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
     )
     return viz_utils.render_log_bf_roc_chart(roc_curves)
 
@@ -963,7 +927,6 @@ def _make_agg_log_bf_roc(combined_data: dict, settings: dict) -> plt.Figure:
     roc_curves = viz_utils.make_log_bf_roc_curves(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
     )
     fig = viz_utils.render_log_bf_roc_chart(roc_curves)
     _set_agg_facecolor(fig)
@@ -979,7 +942,6 @@ def _make_log_bf_ser_ecdf(combined_data: dict, settings: dict) -> plt.Figure:
     ecdf_data = viz_utils.make_log_bf_ser_ecdf(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
     )
     return viz_utils.render_log_bf_ser_ecdf_chart(ecdf_data, collection_names=combined_data["collection_names"])
 
@@ -993,7 +955,6 @@ def _make_agg_log_bf_ser_ecdf(combined_data: dict, settings: dict) -> plt.Figure
     ecdf_data = viz_utils.make_log_bf_ser_ecdf(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
     )
     fig = viz_utils.render_log_bf_ser_ecdf_chart(ecdf_data, collection_names=[])
     _set_agg_facecolor(fig)
@@ -1012,12 +973,11 @@ def _make_agg_cs_size_power(combined_data: dict, settings: dict) -> plt.Figure:
     beta_summary = viz_utils.make_cs_power_size_coverage_summary(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
     nominal = beta_summary.filter(pl.col("beta") == round(min_beta, 2))
-    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, selected_thresholds=_selected_thresholds(settings), target_coverage=min_beta, min_ser_log_bf=min_log_bf)
+    calibrated = viz_utils.find_calibrated_beta_summary(beta_summary, cs_data, method_meta, selected_methods=fg, target_coverage=min_beta, min_ser_log_bf=min_log_bf)
     return viz_utils.render_cs_size_power_chart(
         nominal,
         calibrated,
@@ -1040,7 +1000,6 @@ def _make_agg_cs_radius_power(combined_data: dict, settings: dict) -> plt.Figure
     radius_summary = viz_utils.make_cs_radius_power_summary(
         cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         max_cs_size=max_cs_size,
         min_ser_log_bf=min_log_bf,
     )
@@ -1048,7 +1007,6 @@ def _make_agg_cs_radius_power(combined_data: dict, settings: dict) -> plt.Figure
     calibrated = viz_utils.find_calibrated_radius_summary(
         radius_summary, cs_data, method_meta,
         selected_methods=fg,
-        selected_thresholds=_selected_thresholds(settings),
         target_coverage=min_beta,
         min_ser_log_bf=min_log_bf,
     )
@@ -1158,7 +1116,7 @@ def _make_f1_enrich_scatter(combined_data: dict, settings: dict) -> plt.Figure:
     )
 
 
-_PLOT_DISPATCH = {
+ANALYSIS_RENDERERS = {
     "pip_calibration": _make_pip_calibration,
     "power_fdp": _make_power_fdp,
     "causal_pip": _make_causal_pip,
