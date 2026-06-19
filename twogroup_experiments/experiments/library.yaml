@@ -10,6 +10,9 @@ designs:
   c4:
     function: c4_gene_sets_X
     arguments: {}
+  gaussian_p8:
+    function: gaussian_markov_X
+    arguments: {n: 30, p: 8, rho: 0.5}
   gaussian_p100:
     function: gaussian_markov_X
     arguments: {n: 500, p: 100, rho: 0.9}

@@ -137,6 +137,7 @@ def _make_pip_calibration(combined_data: dict, settings: dict) -> plt.Figure:
     summary = viz_utils.expand_pip_calibration_from_compact(
         pip_plot.filter(pl.col("method").is_in(fg)),
         method_meta,
+        selected_thresholds=None,
     )
     if summary.is_empty():
         return viz_utils.make_placeholder_chart("No PIP calibration data")
@@ -592,6 +593,7 @@ def _make_agg_pip_calibration(combined_data: dict, settings: dict) -> plt.Figure
     summary = viz_utils.expand_pip_calibration_from_compact(
         pip_plot.filter(pl.col("method").is_in(fg)),
         method_meta,
+        selected_thresholds=None,
     )
     if summary.is_empty():
         return viz_utils.make_placeholder_chart("No PIP calibration data")

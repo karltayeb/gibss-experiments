@@ -424,6 +424,7 @@ def method_metadata(methods: dict[str, core.MethodSpec]) -> pl.DataFrame:
             "threshold": float(threshold) if threshold is not None else None,
             "is_thresholded": is_thresholded,
             "is_oracle": is_oracle,
+            "method_label_base": base,
             "method_display": make_method_display_label(
                 method_label_base=base, threshold=threshold,
                 is_thresholded=is_thresholded, is_oracle=is_oracle, oracle_label=oracle_label),
@@ -431,4 +432,4 @@ def method_metadata(methods: dict[str, core.MethodSpec]) -> pl.DataFrame:
                 method_label_base=base, threshold=None, is_thresholded=False,
                 is_oracle=is_oracle, oracle_label=oracle_label),
         })
-    return pl.from_dicts(rows)
+    return pl.from_dicts(rows, schema_overrides={"threshold": pl.Float64})
