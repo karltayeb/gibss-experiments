@@ -4,188 +4,35 @@ import polars as pl
 from pathlib import Path
 
 RESULTS_ROOT = "results"
-PLOT_CONFIGS_DIR = Path("plot_configs")
 PLOT_READY_SOURCES = ["plot_ready.py", "utils.py"]
 PLOT_RENDER_SOURCES = ["generate_plots.py", "viz_utils.py", "plot_ready.py"]
 
-from core import HASH_KEY, rehydrate_node
-from utils import (
-    attach_spec_metadata,
-    fit_batch_method,
-    simulate_batch,
-    write_parquet,
-    write_yaml,
-)
+from core import rehydrate_node
+from utils import fit_batch_method, simulate_batch, write_parquet, write_yaml
+from experiments import loader
 from manifest_cache import load_manifest_cached
 
 _MANIFEST = load_manifest_cached()
+_CONFIG = loader.load_config()
 BATCH_HASH_TO_INFO = _MANIFEST["batches"]
 METHOD_HASH_TO_INFO = _MANIFEST["method_specs"]
-
+SUPERCOLLECTIONS = sorted(_CONFIG["supercollections"].keys())
 
 wildcard_constraints:
     batch_hash=r"[0-9a-f]{64}",
     method_hash=r"[0-9a-f]{64}",
-    collection_alias=r"[A-Za-z0-9_\-=\.]+",
+    reduction=r"[A-Za-z0-9_]+",
+    analysis=r"[A-Za-z0-9_]+",
+    args_name=r"[A-Za-z0-9_\-]+",
     supercollection=r"[A-Za-z0-9_\-\.]+",
-    plot_settings=r"[A-Za-z0-9_\-]+",
-    plot_type=r"[A-Za-z0-9_]+",
-    plot_collection=r"[A-Za-z0-9_]+",
 
 
-import yaml as _yaml
-import re as _re
-
-
-def _method_family(name: str) -> str:
-    return _re.sub(r"_L\d+$", "", name)
-
-
-def _resolve_collection_batches(simulations: list) -> list:
-    sim_set = set(simulations)
-    return [
-        {**node, HASH_KEY: h}
-        for h, node in BATCH_HASH_TO_INFO.items()
-        if node["simulation_spec"]["fields"]["name"] in sim_set
-    ]
-
-
-def _load_plot_configs() -> dict:
-    merged: dict = {}
-    for _p in sorted(PLOT_CONFIGS_DIR.glob("*.yaml")):
-        _cfg = _yaml.safe_load(_p.read_text()) or {}
-        for _k, _v in _cfg.items():
-            if _k not in merged:
-                merged[_k] = _v
-            elif isinstance(merged[_k], dict) and isinstance(_v, dict):
-                merged[_k].update(_v)
-    return merged
-
-
-_PLOT_CONFIG: dict = _load_plot_configs()
-_COLLECTION_DEFS = _PLOT_CONFIG.get("collections", {})
-_METHOD_COLLECTIONS = _PLOT_CONFIG.get("method_collections", {})
-_PLOT_TYPE_GROUPS: dict[str, list[str]] = _PLOT_CONFIG.get("plot_type_groups", {})
-
-_PLOT_COLLECTION_SCS: dict[str, list[str]] = {
-    _p.stem: sorted(
-        (_yaml.safe_load(_p.read_text()) or {}).get("supercollections", {}).keys()
-    )
-    for _p in sorted(PLOT_CONFIGS_DIR.glob("*.yaml"))
-}
-
-
-def _method_passes(node: dict, *, method_families, L, thresholds) -> bool:
-    fields = node["fields"]
-    kwargs = fields.get("kwargs", {})
-    family = _method_family(fields["name"])
-    if method_families is not None and family not in method_families:
-        return False
-    if L is not None and kwargs.get("L") not in L:
-        return False
-    thresh = kwargs.get("threshold")
-    if thresh is not None and thresholds is not None and thresh not in thresholds:
-        return False
-    return True
-
-
-def _resolve_collection_methods(method_collection_names: list) -> list:
-    seen: dict[str, dict] = {}
-    for mc_name in method_collection_names:
-        mc = _METHOD_COLLECTIONS.get(mc_name)
-        if mc is None:
-            raise KeyError(f"Unknown method_collection: {mc_name!r}")
-        mf = mc.get("method_families")
-        L = mc.get("L")
-        thresholds = mc.get("thresholds")
-        for h, node in METHOD_HASH_TO_INFO.items():
-            if h not in seen and _method_passes(
-                node, method_families=mf, L=L, thresholds=thresholds
-            ):
-                seen[h] = {**node, HASH_KEY: h}
-    return list(seen.values())
-
-
-_COLLECTION_YAMLS: dict[str, dict] = {}
-for _sc in _PLOT_CONFIG.get("supercollections", {}).values():
-    for _coll in _sc.get("collections", []):
-        _name = _coll["name"]
-        if _name in _COLLECTION_YAMLS:
-            continue
-        _spec = _COLLECTION_DEFS.get(_name, {})
-        _sims = _spec.get("simulations", [_name])
-        _COLLECTION_YAMLS[_name] = {
-            "name": _name,
-            "batches": _resolve_collection_batches(_sims),
-            "method_specs": _resolve_collection_methods(
-                _spec.get("method_collections", ["default"]),
-            ),
-        }
-
-SUPERCOLLECTIONS = sorted(_PLOT_CONFIG.get("supercollections", {}).keys())
-COLLECTION_ALIASES = sorted(_COLLECTION_YAMLS.keys())
-PLOT_TYPES = [
-    "pip_calibration",
-    "power_fdp",
-    "causal_pip",
-    "causal_rank",
-    "mass_above_causal",
-    "cs_dot_summary",
-    "cs_power_fdp",
-    "cs_beta_trace",
-    "agg_pip_calibration",
-    "agg_power_fdp",
-    "agg_causal_pip",
-    "agg_causal_rank",
-    "agg_mass_above_causal",
-    "agg_cs_power_fdp",
-    "agg_cs_beta_trace",
-    "f1_boxplot",
-    "f1_scatter",
-    "f1_enrich_scatter",
-]
-
-
-def _resolve_sc_plot_pairs(sc_name: str) -> list[tuple[str, str]]:
-    """Return deduplicated (settings_name, plot_type) pairs for a supercollection."""
-    sc = _PLOT_CONFIG.get("supercollections", {}).get(sc_name, {})
-    seen: dict[tuple[str, str], None] = {}
-    for entry in sc.get("plots", []):
-        settings_list = entry.get("settings", [])
-        plot_types: list[str] = list(entry.get("plot_types", []))
-        for grp in entry.get("plot_type_groups", []):
-            plot_types += _PLOT_TYPE_GROUPS.get(grp, [])
-        for s in settings_list:
-            for pt in plot_types:
-                seen[(s, pt)] = None
-    return list(seen.keys())
-
-
-def load_collection_yaml(collection_alias: str) -> dict:
-    return _COLLECTION_YAMLS[collection_alias]
-
-
-def load_supercollection(supercollection: str) -> dict:
-    supercollections = _PLOT_CONFIG.get("supercollections", {})
-    if supercollection not in supercollections:
-        raise KeyError(supercollection)
-    return supercollections[supercollection]
-
-
-def _batch_name(batch: dict) -> str:
-    """Handle both flat (name) and legacy nested (fields.name) batch nodes."""
-    return batch.get("name") or batch["fields"]["name"]
-
-
-def _batch_sim_name(batch: dict) -> str:
-    """Simulation name from batch node, handling both formats."""
-    sim = batch.get("simulation_spec") or batch["fields"]["simulation_spec"]
-    return sim["fields"]["name"]
-
-
-def _batch_sim_node(batch: dict) -> dict:
-    """Simulation spec node from batch node, handling both formats."""
-    return batch.get("simulation_spec") or batch["fields"]["simulation_spec"]
+def _all_analysis_targets():
+    targets = []
+    for sc in SUPERCOLLECTIONS:
+        for analysis, args_name in loader.resolve_sc_analyses(_CONFIG, sc):
+            targets.append(f"{RESULTS_ROOT}/supercollections/{sc}/{analysis}/{args_name}.pdf")
+    return targets
 
 
 rule materialize_twogroup_experiment_batch:
@@ -232,333 +79,51 @@ rule fit_twogroup_experiment_batch_method:
         write_yaml(method_spec_node, output.method_spec)
 
 
-rule collection_method_metadata:
-    input:
-        source="plot_ready.py",
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)[
-                "method_specs"
-            ]
-        ],
+rule atomic_reduction:
     output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/method_metadata.parquet",
-    run:
-        from plot_ready import build_method_metadata, load_collection_fits_with_specs
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
-        write_parquet(build_method_metadata(fits_df), output[0])
-
-
-rule collection_simulation_metadata:
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/simulation_metadata.parquet",
-    run:
-        import json
-        import polars as pl
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        rows = []
-        for batch in collection["batches"]:
-            rows.append(
-                {
-                    "batch_hash": batch[HASH_KEY],
-                    "batch_name": _batch_name(batch),
-                    "simulation_spec": json.dumps(
-                        _batch_sim_node(batch), sort_keys=True
-                    ),
-                    "simulation_name": _batch_sim_name(batch),
-                }
-            )
-        write_parquet(pl.from_dicts(rows), output[0])
-
-
-rule collection_sample_metadata:
-    input:
-        source="plot_ready.py",
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)[
-                    "batches"
-                ]
-            ],
-        ),
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
-    run:
-        from plot_ready import (
-            load_collection_simulations,
-            _build_sample_metadata_from_manifest,
-        )
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        simulations_by_batch = load_collection_simulations(
-            collection, results_root=RESULTS_ROOT
-        )
-        sample_metadata = _build_sample_metadata_from_manifest(
-            collection, simulations_by_batch
-        )
-        write_parquet(sample_metadata, output[0])
-
-
-rule collection_pip_plot_data:
+        f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/reductions/{{reduction}}.parquet"
     input:
         sources=PLOT_READY_SOURCES,
-        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)[
-                    "batches"
-                ]
-            ],
-        ),
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)[
-                "method_specs"
-            ]
-        ],
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/pip_plot_data.parquet",
+        deps=lambda wc: loader.reduction_inputs(_CONFIG["library"], _MANIFEST,
+                                                wc.batch_hash, wc.method_hash, wc.reduction),
     run:
-        from plot_ready import (
-            load_collection_fits_with_specs,
-            load_collection_simulations,
-            build_pip_plot_data,
-        )
-        import polars as pl
+        import plot_ready, polars as pl
+        lib = _CONFIG["library"]
+        fn = getattr(plot_ready, lib["reductions"][wildcards.reduction]["function"])
+        fits = pl.read_parquet(
+            f"{RESULTS_ROOT}/by_batch/{wildcards.batch_hash}/fits/{wildcards.method_hash}/fits.parquet"
+        ).with_columns(pl.lit(wildcards.batch_hash).alias("batch_hash"))
+        sample_md = pl.read_parquet(f"{RESULTS_ROOT}/by_batch/{wildcards.batch_hash}/sample_metadata.parquet")
+        sims = pl.read_parquet(f"{RESULTS_ROOT}/by_batch/{wildcards.batch_hash}/simulations.parquet")
+        sim_node = BATCH_HASH_TO_INFO[wildcards.batch_hash]["simulation_spec"]
+        red = wildcards.reduction
+        if red == "pip":
+            df = fn(fits, sample_md, sims)
+        elif red == "cs":
+            df = fn(fits, sample_md, sims)
+        elif red == "f1":
+            df = fn(fits, sim_node)
+        elif red == "enrich":
+            df = fn(fits, sims, sim_node)
+        else:
+            raise KeyError(red)
+        write_parquet(df, output[0])
 
-        collection = load_collection_yaml(wildcards.collection_alias)
-        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
-        simulations_by_batch = load_collection_simulations(
-            collection, results_root=RESULTS_ROOT
-        )
-        sample_metadata = pl.read_parquet(input.sample_metadata)
-        write_parquet(
-            build_pip_plot_data(fits_df, sample_metadata, simulations_by_batch),
-            output[0],
-        )
 
-
-rule collection_cs_plot_data:
-    input:
-        sources=PLOT_READY_SOURCES,
-        sample_metadata=f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/sample_metadata.parquet",
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)[
-                    "batches"
-                ]
-            ],
-        ),
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)[
-                "method_specs"
-            ]
-        ],
+rule supercollection_analysis:
     output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/cs_plot_data.parquet",
-    run:
-        from plot_ready import (
-            load_collection_fits_with_specs,
-            load_collection_simulations,
-            build_cs_plot_data,
-        )
-        import polars as pl
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        fits_df = load_collection_fits_with_specs(collection, results_root=RESULTS_ROOT)
-        simulations_by_batch = load_collection_simulations(
-            collection, results_root=RESULTS_ROOT
-        )
-        sample_metadata = pl.read_parquet(input.sample_metadata)
-        write_parquet(
-            build_cs_plot_data(fits_df, sample_metadata, simulations_by_batch),
-            output[0],
-        )
-
-
-rule collection_f1_plot_data:
+        f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{{analysis}}/{{args_name}}.pdf"
     input:
-        source="plot_ready.py",
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)[
-                "method_specs"
-            ]
-            if method_spec["fields"]["name"].startswith("twogroup")
-        ],
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/f1_plot_data.parquet",
-    run:
-        from plot_ready import build_f1_plot_data
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        write_parquet(
-            build_f1_plot_data(collection, results_root=RESULTS_ROOT), output[0]
-        )
-
-
-rule collection_enrich_plot_data:
-    input:
-        source="plot_ready.py",
-        simulations=lambda wildcards: expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
-            batch_hash=[
-                batch[HASH_KEY]
-                for batch in load_collection_yaml(wildcards.collection_alias)[
-                    "batches"
-                ]
-            ],
-        ),
-        fits=lambda wildcards: [
-            f"{RESULTS_ROOT}/by_batch/{batch[HASH_KEY]}/fits/{method_spec[HASH_KEY]}/fits.parquet"
-            for batch in load_collection_yaml(wildcards.collection_alias)["batches"]
-            for method_spec in load_collection_yaml(wildcards.collection_alias)[
-                "method_specs"
-            ]
-            if method_spec["fields"]["name"].startswith("twogroup")
-        ],
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/enrich_plot_data.parquet",
-    run:
-        from plot_ready import build_enrich_plot_data
-
-        collection = load_collection_yaml(wildcards.collection_alias)
-        write_parquet(
-            build_enrich_plot_data(collection, results_root=RESULTS_ROOT), output[0]
-        )
-
-
-rule all_collections:
-    input:
-        expand(
-            f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/out.txt",
-            collection_alias=COLLECTION_ALIASES,
-        ),
-
-
-rule all_supercollections:
-    input:
-        expand(
-            f"{RESULTS_ROOT}/supercollections/{{supercollection}}/out.txt",
-            supercollection=SUPERCOLLECTIONS,
-        ),
-
-
-rule materialize_supercollection:
-    input:
-        lambda wildcards: expand(
-            f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/out.txt",
-            collection_alias=[
-                item["name"]
-                for item in load_supercollection(wildcards.supercollection)[
-                    "collections"
-                ]
-            ],
-        ),
-    output:
-        f"{RESULTS_ROOT}/supercollections/{{supercollection}}/out.txt",
-    shell:
-        "echo ran > {output[0]}"
-
-
-rule twogroup_experiments_target:
-    input:
-        lambda wildcards: expand(
-            f"{RESULTS_ROOT}/collections/{wildcards.collection_alias}/plot_ready/{{name}}",
-            name=[
-                "method_metadata.parquet",
-                "simulation_metadata.parquet",
-                "sample_metadata.parquet",
-                "pip_plot_data.parquet",
-                "cs_plot_data.parquet",
-                "f1_plot_data.parquet",
-                "enrich_plot_data.parquet",
-            ],
-        ),
-    output:
-        f"{RESULTS_ROOT}/collections/{{collection_alias}}/plot_ready/out.txt",
-    shell:
-        "echo ran > {output[0]}"
-
-
-rule supercollection_plot:
-    input:
-        materialized=f"{RESULTS_ROOT}/supercollections/{{supercollection}}/out.txt",
         sources=PLOT_RENDER_SOURCES,
-    output:
-        f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{{plot_type}}/{{plot_settings}}.pdf",
+        deps=lambda wc: loader.analysis_inputs(_CONFIG, _MANIFEST, wc.supercollection, wc.analysis),
     run:
         import generate_plots
-
-        generate_plots.make_plot(
-            wildcards.supercollection,
-            wildcards.plot_settings,
-            wildcards.plot_type,
-            output[0],
-        )
-
-
-rule supercollection_all_plots:
-    input:
-        lambda _: (
-            [
-                f"{RESULTS_ROOT}/supercollections/{config['supercollection']}/{pt}/{ps}.pdf"
-                for ps, pt in _resolve_sc_plot_pairs(config["supercollection"])
-            ]
-            if "supercollection" in config
-            else []
-        ),
-
-
-from config import NULL_METHOD_SPECS as _NULL_METHOD_SPECS
-from core import dehydrate_hashed as _dehydrate_hashed
-
-_NULL_BATCH_HASHES = [
-    h
-    for h, info in BATCH_HASH_TO_INFO.items()
-    if "__enrichment=null__" in info["simulation_spec"]["fields"]["name"]
-]
-_NULL_METHOD_HASHES = [_dehydrate_hashed(m)[HASH_KEY] for m in _NULL_METHOD_SPECS]
-
-
-rule all_null_fits:
-    input:
-        expand(
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
-            batch_hash=_NULL_BATCH_HASHES,
-            method_hash=_NULL_METHOD_HASHES,
-        ),
+        bundle = loader.load_sc_bundle(_CONFIG, wildcards.supercollection,
+                                       loader.analysis_requires(_CONFIG, wildcards.analysis))
+        args = loader.resolve_args(_CONFIG, wildcards.supercollection, wildcards.args_name)
+        generate_plots.render_analysis(bundle, args, wildcards.analysis, output[0])
 
 
 rule all_plots:
     input:
-        [
-            f"{RESULTS_ROOT}/supercollections/{sc}/{pt}/{ps}.pdf"
-            for sc in SUPERCOLLECTIONS
-            for ps, pt in _resolve_sc_plot_pairs(sc)
-        ],
-
-
-rule plot_collection:
-    input:
-        lambda wc: [
-            f"{RESULTS_ROOT}/supercollections/{sc}/{pt}/{ps}.pdf"
-            for sc in _PLOT_COLLECTION_SCS.get(wc.plot_collection, [])
-            for ps, pt in _resolve_sc_plot_pairs(sc)
-        ],
-    output:
-        touch(f"{RESULTS_ROOT}/plot_collections/{{plot_collection}}.done"),
+        _all_analysis_targets(),
