@@ -127,7 +127,7 @@ _PIP_BIN_WIDTH = 1.0 / _N_PIP_BINS  # 0.005
 def build_pip_plot_data(
     fits_df: pl.DataFrame,
     sample_metadata: pl.DataFrame,
-    simulations_by_batch: dict[str, pl.DataFrame],
+    simulations_df: pl.DataFrame,
 ) -> pl.DataFrame:
     """One row per (sample_id, method, threshold). Bin arrays used to derive plots."""
     empty_schema = {
@@ -145,7 +145,7 @@ def build_pip_plot_data(
         alphas = np.stack([np.asarray(e["alpha"], dtype=float) for e in row["single_effects"]])
         marginal_pip = 1.0 - np.prod(1.0 - alphas, axis=0)
 
-        sim_df = simulations_by_batch[row["batch_hash"]]
+        sim_df = simulations_df
         sim_row = sim_df.filter(pl.col("replicate") == row["replicate"]).row(0, named=True)
         causal_indices = sorted(set(int(i) for i in sim_row["simulation"]["causal_indices"]))
 
@@ -174,7 +174,7 @@ def build_pip_plot_data(
 def build_cs_plot_data(
     fits_df: pl.DataFrame,
     sample_metadata: pl.DataFrame,
-    simulations_by_batch: dict[str, pl.DataFrame],
+    simulations_df: pl.DataFrame,
 ) -> pl.DataFrame:
     """One row per (sample_id, method, threshold, l). Arrays for CS sweep at each beta."""
     from utils import CS_BETA_GRID
@@ -195,7 +195,7 @@ def build_cs_plot_data(
     )
     rows: list[dict] = []
     for row in fits_with_sid.iter_rows(named=True):
-        sim_df = simulations_by_batch[row["batch_hash"]]
+        sim_df = simulations_df
         sim_row = sim_df.filter(pl.col("replicate") == row["replicate"]).row(0, named=True)
         sim_struct = sim_row["simulation"]
         corr_by_causal = {
@@ -257,10 +257,14 @@ def build_cs_plot_data(
 
 
 def build_f1_plot_data(
-    collection: dict[str, Any],
-    results_root: str = "results",
+    fits_df: pl.DataFrame,
+    sim_spec_node: dict[str, Any],
 ) -> pl.DataFrame:
-    """One row per (sample_id, method). f1 loc/scale + intercept estimates + true f1 values."""
+    """One row per (sample_id, method). f1 loc/scale + intercept estimates + true f1 values.
+
+    fits_df must be filtered to one twogroup method's fits and carry a batch_hash column.
+    sim_spec_node is the dehydrated simulation spec for this batch.
+    """
     schema = {
         "sample_id": pl.String,
         "method": pl.String,
@@ -271,42 +275,38 @@ def build_f1_plot_data(
         "true_f1_scale": pl.Float64,
     }
     rows = []
-    for batch in collection["batches"]:
-        batch_hash = batch[HASH_KEY]
-        sim_spec = _batch_sim_node(batch)
-        f1_spec = sim_spec["fields"]["f1"]["fields"]
-        true_loc = float(f1_spec["loc"]) if f1_spec.get("loc") is not None else None
-        true_scale = float(f1_spec["scale"]) if f1_spec.get("scale") is not None else None
+    f1_spec = sim_spec_node["fields"]["f1"]["fields"]
+    true_loc = float(f1_spec["loc"]) if f1_spec.get("loc") is not None else None
+    true_scale = float(f1_spec["scale"]) if f1_spec.get("scale") is not None else None
+    batch_hash = fits_df["batch_hash"][0]
 
-        for method_spec in collection["method_specs"]:
-            if not method_spec["fields"]["name"].startswith("twogroup"):
-                continue
-            method_hash = method_spec[HASH_KEY]
-            fits_path = f"{results_root}/by_batch/{batch_hash}/fits/{method_hash}/fits.parquet"
-            fits_df = pl.read_parquet(fits_path).select(
-                ["replicate", "method", "two_group_state", "family_state"]
-            )
-            for row in fits_df.iter_rows(named=True):
-                f1 = row["two_group_state"]["f1"]
-                rows.append({
-                    "sample_id": f"{batch_hash}::{int(row['replicate'])}",
-                    "method": row["method"],
-                    "f1_loc": float(f1["loc"]) if f1["loc"] is not None else None,
-                    "f1_scale": float(f1["scale"]) if f1["scale"] is not None else None,
-                    "est_intercept": float(row["family_state"]["intercept"]),
-                    "true_f1_loc": true_loc,
-                    "true_f1_scale": true_scale,
-                })
+    for row in fits_df.select(["replicate", "method", "two_group_state", "family_state"]).iter_rows(named=True):
+        f1 = row["two_group_state"]["f1"]
+        rows.append({
+            "sample_id": f"{batch_hash}::{int(row['replicate'])}",
+            "method": row["method"],
+            "f1_loc": float(f1["loc"]) if f1["loc"] is not None else None,
+            "f1_scale": float(f1["scale"]) if f1["scale"] is not None else None,
+            "est_intercept": float(row["family_state"]["intercept"]),
+            "true_f1_loc": true_loc,
+            "true_f1_scale": true_scale,
+        })
     if not rows:
         return pl.DataFrame(schema=schema)
     return pl.from_dicts(rows, schema=schema)
 
 
 def build_enrich_plot_data(
-    collection: dict[str, Any],
-    results_root: str = "results",
+    fits_df: pl.DataFrame,
+    simulations_df: pl.DataFrame,
+    sim_spec_node: dict[str, Any],
 ) -> pl.DataFrame:
-    """One row per (sample_id, method). Intercept + mu_at_causal estimates + true values."""
+    """One row per (sample_id, method). Intercept + mu_at_causal estimates + true values.
+
+    fits_df must carry a batch_hash column and be filtered to one twogroup method's fits.
+    simulations_df is the single batch's simulations DataFrame.
+    sim_spec_node is the dehydrated simulation spec for this batch (reserved for future use).
+    """
     schema = {
         "sample_id": pl.String,
         "method": pl.String,
@@ -316,44 +316,35 @@ def build_enrich_plot_data(
         "true_effect": pl.Float64,
     }
     rows = []
-    for batch in collection["batches"]:
-        batch_hash = batch[HASH_KEY]
-        sims_df = (
-            pl.read_parquet(f"{results_root}/by_batch/{batch_hash}/simulations.parquet")
-            .select("replicate", pl.col("simulation").struct.unnest())
-            .select(
-                "replicate",
-                pl.col("causal_indices").list.get(0, null_on_oob=True).alias("causal_idx"),
-                pl.col("causal_effects").list.get(0, null_on_oob=True).alias("true_effect"),
-                pl.col("intercept").alias("true_intercept"),
-            )
+    batch_hash = fits_df["batch_hash"][0]
+    sims_df = (
+        simulations_df
+        .select("replicate", pl.col("simulation").struct.unnest())
+        .select(
+            "replicate",
+            pl.col("causal_indices").list.get(0, null_on_oob=True).alias("causal_idx"),
+            pl.col("causal_effects").list.get(0, null_on_oob=True).alias("true_effect"),
+            pl.col("intercept").alias("true_intercept"),
         )
-        rep_to_sim = {r["replicate"]: r for r in sims_df.iter_rows(named=True)}
+    )
+    rep_to_sim = {r["replicate"]: r for r in sims_df.iter_rows(named=True)}
 
-        for method_spec in collection["method_specs"]:
-            if not method_spec["fields"]["name"].startswith("twogroup"):
-                continue
-            method_hash = method_spec[HASH_KEY]
-            fits_path = f"{results_root}/by_batch/{batch_hash}/fits/{method_hash}/fits.parquet"
-            fits_df = pl.read_parquet(fits_path).select(
-                ["replicate", "method", "family_state", "single_effects"]
-            )
-            for row in fits_df.iter_rows(named=True):
-                sim = rep_to_sim.get(row["replicate"])
-                if sim is None:
-                    continue
-                if sim["causal_idx"] is None:
-                    continue
-                causal_idx = int(sim["causal_idx"])
-                mu_list = row["single_effects"][0]["mu"]
-                rows.append({
-                    "sample_id": f"{batch_hash}::{int(row['replicate'])}",
-                    "method": row["method"],
-                    "est_intercept": float(row["family_state"]["intercept"]),
-                    "mu_at_causal": float(mu_list[causal_idx]) if causal_idx < len(mu_list) else None,
-                    "true_intercept": float(sim["true_intercept"]),
-                    "true_effect": float(sim["true_effect"]),
-                })
+    for row in fits_df.select(["replicate", "method", "family_state", "single_effects"]).iter_rows(named=True):
+        sim = rep_to_sim.get(row["replicate"])
+        if sim is None:
+            continue
+        if sim["causal_idx"] is None:
+            continue
+        causal_idx = int(sim["causal_idx"])
+        mu_list = row["single_effects"][0]["mu"]
+        rows.append({
+            "sample_id": f"{batch_hash}::{int(row['replicate'])}",
+            "method": row["method"],
+            "est_intercept": float(row["family_state"]["intercept"]),
+            "mu_at_causal": float(mu_list[causal_idx]) if causal_idx < len(mu_list) else None,
+            "true_intercept": float(sim["true_intercept"]),
+            "true_effect": float(sim["true_effect"]),
+        })
     if not rows:
         return pl.DataFrame(schema=schema)
     return pl.from_dicts(rows, schema=schema)
