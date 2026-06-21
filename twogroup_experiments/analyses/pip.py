@@ -226,11 +226,13 @@ if "snakemake" in globals():
         _sys.path.insert(0, _parent)
     import generate_plots
     from experiments import loader as _loader
-    import yaml as _yaml
     _wc = snakemake.wildcards
     _analysis = snakemake.params.analysis  # passed via params since analysis is baked into path
     _cfg_obj = _loader.load_config()
-    _bundle = _loader.load_sc_bundle(_cfg_obj, _wc.supercollection,
-                                     _loader.analysis_requires(_cfg_obj, _analysis))
+    _bundle = _loader.load_sc_bundle(
+        _cfg_obj, _wc.supercollection,
+        _loader.analysis_requires(_cfg_obj, _analysis),
+        simulation_filter=_loader.analysis_simulation_filter(_cfg_obj["library"], _analysis),
+    )
     _args = _loader.resolve_args(_cfg_obj, _wc.supercollection, _wc.args_name)
     generate_plots.render_analysis(_bundle, _args, _analysis, snakemake.output[0])

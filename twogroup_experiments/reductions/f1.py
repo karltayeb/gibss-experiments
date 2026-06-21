@@ -60,7 +60,7 @@ if "snakemake" in globals():
         _sys.path.insert(0, _parent)
     import polars as pl
     from reductions import ReductionContext
-    bh, mh = snakemake.wildcards.batch_hash, snakemake.wildcards.method_hash
+    bh = snakemake.wildcards.batch_hash
     fits = pl.read_parquet(snakemake.input.fits).with_columns(pl.lit(bh).alias("batch_hash"))
     ctx = ReductionContext(
         fits=fits,

@@ -189,3 +189,7 @@ Edit `reductions/pip.py` → only pip reductions + pip-requiring analyses rerun.
 
 - Cache-reuse hash-injection (v1 spec "Future work") — independent.
 - Data-dependent (post-hoc) analysis filters.
+
+## Limitation (resolved by Fix 1, 2026-06-20)
+
+`load_sc_bundle` now receives the analysis's `simulation_filter` (wired in each `analyses/*.py` script block), so sim-filtered analyses (e.g. `causal_pip`) are safe in any group; prior to that fix, a sim-filtered analysis would attempt to read parquet for sims the DAG never built (FileNotFoundError).
