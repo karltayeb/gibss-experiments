@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 
-from gibss import engine, twogroup, twogrouplocaljj
+from gibss import engine, localjj, twogroup, twogrouplocaljj
 from gibss.distributions import Normal
 
 
@@ -17,6 +17,7 @@ def fit_twogroup_method(
     oracle_init=False,
     n_null_iter=20,
     n_intercept_iter=20,
+    em_update="local",
 ):
     if oracle_init:
         resolved_f1 = Normal(
@@ -28,8 +29,17 @@ def fit_twogroup_method(
     else:
         resolved_f1 = simulation.f1 if f1 is None else f1
     y0 = np.full(simulation.X.shape[0], 0.5, dtype=float)
-    inner_data = twogrouplocaljj.prep_data(simulation.X, y0)
-    inner_state = twogrouplocaljj.initialize_state(
+    if em_update == "local":
+        inner_module = twogrouplocaljj
+        schedule = twogroup.local_default_schedule(twogrouplocaljj.default_schedule())
+    elif em_update == "global":
+        inner_module = localjj
+        schedule = twogroup.default_schedule(localjj.default_schedule())
+    else:
+        raise ValueError(f"Unknown twogroup em_update mode: {em_update!r}")
+
+    inner_data = inner_module.prep_data(simulation.X, y0)
+    inner_state = inner_module.initialize_state(
         inner_data,
         L=L,
         family_state_kwargs={"estimate_prior_variance": False},
@@ -43,11 +53,7 @@ def fit_twogroup_method(
         n_null_iter=n_null_iter,
         n_intercept_iter=n_intercept_iter,
     )
-    fitted = engine.fit_ibss(
-        data,
-        state,
-        twogroup.local_default_schedule(twogrouplocaljj.default_schedule()),
-    )
+    fitted = engine.fit_ibss(data, state, schedule)
     return {
         "state": fitted,
         "threshold": None,
@@ -64,9 +70,10 @@ def summarize_twogroup_method(
     oracle_init=False,
     n_null_iter=20,
     n_intercept_iter=20,
+    em_update="local",
 ):
     from core import _extract_ser_struct, _extract_family_state_struct, _extract_twogroup_state_struct, _make_cs_struct, _make_fit_summary_struct
-    del f1, L, oracle_init, n_null_iter, n_intercept_iter
+    del f1, L, oracle_init, n_null_iter, n_intercept_iter, em_update
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {

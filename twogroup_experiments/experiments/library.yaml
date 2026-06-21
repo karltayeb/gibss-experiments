@@ -434,8 +434,67 @@ signals:
         scale: 5.0
         estimate_loc: false
         estimate_scale: false
+  exp_lambda_1over3:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 0.3333333333333333
+  exp_lambda_1over2:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 0.5
+  exp_lambda_2over3:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 0.6666666666666666
+  exp_lambda_4over5:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 0.8
+  exp_lambda_5over4:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 1.25
+  exp_lambda_3over2:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 1.5
+  exp_lambda_2:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 2.0
+  exp_lambda_3:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 3.0
 errors:
   gaussian: null
+  noiseless:
+    function: noiseless_error_sampler
+    arguments: {}
   t_df_3:
     function: t_error_sampler
     arguments:
@@ -457,6 +516,16 @@ methods:
     function: run_twogroup_method
     template:
       f1: null
+      n_null_iter: 20
+      n_intercept_iter: 20
+    over:
+      L:
+      - 1
+  twogroup_oracle_global:
+    function: run_twogroup_method
+    template:
+      f1: null
+      em_update: global
       n_null_iter: 20
       n_intercept_iter: 20
     over:

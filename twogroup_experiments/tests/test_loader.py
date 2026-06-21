@@ -27,6 +27,15 @@ def test_resolve_distribution_normal_and_pointmass():
     assert isinstance(p, PointMass) and p.value == 0.0
 
 
+def test_resolve_distribution_exponential():
+    from simulations.distributions import Exponential
+
+    e = loader.resolve_distribution({"Exponential": {"rate": 2.0}})
+
+    assert isinstance(e, Exponential)
+    assert e.rate == 2.0
+
+
 def test_resolve_callable_resolves_core_functions():
     assert loader.resolve_callable("run_cox_method").__name__ == "run_cox_method"
     with pytest.raises(KeyError):
@@ -368,3 +377,23 @@ def test_over_aliases_length_mismatch_raises():
              "over": {"signal": ["loc_2.0"]}, "aliases": ["a", "b"]}
     with pytest.raises(ValueError):
         loader.expand_collections(lib, "sc", block)
+
+
+def test_009_cox_well_specified_config_shape():
+    cfg = loader.load_config()
+    lib = cfg["library"]
+    sc_names = [name for name in cfg["supercollections"] if name.startswith("009-")]
+
+    assert sc_names == [
+        "009-hallmark-cox-well-specified",
+        "009-c2-cox-well-specified",
+        "009-c4-cox-well-specified",
+        "009-c5-cox-well-specified",
+    ]
+    for sc_name in sc_names:
+        sc = cfg["supercollections"][sc_name]
+        collections = loader.supercollection_collections(lib, sc_name, sc)
+        methods = loader.resolve_methods_for_sc(lib, sc)
+        assert len(collections) == 8
+        assert all(len(collection["simulations"]) == 2 for collection in collections)
+        assert set(methods) == {"cox_reversed__L=1"}

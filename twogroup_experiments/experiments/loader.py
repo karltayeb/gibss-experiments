@@ -14,6 +14,7 @@ import core
 from core import spec_hash
 from experiments import predicates as _predicates
 from gibss import distributions as _distributions
+from simulations import distributions as _local_distributions
 from utils import BatchSpec
 from viz_utils import (make_method_display_label, method_family_label_map,
                        method_family_oracle_label_map)
@@ -42,9 +43,13 @@ def resolve_distribution(node: dict[str, Any]) -> Any:
     if not isinstance(node, dict) or len(node) != 1:
         raise ValueError(f"Distribution node must be a single-key map, got {node!r}")
     (type_name, ctor_kwargs), = node.items()
-    if not hasattr(_distributions, type_name):
+    if hasattr(_distributions, type_name):
+        distribution_module = _distributions
+    elif hasattr(_local_distributions, type_name):
+        distribution_module = _local_distributions
+    else:
         raise KeyError(f"Unknown distribution type: {type_name!r}")
-    return getattr(_distributions, type_name)(**(ctor_kwargs or {}))
+    return getattr(distribution_module, type_name)(**(ctor_kwargs or {}))
 
 
 def _partial_from_entry(entry: dict[str, Any]):
@@ -84,8 +89,14 @@ def format_over_value(value: Any) -> str:
 
 
 def _is_distribution_node(value: Any) -> bool:
-    return (isinstance(value, dict) and len(value) == 1
-            and next(iter(value)) in ("Normal", "PointMass", "NormalMixture"))
+    return (
+        isinstance(value, dict)
+        and len(value) == 1
+        and (
+            hasattr(_distributions, next(iter(value)))
+            or hasattr(_local_distributions, next(iter(value)))
+        )
+    )
 
 
 def resolve_distributions_in_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:

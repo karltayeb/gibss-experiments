@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 
 from gibss.distributions import Normal, NormalMixture, PointMass
+from simulations.distributions import Exponential
 @dataclass
 class SimulationSpec:
     design_sampler: Any
@@ -65,6 +66,7 @@ def _distribution_struct(distribution: Any) -> dict[str, Any]:
         "value": None,
         "loc": None,
         "scale": None,
+        "rate": None,
         "weights": None,
         "locs": None,
         "scales": None,
@@ -74,6 +76,8 @@ def _distribution_struct(distribution: Any) -> dict[str, Any]:
     elif isinstance(distribution, Normal):
         base["loc"] = float(distribution.loc)
         base["scale"] = float(distribution.scale)
+    elif isinstance(distribution, Exponential):
+        base["rate"] = float(distribution.rate)
     elif isinstance(distribution, NormalMixture):
         base["weights"] = _to_python(distribution.weights)
         base["locs"] = _to_python(distribution.locs)
@@ -270,7 +274,7 @@ from simulations.design.markov import gaussian_markov_X, uniform_markov_X
 from simulations.design.genesets import hallmark_gene_sets_X, c4_gene_sets_X, msigdb_gene_sets_X
 from simulations.design.degenerate import null_enrich_X
 from simulations.effect.effects import uniform_single_effect
-from simulations.error.errors import t_error_sampler
+from simulations.error.errors import noiseless_error_sampler, t_error_sampler
 
 # ---------------------------------------------------------------------------
 # Re-exports from fits/ sub-package

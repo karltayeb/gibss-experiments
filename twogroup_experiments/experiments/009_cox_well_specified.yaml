@@ -1,0 +1,54 @@
+# 009 Cox well-specified benchmark: exact exponential arrival times with no
+# observation noise. f0 = Exp(1), f1 = Exp(lambda), so Cox receives proportional
+# hazards data; lambda < 1 is depletion and lambda > 1 is enrichment.
+_anchors:
+  exp_signals: &exp_signals
+    [exp_lambda_1over3, exp_lambda_1over2, exp_lambda_2over3, exp_lambda_4over5,
+     exp_lambda_5over4, exp_lambda_3over2, exp_lambda_2, exp_lambda_3]
+  lambda_aliases: &lambda_aliases
+    [lambda=1/3, lambda=1/2, lambda=2/3, lambda=4/5,
+     lambda=5/4, lambda=3/2, lambda=2, lambda=3]
+  cox_methods: &cox_methods [cox_reversed__L=1]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+  analyses: &analyses [pip, cs, logbf, pip_non_null, cs_non_null]
+
+supercollections:
+  009-hallmark-cox-well-specified:
+    collections:
+      template: {design: hallmark, enrichment: [ser_b2, null_b0], error: noiseless}
+      over: {signal: *exp_signals}
+      aliases: *lambda_aliases
+    methods: *cox_methods
+    default_args: *default_args
+    outputs:
+      - {name: cox, method_filter: *cox_methods, analyses: *analyses}
+
+  009-c2-cox-well-specified:
+    collections:
+      template: {design: msigdb_c2_all, enrichment: [ser_b2, null_b0], error: noiseless}
+      over: {signal: *exp_signals}
+      aliases: *lambda_aliases
+    methods: *cox_methods
+    default_args: *default_args
+    outputs:
+      - {name: cox, method_filter: *cox_methods, analyses: *analyses}
+
+  009-c4-cox-well-specified:
+    collections:
+      template: {design: c4, enrichment: [ser_b2, null_b0], error: noiseless}
+      over: {signal: *exp_signals}
+      aliases: *lambda_aliases
+    methods: *cox_methods
+    default_args: *default_args
+    outputs:
+      - {name: cox, method_filter: *cox_methods, analyses: *analyses}
+
+  009-c5-cox-well-specified:
+    collections:
+      template: {design: msigdb_c5_all, enrichment: [ser_b2, null_b0], error: noiseless}
+      over: {signal: *exp_signals}
+      aliases: *lambda_aliases
+    methods: *cox_methods
+    default_args: *default_args
+    outputs:
+      - {name: cox, method_filter: *cox_methods, analyses: *analyses}
