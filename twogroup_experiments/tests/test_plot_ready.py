@@ -46,16 +46,9 @@ def test_build_simulation_metadata_uses_collection_batch_info():
 
 
 def test_build_collection_yaml_node_roundtrip():
-    import json
-    from pathlib import Path
-
-    manifest = json.loads(
-        (Path(__file__).parent.parent / "results" / "manifest.json").read_text()
-    )
-    batch_hash = next(iter(manifest["batches"]))
-    method_hash = next(iter(manifest["method_specs"]))
-    batch_node = manifest["batches"][batch_hash]
-    method_node = manifest["method_specs"][method_hash]
+    # Synthetic nodes with __spec_hash__ (the shape these functions require)
+    batch_node = {"__spec_hash__": "batch-1", "name": "sim-a", "fields": {}}
+    method_node = {"__spec_hash__": "method-1", "name": "twogroup_L1", "fields": {}}
 
     result = plot_ready.build_collection_yaml_node(
         name="test_collection",
@@ -70,16 +63,12 @@ def test_build_collection_yaml_node_roundtrip():
 
 
 def test_union_collection_yaml_nodes_deduplicates():
-    import json
-    from pathlib import Path
-
-    manifest = json.loads(
-        (Path(__file__).parent.parent / "results" / "manifest.json").read_text()
-    )
-    batch_hashes = list(manifest["batches"].keys())[:2]
-    method_hash = next(iter(manifest["method_specs"]))
-    batch_nodes = [manifest["batches"][h] for h in batch_hashes]
-    method_node = manifest["method_specs"][method_hash]
+    # Two distinct batch nodes, one method node shared across two sub-collections
+    batch_nodes = [
+        {"__spec_hash__": "batch-1", "name": "sim-a", "fields": {}},
+        {"__spec_hash__": "batch-2", "name": "sim-b", "fields": {}},
+    ]
+    method_node = {"__spec_hash__": "method-1", "name": "twogroup_L1", "fields": {}}
 
     node_a = plot_ready.build_collection_yaml_node(
         name="a", batch_nodes=batch_nodes[:1], method_nodes=[method_node]
