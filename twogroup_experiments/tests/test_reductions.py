@@ -22,11 +22,11 @@ import reductions.enrich as red_enrich
 # ---------------------------------------------------------------------------
 
 def _make_cox_ctx(tmp_path):
-    """Run one tiny batch+cox_heavy method end-to-end, return (ctx, sample_md, bh)."""
+    """Run one tiny batch+cox_reversed method end-to-end, return (ctx, sample_md, bh)."""
     lib = loader.load_library(Path(__file__).resolve().parent / "fixtures" / "experiments")
     spec = loader.resolve_simulation(lib, "gaussian_p8", "ser_b2", "loc_2.0", "gaussian")
     coord = loader.simulation_coordinate(lib, "gaussian_p8", "ser_b2", "loc_2.0", "gaussian")
-    method = loader.expand_method("cox_heavy", lib["methods"]["cox_heavy"])[0]
+    method = loader.expand_method("cox_reversed", lib["methods"]["cox_reversed"])[0]
     reps = (0, 1)
     sims_df = utils.simulate_batch(spec, replicates=reps)
     bh = spec.hash

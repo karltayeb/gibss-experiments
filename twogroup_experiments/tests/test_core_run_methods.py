@@ -40,8 +40,8 @@ def test_run_method_getfile():
 def test_run_method_executes_coord():
     from experiments import loader
     sim = _tiny_simulation()
-    coord = {"name": "cox_heavy__L=1", "function": "run_cox_method",
+    coord = {"name": "cox_reversed__L=1", "function": "run_cox_method",
              "kwargs": {"threshold": None, "time_sign": 1.0, "L": 1}}
     row = loader.run_method(coord, sim)
-    assert row["method"] == "cox_heavy__L=1"
+    assert row["method"] == "cox_reversed__L=1"
     assert "single_effects" in row

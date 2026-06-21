@@ -44,8 +44,8 @@ supercollections:
         signal: loc_2.0
         error: gaussian
     methods:
-    - cox_heavy__L=1
-    - cox_light__threshold=2.00__L=1
+    - cox_reversed__L=1
+    - cox__threshold=2.00__L=1
     - linear_fixed__L=1
     - logistic_threshold__threshold=2.00__L=1
     - twogroup__L=1
@@ -59,8 +59,8 @@ supercollections:
     - name: minimal
       method_filter: &id001
       - twogroup_oracle__L=1
-      - cox_heavy__L=1
-      - cox_light__threshold=2.00__L=1
+      - cox_reversed__L=1
+      - cox__threshold=2.00__L=1
       - logistic_threshold__threshold=2.00__L=1
       - linear_fixed__L=1
       analyses:
@@ -147,8 +147,8 @@ supercollections:
         signal: loc_2.0
         error: gaussian
     methods:
-    - cox_heavy__L=1
-    - cox_light__threshold=2.00__L=1
+    - cox_reversed__L=1
+    - cox__threshold=2.00__L=1
     - linear_fixed__L=1
     - logistic_threshold__threshold=2.00__L=1
     - twogroup__L=1
@@ -216,8 +216,8 @@ supercollections:
         signal: scale_2.0
         error: gaussian
     methods:
-    - cox_heavy__L=1
-    - cox_light__threshold=2.00__L=1
+    - cox_reversed__L=1
+    - cox__threshold=2.00__L=1
     - linear_fixed__L=1
     - logistic_threshold__threshold=2.00__L=1
     - twogroup__L=1
@@ -248,8 +248,8 @@ supercollections:
     - name: minimal_no_linear
       method_filter: &id004
       - twogroup_oracle__L=1
-      - cox_heavy__L=1
-      - cox_light__threshold=2.00__L=1
+      - cox_reversed__L=1
+      - cox__threshold=2.00__L=1
       - logistic_threshold__threshold=2.00__L=1
       analyses:
       - pip
@@ -325,8 +325,8 @@ supercollections:
         signal: scale_2.0
         error: gaussian
     methods:
-    - cox_heavy__L=1
-    - cox_light__threshold=2.00__L=1
+    - cox_reversed__L=1
+    - cox__threshold=2.00__L=1
     - linear_fixed__L=1
     - logistic_threshold__threshold=2.00__L=1
     - twogroup__L=1
@@ -400,8 +400,8 @@ supercollections:
         signal: loc_2.0
         error: gaussian
     methods:
-    - cox_heavy__L=1
-    - cox_light__threshold=2.00__L=1
+    - cox_reversed__L=1
+    - cox__threshold=2.00__L=1
     - linear_fixed__L=1
     - logistic_threshold__threshold=2.00__L=1
     - twogroup__L=1
@@ -495,8 +495,8 @@ supercollections:
         signal: loc_2.0
         error: gaussian
     methods:
-    - cox_heavy__L=1
-    - cox_light__threshold=2.00__L=1
+    - cox_reversed__L=1
+    - cox__threshold=2.00__L=1
     - linear_fixed__L=1
     - logistic_threshold__threshold=2.00__L=1
     - twogroup__L=1
@@ -564,8 +564,8 @@ supercollections:
         signal: scale_2.0
         error: gaussian
     methods:
-    - cox_heavy__L=1
-    - cox_light__threshold=2.00__L=1
+    - cox_reversed__L=1
+    - cox__threshold=2.00__L=1
     - linear_fixed__L=1
     - logistic_threshold__threshold=2.00__L=1
     - twogroup__L=1
@@ -666,8 +666,8 @@ supercollections:
         signal: scale_2.0
         error: gaussian
     methods:
-    - cox_heavy__L=1
-    - cox_light__threshold=2.00__L=1
+    - cox_reversed__L=1
+    - cox__threshold=2.00__L=1
     - linear_fixed__L=1
     - logistic_threshold__threshold=2.00__L=1
     - twogroup__L=1

@@ -13,11 +13,11 @@ _NOTHRESH_LINESTYLES = ["--", "-.", ":", (0, (5, 1)), (0, (3, 1, 1, 1))]
 def method_family_label_map() -> dict[str, str]:
     return {
         "logistic_threshold":    "Logistic",
-        "cox_light_threshold":   "Cox Light",
+        "cox":                   "Cox",
         "twogroup":              "Twogroup",
         "twogroup_oracle":       "Twogroup",
         "logistic_oracle":       "Logistic",
-        "cox_heavy":             "Cox Heavy",
+        "cox_reversed":          "Cox (reversed)",
         "twogroup_oracle_init":  "TG Oracle Init",
         "twogroup_scale_fam":    "Twogroup Scale",
         "twogroup_loc_fam":      "Twogroup Loc",
@@ -35,9 +35,8 @@ def method_family_color_map() -> dict[str, str]:
     return {
         "logistic_threshold":    "#0072B2",
         "logistic_oracle":       "#56B4E9",
-        "cox_light":             "#009E73",
-        "cox_light_threshold":   "#009E73",  # v1 alias
-        "cox_heavy":             "#E69F00",
+        "cox":                   "#009E73",
+        "cox_reversed":          "#E69F00",
         "twogroup":              "#D55E00",  # vermillion
         "twogroup_oracle":       "#CC79A7",  # rose/mauve
         "twogroup_oracle_init":  "#994F00",  # dark burnt orange

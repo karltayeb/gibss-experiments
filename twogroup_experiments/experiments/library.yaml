@@ -446,7 +446,7 @@ methods:
     over:
       L:
       - 1
-  cox_heavy:
+  cox_reversed:
     function: run_cox_method
     template:
       threshold: null
@@ -454,7 +454,7 @@ methods:
     over:
       L:
       - 1
-  cox_light:
+  cox:
     function: run_cox_method
     template:
       time_sign: -1.0

@@ -3,7 +3,7 @@ supercollections:
     collections:
       template: {design: gaussian_p8, enrichment: ser_b2, error: gaussian}
       over: {signal: [loc_2.0]}
-    methods: [cox_heavy__L=1, twogroup__L=1]
+    methods: [cox_reversed__L=1, twogroup__L=1]
     default_args: {min_log_bf: 2.0, max_fdp: 0.5}
     outputs:
       - name: smoke

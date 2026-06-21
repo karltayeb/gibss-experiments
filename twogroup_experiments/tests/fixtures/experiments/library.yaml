@@ -10,7 +10,7 @@ signals:
 errors:
   gaussian: null
 methods:
-  cox_heavy: {function: run_cox_method, template: {threshold: null, time_sign: 1.0}, over: {L: [1]}}
+  cox_reversed: {function: run_cox_method, template: {threshold: null, time_sign: 1.0}, over: {L: [1]}}
   twogroup:  {function: run_twogroup_method,
               template: {f1: {Normal: {loc: 0.0, scale: 1.0, estimate_loc: true, estimate_scale: true}},
                          n_null_iter: 2, n_intercept_iter: 2},

@@ -72,11 +72,11 @@ def test_resolve_simulation_nongaussian_error_in_name():
 def test_expand_method_cartesian_names_and_kwargs():
     entry = {"function": "run_cox_method", "template": {"time_sign": -1.0},
              "over": {"threshold": [0.0, 2.0], "L": [1, 5]}}
-    coords = loader.expand_method("cox_light", entry)
+    coords = loader.expand_method("cox", entry)
     names = [c["name"] for c in coords]
     assert names == [
-        "cox_light__threshold=0.00__L=1", "cox_light__threshold=0.00__L=5",
-        "cox_light__threshold=2.00__L=1", "cox_light__threshold=2.00__L=5",
+        "cox__threshold=0.00__L=1", "cox__threshold=0.00__L=5",
+        "cox__threshold=2.00__L=1", "cox__threshold=2.00__L=5",
     ]
     c = coords[2]
     assert c["function"] == "run_cox_method"
@@ -98,13 +98,13 @@ def test_expand_method_preserves_distribution_node_in_kwargs():
 def test_library_methods_expands_all_entries():
     lib = _library_for_tests()
     lib["methods"] = {
-        "cox_heavy": {"function": "run_cox_method",
+        "cox_reversed": {"function": "run_cox_method",
                       "template": {"threshold": None, "time_sign": 1.0}, "over": {"L": [1]}},
-        "cox_light": {"function": "run_cox_method", "template": {"time_sign": -1.0},
+        "cox": {"function": "run_cox_method", "template": {"time_sign": -1.0},
                       "over": {"threshold": [2.0], "L": [1]}},
     }
     methods = loader.library_methods(lib)
-    assert set(methods) == {"cox_heavy__L=1", "cox_light__threshold=2.00__L=1"}
+    assert set(methods) == {"cox_reversed__L=1", "cox__threshold=2.00__L=1"}
 
 
 def test_manifest_dict_shape():
@@ -147,7 +147,7 @@ def test_load_config_and_accessors():
     sims = loader.all_simulations(cfg)
     assert {"gaussian_p8__ser_b2__loc_2.0", "gaussian_p8__null_b0__loc_2.0"} <= set(sims)
     methods = loader.all_methods(cfg)
-    assert {"cox_heavy__L=1", "twogroup__L=1"} == set(methods)
+    assert {"cox_reversed__L=1", "twogroup__L=1"} == set(methods)
 
 
 def test_flatten_analyses_expands_groups_and_dedups():
@@ -183,7 +183,7 @@ def test_method_metadata_columns():
     assert {"method", "method_family", "L", "threshold", "is_thresholded",
             "is_oracle", "method_display"} <= set(md.columns)
     fams = set(md["method_family"].to_list())
-    assert fams == {"cox_heavy", "twogroup"}
+    assert fams == {"cox_reversed", "twogroup"}
 
 
 def test_load_sc_bundle_tags_collections(tmp_path):
@@ -262,18 +262,18 @@ def _resolved_tiny_sim():
 def test_expand_method_returns_coordinates():
     entry = {"function": "run_cox_method", "template": {"time_sign": -1.0},
              "over": {"threshold": [2.0], "L": [1]}}
-    coords = loader.expand_method("cox_light", entry)
-    assert [c["name"] for c in coords] == ["cox_light__threshold=2.00__L=1"]
+    coords = loader.expand_method("cox", entry)
+    assert [c["name"] for c in coords] == ["cox__threshold=2.00__L=1"]
     assert coords[0]["function"] == "run_cox_method"
     assert coords[0]["kwargs"] == {"time_sign": -1.0, "threshold": 2.0, "L": 1}
 
 
 def test_run_method_executes(tmp_path):
     sim = _resolved_tiny_sim()
-    coord = {"name": "cox_heavy__L=1", "function": "run_cox_method",
+    coord = {"name": "cox_reversed__L=1", "function": "run_cox_method",
              "kwargs": {"threshold": None, "time_sign": 1.0, "L": 1}}
     row = loader.run_method(coord, sim)
-    assert row["method"] == "cox_heavy__L=1" and "single_effects" in row
+    assert row["method"] == "cox_reversed__L=1" and "single_effects" in row
 
 
 def test_manifest_dict_coordinate_shape():

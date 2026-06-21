@@ -20,7 +20,7 @@ def _make_atomic_fixture(tmp_path):
     """Run one tiny batch+method end-to-end, return (fits_df, sims_df, sample_md)."""
     lib = loader.load_library(Path(__file__).resolve().parent / "fixtures" / "experiments")
     spec = loader.resolve_simulation(lib, "gaussian_p8", "ser_b2", "loc_2.0", "gaussian")
-    method = loader.expand_method("cox_heavy", lib["methods"]["cox_heavy"])[0]
+    method = loader.expand_method("cox_reversed", lib["methods"]["cox_reversed"])[0]
     reps = (0, 1)
     sims_df = utils.simulate_batch(spec, replicates=reps)
     bh = spec.hash

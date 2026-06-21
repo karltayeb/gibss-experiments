@@ -12,7 +12,7 @@ import analyses.f1
 
 
 def test_foreground_methods_is_name_membership():
-    meta = pl.from_dicts([{"method": "twogroup__L=1"}, {"method": "cox_heavy__L=1"}])
+    meta = pl.from_dicts([{"method": "twogroup__L=1"}, {"method": "cox_reversed__L=1"}])
     fg = generate_plots._foreground_methods(meta, {"method_filter": ["twogroup__L=1", "absent__L=1"]})
     assert fg == {"twogroup__L=1"}
 
