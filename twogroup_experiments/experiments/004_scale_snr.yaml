@@ -1,115 +1,4 @@
 supercollections:
-  004-hallmark-scale-snr-non-null:
-    collections:
-    - name: design=hallmark__enrichment=ser_enrich__signal=scale_0.75
-      alias: scale=0.75
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_0.75
-        error: gaussian
-    - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.00
-      alias: scale=1.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_1.0
-        error: gaussian
-    - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.50
-      alias: scale=1.50
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_1.5
-        error: gaussian
-    - name: design=hallmark__enrichment=ser_enrich__signal=scale_1.75
-      alias: scale=1.75
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_1.75
-        error: gaussian
-    - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.00
-      alias: scale=2.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=hallmark__enrichment=ser_enrich__signal=scale_2.25
-      alias: scale=2.25
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_2.25
-        error: gaussian
-    - name: design=hallmark__enrichment=ser_enrich__signal=scale_3.00
-      alias: scale=3.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_3.0
-        error: gaussian
-    - name: design=hallmark__enrichment=ser_enrich__signal=scale_4.00
-      alias: scale=4.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_4.0
-        error: gaussian
-    - name: design=hallmark__enrichment=ser_enrich__signal=scale_5.00
-      alias: scale=5.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_5.0
-        error: gaussian
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_oracle__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    outputs:
-    - name: minimal
-      method_filter: &id001
-      - twogroup_oracle__L=1
-      - cox_reversed__L=1
-      - cox__threshold=2.00__L=1
-      - logistic_threshold__threshold=2.00__L=1
-      - linear_fixed__L=1
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal-scale
-      method_filter: &id002
-      - twogroup_oracle__L=1
-      - twogroup__L=1
-      - twogroup_scale_fam__L=1
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal_no_linear
-      method_filter: &id003
-      - twogroup_oracle__L=1
-      - cox_reversed__L=1
-      - cox__threshold=2.00__L=1
-      - logistic_threshold__threshold=2.00__L=1
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
   004-hallmark-scale-snr:
     collections:
     - name: hallmark-scale-0.75-with-null
@@ -225,121 +114,40 @@ supercollections:
       max_fdp: 0.5
     outputs:
     - name: minimal
-      method_filter: *id001
+      method_filter: &id001
+      - twogroup_oracle__L=1
+      - cox_reversed__L=1
+      - cox__threshold=2.00__L=1
+      - logistic_threshold__threshold=2.00__L=1
+      - linear_fixed__L=1
       analyses:
       - pip
       - cs
       - logbf
-    - name: minimal-scale
-      method_filter: *id002
-      analyses:
-      - pip
-      - cs
-      - logbf
-    - name: minimal_no_linear
-      method_filter: *id003
-      analyses:
-      - pip
-      - cs
-      - logbf
-  004-c4-scale-snr-non-null:
-    collections:
-    - name: design=c4__enrichment=ser_enrich__signal=scale_0.75
-      alias: scale=0.75
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_0.75
-        error: gaussian
-    - name: design=c4__enrichment=ser_enrich__signal=scale_1.00
-      alias: scale=1.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_1.0
-        error: gaussian
-    - name: design=c4__enrichment=ser_enrich__signal=scale_1.50
-      alias: scale=1.50
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_1.5
-        error: gaussian
-    - name: design=c4__enrichment=ser_enrich__signal=scale_1.75
-      alias: scale=1.75
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_1.75
-        error: gaussian
-    - name: design=c4__enrichment=ser_enrich__signal=scale_2.00
-      alias: scale=2.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=c4__enrichment=ser_enrich__signal=scale_2.25
-      alias: scale=2.25
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_2.25
-        error: gaussian
-    - name: design=c4__enrichment=ser_enrich__signal=scale_3.00
-      alias: scale=3.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_3.0
-        error: gaussian
-    - name: design=c4__enrichment=ser_enrich__signal=scale_4.00
-      alias: scale=4.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_4.0
-        error: gaussian
-    - name: design=c4__enrichment=ser_enrich__signal=scale_5.00
-      alias: scale=5.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_5.0
-        error: gaussian
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_oracle__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    outputs:
-    - name: minimal
-      method_filter: *id001
-      analyses:
-      - pip
       - pip_non_null
-      - cs
       - cs_non_null
     - name: minimal-scale
-      method_filter: *id002
+      method_filter: &id002
+      - twogroup_oracle__L=1
+      - twogroup__L=1
+      - twogroup_scale_fam__L=1
       analyses:
       - pip
-      - pip_non_null
       - cs
+      - logbf
+      - pip_non_null
       - cs_non_null
     - name: minimal_no_linear
-      method_filter: *id003
+      method_filter: &id003
+      - twogroup_oracle__L=1
+      - cox_reversed__L=1
+      - cox__threshold=2.00__L=1
+      - logistic_threshold__threshold=2.00__L=1
       analyses:
       - pip
-      - pip_non_null
       - cs
+      - logbf
+      - pip_non_null
       - cs_non_null
   004-c4-scale-snr:
     collections:
@@ -461,116 +269,23 @@ supercollections:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal-scale
       method_filter: *id002
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal_no_linear
       method_filter: *id003
       analyses:
       - pip
       - cs
       - logbf
-  004-gaussian-p100-scale-snr-non-null:
-    collections:
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75
-      alias: scale=0.75
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_0.75
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00
-      alias: scale=1.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50
-      alias: scale=1.50
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.5
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
-      alias: scale=1.75
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.75
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
-      alias: scale=2.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-      alias: scale=2.25
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.25
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00
-      alias: scale=3.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_3.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00
-      alias: scale=4.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_4.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00
-      alias: scale=5.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_5.0
-        error: gaussian
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_oracle__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    outputs:
-    - name: minimal
-      method_filter: *id001
-      analyses:
-      - pip
       - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal-scale
-      method_filter: *id002
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal_no_linear
-      method_filter: *id003
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
       - cs_non_null
   004-gaussian-p100-scale-snr:
     collections:
@@ -692,116 +407,23 @@ supercollections:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal-scale
       method_filter: *id002
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal_no_linear
       method_filter: *id003
       analyses:
       - pip
       - cs
       - logbf
-  004-uniform-p100-scale-snr-non-null:
-    collections:
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_0.75
-      alias: scale=0.75
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_0.75
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.00
-      alias: scale=1.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.50
-      alias: scale=1.50
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.5
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_1.75
-      alias: scale=1.75
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.75
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
-      alias: scale=2.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.25
-      alias: scale=2.25
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.25
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_3.00
-      alias: scale=3.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_3.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_4.00
-      alias: scale=4.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_4.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_5.00
-      alias: scale=5.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_5.0
-        error: gaussian
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_oracle__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    outputs:
-    - name: minimal
-      method_filter: *id001
-      analyses:
-      - pip
       - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal-scale
-      method_filter: *id002
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal_no_linear
-      method_filter: *id003
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
       - cs_non_null
   004-uniform-p100-scale-snr:
     collections:
@@ -923,15 +545,21 @@ supercollections:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal-scale
       method_filter: *id002
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal_no_linear
       method_filter: *id003
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null

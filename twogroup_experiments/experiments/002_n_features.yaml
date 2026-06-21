@@ -1,154 +1,4 @@
 supercollections:
-  002-uniform-n-features-loc-non-null:
-    collections:
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=100
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_200__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=200
-      simulations:
-      - design: uniform_rho0.90_n500_p200
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_400__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=400
-      simulations:
-      - design: uniform_rho0.90_n500_p400
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_800__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=800
-      simulations:
-      - design: uniform_rho0.90_n500_p800
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_1600__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=1600
-      simulations:
-      - design: uniform_rho0.90_n500_p1600
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_loc_fam__L=1
-    - twogroup_oracle__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    outputs:
-    - name: minimal
-      method_filter: &id001
-      - twogroup_oracle__L=1
-      - cox_reversed__L=1
-      - cox__threshold=2.00__L=1
-      - logistic_threshold__threshold=2.00__L=1
-      - linear_fixed__L=1
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal-loc
-      method_filter: &id002
-      - twogroup_oracle__L=1
-      - twogroup__L=1
-      - twogroup_loc_fam__L=1
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-  002-uniform-n-features-scale-non-null:
-    collections:
-    - name: design=uniform_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=100
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_200__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=200
-      simulations:
-      - design: uniform_rho0.90_n500_p200
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_400__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=400
-      simulations:
-      - design: uniform_rho0.90_n500_p400
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_800__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=800
-      simulations:
-      - design: uniform_rho0.90_n500_p800
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=uniform_rho_0.90_n_500_p_1600__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=1600
-      simulations:
-      - design: uniform_rho0.90_n500_p1600
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_oracle__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    outputs:
-    - name: minimal
-      method_filter: *id001
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal-scale
-      method_filter: &id003
-      - twogroup_oracle__L=1
-      - twogroup__L=1
-      - twogroup_scale_fam__L=1
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal_no_linear
-      method_filter: &id004
-      - twogroup_oracle__L=1
-      - cox_reversed__L=1
-      - cox__threshold=2.00__L=1
-      - logistic_threshold__threshold=2.00__L=1
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
   002-uniform-n-features-loc:
     collections:
     - name: uniform-n500-p100-loc-with-null
@@ -220,17 +70,29 @@ supercollections:
       max_fdp: 0.5
     outputs:
     - name: minimal
-      method_filter: *id001
+      method_filter: &id001
+      - twogroup_oracle__L=1
+      - cox_reversed__L=1
+      - cox__threshold=2.00__L=1
+      - logistic_threshold__threshold=2.00__L=1
+      - linear_fixed__L=1
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal-loc
-      method_filter: *id002
+      method_filter: &id002
+      - twogroup_oracle__L=1
+      - twogroup__L=1
+      - twogroup_loc_fam__L=1
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
   002-uniform-n-features-scale:
     collections:
     - name: uniform-n500-p100-scale-with-null
@@ -307,152 +169,30 @@ supercollections:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal-scale
-      method_filter: *id003
+      method_filter: &id003
+      - twogroup_oracle__L=1
+      - twogroup__L=1
+      - twogroup_scale_fam__L=1
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal_no_linear
-      method_filter: *id004
+      method_filter: &id004
+      - twogroup_oracle__L=1
+      - cox_reversed__L=1
+      - cox__threshold=2.00__L=1
+      - logistic_threshold__threshold=2.00__L=1
       analyses:
       - pip
       - cs
       - logbf
-  002-gaussian-n-features-loc-non-null:
-    collections:
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=100
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_200__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=200
-      simulations:
-      - design: gaussian_rho0.90_n500_p200
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_400__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=400
-      simulations:
-      - design: gaussian_rho0.90_n500_p400
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_800__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=800
-      simulations:
-      - design: gaussian_rho0.90_n500_p800
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_1600__enrichment=ser_enrich__signal=loc_2.00
-      alias: p=1600
-      simulations:
-      - design: gaussian_rho0.90_n500_p1600
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_loc_fam__L=1
-    - twogroup_oracle__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    outputs:
-    - name: minimal
-      method_filter: *id001
-      analyses:
-      - pip
       - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal-loc
-      method_filter: *id002
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-  002-gaussian-n-features-scale-non-null:
-    collections:
-    - name: design=gaussian_rho_0.90_n_500_p_100__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=100
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_200__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=200
-      simulations:
-      - design: gaussian_rho0.90_n500_p200
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_400__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=400
-      simulations:
-      - design: gaussian_rho0.90_n500_p400
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_800__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=800
-      simulations:
-      - design: gaussian_rho0.90_n500_p800
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    - name: design=gaussian_rho_0.90_n_500_p_1600__enrichment=ser_enrich__signal=scale_2.00
-      alias: p=1600
-      simulations:
-      - design: gaussian_rho0.90_n500_p1600
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_oracle__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
-    outputs:
-    - name: minimal
-      method_filter: *id001
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal-scale
-      method_filter: *id003
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
-      - cs_non_null
-    - name: minimal_no_linear
-      method_filter: *id004
-      analyses:
-      - pip
-      - pip_non_null
-      - cs
       - cs_non_null
   002-gaussian-n-features-loc:
     collections:
@@ -530,12 +270,16 @@ supercollections:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal-loc
       method_filter: *id002
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
   002-gaussian-n-features-scale:
     collections:
     - name: gaussian-n500-p100-scale-with-null
@@ -612,15 +356,21 @@ supercollections:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal-scale
       method_filter: *id003
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
     - name: minimal_no_linear
       method_filter: *id004
       analyses:
       - pip
       - cs
       - logbf
+      - pip_non_null
+      - cs_non_null
