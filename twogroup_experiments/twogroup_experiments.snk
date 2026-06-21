@@ -146,3 +146,19 @@ for _a in _all_analysis_names():
 rule all_plots:
     input:
         _all_analysis_targets(),
+
+
+# ---------------------------------------------------------------------------
+# Per-supercollection aggregator: build every analysis PDF for one SC
+#   uv run snakemake -s twogroup_experiments.snk -c8 \
+#       results/supercollections/<sc>/.done
+# ---------------------------------------------------------------------------
+
+rule supercollection:
+    input:
+        lambda wc: [
+            f"{RESULTS_ROOT}/supercollections/{wc.supercollection}/{analysis}/{args_name}.pdf"
+            for analysis, args_name in loader.resolve_sc_analyses(CONFIG, wc.supercollection)
+        ],
+    output:
+        touch(f"{RESULTS_ROOT}/supercollections/{{supercollection}}/.done"),
