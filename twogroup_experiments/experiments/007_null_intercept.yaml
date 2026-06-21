@@ -1,0 +1,248 @@
+supercollections:
+  007-hallmark-null-intercept-loc:
+    collections:
+    - name: design=hallmark__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
+      alias: intercept=-3
+      simulations:
+      - design: hallmark
+        enrichment: null_b0_int-3
+        signal: loc_0.0
+        error: gaussian
+    - name: design=hallmark__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
+      alias: intercept=-2
+      simulations:
+      - design: hallmark
+        enrichment: null_b0
+        signal: loc_0.0
+        error: gaussian
+    - name: design=hallmark__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
+      alias: intercept=-1
+      simulations:
+      - design: hallmark
+        enrichment: null_b0_int-1
+        signal: loc_0.0
+        error: gaussian
+    - name: design=hallmark__enrichment=b0_0.00_b_0.00__signal=loc_0.00
+      alias: intercept=0
+      simulations:
+      - design: hallmark
+        enrichment: null_b0_int0
+        signal: loc_0.0
+        error: gaussian
+    methods:
+    - cox_heavy__L=1
+    - cox_light__threshold=2.00__L=1
+    - linear_fixed__L=1
+    - logistic_threshold__threshold=2.00__L=1
+    - twogroup__L=1
+    - twogroup_loc_fam__L=1
+    - twogroup_oracle__L=1
+    default_args:
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    outputs:
+    - name: minimal
+      method_filter: &id001
+      - twogroup_oracle__L=1
+      - cox_heavy__L=1
+      - cox_light__threshold=2.00__L=1
+      - logistic_threshold__threshold=2.00__L=1
+      - linear_fixed__L=1
+      analyses:
+      - pip
+      - cs
+      - logbf
+    - name: minimal-loc
+      method_filter: &id002
+      - twogroup_oracle__L=1
+      - twogroup__L=1
+      - twogroup_loc_fam__L=1
+      analyses:
+      - pip
+      - cs
+      - logbf
+  007-hallmark-null-intercept-scale:
+    collections:
+    - name: design=hallmark__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
+      alias: intercept=-3
+      simulations:
+      - design: hallmark
+        enrichment: null_b0_int-3
+        signal: scale_0.0
+        error: gaussian
+    - name: design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
+      alias: intercept=-2
+      simulations:
+      - design: hallmark
+        enrichment: null_b0
+        signal: scale_0.0
+        error: gaussian
+    - name: design=hallmark__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
+      alias: intercept=-1
+      simulations:
+      - design: hallmark
+        enrichment: null_b0_int-1
+        signal: scale_0.0
+        error: gaussian
+    - name: design=hallmark__enrichment=b0_0.00_b_0.00__signal=scale_0.00
+      alias: intercept=0
+      simulations:
+      - design: hallmark
+        enrichment: null_b0_int0
+        signal: scale_0.0
+        error: gaussian
+    methods:
+    - cox_heavy__L=1
+    - cox_light__threshold=2.00__L=1
+    - linear_fixed__L=1
+    - logistic_threshold__threshold=2.00__L=1
+    - twogroup__L=1
+    - twogroup_oracle__L=1
+    - twogroup_scale_fam__L=1
+    default_args:
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    outputs:
+    - name: minimal
+      method_filter: *id001
+      analyses:
+      - pip
+      - cs
+      - logbf
+    - name: minimal-scale
+      method_filter: &id003
+      - twogroup_oracle__L=1
+      - twogroup__L=1
+      - twogroup_scale_fam__L=1
+      analyses:
+      - pip
+      - cs
+      - logbf
+    - name: minimal_no_linear
+      method_filter: &id004
+      - twogroup_oracle__L=1
+      - cox_heavy__L=1
+      - cox_light__threshold=2.00__L=1
+      - logistic_threshold__threshold=2.00__L=1
+      analyses:
+      - pip
+      - cs
+      - logbf
+  007-c4-null-intercept-loc:
+    collections:
+    - name: design=c4__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
+      alias: intercept=-3
+      simulations:
+      - design: c4
+        enrichment: null_b0_int-3
+        signal: loc_0.0
+        error: gaussian
+    - name: design=c4__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
+      alias: intercept=-2
+      simulations:
+      - design: c4
+        enrichment: null_b0
+        signal: loc_0.0
+        error: gaussian
+    - name: design=c4__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
+      alias: intercept=-1
+      simulations:
+      - design: c4
+        enrichment: null_b0_int-1
+        signal: loc_0.0
+        error: gaussian
+    - name: design=c4__enrichment=b0_0.00_b_0.00__signal=loc_0.00
+      alias: intercept=0
+      simulations:
+      - design: c4
+        enrichment: null_b0_int0
+        signal: loc_0.0
+        error: gaussian
+    methods:
+    - cox_heavy__L=1
+    - cox_light__threshold=2.00__L=1
+    - linear_fixed__L=1
+    - logistic_threshold__threshold=2.00__L=1
+    - twogroup__L=1
+    - twogroup_loc_fam__L=1
+    - twogroup_oracle__L=1
+    default_args:
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    outputs:
+    - name: minimal
+      method_filter: *id001
+      analyses:
+      - pip
+      - cs
+      - logbf
+    - name: minimal-loc
+      method_filter: *id002
+      analyses:
+      - pip
+      - cs
+      - logbf
+  007-c4-null-intercept-scale:
+    collections:
+    - name: design=c4__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
+      alias: intercept=-3
+      simulations:
+      - design: c4
+        enrichment: null_b0_int-3
+        signal: scale_0.0
+        error: gaussian
+    - name: design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
+      alias: intercept=-2
+      simulations:
+      - design: c4
+        enrichment: null_b0
+        signal: scale_0.0
+        error: gaussian
+    - name: design=c4__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
+      alias: intercept=-1
+      simulations:
+      - design: c4
+        enrichment: null_b0_int-1
+        signal: scale_0.0
+        error: gaussian
+    - name: design=c4__enrichment=b0_0.00_b_0.00__signal=scale_0.00
+      alias: intercept=0
+      simulations:
+      - design: c4
+        enrichment: null_b0_int0
+        signal: scale_0.0
+        error: gaussian
+    methods:
+    - cox_heavy__L=1
+    - cox_light__threshold=2.00__L=1
+    - linear_fixed__L=1
+    - logistic_threshold__threshold=2.00__L=1
+    - twogroup__L=1
+    - twogroup_oracle__L=1
+    - twogroup_scale_fam__L=1
+    default_args:
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    outputs:
+    - name: minimal
+      method_filter: *id001
+      analyses:
+      - pip
+      - cs
+      - logbf
+    - name: minimal-scale
+      method_filter: *id003
+      analyses:
+      - pip
+      - cs
+      - logbf
+    - name: minimal_no_linear
+      method_filter: *id004
+      analyses:
+      - pip
+      - cs
+      - logbf

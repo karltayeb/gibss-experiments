@@ -1,0 +1,162 @@
+supercollections:
+  006-null-enrich-signal-loc:
+    collections:
+    - name: design=null_enrich__enrichment=null_enrich__signal=loc_0.50
+      alias: mu=0.50
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: loc_0.5
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=loc_1.00
+      alias: mu=1.00
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: loc_1.0
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=loc_1.50
+      alias: mu=1.50
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: loc_1.5
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
+      alias: mu=2.00
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: loc_2.0
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.50
+      alias: mu=2.50
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: loc_2.5
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=loc_3.00
+      alias: mu=3.00
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: loc_3.0
+        error: gaussian
+    methods:
+    - twogroup__L=1
+    - twogroup_loc_fam__L=1
+    - twogroup_oracle__L=1
+    - twogroup_oracle_init__L=1
+    - twogroup_scale_fam__L=1
+    default_args:
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    outputs:
+    - name: twogroup_methods
+      method_filter: &id001
+      - twogroup_oracle__L=1
+      - twogroup_oracle_init__L=1
+      - twogroup__L=1
+      - twogroup_scale_fam__L=1
+      - twogroup_loc_fam__L=1
+      analyses:
+      - f1
+    - name: twogroup_loc_methods
+      method_filter: &id002
+      - twogroup_oracle__L=1
+      - twogroup_oracle_init__L=1
+      - twogroup__L=1
+      - twogroup_loc_fam__L=1
+      analyses:
+      - f1
+    - name: twogroup_scale_methods
+      method_filter: &id003
+      - twogroup_oracle__L=1
+      - twogroup_oracle_init__L=1
+      - twogroup__L=1
+      - twogroup_scale_fam__L=1
+      analyses:
+      - f1
+  006-null-enrich-signal-scale:
+    collections:
+    - name: design=null_enrich__enrichment=null_enrich__signal=scale_0.75
+      alias: sigma=0.75
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: scale_0.75
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=scale_1.00
+      alias: sigma=1.00
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: scale_1.0
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=scale_1.50
+      alias: sigma=1.50
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: scale_1.5
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=scale_1.75
+      alias: sigma=1.75
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: scale_1.75
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
+      alias: sigma=2.00
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: scale_2.0
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=scale_3.00
+      alias: sigma=3.00
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: scale_3.0
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=scale_4.00
+      alias: sigma=4.00
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: scale_4.0
+        error: gaussian
+    - name: design=null_enrich__enrichment=null_enrich__signal=scale_5.00
+      alias: sigma=5.00
+      simulations:
+      - design: null_enrich
+        enrichment: null_enrich
+        signal: scale_5.0
+        error: gaussian
+    methods:
+    - twogroup__L=1
+    - twogroup_loc_fam__L=1
+    - twogroup_oracle__L=1
+    - twogroup_oracle_init__L=1
+    - twogroup_scale_fam__L=1
+    default_args:
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+    outputs:
+    - name: twogroup_methods
+      method_filter: *id001
+      analyses:
+      - f1
+    - name: twogroup_loc_methods
+      method_filter: *id002
+      analyses:
+      - f1
+    - name: twogroup_scale_methods
+      method_filter: *id003
+      analyses:
+      - f1
