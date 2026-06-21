@@ -15,7 +15,7 @@ _anchors:
 supercollections:
   009-hallmark-cox-well-specified:
     collections:
-      template: {design: hallmark, enrichment: [ser_b2, null_b0], error: noiseless}
+      template: {design: hallmark, enrichment: [ser_b2_det, null_b0_det], error: noiseless}
       over: {signal: *exp_signals}
       aliases: *lambda_aliases
     methods: *cox_methods
@@ -25,7 +25,7 @@ supercollections:
 
   009-c2-cox-well-specified:
     collections:
-      template: {design: msigdb_c2_all, enrichment: [ser_b2, null_b0], error: noiseless}
+      template: {design: msigdb_c2_all, enrichment: [ser_b2_det, null_b0_det], error: noiseless}
       over: {signal: *exp_signals}
       aliases: *lambda_aliases
     methods: *cox_methods
@@ -35,7 +35,7 @@ supercollections:
 
   009-c4-cox-well-specified:
     collections:
-      template: {design: c4, enrichment: [ser_b2, null_b0], error: noiseless}
+      template: {design: c4, enrichment: [ser_b2_det, null_b0_det], error: noiseless}
       over: {signal: *exp_signals}
       aliases: *lambda_aliases
     methods: *cox_methods
@@ -45,7 +45,7 @@ supercollections:
 
   009-c5-cox-well-specified:
     collections:
-      template: {design: msigdb_c5_all, enrichment: [ser_b2, null_b0], error: noiseless}
+      template: {design: msigdb_c5_all, enrichment: [ser_b2_det, null_b0_det], error: noiseless}
       over: {signal: *exp_signals}
       aliases: *lambda_aliases
     methods: *cox_methods

@@ -379,6 +379,30 @@ def test_over_aliases_length_mismatch_raises():
         loader.expand_collections(lib, "sc", block)
 
 
+def test_resolve_simulation_membership_flag():
+    from experiments import loader
+    base = {
+        "design": {"function": "null_enrich_X", "arguments": {}},
+        "signal": {"f0": {"Exponential": {"rate": 1.0}},
+                   "f1": {"Exponential": {"rate": 0.5}}},
+        "error": None,
+        "base_seed": 0,
+    }
+    det = dict(base, enrichment={
+        "function": "uniform_single_effect",
+        "arguments": {"causal_effect": 2.0},
+        "intercept": -1.0,
+        "membership": "deterministic",
+    })
+    sto = dict(base, enrichment={
+        "function": "uniform_single_effect",
+        "arguments": {"causal_effect": 2.0},
+        "intercept": -2.0,
+    })
+    assert loader.resolve_simulation_from_coord(det).membership == "deterministic"
+    assert loader.resolve_simulation_from_coord(sto).membership == "stochastic"
+
+
 def test_009_cox_well_specified_config_shape():
     cfg = loader.load_config()
     lib = cfg["library"]

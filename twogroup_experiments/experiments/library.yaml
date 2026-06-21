@@ -263,6 +263,18 @@ enrichments:
     arguments:
       causal_effect: 0.0
     intercept: -2.0
+  ser_b2_det:
+    function: uniform_single_effect
+    arguments:
+      causal_effect: 2.0
+    intercept: -1.0
+    membership: deterministic
+  null_b0_det:
+    function: uniform_single_effect
+    arguments:
+      causal_effect: 0.0
+    intercept: -1.0
+    membership: deterministic
 signals:
   loc_0.5:
     f0:
