@@ -113,7 +113,7 @@ def expand_pip_calibration_from_compact(
     pip_plot_data: pl.DataFrame,
     method_metadata: pl.DataFrame,
     *,
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
 ) -> pl.DataFrame:
     """Expand pip_plot_data to 20 coarse-bin rows for render_pip_calibration. Aggregates 200 fine bins (width 0.005) into 20 coarse bins (width 0.05)."""
     if pip_plot_data.is_empty():
@@ -200,7 +200,7 @@ def expand_power_fdp_from_compact(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
     aggregate_across_collections: bool = False,
 ) -> pl.DataFrame:
     """Derive per-threshold power/FDP rows from 200-bin arrays.
@@ -814,7 +814,7 @@ def make_preceding_mass_ecdf_summary(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
 ) -> pl.DataFrame:
     """Expand mass_above_causal for empirical CDF plotting. No validity filters applied."""
     empty_schema = {
@@ -1158,7 +1158,7 @@ def make_cs_coverage_size_curves(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
 ) -> pl.DataFrame:
     """Raw coverage vs CS size curves, no BF or size filtering.
 
@@ -1208,7 +1208,7 @@ def make_cs_power_size_coverage_summary(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
     max_cs_size: int,
     min_ser_log_bf: float,
 ) -> pl.DataFrame:
@@ -1284,7 +1284,7 @@ def make_cs_radius_power_summary(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
     max_cs_size: int,
     min_ser_log_bf: float,
 ) -> pl.DataFrame:
@@ -1347,7 +1347,7 @@ def find_calibrated_radius_summary(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
     target_coverage: float,
     min_ser_log_bf: float,
 ) -> pl.DataFrame:
@@ -1429,7 +1429,7 @@ def find_calibrated_beta_summary(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
     target_coverage: float,
     min_ser_log_bf: float,
 ) -> pl.DataFrame:
@@ -1636,7 +1636,7 @@ def make_adaptive_cs_summary(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
     min_beta: float,
     max_cs_size: int,
     min_ser_log_bf: float,
@@ -2053,7 +2053,7 @@ def render_cs_power_size_coverage_trace_chart(
     summary: pl.DataFrame,
     *,
     collection_names: list[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
     max_cs_size: int,
     min_ser_log_bf: float,
 ) -> "plt.Figure":
@@ -2154,7 +2154,7 @@ def render_cs_coverage_trace_chart(
     summary: pl.DataFrame,
     *,
     collection_names: list[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
     max_cs_size: int,
     min_ser_log_bf: float,
 ) -> "plt.Figure":
@@ -2513,7 +2513,7 @@ def make_log_bf_ser_ecdf(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
 ) -> pl.DataFrame:
     """Raw log BF observations with is_null flag. ECDF computed in render from these raw values."""
     empty_schema = {
@@ -2637,7 +2637,7 @@ def make_log_bf_roc_curves(
     method_metadata: pl.DataFrame,
     *,
     selected_methods: set[str],
-    selected_thresholds: list[float] | None,
+    selected_thresholds: list[float] | None = None,
 ) -> pl.DataFrame:
     """ROC curves for log BF discrimination: null (causal_indices empty) vs non-null.
 
