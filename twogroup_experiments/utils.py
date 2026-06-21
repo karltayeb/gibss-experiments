@@ -35,9 +35,20 @@ def manifest_dict() -> dict[str, object]:
     return loader.manifest_dict(cfg["library"], cfg)
 
 
+def _as_dense_array(X: Any) -> np.ndarray:
+    """Densify to a numpy float array, handling sparse designs (e.g. jax BCOO).
+
+    ``np.asarray`` on a jax ``BCOO`` falls back to element-wise object iteration
+    and effectively hangs, so densify via ``.todense()`` first when available.
+    """
+    if hasattr(X, "todense"):
+        X = X.todense()
+    return np.asarray(X, dtype=float)
+
+
 def correlation_with_causal(X: np.ndarray, causal_indices: Iterable[int]) -> list[list[float]]:
     """Pearson correlations from each causal feature to every feature."""
-    X_arr = np.asarray(X, dtype=float)
+    X_arr = _as_dense_array(X)
     centered = X_arr - X_arr.mean(axis=0, keepdims=True)
     norms = np.linalg.norm(centered, axis=0)
     rows: list[list[float]] = []
