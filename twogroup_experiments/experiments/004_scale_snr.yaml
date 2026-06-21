@@ -1,105 +1,33 @@
 supercollections:
   004-hallmark-scale-snr:
     collections:
-    - name: hallmark-scale-0.75-with-null
-      alias: scale=0.75
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_0.75
+      template:
+        design: hallmark
         error: gaussian
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_0.75
-        error: gaussian
-    - name: hallmark-scale-1.00-with-null
-      alias: scale=1.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_1.0
-        error: gaussian
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_1.0
-        error: gaussian
-    - name: hallmark-scale-1.50-with-null
-      alias: scale=1.50
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_1.5
-        error: gaussian
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_1.5
-        error: gaussian
-    - name: hallmark-scale-1.75-with-null
-      alias: scale=1.75
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_1.75
-        error: gaussian
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_1.75
-        error: gaussian
-    - name: hallmark-scale-2.00-with-null
-      alias: scale=2.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: hallmark-scale-2.25-with-null
-      alias: scale=2.25
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_2.25
-        error: gaussian
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_2.25
-        error: gaussian
-    - name: hallmark-scale-3.00-with-null
-      alias: scale=3.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_3.0
-        error: gaussian
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_3.0
-        error: gaussian
-    - name: hallmark-scale-4.00-with-null
-      alias: scale=4.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_4.0
-        error: gaussian
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_4.0
-        error: gaussian
-    - name: hallmark-scale-5.00-with-null
-      alias: scale=5.00
-      simulations:
-      - design: hallmark
-        enrichment: ser_b2
-        signal: scale_5.0
-        error: gaussian
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_5.0
-        error: gaussian
+        enrichment:
+        - ser_b2
+        - null_b0
+      over:
+        signal:
+        - scale_0.75
+        - scale_1.0
+        - scale_1.5
+        - scale_1.75
+        - scale_2.0
+        - scale_2.25
+        - scale_3.0
+        - scale_4.0
+        - scale_5.0
+      aliases:
+      - scale=0.75
+      - scale=1.00
+      - scale=1.50
+      - scale=1.75
+      - scale=2.00
+      - scale=2.25
+      - scale=3.00
+      - scale=4.00
+      - scale=5.00
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
@@ -151,105 +79,33 @@ supercollections:
       - cs_non_null
   004-c4-scale-snr:
     collections:
-    - name: c4-scale-0.75-with-null
-      alias: scale=0.75
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_0.75
+      template:
+        design: c4
         error: gaussian
-      - design: c4
-        enrichment: null_b0
-        signal: scale_0.75
-        error: gaussian
-    - name: c4-scale-1.00-with-null
-      alias: scale=1.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_1.0
-        error: gaussian
-      - design: c4
-        enrichment: null_b0
-        signal: scale_1.0
-        error: gaussian
-    - name: c4-scale-1.50-with-null
-      alias: scale=1.50
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_1.5
-        error: gaussian
-      - design: c4
-        enrichment: null_b0
-        signal: scale_1.5
-        error: gaussian
-    - name: c4-scale-1.75-with-null
-      alias: scale=1.75
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_1.75
-        error: gaussian
-      - design: c4
-        enrichment: null_b0
-        signal: scale_1.75
-        error: gaussian
-    - name: c4-scale-2.00-with-null
-      alias: scale=2.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: c4
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: c4-scale-2.25-with-null
-      alias: scale=2.25
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_2.25
-        error: gaussian
-      - design: c4
-        enrichment: null_b0
-        signal: scale_2.25
-        error: gaussian
-    - name: c4-scale-3.00-with-null
-      alias: scale=3.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_3.0
-        error: gaussian
-      - design: c4
-        enrichment: null_b0
-        signal: scale_3.0
-        error: gaussian
-    - name: c4-scale-4.00-with-null
-      alias: scale=4.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_4.0
-        error: gaussian
-      - design: c4
-        enrichment: null_b0
-        signal: scale_4.0
-        error: gaussian
-    - name: c4-scale-5.00-with-null
-      alias: scale=5.00
-      simulations:
-      - design: c4
-        enrichment: ser_b2
-        signal: scale_5.0
-        error: gaussian
-      - design: c4
-        enrichment: null_b0
-        signal: scale_5.0
-        error: gaussian
+        enrichment:
+        - ser_b2
+        - null_b0
+      over:
+        signal:
+        - scale_0.75
+        - scale_1.0
+        - scale_1.5
+        - scale_1.75
+        - scale_2.0
+        - scale_2.25
+        - scale_3.0
+        - scale_4.0
+        - scale_5.0
+      aliases:
+      - scale=0.75
+      - scale=1.00
+      - scale=1.50
+      - scale=1.75
+      - scale=2.00
+      - scale=2.25
+      - scale=3.00
+      - scale=4.00
+      - scale=5.00
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
@@ -289,105 +145,33 @@ supercollections:
       - cs_non_null
   004-gaussian-p100-scale-snr:
     collections:
-    - name: gaussian-p100-scale-0.75-with-null
-      alias: scale=0.75
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_0.75
+      template:
+        design: gaussian_rho0.90_n500_p100
         error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_0.75
-        error: gaussian
-    - name: gaussian-p100-scale-1.00-with-null
-      alias: scale=1.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_1.0
-        error: gaussian
-    - name: gaussian-p100-scale-1.50-with-null
-      alias: scale=1.50
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.5
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_1.5
-        error: gaussian
-    - name: gaussian-p100-scale-1.75-with-null
-      alias: scale=1.75
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.75
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_1.75
-        error: gaussian
-    - name: gaussian-p100-scale-2.00-with-null
-      alias: scale=2.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: gaussian-p100-scale-2.25-with-null
-      alias: scale=2.25
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.25
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_2.25
-        error: gaussian
-    - name: gaussian-p100-scale-3.00-with-null
-      alias: scale=3.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_3.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_3.0
-        error: gaussian
-    - name: gaussian-p100-scale-4.00-with-null
-      alias: scale=4.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_4.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_4.0
-        error: gaussian
-    - name: gaussian-p100-scale-5.00-with-null
-      alias: scale=5.00
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_5.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_5.0
-        error: gaussian
+        enrichment:
+        - ser_b2
+        - null_b0
+      over:
+        signal:
+        - scale_0.75
+        - scale_1.0
+        - scale_1.5
+        - scale_1.75
+        - scale_2.0
+        - scale_2.25
+        - scale_3.0
+        - scale_4.0
+        - scale_5.0
+      aliases:
+      - scale=0.75
+      - scale=1.00
+      - scale=1.50
+      - scale=1.75
+      - scale=2.00
+      - scale=2.25
+      - scale=3.00
+      - scale=4.00
+      - scale=5.00
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
@@ -427,105 +211,33 @@ supercollections:
       - cs_non_null
   004-uniform-p100-scale-snr:
     collections:
-    - name: uniform-p100-scale-0.75-with-null
-      alias: scale=0.75
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_0.75
+      template:
+        design: uniform_rho0.90_n500_p100
         error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_0.75
-        error: gaussian
-    - name: uniform-p100-scale-1.00-with-null
-      alias: scale=1.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_1.0
-        error: gaussian
-    - name: uniform-p100-scale-1.50-with-null
-      alias: scale=1.50
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.5
-        error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_1.5
-        error: gaussian
-    - name: uniform-p100-scale-1.75-with-null
-      alias: scale=1.75
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_1.75
-        error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_1.75
-        error: gaussian
-    - name: uniform-p100-scale-2.00-with-null
-      alias: scale=2.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: uniform-p100-scale-2.25-with-null
-      alias: scale=2.25
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_2.25
-        error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_2.25
-        error: gaussian
-    - name: uniform-p100-scale-3.00-with-null
-      alias: scale=3.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_3.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_3.0
-        error: gaussian
-    - name: uniform-p100-scale-4.00-with-null
-      alias: scale=4.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_4.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_4.0
-        error: gaussian
-    - name: uniform-p100-scale-5.00-with-null
-      alias: scale=5.00
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
-        signal: scale_5.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_5.0
-        error: gaussian
+        enrichment:
+        - ser_b2
+        - null_b0
+      over:
+        signal:
+        - scale_0.75
+        - scale_1.0
+        - scale_1.5
+        - scale_1.75
+        - scale_2.0
+        - scale_2.25
+        - scale_3.0
+        - scale_4.0
+        - scale_5.0
+      aliases:
+      - scale=0.75
+      - scale=1.00
+      - scale=1.50
+      - scale=1.75
+      - scale=2.00
+      - scale=2.25
+      - scale=3.00
+      - scale=4.00
+      - scale=5.00
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1

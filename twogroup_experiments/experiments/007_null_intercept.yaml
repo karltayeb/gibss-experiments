@@ -1,34 +1,21 @@
 supercollections:
   007-hallmark-null-intercept-loc:
     collections:
-    - name: design=hallmark__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
-      alias: intercept=-3
-      simulations:
-      - design: hallmark
-        enrichment: null_b0_int-3
+      template:
+        design: hallmark
         signal: loc_0.0
         error: gaussian
-    - name: design=hallmark__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
-      alias: intercept=-2
-      simulations:
-      - design: hallmark
-        enrichment: null_b0
-        signal: loc_0.0
-        error: gaussian
-    - name: design=hallmark__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
-      alias: intercept=-1
-      simulations:
-      - design: hallmark
-        enrichment: null_b0_int-1
-        signal: loc_0.0
-        error: gaussian
-    - name: design=hallmark__enrichment=b0_0.00_b_0.00__signal=loc_0.00
-      alias: intercept=0
-      simulations:
-      - design: hallmark
-        enrichment: null_b0_int0
-        signal: loc_0.0
-        error: gaussian
+      over:
+        enrichment:
+        - null_b0_int-3
+        - null_b0
+        - null_b0_int-1
+        - null_b0_int0
+      aliases:
+      - intercept=-3
+      - intercept=-2
+      - intercept=-1
+      - intercept=0
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
@@ -64,34 +51,21 @@ supercollections:
       - logbf
   007-hallmark-null-intercept-scale:
     collections:
-    - name: design=hallmark__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
-      alias: intercept=-3
-      simulations:
-      - design: hallmark
-        enrichment: null_b0_int-3
+      template:
+        design: hallmark
         signal: scale_0.0
         error: gaussian
-    - name: design=hallmark__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
-      alias: intercept=-2
-      simulations:
-      - design: hallmark
-        enrichment: null_b0
-        signal: scale_0.0
-        error: gaussian
-    - name: design=hallmark__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
-      alias: intercept=-1
-      simulations:
-      - design: hallmark
-        enrichment: null_b0_int-1
-        signal: scale_0.0
-        error: gaussian
-    - name: design=hallmark__enrichment=b0_0.00_b_0.00__signal=scale_0.00
-      alias: intercept=0
-      simulations:
-      - design: hallmark
-        enrichment: null_b0_int0
-        signal: scale_0.0
-        error: gaussian
+      over:
+        enrichment:
+        - null_b0_int-3
+        - null_b0
+        - null_b0_int-1
+        - null_b0_int0
+      aliases:
+      - intercept=-3
+      - intercept=-2
+      - intercept=-1
+      - intercept=0
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
@@ -132,34 +106,21 @@ supercollections:
       - logbf
   007-c4-null-intercept-loc:
     collections:
-    - name: design=c4__enrichment=b0_-3.00_b_0.00__signal=loc_0.00
-      alias: intercept=-3
-      simulations:
-      - design: c4
-        enrichment: null_b0_int-3
+      template:
+        design: c4
         signal: loc_0.0
         error: gaussian
-    - name: design=c4__enrichment=b0_-2.00_b_0.00__signal=loc_0.00
-      alias: intercept=-2
-      simulations:
-      - design: c4
-        enrichment: null_b0
-        signal: loc_0.0
-        error: gaussian
-    - name: design=c4__enrichment=b0_-1.00_b_0.00__signal=loc_0.00
-      alias: intercept=-1
-      simulations:
-      - design: c4
-        enrichment: null_b0_int-1
-        signal: loc_0.0
-        error: gaussian
-    - name: design=c4__enrichment=b0_0.00_b_0.00__signal=loc_0.00
-      alias: intercept=0
-      simulations:
-      - design: c4
-        enrichment: null_b0_int0
-        signal: loc_0.0
-        error: gaussian
+      over:
+        enrichment:
+        - null_b0_int-3
+        - null_b0
+        - null_b0_int-1
+        - null_b0_int0
+      aliases:
+      - intercept=-3
+      - intercept=-2
+      - intercept=-1
+      - intercept=0
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
@@ -187,34 +148,21 @@ supercollections:
       - logbf
   007-c4-null-intercept-scale:
     collections:
-    - name: design=c4__enrichment=b0_-3.00_b_0.00__signal=scale_0.00
-      alias: intercept=-3
-      simulations:
-      - design: c4
-        enrichment: null_b0_int-3
+      template:
+        design: c4
         signal: scale_0.0
         error: gaussian
-    - name: design=c4__enrichment=b0_-2.00_b_0.00__signal=scale_0.00
-      alias: intercept=-2
-      simulations:
-      - design: c4
-        enrichment: null_b0
-        signal: scale_0.0
-        error: gaussian
-    - name: design=c4__enrichment=b0_-1.00_b_0.00__signal=scale_0.00
-      alias: intercept=-1
-      simulations:
-      - design: c4
-        enrichment: null_b0_int-1
-        signal: scale_0.0
-        error: gaussian
-    - name: design=c4__enrichment=b0_0.00_b_0.00__signal=scale_0.00
-      alias: intercept=0
-      simulations:
-      - design: c4
-        enrichment: null_b0_int0
-        signal: scale_0.0
-        error: gaussian
+      over:
+        enrichment:
+        - null_b0_int-3
+        - null_b0
+        - null_b0_int-1
+        - null_b0_int0
+      aliases:
+      - intercept=-3
+      - intercept=-2
+      - intercept=-1
+      - intercept=0
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1

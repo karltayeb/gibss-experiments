@@ -1,48 +1,25 @@
 supercollections:
   006-null-enrich-signal-loc:
     collections:
-    - name: design=null_enrich__enrichment=null_enrich__signal=loc_0.50
-      alias: mu=0.50
-      simulations:
-      - design: null_enrich
+      template:
+        design: null_enrich
         enrichment: null_enrich
-        signal: loc_0.5
         error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=loc_1.00
-      alias: mu=1.00
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: loc_1.0
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=loc_1.50
-      alias: mu=1.50
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: loc_1.5
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.00
-      alias: mu=2.00
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: loc_2.0
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=loc_2.50
-      alias: mu=2.50
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: loc_2.5
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=loc_3.00
-      alias: mu=3.00
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: loc_3.0
-        error: gaussian
+      over:
+        signal:
+        - loc_0.5
+        - loc_1.0
+        - loc_1.5
+        - loc_2.0
+        - loc_2.5
+        - loc_3.0
+      aliases:
+      - mu=0.50
+      - mu=1.00
+      - mu=1.50
+      - mu=2.00
+      - mu=2.50
+      - mu=3.00
     methods:
     - twogroup__L=1
     - twogroup_loc_fam__L=1
@@ -81,62 +58,29 @@ supercollections:
       - f1
   006-null-enrich-signal-scale:
     collections:
-    - name: design=null_enrich__enrichment=null_enrich__signal=scale_0.75
-      alias: sigma=0.75
-      simulations:
-      - design: null_enrich
+      template:
+        design: null_enrich
         enrichment: null_enrich
-        signal: scale_0.75
         error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=scale_1.00
-      alias: sigma=1.00
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: scale_1.0
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=scale_1.50
-      alias: sigma=1.50
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: scale_1.5
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=scale_1.75
-      alias: sigma=1.75
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: scale_1.75
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=scale_2.00
-      alias: sigma=2.00
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: scale_2.0
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=scale_3.00
-      alias: sigma=3.00
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: scale_3.0
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=scale_4.00
-      alias: sigma=4.00
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: scale_4.0
-        error: gaussian
-    - name: design=null_enrich__enrichment=null_enrich__signal=scale_5.00
-      alias: sigma=5.00
-      simulations:
-      - design: null_enrich
-        enrichment: null_enrich
-        signal: scale_5.0
-        error: gaussian
+      over:
+        signal:
+        - scale_0.75
+        - scale_1.0
+        - scale_1.5
+        - scale_1.75
+        - scale_2.0
+        - scale_3.0
+        - scale_4.0
+        - scale_5.0
+      aliases:
+      - sigma=0.75
+      - sigma=1.00
+      - sigma=1.50
+      - sigma=1.75
+      - sigma=2.00
+      - sigma=3.00
+      - sigma=4.00
+      - sigma=5.00
     methods:
     - twogroup__L=1
     - twogroup_loc_fam__L=1

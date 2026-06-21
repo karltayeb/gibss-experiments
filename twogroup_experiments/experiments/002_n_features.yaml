@@ -1,61 +1,25 @@
 supercollections:
   002-uniform-n-features-loc:
     collections:
-    - name: uniform-n500-p100-loc-with-null
-      alias: p=100
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
+      template:
         signal: loc_2.0
         error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
-    - name: uniform-n500-p200-loc-with-null
-      alias: p=200
-      simulations:
-      - design: uniform_rho0.90_n500_p200
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p200
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
-    - name: uniform-n500-p400-loc-with-null
-      alias: p=400
-      simulations:
-      - design: uniform_rho0.90_n500_p400
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p400
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
-    - name: uniform-n500-p800-loc-with-null
-      alias: p=800
-      simulations:
-      - design: uniform_rho0.90_n500_p800
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p800
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
-    - name: uniform-n500-p1600-loc-with-null
-      alias: p=1600
-      simulations:
-      - design: uniform_rho0.90_n500_p1600
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p1600
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
+        enrichment:
+        - ser_b2
+        - null_b0
+      over:
+        design:
+        - uniform_rho0.90_n500_p100
+        - uniform_rho0.90_n500_p200
+        - uniform_rho0.90_n500_p400
+        - uniform_rho0.90_n500_p800
+        - uniform_rho0.90_n500_p1600
+      aliases:
+      - p=100
+      - p=200
+      - p=400
+      - p=800
+      - p=1600
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
@@ -95,61 +59,25 @@ supercollections:
       - cs_non_null
   002-uniform-n-features-scale:
     collections:
-    - name: uniform-n500-p100-scale-with-null
-      alias: p=100
-      simulations:
-      - design: uniform_rho0.90_n500_p100
-        enrichment: ser_b2
+      template:
         signal: scale_2.0
         error: gaussian
-      - design: uniform_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: uniform-n500-p200-scale-with-null
-      alias: p=200
-      simulations:
-      - design: uniform_rho0.90_n500_p200
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p200
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: uniform-n500-p400-scale-with-null
-      alias: p=400
-      simulations:
-      - design: uniform_rho0.90_n500_p400
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p400
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: uniform-n500-p800-scale-with-null
-      alias: p=800
-      simulations:
-      - design: uniform_rho0.90_n500_p800
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p800
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: uniform-n500-p1600-scale-with-null
-      alias: p=1600
-      simulations:
-      - design: uniform_rho0.90_n500_p1600
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: uniform_rho0.90_n500_p1600
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
+        enrichment:
+        - ser_b2
+        - null_b0
+      over:
+        design:
+        - uniform_rho0.90_n500_p100
+        - uniform_rho0.90_n500_p200
+        - uniform_rho0.90_n500_p400
+        - uniform_rho0.90_n500_p800
+        - uniform_rho0.90_n500_p1600
+      aliases:
+      - p=100
+      - p=200
+      - p=400
+      - p=800
+      - p=1600
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
@@ -196,61 +124,25 @@ supercollections:
       - cs_non_null
   002-gaussian-n-features-loc:
     collections:
-    - name: gaussian-n500-p100-loc-with-null
-      alias: p=100
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
+      template:
         signal: loc_2.0
         error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
-    - name: gaussian-n500-p200-loc-with-null
-      alias: p=200
-      simulations:
-      - design: gaussian_rho0.90_n500_p200
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p200
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
-    - name: gaussian-n500-p400-loc-with-null
-      alias: p=400
-      simulations:
-      - design: gaussian_rho0.90_n500_p400
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p400
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
-    - name: gaussian-n500-p800-loc-with-null
-      alias: p=800
-      simulations:
-      - design: gaussian_rho0.90_n500_p800
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p800
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
-    - name: gaussian-n500-p1600-loc-with-null
-      alias: p=1600
-      simulations:
-      - design: gaussian_rho0.90_n500_p1600
-        enrichment: ser_b2
-        signal: loc_2.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p1600
-        enrichment: null_b0
-        signal: loc_2.0
-        error: gaussian
+        enrichment:
+        - ser_b2
+        - null_b0
+      over:
+        design:
+        - gaussian_rho0.90_n500_p100
+        - gaussian_rho0.90_n500_p200
+        - gaussian_rho0.90_n500_p400
+        - gaussian_rho0.90_n500_p800
+        - gaussian_rho0.90_n500_p1600
+      aliases:
+      - p=100
+      - p=200
+      - p=400
+      - p=800
+      - p=1600
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
@@ -282,61 +174,25 @@ supercollections:
       - cs_non_null
   002-gaussian-n-features-scale:
     collections:
-    - name: gaussian-n500-p100-scale-with-null
-      alias: p=100
-      simulations:
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: ser_b2
+      template:
         signal: scale_2.0
         error: gaussian
-      - design: gaussian_rho0.90_n500_p100
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: gaussian-n500-p200-scale-with-null
-      alias: p=200
-      simulations:
-      - design: gaussian_rho0.90_n500_p200
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p200
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: gaussian-n500-p400-scale-with-null
-      alias: p=400
-      simulations:
-      - design: gaussian_rho0.90_n500_p400
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p400
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: gaussian-n500-p800-scale-with-null
-      alias: p=800
-      simulations:
-      - design: gaussian_rho0.90_n500_p800
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p800
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
-    - name: gaussian-n500-p1600-scale-with-null
-      alias: p=1600
-      simulations:
-      - design: gaussian_rho0.90_n500_p1600
-        enrichment: ser_b2
-        signal: scale_2.0
-        error: gaussian
-      - design: gaussian_rho0.90_n500_p1600
-        enrichment: null_b0
-        signal: scale_2.0
-        error: gaussian
+        enrichment:
+        - ser_b2
+        - null_b0
+      over:
+        design:
+        - gaussian_rho0.90_n500_p100
+        - gaussian_rho0.90_n500_p200
+        - gaussian_rho0.90_n500_p400
+        - gaussian_rho0.90_n500_p800
+        - gaussian_rho0.90_n500_p1600
+      aliases:
+      - p=100
+      - p=200
+      - p=400
+      - p=800
+      - p=1600
     methods:
     - cox_reversed__L=1
     - cox__threshold=2.00__L=1
