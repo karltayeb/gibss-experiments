@@ -168,8 +168,14 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
     template = dict(block["template"])
     over = block.get("over") or {}
     over_keys = list(over.keys())
+    combos = list(itertools.product(*(over[k] for k in over_keys))) if over_keys else [()]
+    aliases = block.get("aliases")
+    if aliases is not None and len(aliases) != len(combos):
+        raise ValueError(
+            f"aliases length {len(aliases)} != number of over-combos {len(combos)} for {sc_name!r}"
+        )
     results: list[dict] = []
-    for combo in (itertools.product(*(over[k] for k in over_keys)) if over_keys else [()]):
+    for idx, combo in enumerate(combos):
         over_map = dict(zip(over_keys, combo))
         fields = {**template, **over_map}
         # within-collection product over any list-valued template field
@@ -185,7 +191,10 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
                            "name": spec.name})
         suffix = "".join(f"__{k}={over_map[k]}" for k in over_keys)
         name = f"{sc_name}{suffix}" if over_keys else sc_name
-        alias = block.get("alias") or "__".join(str(over_map[k]) for k in over_keys) or sc_name
+        if aliases is not None:
+            alias = aliases[idx]
+        else:
+            alias = block.get("alias") or "__".join(str(over_map[k]) for k in over_keys) or sc_name
         results.append({"name": name, "alias": alias, "simulations": sims, "coordinates": coords})
     return results
 

@@ -348,3 +348,23 @@ def test_method_filter_predicate_selects_twogroup_only():
     assert all(any(mh in p for mh in twogroup_hashes) for p in inputs)
     # no path should contain a cox hash
     assert not any(any(mh in p for mh in cox_hashes) for p in inputs)
+
+
+def test_over_aliases_assigns_per_collection_label():
+    lib = _library_for_tests()
+    lib["signals"]["loc_1.0"] = {"f0": {"PointMass": {"value": 0.0}},
+        "f1": {"Normal": {"loc": 1.0, "scale": 0.1, "estimate_loc": False, "estimate_scale": False}}}
+    block = {"template": {"design": "gaussian_p100", "enrichment": "ser_b2", "error": "gaussian"},
+             "over": {"signal": ["loc_1.0", "loc_2.0"]},
+             "aliases": ["lo", "hi"]}
+    colls = loader.expand_collections(lib, "sc", block)
+    assert [c["alias"] for c in colls] == ["lo", "hi"]
+
+
+def test_over_aliases_length_mismatch_raises():
+    import pytest
+    lib = _library_for_tests()
+    block = {"template": {"design": "gaussian_p100", "enrichment": "ser_b2", "error": "gaussian"},
+             "over": {"signal": ["loc_2.0"]}, "aliases": ["a", "b"]}
+    with pytest.raises(ValueError):
+        loader.expand_collections(lib, "sc", block)
