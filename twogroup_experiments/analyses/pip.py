@@ -1,6 +1,4 @@
 """PIP-family renderers (pip_calibration, power_fdp, causal_pip, mass_above_causal)."""
-from __future__ import annotations
-
 import sys
 from pathlib import Path
 
@@ -230,8 +228,9 @@ if "snakemake" in globals():
     from experiments import loader as _loader
     import yaml as _yaml
     _wc = snakemake.wildcards
+    _analysis = snakemake.params.analysis  # passed via params since analysis is baked into path
     _cfg_obj = _loader.load_config()
     _bundle = _loader.load_sc_bundle(_cfg_obj, _wc.supercollection,
-                                     _loader.analysis_requires(_cfg_obj, _wc.analysis))
+                                     _loader.analysis_requires(_cfg_obj, _analysis))
     _args = _loader.resolve_args(_cfg_obj, _wc.supercollection, _wc.args_name)
-    generate_plots.render_analysis(_bundle, _args, _wc.analysis, snakemake.output[0])
+    generate_plots.render_analysis(_bundle, _args, _analysis, snakemake.output[0])

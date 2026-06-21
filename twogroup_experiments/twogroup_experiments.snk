@@ -90,37 +90,53 @@ rule fit:
 # ---------------------------------------------------------------------------
 # Loop-generated reduce_<name> rules (one per reduction in LIBRARY)
 # ---------------------------------------------------------------------------
+# Wrapped in a function to capture the loop variable at definition time;
+# Snakemake 9 defers script: path evaluation, so a bare for-loop would cause
+# all rules to use the last iteration's value (closure bug).
 
-for _r in LIBRARY["reductions"]:
+def _make_reduce_rule(r):
     rule:
-        name: f"reduce_{_r}"
+        name: f"reduce_{r}"
         output:
-            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/reductions/{_r}.parquet"
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/reductions/{r}.parquet"
         input:
             fits=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
             sims=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
             sample_md=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/sample_metadata.parquet",
         params:
-            coordinate=lambda wc, r=_r: MANIFEST["batches"][wc.batch_hash]["coordinate"],
+            coordinate=lambda wc, _r=r: MANIFEST["batches"][wc.batch_hash]["coordinate"],
         script:
-            f"reductions/{_r}.py"
+            f"reductions/{r}.py"
+
+for _r in LIBRARY["reductions"]:
+    _make_reduce_rule(_r)
 
 
 # ---------------------------------------------------------------------------
 # Loop-generated analyze_<analysis> rules (one per analysis referenced by SCs)
 # ---------------------------------------------------------------------------
+# Same closure-capture fix: wrap in a function so `a` and `family` are bound
+# at definition time, not at execution time.
+# Also passes analysis name via params so the script can read snakemake.params.analysis
+# (the output path has `a` baked in, not as a wildcard).
+
+def _make_analyze_rule(a):
+    _family = loader.analysis_family(a)
+    rule:
+        name: f"analyze_{a}"
+        output:
+            f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{a}/{{args_name}}.pdf"
+        input:
+            deps=lambda wc, _a=a: loader.analysis_inputs(
+                CONFIG, MANIFEST, wc.supercollection, _a
+            ),
+        params:
+            analysis=a,
+        script:
+            f"analyses/{_family}.py"
 
 for _a in _all_analysis_names():
-    rule:
-        name: f"analyze_{_a}"
-        output:
-            f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{_a}/{{args_name}}.pdf"
-        input:
-            deps=lambda wc, a=_a: loader.analysis_inputs(
-                CONFIG, MANIFEST, wc.supercollection, a
-            ),
-        script:
-            f"analyses/{loader.analysis_family(_a)}.py"
+    _make_analyze_rule(_a)
 
 
 # ---------------------------------------------------------------------------
