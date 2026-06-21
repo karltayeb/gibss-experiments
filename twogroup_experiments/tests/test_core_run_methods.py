@@ -94,3 +94,53 @@ def test_noiseless_exponential_simulation_preserves_event_time_ranking():
     assert np.all(sim.se == 1.0)
     assert np.allclose(sim.thetahat, sim.theta)
     assert np.array_equal(np.argsort(score), np.argsort(sim.theta))
+
+
+def test_deterministic_membership_pins_z_to_threshold():
+    from core import SimulationSpec, simulate
+    from simulations.distributions import Exponential
+
+    # Fixed 6x3 binary design; deterministic effect sampler picks column 1.
+    X = np.array(
+        [[0, 0, 1],
+         [0, 1, 0],
+         [0, 1, 1],
+         [0, 0, 0],
+         [0, 1, 0],
+         [0, 0, 1]],
+        dtype=float,
+    )
+    spec = SimulationSpec(
+        design_sampler=lambda rng: X,
+        effect_sampler=lambda Xarg, rng: ([1], [2.0]),  # causal column 1, effect 2
+        intercept=-1.0,
+        f0=Exponential(rate=1.0),
+        f1=Exponential(rate=0.5),
+        error_sampler=None,
+        base_seed=1,
+        hash="dethash",
+        name="det",
+        membership="deterministic",
+    )
+    sim = simulate(spec, 0)
+    logits = sim.intercept + sim.X @ sim.b
+    np.testing.assert_array_equal(sim.z, (logits > 0).astype(int))
+    # effect=2, intercept=-1 -> z equals the binary causal column exactly
+    np.testing.assert_array_equal(sim.z, X[:, 1].astype(int))
+
+
+def test_membership_defaults_to_stochastic():
+    from core import SimulationSpec
+    from gibss.distributions import PointMass
+    spec = SimulationSpec(
+        design_sampler=lambda rng: np.zeros((2, 2)),
+        effect_sampler=lambda Xarg, rng: ([], []),
+        intercept=-1.0,
+        f0=PointMass(0.0),
+        f1=PointMass(1.0),
+        error_sampler=None,
+        base_seed=1,
+        hash="h",
+        name="n",
+    )
+    assert spec.membership == "stochastic"

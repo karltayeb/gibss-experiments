@@ -20,6 +20,7 @@ class SimulationSpec:
     base_seed: int
     hash: str
     name: str = ""
+    membership: str = "stochastic"
 
 
 @dataclass(frozen=True)
@@ -113,7 +114,10 @@ def simulate(simulation_spec: SimulationSpec, replicate: int):
     b = np.zeros(X.shape[1], dtype=float)
     b[causal_indices] = causal_effects
     logits = float(simulation_spec.intercept) + np.asarray(X @ b, dtype=float)
-    z = rng.binomial(1, _sigmoid(logits)).astype(int)
+    if simulation_spec.membership == "deterministic":
+        z = (logits > 0).astype(int)
+    else:
+        z = rng.binomial(1, _sigmoid(logits)).astype(int)
 
     theta = np.empty(X.shape[0], dtype=float)
     n_null = int(np.sum(z == 0))
