@@ -35,7 +35,8 @@ def method_family_color_map() -> dict[str, str]:
     return {
         "logistic_threshold":    "#0072B2",
         "logistic_oracle":       "#56B4E9",
-        "cox_light_threshold":   "#009E73",
+        "cox_light":             "#009E73",
+        "cox_light_threshold":   "#009E73",  # v1 alias
         "cox_heavy":             "#E69F00",
         "twogroup":              "#D55E00",  # vermillion
         "twogroup_oracle":       "#CC79A7",  # rose/mauve
@@ -48,7 +49,10 @@ def method_family_color_map() -> dict[str, str]:
 
 
 def method_color(method: str) -> str:
-    family = method.rsplit("_L", 1)[0]
+    # v2 method names are "<family>__key=val__...,"; family is the part before "__".
+    # (Legacy v1 names "<family>_L1" have no "__", so split is a no-op there and we
+    # fall back to the historical "_L" strip.)
+    family = method.split("__", 1)[0] if "__" in method else method.rsplit("_L", 1)[0]
     return method_family_color_map().get(family, "#888888")
 
 

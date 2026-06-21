@@ -4,9 +4,12 @@ supercollections:
       template: {design: hallmark, enrichment: [ser_b2, null_b0], error: gaussian}
       over: {signal: [loc_0.5, loc_1.0, loc_1.5, loc_2.0, loc_2.5, loc_3.0]}
     methods: [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1,
-              cox_heavy__L=1, cox_light__threshold=2.00__L=1]
+              cox_heavy__L=1, cox_light__threshold=2.00__L=1,
+              logistic_threshold__threshold=2.00__L=1]
     default_args: {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
     outputs:
       - name: minimal-loc
-        method_filter: [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1]
+        method_filter: [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1,
+                        cox_heavy__L=1, cox_light__threshold=2.00__L=1,
+                        logistic_threshold__threshold=2.00__L=1]
         analyses: [pip, cs]
