@@ -10,6 +10,50 @@ designs:
   c4:
     function: c4_gene_sets_X
     arguments: {}
+  msigdb_c1_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: c1.all
+  msigdb_c2_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: c2.all
+  msigdb_c3_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: c3.all
+  msigdb_c4_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: c4.all
+  msigdb_c5_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: c5.all
+  msigdb_c6_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: c6.all
+  msigdb_c7_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: c7.all
+  msigdb_c8_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: c8.all
+  msigdb_c9_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: c9.all
+  msigdb_h_all:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: h.all
+  msigdb_msigdb:
+    function: msigdb_gene_sets_X
+    arguments:
+      collection: msigdb
   gaussian_p8:
     function: gaussian_markov_X
     arguments:

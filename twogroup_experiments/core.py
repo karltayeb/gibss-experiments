@@ -267,7 +267,7 @@ def spec_hash(spec_node: dict[str, Any]) -> str:
 # (keeps getattr(core, name) working; inspect.getfile follows the real definition)
 # ---------------------------------------------------------------------------
 from simulations.design.markov import gaussian_markov_X, uniform_markov_X
-from simulations.design.genesets import hallmark_gene_sets_X, c4_gene_sets_X
+from simulations.design.genesets import hallmark_gene_sets_X, c4_gene_sets_X, msigdb_gene_sets_X
 from simulations.design.degenerate import null_enrich_X
 from simulations.effect.effects import uniform_single_effect
 from simulations.error.errors import t_error_sampler
