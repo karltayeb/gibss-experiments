@@ -5,8 +5,6 @@ lambda=2/3 and lambda=3/2) share a facet (max(rate,1/rate)) and are colored by
 depletion (rate<1) vs enrichment (rate>1), then calls the existing analysis
 renderer unchanged. Intended for single-method experiments (009 / cox_reversed).
 """
-from __future__ import annotations
-
 from fractions import Fraction
 
 import polars as pl
