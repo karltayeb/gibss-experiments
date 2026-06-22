@@ -248,6 +248,11 @@ def supercollection_collections(library: dict[str, Any], sc_name: str, sc: dict[
     return expand_collections(library, sc_name, sc["collections"])
 
 
+def _base_analysis(analysis: str) -> str:
+    """Strip a single trailing '_paired' suffix (paired analyses reuse base metadata)."""
+    return analysis[: -len("_paired")] if analysis.endswith("_paired") else analysis
+
+
 def flatten_analyses(library: dict[str, Any], analyses_list: list[str]) -> list[str]:
     groups = library["analysis_groups"]
     analyses = library["analyses"]
@@ -258,7 +263,7 @@ def flatten_analyses(library: dict[str, Any], analyses_list: list[str]) -> list[
     for item in analyses_list:
         names = groups[item] if item in groups else [item]
         for n in names:
-            if n not in analyses:
+            if _base_analysis(n) not in analyses:
                 raise KeyError(f"Unknown analysis: {n!r}")
             if n not in out:
                 out.append(n)
@@ -410,7 +415,7 @@ def reduction_method_filter(library: dict[str, Any], reduction: str) -> str | No
 
 
 def analysis_simulation_filter(library: dict[str, Any], analysis: str) -> str | None:
-    return library["analyses"][analysis].get("simulation_filter")
+    return library["analyses"][_base_analysis(analysis)].get("simulation_filter")
 
 
 def _method_hashes(methods: dict[str, dict]) -> dict[str, str]:
@@ -476,7 +481,7 @@ def resolve_args(config: dict[str, Any], sc_name: str, args_name: str) -> dict[s
 
 
 def analysis_requires(config: dict[str, Any], analysis: str) -> list[str]:
-    return list(config["library"]["analyses"][analysis].get("requires", []))
+    return list(config["library"]["analyses"][_base_analysis(analysis)].get("requires", []))
 
 
 def analysis_function(config: dict[str, Any], analysis: str):
@@ -590,7 +595,9 @@ def analysis_code_files(analysis: str) -> list[str]:
 
 
 def analysis_family(analysis: str) -> str:
-    """Return the family module name (pip|cs|logbf|f1) for an analysis name."""
+    """Return the family module name (pip|cs|logbf|f1|paired) for an analysis name."""
+    if analysis.endswith("_paired"):
+        return "paired"
     from analyses import pip, cs, logbf, f1
     if analysis in pip.RENDERERS:
         return "pip"
