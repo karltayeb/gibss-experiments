@@ -238,6 +238,11 @@ enrichments:
     arguments:
       causal_effect: 2.0
     intercept: -2.0
+  ser_bneg2:
+    function: uniform_single_effect
+    arguments:
+      causal_effect: -2.0
+    intercept: -2.0
   null_b0:
     function: uniform_single_effect
     arguments:
