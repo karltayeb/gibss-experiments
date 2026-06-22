@@ -46,14 +46,26 @@ def _as_dense_array(X: Any) -> np.ndarray:
     return np.asarray(X, dtype=float)
 
 
-def correlation_with_causal(X: np.ndarray, causal_indices: Iterable[int]) -> list[list[float]]:
-    """Pearson correlations from each causal feature to every feature."""
-    X_arr = _as_dense_array(X)
+def correlation_with_causal(X: Any, causal_indices: Iterable[int]) -> list[list[float]]:
+    """Pearson correlations from each causal feature to every feature.
+
+    For sparse designs (e.g. jax ``BCOO``) this operates on the nonzero
+    triplets and a single sparse mat-vec per causal column, avoiding a
+    full densification of the (genes x sets) matrix.
+    """
+    causal = [int(c) for c in causal_indices]
+    if not causal:
+        return []
+    if hasattr(X, "indices") and hasattr(X, "data"):
+        return _correlation_with_causal_sparse(X, causal)
+    return _correlation_with_causal_dense(_as_dense_array(X), causal)
+
+
+def _correlation_with_causal_dense(X_arr: np.ndarray, causal: list[int]) -> list[list[float]]:
     centered = X_arr - X_arr.mean(axis=0, keepdims=True)
     norms = np.linalg.norm(centered, axis=0)
     rows: list[list[float]] = []
-    for causal_idx in causal_indices:
-        ci = int(causal_idx)
+    for ci in causal:
         if norms[ci] == 0:
             corr = np.zeros(X_arr.shape[1], dtype=float)
         else:
@@ -67,6 +79,38 @@ def correlation_with_causal(X: np.ndarray, causal_indices: Iterable[int]) -> lis
         corr[ci] = 1.0
         rows.append([float(v) for v in corr])
     return rows
+
+
+def _correlation_with_causal_sparse(X: Any, causal: list[int]) -> list[list[float]]:
+    n, p = (int(d) for d in X.shape)
+    idx = np.asarray(X.indices)
+    rows_i = idx[:, 0]
+    cols_i = idx[:, 1]
+    data = np.asarray(X.data, dtype=float)
+
+    # Per-column first/second moments (population) over the nonzero triplets.
+    s1 = np.zeros(p, dtype=float)
+    np.add.at(s1, cols_i, data)
+    s2 = np.zeros(p, dtype=float)
+    np.add.at(s2, cols_i, data * data)
+    mean = s1 / n
+    std = np.sqrt(np.maximum(s2 / n - mean * mean, 0.0))
+
+    out: list[list[float]] = []
+    for ci in causal:
+        # Dense causal column from its triplets.
+        xc = np.zeros(n, dtype=float)
+        sel = cols_i == ci
+        xc[rows_i[sel]] = data[sel]
+        # cross_j = sum_i X[i, j] * xc[i] via one pass over the triplets.
+        cross = np.zeros(p, dtype=float)
+        np.add.at(cross, cols_i, data * xc[rows_i])
+        cov = cross / n - mean * mean[ci]
+        denom = std * std[ci]
+        corr = np.divide(cov, denom, out=np.zeros(p, dtype=float), where=denom > 0)
+        corr[ci] = 1.0
+        out.append([float(v) for v in corr])
+    return out
 
 
 def simulation_struct_without_x(simulation: TwoGroupSimulation) -> dict[str, Any]:
