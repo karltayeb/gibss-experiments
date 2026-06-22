@@ -65,3 +65,25 @@ def test_cox_minus_one_threshold_matches_pre_change_behavior():
     new = core.run_cox_method(sim, threshold=t, time_sign=-1.0, L=1)
     alpha_new = np.asarray(new["single_effects"][0]["alpha"])
     np.testing.assert_allclose(alpha_new, alpha_old, atol=1e-8)
+
+
+def test_cox_reversed_censored_method_registered_and_new():
+    from experiments import loader
+    lib = loader.load_library()
+    methods = loader.library_methods(lib)
+    assert "cox_reversed_censored__threshold=2.00__L=1" in methods
+
+    # reversed-censored (+1) makes the bulk (|z| <= t) the events -- the
+    # complement of the old-style (score > t) assignment.
+    sim = _tiny_simulation()
+    score = np.abs(np.asarray(sim.thetahat) / np.asarray(sim.se))
+    t = float(np.median(score))
+    _, ev_rev = _right_censored_survival(score, t, 1.0)
+    np.testing.assert_array_equal(ev_rev, (score <= t).astype(int))
+
+    coord = {"name": "cox_reversed_censored__threshold=2.00__L=1",
+             "function": "run_cox_method",
+             "kwargs": {"threshold": 2.0, "time_sign": 1.0, "L": 1}}
+    row = loader.run_method(coord, sim)
+    assert row["method"] == "cox_reversed_censored__threshold=2.00__L=1"
+    assert "single_effects" in row
