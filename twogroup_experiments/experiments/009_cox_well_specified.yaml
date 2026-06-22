@@ -27,7 +27,7 @@ _anchors:
   cox_methods: &cox_methods [cox_reversed__L=1]
   default_args:
     &default_args { min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5 }
-  analyses: &analyses [pip, cs, logbf, pip_non_null, cs_non_null]
+  analyses: &analyses [paired_009]
   n_batches: &n_batches 4
 
 supercollections:

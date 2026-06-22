@@ -870,3 +870,29 @@ analysis_groups:
   - agg_causal_pip
   - mass_above_causal
   - agg_mass_above_causal
+  paired_009:
+  - pip_calibration_paired
+  - agg_pip_calibration_paired
+  - power_fdp_paired
+  - agg_power_fdp_paired
+  - cs_power_size_coverage_trace_paired
+  - agg_cs_power_size_coverage_trace_paired
+  - cs_power_fdp_paired
+  - agg_cs_power_fdp_paired
+  - cs_size_power_paired
+  - agg_cs_size_power_paired
+  - cs_radius_power_paired
+  - agg_cs_radius_power_paired
+  - log_bf_roc_paired
+  - agg_log_bf_roc_paired
+  - log_bf_ser_ecdf_paired
+  - agg_log_bf_ser_ecdf_paired
+  - causal_pip_paired
+  - agg_causal_pip_paired
+  - mass_above_causal_paired
+  - agg_mass_above_causal_paired
+  - cs_coverage_size_paired
+  - agg_cs_coverage_size_paired
+  - cs_coverage_radius_paired
+  - agg_cs_coverage_radius_paired
+  - cs_calibrated_dot_paired

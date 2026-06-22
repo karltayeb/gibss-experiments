@@ -65,3 +65,13 @@ def test_paired_renderer_registered_and_renders():
     fig = generate_plots.ANALYSIS_RENDERERS["causal_pip_paired"](bundle, {})
     labels = set(fig.axes[0].get_legend_handles_labels()[1])
     assert labels and labels <= {"Depletion", "Enrichment"}
+
+
+def test_009_uses_paired_analyses():
+    cfg = loader.load_config()
+    pairs = loader.resolve_sc_analyses(cfg, "009-hallmark-cox-well-specified")
+    analyses = {a for a, _ in pairs}
+    assert analyses, "009 resolved no analyses"
+    assert all(a.endswith("_paired") for a in analyses)
+    assert "causal_pip_paired" in analyses
+    assert "agg_causal_pip_paired" in analyses
