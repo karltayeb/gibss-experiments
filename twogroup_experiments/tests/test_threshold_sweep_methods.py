@@ -19,3 +19,27 @@ def test_cox_uncensored_registered():
     lib = loader.load_library()
     methods = loader.library_methods(lib)
     assert "cox_uncensored__L=1" in methods
+
+
+def test_003_sweep_method_threshold_split():
+    import polars as pl
+    cfg = loader.load_config()
+    sc = cfg["supercollections"]["003-hallmark-loc-snr"]
+    methods = loader.resolve_methods_for_sc(cfg["library"], sc)
+    meta = loader.method_metadata(methods)
+
+    line_methods = [
+        "cox__threshold=2.00__L=1",
+        "cox_reversed_censored__threshold=2.00__L=1",
+        "logistic_threshold__threshold=2.00__L=1",
+    ]
+    horizontal_methods = [
+        "cox_uncensored__L=1", "cox_reversed__L=1",
+        "twogroup_oracle__L=1", "twogroup__L=1", "twogroup_loc_fam__L=1",
+    ]
+    for m in line_methods:
+        row = meta.filter(pl.col("method") == m)
+        assert row.height == 1 and bool(row["is_thresholded"][0]) is True, m
+    for m in horizontal_methods:
+        row = meta.filter(pl.col("method") == m)
+        assert row.height == 1 and bool(row["is_thresholded"][0]) is False, m

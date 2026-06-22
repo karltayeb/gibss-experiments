@@ -1,38 +1,36 @@
 _anchors:
+  # minimal-loc output: one method per family at threshold 2.0
   base_methods: &base_methods
     [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1,
      cox_reversed__L=1, cox__threshold=2.00__L=1,
      logistic_threshold__threshold=2.00__L=1]
-  # cox + logistic across the full threshold grid (fit for the sweep plots)
-  threshold_sweep_methods: &threshold_sweep_methods
+  # threshold-sweep output: swept lines (thresholded) + horizontals (threshold-free)
+  sweep_methods: &sweep_methods
     [cox__threshold=0.50__L=1, cox__threshold=1.00__L=1, cox__threshold=1.50__L=1,
      cox__threshold=2.00__L=1, cox__threshold=2.50__L=1, cox__threshold=3.00__L=1,
      cox__threshold=3.50__L=1,
      logistic_threshold__threshold=0.50__L=1, logistic_threshold__threshold=1.00__L=1,
      logistic_threshold__threshold=1.50__L=1, logistic_threshold__threshold=2.00__L=1,
      logistic_threshold__threshold=2.50__L=1, logistic_threshold__threshold=3.00__L=1,
-     logistic_threshold__threshold=3.50__L=1]
-  all_methods: &all_methods
-    [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1, cox_reversed__L=1,
-     cox__threshold=0.50__L=1, cox__threshold=1.00__L=1, cox__threshold=1.50__L=1,
-     cox__threshold=2.00__L=1, cox__threshold=2.50__L=1, cox__threshold=3.00__L=1,
-     cox__threshold=3.50__L=1,
-     logistic_threshold__threshold=0.50__L=1, logistic_threshold__threshold=1.00__L=1,
-     logistic_threshold__threshold=1.50__L=1, logistic_threshold__threshold=2.00__L=1,
-     logistic_threshold__threshold=2.50__L=1, logistic_threshold__threshold=3.00__L=1,
-     logistic_threshold__threshold=3.50__L=1]
+     logistic_threshold__threshold=3.50__L=1,
+     cox_reversed_censored__threshold=0.50__L=1, cox_reversed_censored__threshold=1.00__L=1,
+     cox_reversed_censored__threshold=1.50__L=1, cox_reversed_censored__threshold=2.00__L=1,
+     cox_reversed_censored__threshold=2.50__L=1, cox_reversed_censored__threshold=3.00__L=1,
+     cox_reversed_censored__threshold=3.50__L=1,
+     cox_uncensored__L=1, cox_reversed__L=1,
+     twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1]
 
 supercollections:
   003-hallmark-loc-snr:
     collections:
       template: {design: hallmark, enrichment: [ser_b2, null_b0], error: gaussian}
       over: {signal: [loc_0.5, loc_1.0, loc_1.5, loc_2.0, loc_2.5, loc_3.0]}
-    methods: *all_methods
+    methods: *sweep_methods
     default_args: {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
     outputs:
       - name: minimal-loc
         method_filter: *base_methods
         analyses: [pip, cs, logbf, pip_non_null, cs_non_null]
       - name: minimal-loc-threshold-sweep
-        method_filter: *threshold_sweep_methods
+        method_filter: *sweep_methods
         analyses: [threshold_sweep]
