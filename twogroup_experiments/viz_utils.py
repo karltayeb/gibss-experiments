@@ -26,6 +26,8 @@ def method_family_label_map() -> dict[str, str]:
         "twogroup_loc_fam":      "Twogroup Loc",
         "linear_fixed":          "Linear",
         "linear_estimated":      "Linear (est. var)",
+        "depletion":             "Depletion",
+        "enrichment":            "Enrichment",
     }
 
 
@@ -50,6 +52,8 @@ def method_family_color_map() -> dict[str, str]:
         "twogroup_loc_fam":      "#C0392B",  # crimson
         "linear_fixed":          "#8B4513",  # saddle brown
         "linear_estimated":      "#A0522D",  # sienna
+        "depletion":             "#0072B2",
+        "enrichment":            "#D55E00",
     }
 
 
