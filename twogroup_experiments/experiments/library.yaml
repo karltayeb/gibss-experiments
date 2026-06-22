@@ -621,13 +621,10 @@ methods:
       time_sign: 1.0
     over:
       threshold:
-      - 0.5
       - 1.0
-      - 1.5
       - 2.0
-      - 2.5
       - 3.0
-      - 3.5
+      - 4.0
       L:
       - 1
   cox:
@@ -636,13 +633,10 @@ methods:
       time_sign: -1.0
     over:
       threshold:
-      - 0.5
       - 1.0
-      - 1.5
       - 2.0
-      - 2.5
       - 3.0
-      - 3.5
+      - 4.0
       L:
       - 1
   logistic_oracle:
@@ -659,13 +653,10 @@ methods:
       response_source: score_threshold
     over:
       threshold:
-      - 0.5
       - 1.0
-      - 1.5
       - 2.0
-      - 2.5
       - 3.0
-      - 3.5
+      - 4.0
       L:
       - 1
   linear_fixed:

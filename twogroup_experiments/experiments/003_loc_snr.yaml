@@ -6,17 +6,12 @@ _anchors:
      logistic_threshold__threshold=2.00__L=1]
   # threshold-sweep output: swept lines (thresholded) + horizontals (threshold-free)
   sweep_methods: &sweep_methods
-    [cox__threshold=0.50__L=1, cox__threshold=1.00__L=1, cox__threshold=1.50__L=1,
-     cox__threshold=2.00__L=1, cox__threshold=2.50__L=1, cox__threshold=3.00__L=1,
-     cox__threshold=3.50__L=1,
-     logistic_threshold__threshold=0.50__L=1, logistic_threshold__threshold=1.00__L=1,
-     logistic_threshold__threshold=1.50__L=1, logistic_threshold__threshold=2.00__L=1,
-     logistic_threshold__threshold=2.50__L=1, logistic_threshold__threshold=3.00__L=1,
-     logistic_threshold__threshold=3.50__L=1,
-     cox_reversed_censored__threshold=0.50__L=1, cox_reversed_censored__threshold=1.00__L=1,
-     cox_reversed_censored__threshold=1.50__L=1, cox_reversed_censored__threshold=2.00__L=1,
-     cox_reversed_censored__threshold=2.50__L=1, cox_reversed_censored__threshold=3.00__L=1,
-     cox_reversed_censored__threshold=3.50__L=1,
+    [cox__threshold=1.00__L=1, cox__threshold=2.00__L=1,
+     cox__threshold=3.00__L=1, cox__threshold=4.00__L=1,
+     logistic_threshold__threshold=1.00__L=1, logistic_threshold__threshold=2.00__L=1,
+     logistic_threshold__threshold=3.00__L=1, logistic_threshold__threshold=4.00__L=1,
+     cox_reversed_censored__threshold=1.00__L=1, cox_reversed_censored__threshold=2.00__L=1,
+     cox_reversed_censored__threshold=3.00__L=1, cox_reversed_censored__threshold=4.00__L=1,
      cox_uncensored__L=1, cox_reversed__L=1,
      twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1]
 
