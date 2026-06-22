@@ -293,14 +293,28 @@ def all_methods(config: dict[str, Any]) -> dict[str, dict]:
 
 
 def _all_sim_coordinates(config: dict[str, Any]) -> list[dict]:
-    """Yield deduplicated (coordinate, name) pairs across all supercollections."""
+    """Yield deduplicated (coordinate, name) pairs across all supercollections.
+
+    A supercollection may set ``replicates_per_batch`` to override the global
+    default for its own coordinates. When a coordinate is shared across
+    supercollections with different overrides, the largest override wins (the
+    superset of replicates covers every consumer).
+    """
     library = config["library"]
-    seen: dict[str, dict] = {}  # hash -> {"coordinate": ..., "name": ...}
+    seen: dict[str, dict] = {}  # hash -> {"coordinate": ..., "name": ..., maybe "replicates_per_batch"}
     for sc_name, sc in config["supercollections"].items():
+        sc_rpb = sc.get("replicates_per_batch")
         for coll in supercollection_collections(library, sc_name, sc):
             for member in coll["coordinates"]:
                 h = sim_hash(member["coordinate"])
-                seen.setdefault(h, member)
+                existing = seen.get(h)
+                if existing is None:
+                    existing = dict(member)
+                    seen[h] = existing
+                if sc_rpb is not None:
+                    existing["replicates_per_batch"] = max(
+                        int(sc_rpb), int(existing.get("replicates_per_batch", 0))
+                    )
     return list(seen.values())
 
 
@@ -330,9 +344,10 @@ def manifest_dict(library: dict[str, Any], config: dict[str, Any]) -> dict[str, 
     for member in _all_sim_coordinates(config):
         coord = member["coordinate"]
         h = sim_hash(coord)
+        n = int(member.get("replicates_per_batch", rpb))
         batches[h] = {
             "coordinate": coord,
-            "replicates": list(range(rpb)),
+            "replicates": list(range(n)),
             "hash": h,
             "name": member["name"],
         }

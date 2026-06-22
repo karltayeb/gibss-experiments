@@ -502,6 +502,34 @@ signals:
     f1:
       Exponential:
         rate: 3.0
+  exp_lambda_3over4:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 0.75
+  exp_lambda_9over10:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 0.9
+  exp_lambda_10over9:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 1.1111111111111112
+  exp_lambda_4over3:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 1.3333333333333333
 errors:
   gaussian: null
   noiseless:

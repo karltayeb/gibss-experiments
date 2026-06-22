@@ -130,6 +130,18 @@ def test_manifest_dict_shape():
     assert "name" in method_node
 
 
+def test_manifest_dict_per_sc_replicates_override():
+    cfg = loader.load_config(FIXTURE_DIR)
+    default_rpb = int(cfg["library"]["defaults"]["replicates_per_batch"])
+    base = loader.manifest_dict(cfg["library"], cfg)
+    assert base["batches"]
+    assert all(len(b["replicates"]) == default_rpb for b in base["batches"].values())
+    # per-supercollection override wins over the global default
+    cfg["supercollections"]["fixture-sc"]["replicates_per_batch"] = 200
+    over = loader.manifest_dict(cfg["library"], cfg)
+    assert all(len(b["replicates"]) == 200 for b in over["batches"].values())
+
+
 def test_expand_collections_within_and_over():
     lib = _library_for_tests()
     lib["signals"]["loc_1.0"] = {"f0": {"PointMass": {"value": 0.0}},
