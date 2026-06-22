@@ -12,4 +12,4 @@ supercollections:
         method_filter: [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1,
                         cox_reversed__L=1, cox__threshold=2.00__L=1,
                         logistic_threshold__threshold=2.00__L=1]
-        analyses: [pip, cs]
+        analyses: [pip, cs, logbf, pip_non_null, cs_non_null]
