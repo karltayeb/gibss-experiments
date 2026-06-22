@@ -130,16 +130,30 @@ def test_manifest_dict_shape():
     assert "name" in method_node
 
 
-def test_manifest_dict_per_sc_replicates_override():
+def test_manifest_dict_per_sc_n_batches_override():
+    from collections import defaultdict
+
     cfg = loader.load_config(FIXTURE_DIR)
-    default_rpb = int(cfg["library"]["defaults"]["replicates_per_batch"])
+    rpb = int(cfg["library"]["defaults"]["replicates_per_batch"])
     base = loader.manifest_dict(cfg["library"], cfg)
     assert base["batches"]
-    assert all(len(b["replicates"]) == default_rpb for b in base["batches"].values())
-    # per-supercollection override wins over the global default
-    cfg["supercollections"]["fixture-sc"]["replicates_per_batch"] = 200
+    n_coords = len(base["batches"])  # global n_batches default is 1
+    assert all(len(b["replicates"]) == rpb for b in base["batches"].values())
+
+    # per-supercollection n_batches override: 4 batches per coordinate
+    cfg["supercollections"]["fixture-sc"]["n_batches"] = 4
     over = loader.manifest_dict(cfg["library"], cfg)
-    assert all(len(b["replicates"]) == 200 for b in over["batches"].values())
+    assert len(over["batches"]) == 4 * n_coords
+    # batch-0 hashes are unchanged (== sim_hash of coordinate) so existing
+    # single-batch results stay valid
+    assert set(base["batches"]).issubset(set(over["batches"]))
+    # every batch holds rpb replicates; per coordinate they tile range(4*rpb)
+    assert all(len(b["replicates"]) == rpb for b in over["batches"].values())
+    by_coord: dict[str, list[int]] = defaultdict(list)
+    for b in over["batches"].values():
+        by_coord[loader.sim_hash(b["coordinate"])].extend(b["replicates"])
+    for reps in by_coord.values():
+        assert sorted(reps) == list(range(4 * rpb))
 
 
 def test_expand_collections_within_and_over():

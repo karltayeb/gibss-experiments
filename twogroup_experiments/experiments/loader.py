@@ -295,15 +295,16 @@ def all_methods(config: dict[str, Any]) -> dict[str, dict]:
 def _all_sim_coordinates(config: dict[str, Any]) -> list[dict]:
     """Yield deduplicated (coordinate, name) pairs across all supercollections.
 
-    A supercollection may set ``replicates_per_batch`` to override the global
-    default for its own coordinates. When a coordinate is shared across
-    supercollections with different overrides, the largest override wins (the
-    superset of replicates covers every consumer).
+    A supercollection may set ``n_batches`` to override the global default for
+    its own coordinates, splitting each coordinate's replicates across that many
+    batch files (each holding ``replicates_per_batch`` replicates). When a
+    coordinate is shared across supercollections with different overrides, the
+    largest override wins (the superset of batches covers every consumer).
     """
     library = config["library"]
-    seen: dict[str, dict] = {}  # hash -> {"coordinate": ..., "name": ..., maybe "replicates_per_batch"}
+    seen: dict[str, dict] = {}  # hash -> {"coordinate": ..., "name": ..., maybe "n_batches"}
     for sc_name, sc in config["supercollections"].items():
-        sc_rpb = sc.get("replicates_per_batch")
+        sc_nb = sc.get("n_batches")
         for coll in supercollection_collections(library, sc_name, sc):
             for member in coll["coordinates"]:
                 h = sim_hash(member["coordinate"])
@@ -311,9 +312,9 @@ def _all_sim_coordinates(config: dict[str, Any]) -> list[dict]:
                 if existing is None:
                     existing = dict(member)
                     seen[h] = existing
-                if sc_rpb is not None:
-                    existing["replicates_per_batch"] = max(
-                        int(sc_rpb), int(existing.get("replicates_per_batch", 0))
+                if sc_nb is not None:
+                    existing["n_batches"] = max(
+                        int(sc_nb), int(existing.get("n_batches", 0))
                     )
     return list(seen.values())
 
@@ -336,21 +337,26 @@ def manifest_dict(library: dict[str, Any], config: dict[str, Any]) -> dict[str, 
         {"batches": {hash: {"coordinate": ..., "replicates": [...], "hash": ..., "name": ...}},
          "methods":  {hash: {...coord_fields..., "hash": ...}}}
 
-    n_batches=1 (one batch per simulation coordinate);
-    replicates = range(replicates_per_batch).
+    Each coordinate produces ``n_batches`` batches (default 1, optionally
+    overridden per supercollection). Batch ``i`` covers replicate indices
+    ``range(i*rpb, (i+1)*rpb)``; batch 0's hash equals ``sim_hash(coord)`` so
+    existing single-batch results remain valid.
     """
     rpb = int(library["defaults"]["replicates_per_batch"])
+    default_nb = int(library["defaults"]["n_batches"])
     batches: dict[str, Any] = {}
     for member in _all_sim_coordinates(config):
         coord = member["coordinate"]
-        h = sim_hash(coord)
-        n = int(member.get("replicates_per_batch", rpb))
-        batches[h] = {
-            "coordinate": coord,
-            "replicates": list(range(n)),
-            "hash": h,
-            "name": member["name"],
-        }
+        sh = sim_hash(coord)
+        nb = int(member.get("n_batches", default_nb))
+        for i in range(nb):
+            bh = _batch_hash(sh, i)
+            batches[bh] = {
+                "coordinate": coord,
+                "replicates": list(range(i * rpb, (i + 1) * rpb)),
+                "hash": bh,
+                "name": member["name"] if nb == 1 else f"{member['name']}__batch{i}",
+            }
     methods: dict[str, Any] = {}
     for mcoord in _all_method_coordinates(config):
         h = method_hash(mcoord)
@@ -361,9 +367,29 @@ def manifest_dict(library: dict[str, Any], config: dict[str, Any]) -> dict[str, 
 RESULTS_ROOT = "results"
 
 
-def batch_hashes_for_simulation(library: dict[str, Any], spec: core.SimulationSpec) -> list[str]:
-    """Return the batch hash for a simulation spec (n_batches=1; hash = sim_hash of coordinate)."""
-    return [spec.hash]
+def _batch_hash(sim_hash_value: str, batch_index: int) -> str:
+    """Batch hash for batch ``batch_index`` of a simulation coordinate.
+
+    Batch 0 keeps the bare ``sim_hash`` so single-batch results are unchanged;
+    later batches derive a distinct, stable hash.
+    """
+    if batch_index == 0:
+        return sim_hash_value
+    return spec_hash({"simulation": sim_hash_value, "batch": int(batch_index)})
+
+
+def batch_hashes_for_simulation(
+    library: dict[str, Any],
+    spec: core.SimulationSpec,
+    n_batches: int | None = None,
+) -> list[str]:
+    """Return the batch hashes for a simulation spec.
+
+    ``n_batches`` defaults to the global library default when not given (e.g. by
+    callers without supercollection context).
+    """
+    nb = int(library["defaults"]["n_batches"] if n_batches is None else n_batches)
+    return [_batch_hash(spec.hash, i) for i in range(nb)]
 
 
 def reduction_output(batch_hash: str, method_hash: str, reduction: str) -> str:
@@ -400,12 +426,13 @@ def collection_method_pairs(config: dict[str, Any], sc_name: str) -> dict[str, d
     sc = config["supercollections"][sc_name]
     methods = resolve_methods_for_sc(library, sc)
     mhash = _method_hashes(methods)
+    sc_nb = sc.get("n_batches", library["defaults"]["n_batches"])
     out: dict[str, dict] = {}
     for coll in supercollection_collections(library, sc_name, sc):
         pairs = []
         for member, spec in zip(coll["coordinates"], coll["simulations"]):
             sim_coord = member["coordinate"]
-            for bh in batch_hashes_for_simulation(library, spec):
+            for bh in batch_hashes_for_simulation(library, spec, sc_nb):
                 for mname, mh in mhash.items():
                     mcoord = methods[mname]
                     pairs.append((bh, mh, mname, mcoord, sim_coord))

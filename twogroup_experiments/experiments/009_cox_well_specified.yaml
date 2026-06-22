@@ -2,58 +2,91 @@
 # observation noise. f0 = Exp(1), f1 = Exp(lambda), so Cox receives proportional
 # hazards data; lambda < 1 is depletion and lambda > 1 is enrichment.
 _anchors:
-  exp_signals: &exp_signals
-    [exp_lambda_2over3, exp_lambda_3over4, exp_lambda_4over5, exp_lambda_9over10,
-     exp_lambda_10over9, exp_lambda_5over4, exp_lambda_4over3, exp_lambda_3over2]
-  lambda_aliases: &lambda_aliases
-    [lambda=2/3, lambda=3/4, lambda=4/5, lambda=9/10,
-     lambda=10/9, lambda=5/4, lambda=4/3, lambda=3/2]
+  exp_signals:
+    &exp_signals [
+      exp_lambda_2over3,
+      exp_lambda_3over4,
+      exp_lambda_4over5,
+      exp_lambda_9over10,
+      exp_lambda_10over9,
+      exp_lambda_5over4,
+      exp_lambda_4over3,
+      exp_lambda_3over2,
+    ]
+  lambda_aliases:
+    &lambda_aliases [
+      lambda=2/3,
+      lambda=3/4,
+      lambda=4/5,
+      lambda=9/10,
+      lambda=10/9,
+      lambda=5/4,
+      lambda=4/3,
+      lambda=3/2,
+    ]
   cox_methods: &cox_methods [cox_reversed__L=1]
-  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+  default_args:
+    &default_args { min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5 }
   analyses: &analyses [pip, cs, logbf, pip_non_null, cs_non_null]
-  replicates: &replicates 200
+  n_batches: &n_batches 4
 
 supercollections:
   009-hallmark-cox-well-specified:
-    replicates_per_batch: *replicates
+    n_batches: *n_batches
     collections:
-      template: {design: hallmark, enrichment: [ser_b2_det, null_b0_det], error: noiseless}
-      over: {signal: *exp_signals}
+      template:
+        {
+          design: hallmark,
+          enrichment: [ser_b2_det, null_b0_det],
+          error: noiseless,
+        }
+      over: { signal: *exp_signals }
       aliases: *lambda_aliases
     methods: *cox_methods
     default_args: *default_args
     outputs:
-      - {name: cox, method_filter: *cox_methods, analyses: *analyses}
+      - { name: cox, method_filter: *cox_methods, analyses: *analyses }
 
   009-c2-cox-well-specified:
-    replicates_per_batch: *replicates
+    n_batches: *n_batches
     collections:
-      template: {design: msigdb_c2_all, enrichment: [ser_b2_det, null_b0_det], error: noiseless}
-      over: {signal: *exp_signals}
+      template:
+        {
+          design: msigdb_c2_all,
+          enrichment: [ser_b2_det, null_b0_det],
+          error: noiseless,
+        }
+      over: { signal: *exp_signals }
       aliases: *lambda_aliases
     methods: *cox_methods
     default_args: *default_args
     outputs:
-      - {name: cox, method_filter: *cox_methods, analyses: *analyses}
+      - { name: cox, method_filter: *cox_methods, analyses: *analyses }
 
   009-c4-cox-well-specified:
-    replicates_per_batch: *replicates
+    n_batches: *n_batches
     collections:
-      template: {design: c4, enrichment: [ser_b2_det, null_b0_det], error: noiseless}
-      over: {signal: *exp_signals}
+      template:
+        { design: c4, enrichment: [ser_b2_det, null_b0_det], error: noiseless }
+      over: { signal: *exp_signals }
       aliases: *lambda_aliases
     methods: *cox_methods
     default_args: *default_args
     outputs:
-      - {name: cox, method_filter: *cox_methods, analyses: *analyses}
+      - { name: cox, method_filter: *cox_methods, analyses: *analyses }
 
   009-c5-cox-well-specified:
-    replicates_per_batch: *replicates
+    n_batches: *n_batches
     collections:
-      template: {design: msigdb_c5_all, enrichment: [ser_b2_det, null_b0_det], error: noiseless}
-      over: {signal: *exp_signals}
+      template:
+        {
+          design: msigdb_c5_all,
+          enrichment: [ser_b2_det, null_b0_det],
+          error: noiseless,
+        }
+      over: { signal: *exp_signals }
       aliases: *lambda_aliases
     methods: *cox_methods
     default_args: *default_args
     outputs:
-      - {name: cox, method_filter: *cox_methods, analyses: *analyses}
+      - { name: cox, method_filter: *cox_methods, analyses: *analyses }
