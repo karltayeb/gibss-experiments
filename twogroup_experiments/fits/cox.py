@@ -8,16 +8,30 @@ import numpy as np
 from gibss import cox, engine
 
 
+def _right_censored_survival(score, threshold, time_sign):
+    """Right-censor the transformed arrival time ``time_sign*score`` at
+    ``time_sign*threshold``: arrivals past the threshold are clamped to it and
+    marked censored (``event_type=0``); they stay in the risk set.
+    """
+    score = np.asarray(score, dtype=float)
+    raw = float(time_sign) * score
+    T = float(time_sign) * float(threshold)
+    event_time = np.minimum(raw, T)
+    event_type = (raw <= T).astype(int)
+    return event_time, event_type
+
+
 def fit_cox_method(simulation, *, threshold, time_sign, L=1):
     from core import _score, _extract_ser_struct, _extract_family_state_struct, _extract_twogroup_state_struct, _make_cs_struct, _make_fit_summary_struct
     score = _score(simulation)
     if threshold is None:
+        event_time = time_sign * score
         event_type = np.ones_like(score, dtype=int)
     else:
-        event_type = (score > float(threshold)).astype(int)
+        event_time, event_type = _right_censored_survival(score, threshold, time_sign)
     data = cox.prep_data(
         simulation.X,
-        event_time=time_sign * score,
+        event_time=event_time,
         event_type=event_type,
     )
     state = cox.initialize_state(
