@@ -448,7 +448,7 @@ def collection_method_pairs(config: dict[str, Any], sc_name: str) -> dict[str, d
 def analysis_inputs(config: dict[str, Any], manifest: dict[str, Any],
                     sc_name: str, analysis: str) -> list[str]:
     library = config["library"]
-    requires = library["analyses"][analysis].get("requires", [])
+    requires = analysis_requires(config, analysis)
     sim_filter_name = analysis_simulation_filter(library, analysis)
     sim_pred = resolve_predicate(sim_filter_name) if sim_filter_name is not None else None
     cmp = collection_method_pairs(config, sc_name)

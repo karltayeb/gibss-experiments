@@ -75,3 +75,12 @@ def test_009_uses_paired_analyses():
     assert all(a.endswith("_paired") for a in analyses)
     assert "causal_pip_paired" in analyses
     assert "agg_causal_pip_paired" in analyses
+
+
+def test_analysis_inputs_accepts_paired():
+    cfg = loader.load_config()
+    manifest = loader.manifest_dict(cfg["library"], cfg)
+    # should not raise KeyError; paired resolves to the base analysis's reduction inputs
+    out = loader.analysis_inputs(cfg, manifest,
+                                 "009-hallmark-cox-well-specified", "causal_pip_paired")
+    assert isinstance(out, list)
