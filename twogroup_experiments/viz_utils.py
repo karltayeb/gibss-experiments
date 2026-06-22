@@ -561,6 +561,30 @@ def make_causal_pip_summary(plot_data: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+def _ordered_families(panel_df: pl.DataFrame, method_order: list[str] | None) -> list[str]:
+    """Unique method families (name before "__") present in panel_df.
+
+    Thresholded coordinates of one family (e.g. cox__threshold=*) collapse to a
+    single family so they render as one line / one legend entry. Order follows
+    ``method_order`` when given, else sorted.
+    """
+    def _family(name: str) -> str:
+        return name.split("__", 1)[0]
+
+    present = [m for m in panel_df.get_column("method").unique().to_list() if m is not None]
+    if method_order is not None:
+        present_set = set(present)
+        ordered = [m for m in method_order if m in present_set]
+    else:
+        ordered = sorted(present)
+    families: list[str] = []
+    for m in ordered:
+        fam = _family(m)
+        if fam not in families:
+            families.append(fam)
+    return families
+
+
 def _plot_causal_pip_on_ax(
     ax: "plt.Axes",
     panel_df: pl.DataFrame,
@@ -568,23 +592,26 @@ def _plot_causal_pip_on_ax(
     title: str,
     method_order: list[str] | None = None,
 ) -> None:
-    _all = set(x for x in panel_df.get_column("method").unique().to_list() if x is not None)
-    _methods = [m for m in method_order if m in _all] if method_order is not None else sorted(_all)
+    families = _ordered_families(panel_df, method_order)
     _nothresh_idx = 0
-    for method_name in _methods:
-        method_df = panel_df.filter(pl.col("method") == method_name)
-        color = method_color(method_name)
-        label = method_df["method_display_base"][0]
-        if method_df["threshold"].is_null().all():
-            y_val = float(method_df["mean_causal_pip"].mean())
+    for family in families:
+        family_df = panel_df.filter(pl.col("method").str.split("__").list.first() == family)
+        color = method_color(family_df["method"][0])
+        label = family_df["method_display_base"][0]
+        if family_df["threshold"].is_null().all():
+            y_val = float(family_df["mean_causal_pip"].mean())
             ls = _NOTHRESH_LINESTYLES[_nothresh_idx % len(_NOTHRESH_LINESTYLES)]
             ax.axhline(y=y_val, color=color, linestyle=ls, linewidth=1.5, label=label)
             _nothresh_idx += 1
         else:
-            method_df = method_df.sort("threshold")
+            curve = (
+                family_df.drop_nulls("threshold")
+                .group_by("threshold").agg(pl.col("mean_causal_pip").mean())
+                .sort("threshold")
+            )
             ax.plot(
-                method_df["threshold"].drop_nulls().to_numpy(),
-                method_df["mean_causal_pip"].to_numpy(),
+                curve["threshold"].to_numpy(),
+                curve["mean_causal_pip"].to_numpy(),
                 marker="o",
                 color=color,
                 label=label,
@@ -982,23 +1009,26 @@ def _plot_mass_above_causal_on_ax(
     title: str,
     method_order: list[str] | None = None,
 ) -> None:
-    _all = set(x for x in panel_df.get_column("method").unique().to_list() if x is not None)
-    _methods = [m for m in method_order if m in _all] if method_order is not None else sorted(_all)
+    families = _ordered_families(panel_df, method_order)
     _nothresh_idx = 0
-    for method_name in _methods:
-        method_df = panel_df.filter(pl.col("method") == method_name)
-        color = method_color(method_name)
-        label = method_df["method_display_base"][0]
-        if method_df["threshold"].is_null().all():
-            y_val = float(method_df["mean_mass_above_causal"].mean())
+    for family in families:
+        family_df = panel_df.filter(pl.col("method").str.split("__").list.first() == family)
+        color = method_color(family_df["method"][0])
+        label = family_df["method_display_base"][0]
+        if family_df["threshold"].is_null().all():
+            y_val = float(family_df["mean_mass_above_causal"].mean())
             ls = _NOTHRESH_LINESTYLES[_nothresh_idx % len(_NOTHRESH_LINESTYLES)]
             ax.axhline(y=y_val, color=color, linestyle=ls, linewidth=1.5, label=label)
             _nothresh_idx += 1
         else:
-            method_df = method_df.sort("threshold")
+            curve = (
+                family_df.drop_nulls("threshold")
+                .group_by("threshold").agg(pl.col("mean_mass_above_causal").mean())
+                .sort("threshold")
+            )
             ax.plot(
-                method_df["threshold"].drop_nulls().to_numpy(),
-                method_df["mean_mass_above_causal"].to_numpy(),
+                curve["threshold"].to_numpy(),
+                curve["mean_mass_above_causal"].to_numpy(),
                 marker="o",
                 color=color,
                 label=label,

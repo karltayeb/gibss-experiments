@@ -867,4 +867,6 @@ analysis_groups:
   - f1_enrich_scatter
   threshold_sweep:
   - causal_pip
+  - agg_causal_pip
   - mass_above_causal
+  - agg_mass_above_causal
