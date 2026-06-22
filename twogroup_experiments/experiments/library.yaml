@@ -523,6 +523,20 @@ signals:
     f1:
       Exponential:
         rate: 1.1111111111111112
+  exp_lambda_5over6:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 0.8333333333333334
+  exp_lambda_6over5:
+    f0:
+      Exponential:
+        rate: 1.0
+    f1:
+      Exponential:
+        rate: 1.2
   exp_lambda_4over3:
     f0:
       Exponential:
