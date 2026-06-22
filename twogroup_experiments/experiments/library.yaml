@@ -607,6 +607,14 @@ methods:
     over:
       L:
       - 1
+  cox_uncensored:
+    function: run_cox_method
+    template:
+      time_sign: -1.0
+      threshold: null
+    over:
+      L:
+      - 1
   cox_reversed_censored:
     function: run_cox_method
     template:

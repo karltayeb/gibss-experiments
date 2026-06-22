@@ -19,6 +19,8 @@ def method_family_label_map() -> dict[str, str]:
         "twogroup_oracle_global": "Twogroup Global EM",
         "logistic_oracle":       "Logistic",
         "cox_reversed":          "Cox (reversed)",
+        "cox_reversed_censored": "Cox reversed (censored)",
+        "cox_uncensored":        "Cox (uncensored)",
         "twogroup_oracle_init":  "TG Oracle Init",
         "twogroup_scale_fam":    "Twogroup Scale",
         "twogroup_loc_fam":      "Twogroup Loc",
@@ -38,6 +40,8 @@ def method_family_color_map() -> dict[str, str]:
         "logistic_oracle":       "#56B4E9",
         "cox":                   "#009E73",
         "cox_reversed":          "#E69F00",
+        "cox_reversed_censored": "#E69F00",  # share cox_reversed color
+        "cox_uncensored":        "#009E73",  # share cox color
         "twogroup":              "#D55E00",  # vermillion
         "twogroup_oracle":       "#CC79A7",  # rose/mauve
         "twogroup_oracle_global": "#AA4499",  # purple
