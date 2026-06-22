@@ -16,6 +16,7 @@ def method_family_label_map() -> dict[str, str]:
         "cox":                   "Cox",
         "twogroup":              "Twogroup",
         "twogroup_oracle":       "Twogroup",
+        "twogroup_oracle_global": "Twogroup Global EM",
         "logistic_oracle":       "Logistic",
         "cox_reversed":          "Cox (reversed)",
         "twogroup_oracle_init":  "TG Oracle Init",
@@ -39,6 +40,7 @@ def method_family_color_map() -> dict[str, str]:
         "cox_reversed":          "#E69F00",
         "twogroup":              "#D55E00",  # vermillion
         "twogroup_oracle":       "#CC79A7",  # rose/mauve
+        "twogroup_oracle_global": "#AA4499",  # purple
         "twogroup_oracle_init":  "#994F00",  # dark burnt orange
         "twogroup_scale_fam":    "#FF6347",  # tomato
         "twogroup_loc_fam":      "#C0392B",  # crimson
@@ -1332,14 +1334,26 @@ def make_cs_radius_power_summary(
             pl.col("cs_causal_radius").max().alias("cs_causal_radius"),
         )
     )
-    return (
+    power_radius = (
         per_causal_sample
         .group_by("collection_name", "method", "method_display", "threshold", "is_thresholded", "is_selected_threshold", "beta")
         .agg(
             pl.col("discovered").cast(pl.Float64).mean().alias("power"),
-            pl.col("discovered").cast(pl.Float64).mean().alias("coverage"),
             pl.col("cs_causal_radius").mean().alias("cs_causal_radius"),
         )
+    )
+    # Empirical coverage is a CS-level metric, not power. Reuse the same
+    # computation as the coverage/size chart so the calibration panels match.
+    coverage = make_cs_coverage_size_curves(
+        cs_plot_data,
+        method_metadata,
+        selected_methods=selected_methods,
+        selected_thresholds=selected_thresholds,
+    ).select("collection_name", "method", "threshold", "beta", "coverage")
+    return (
+        power_radius
+        .join(coverage, on=["collection_name", "method", "threshold", "beta"],
+              how="left", nulls_equal=True)
         .sort("collection_name", "method_display", "threshold", "beta")
     )
 
