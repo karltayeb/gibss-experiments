@@ -31,8 +31,7 @@ def method_family_label_map() -> dict[str, str]:
         "globaljj":              "Global JJ",
         "localjj":               "Local JJ",
         "quadrature":            "Quadrature",
-        "cheb":                  "Profile (Cheb)",
-        "newton":                "Profile (Newton)",
+        "profile_cheb":          "Profile (Cheb)",
         "score":                 "Score (b0=0)",
         "score_null_intercept":  "Score (null b0)",
     }
@@ -64,8 +63,7 @@ def method_family_color_map() -> dict[str, str]:
         "globaljj":              "#0072B2",  # blue
         "localjj":               "#E69F00",  # orange
         "quadrature":            "#009E73",  # green (reference)
-        "cheb":                  "#CC79A7",  # rose
-        "newton":                "#D55E00",  # vermillion
+        "profile_cheb":          "#CC79A7",  # rose
         "score":                 "#999999",  # grey
         "score_null_intercept":  "#444444",  # dark grey
     }

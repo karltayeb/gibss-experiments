@@ -49,8 +49,9 @@ enrichments:
 
 # Each method is one gibss logistic SuSiE implementation. logistic_quadrature is
 # the most accurate reference; globaljj / localjj are the variational variants;
-# cheb / newton are the profile-likelihood SER (sparse chebyshev vs exact
-# quadrature background), via gibss.logistic_profile.
+# profile_cheb is the intercept-profiled SER (gibss.logistic_profile) with the
+# sparse Chebyshev background — numerically identical to the exact-quadrature
+# background on these designs, so only the fast variant is kept.
 methods:
   globaljj:
     function: run_logistic_method
@@ -61,18 +62,12 @@ methods:
   quadrature:
     function: run_logistic_method
     template: { impl: logistic_quadrature, L: 1 }
-  cheb:
+  profile_cheb:
     function: run_logistic_method
     template:
       impl: logistic_profile
       L: 1
       family_state_kwargs: { background_mode: chebyshev }
-  newton:
-    function: run_logistic_method
-    template:
-      impl: logistic_profile
-      L: 1
-      family_state_kwargs: { background_mode: exact }
   # one-step Taylor (score) linearizations: linear SER on a recoded response.
   # score expands about eta0=0 (free intercept); score_null_intercept expands
   # about the null-MLE intercept logit(ybar), held fixed.

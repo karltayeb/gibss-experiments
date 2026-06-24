@@ -1,0 +1,25 @@
+# 001_profile_methods — compare all five logistic SuSiE implementations
+# (globaljj, localjj, quadrature, cheb, newton) on a sparse gene-set design.
+#
+# Design: c4 gene sets (10749 genes x 1006 sets). Single strong SER scenario
+# (ser_c4_strong: causal_effect=3, intercept=-2) paired with the matching b0=-2
+# null. The strong effect on a sparse design yields heterogeneous logits — the
+# regime where the global JJ bound is loosest and the methods diverge most
+# (globaljj over-confident on PIP / log-BF vs the tighter localjj / quadrature /
+# profile methods). Full pip + cs plot suite.
+supercollections:
+  001_profile_methods:
+    collections:
+      template:
+        design: c4
+        enrichment: [ser_c4_strong, ser__b0=-2_null]
+    methods: [globaljj, localjj, quadrature, profile_cheb, score, score_null_intercept]
+    default_args:
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+      cs_beta: 0.95
+    outputs:
+      - name: profile_methods
+        method_filter: [globaljj, localjj, quadrature, profile_cheb, score, score_null_intercept]
+        analyses: [pip, pip_non_null, cs, cs_non_null, cs_extra]
