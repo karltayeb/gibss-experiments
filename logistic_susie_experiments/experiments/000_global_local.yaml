@@ -1,0 +1,17 @@
+# 000_global_local — globaljj vs localjj on a logistic SER.
+# Design: Gaussian Markov, rho = 0.9 (n=500, p=100). Moderate enrichment (ser_mod,
+# causal_effect=1.5, intercept=-1.0). Full pip + cs plot suite.
+supercollections:
+  000_global_local:
+    collections:
+      template: {design: gaussian_rho0.90_n500_p100, enrichment: ser_mod}
+    methods: [globaljj, localjj]
+    default_args:
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+      cs_beta: 0.95
+    outputs:
+      - name: global_local
+        method_filter: [globaljj, localjj]
+        analyses: [pip, pip_non_null, cs, cs_non_null, cs_extra]

@@ -19,6 +19,8 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
+import polars as pl
+
 import core
 from core import spec_hash
 from experiments import predicates as _predicates
@@ -410,3 +412,165 @@ def method_code_files(method_coord: dict[str, Any], library: dict[str, Any]) -> 
 def reduction_code_files(reduction: str, library: dict[str, Any]) -> list[str]:
     mod = importlib.import_module(f"reductions.{reduction}")
     return [_file(getattr(mod, "build"))]
+
+
+# ---------------------------------------------------------------------------
+# Analyses (plotting layer)
+# ---------------------------------------------------------------------------
+
+def _base_analysis(analysis: str) -> str:
+    return analysis
+
+
+def flatten_analyses(library: dict[str, Any], analyses_list: list[str]) -> list[str]:
+    groups = library["analysis_groups"]
+    analyses = library["analyses"]
+    overlap = set(groups) & set(analyses)
+    if overlap:
+        raise ValueError(f"Analysis/group name collision: {sorted(overlap)}")
+    out: list[str] = []
+    for item in analyses_list:
+        names = groups[item] if item in groups else [item]
+        for n in names:
+            if n not in analyses:
+                raise KeyError(f"Unknown analysis: {n!r}")
+            if n not in out:
+                out.append(n)
+    return out
+
+
+def resolve_sc_analyses(config: dict[str, Any], sc_name: str) -> list[tuple[str, str]]:
+    """Return (analysis, output_name) pairs for a supercollection."""
+    library = config["library"]
+    sc = config["supercollections"][sc_name]
+    seen: dict[tuple[str, str], None] = {}
+    for output in sc.get("outputs", []):
+        for analysis in flatten_analyses(library, output.get("analyses", [])):
+            seen[(analysis, output["name"])] = None
+    return list(seen.keys())
+
+
+def analysis_requires(config: dict[str, Any], analysis: str) -> list[str]:
+    return list(config["library"]["analyses"][analysis].get("requires", []))
+
+
+def analysis_simulation_filter(library: dict[str, Any], analysis: str) -> str | None:
+    return library["analyses"][analysis].get("simulation_filter")
+
+
+def analysis_family(analysis: str) -> str:
+    """Family module name (pip|cs) for an analysis."""
+    from analyses import pip, cs
+    if analysis in pip.RENDERERS:
+        return "pip"
+    if analysis in cs.RENDERERS:
+        return "cs"
+    raise KeyError(f"Unknown analysis (not in any family RENDERERS): {analysis!r}")
+
+
+def analysis_function(config: dict[str, Any], analysis: str):
+    import generate_plots
+    return generate_plots.ANALYSIS_RENDERERS[analysis]
+
+
+def analysis_code_files(analysis: str) -> list[str]:
+    import generate_plots
+    return [_file(generate_plots.ANALYSIS_RENDERERS[analysis])]
+
+
+def resolve_args(config: dict[str, Any], sc_name: str, args_name: str) -> dict[str, Any]:
+    sc = config["supercollections"][sc_name]
+    defaults = dict(sc.get("default_args", {}) or {})
+    for output in sc.get("outputs", []):
+        if output["name"] == args_name:
+            return {**defaults, **(output.get("args") or {}),
+                    "method_filter": output.get("method_filter", [])}
+    raise KeyError(f"No output named {args_name!r} in supercollection {sc_name!r}")
+
+
+def analysis_inputs(config: dict[str, Any], manifest: dict[str, Any],
+                    sc_name: str, analysis: str) -> list[str]:
+    library = config["library"]
+    requires = analysis_requires(config, analysis)
+    sim_filter_name = analysis_simulation_filter(library, analysis)
+    sim_pred = resolve_predicate(sim_filter_name) if sim_filter_name is not None else None
+    cmp = collection_method_pairs(config, sc_name)
+    paths: list[str] = []
+    seen: set[str] = set()
+    for reduction in requires:
+        mfilter_name = reduction_method_filter(library, reduction)
+        method_pred = resolve_predicate(mfilter_name) if mfilter_name else None
+        for coll in cmp.values():
+            for bh, mh, _mname, mcoord, sim_coord in coll["pairs"]:
+                if method_pred is not None and not method_pred(mcoord):
+                    continue
+                if sim_pred is not None and not sim_pred(sim_coord):
+                    continue
+                p = reduction_output(bh, mh, reduction)
+                if p not in seen:
+                    seen.add(p)
+                    paths.append(p)
+    return paths
+
+
+# ---------------------------------------------------------------------------
+# Plot-ready bundle assembly
+# ---------------------------------------------------------------------------
+
+def method_metadata(methods: dict[str, dict]) -> pl.DataFrame:
+    """Per-method display metadata. Logistic methods have no threshold/oracle/f1
+    semantics, so those columns are constant (None / False)."""
+    rows = []
+    for name, spec in methods.items():
+        family = name
+        L = int(spec["kwargs"].get("L", 1))
+        suffix = "SER" if L == 1 else f"SuSiE [L={L}]"
+        from viz_utils import method_family_label_map
+        family_label = method_family_label_map().get(family, family)
+        base = f"{family_label} {suffix}"
+        rows.append({
+            "method": name,
+            "method_family": family,
+            "L": L,
+            "threshold": None,
+            "is_thresholded": False,
+            "is_oracle": False,
+            "oracle_label": "Oracle",
+            "method_label_base": base,
+            "method_display": base,
+            "method_display_base": base,
+        })
+    return pl.from_dicts(rows, schema_overrides={"threshold": pl.Float64})
+
+
+def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
+                   results_root: str = RESULTS_ROOT,
+                   simulation_filter: str | None = None) -> dict[str, Any]:
+    library = config["library"]
+    cmp = collection_method_pairs(config, sc_name)
+    bundle: dict[str, Any] = {}
+    collection_names = [info["alias"] for info in cmp.values()]
+    sim_pred = resolve_predicate(simulation_filter) if simulation_filter is not None else None
+    for reduction in requires:
+        mfilter_name = reduction_method_filter(library, reduction)
+        method_pred = resolve_predicate(mfilter_name) if mfilter_name else None
+        frames = []
+        for info in cmp.values():
+            sub = []
+            for bh, mh, _mname, mcoord, sim_coord in info["pairs"]:
+                if method_pred is not None and not method_pred(mcoord):
+                    continue
+                if sim_pred is not None and not sim_pred(sim_coord):
+                    continue
+                path = f"{results_root}/{reduction_output(bh, mh, reduction).split('/', 1)[1]}"
+                sub.append(pl.read_parquet(path))
+            if sub:
+                merged = pl.concat(sub, how="diagonal_relaxed").with_columns(
+                    pl.lit(info["alias"]).alias("collection_name"))
+                frames.append(merged)
+        bundle[f"{reduction}_plot_data"] = (
+            pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame())
+    bundle["method_metadata"] = method_metadata(
+        resolve_methods_for_sc(library, config["supercollections"][sc_name]))
+    bundle["collection_names"] = collection_names
+    return bundle
