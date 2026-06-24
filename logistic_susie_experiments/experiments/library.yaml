@@ -11,13 +11,13 @@ designs:
     arguments: {}
   gaussian_rho0.90_n500_p100:
     function: gaussian_markov_X
-    arguments: {n: 500, p: 100, rho: 0.9}
+    arguments: { n: 500, p: 100, rho: 0.9 }
   uniform_rho0.90_n500_p100:
     function: uniform_markov_X
-    arguments: {n: 500, p: 100, rho: 0.9}
+    arguments: { n: 500, p: 100, rho: 0.9 }
   gaussian_p8_smoke:
     function: gaussian_markov_X
-    arguments: {n: 200, p: 8, rho: 0.5}
+    arguments: { n: 200, p: 8, rho: 0.5 }
 
 enrichments:
   # Enrichment FAMILY: any list-valued field (intercept or an argument) is a grid
@@ -28,36 +28,27 @@ enrichments:
   ser:
     function: uniform_single_effect
     arguments:
-      causal_effect: [-2, -1.5, -1, 1, 1.5, 2]
+      causal_effect: [-1, -0.5, -0.2, -0.1, 0.1, 0.2, 0.5, 1]
     intercept: [-2, -1, 0, 1, 2]
     name: "ser__b0={intercept:g}__b={causal_effect:g}"
-
-  ser_b2:
+  ser_null:
     function: uniform_single_effect
-    arguments: {causal_effect: 2.0}
-    intercept: -2.0
-  null_b0:
-    function: uniform_single_effect
-    arguments: {causal_effect: 0.0}
-    intercept: -2.0
-  # moderate single-effect enrichment for the global-vs-local comparison
-  ser_mod:
-    function: uniform_single_effect
-    arguments: {causal_effect: 1.5}
-    intercept: -1.0
+    arguments: { causal_effect: 0.0 }
+    intercept: [-2.0, -1., 0.0, 1., 2.0]
+    name: "ser__b0={intercept:g}_null"
 
 # Each method is one gibss logistic SuSiE implementation. logistic_quadrature is
 # the most accurate reference; globaljj / localjj are the variational variants.
 methods:
   globaljj:
     function: run_logistic_method
-    template: {impl: globaljj, L: 1}
+    template: { impl: globaljj, L: 1 }
   localjj:
     function: run_logistic_method
-    template: {impl: localjj, L: 1}
+    template: { impl: localjj, L: 1 }
   quadrature:
     function: run_logistic_method
-    template: {impl: logistic_quadrature, L: 1}
+    template: { impl: logistic_quadrature, L: 1 }
 
 reductions:
   pip:
@@ -70,38 +61,41 @@ reductions:
 # (mass_above_causal reads cs_plot_data despite being in the pip family).
 analyses:
   # --- pip family ---
-  pip_calibration:        {requires: [pip]}
-  agg_pip_calibration:    {requires: [pip]}
-  power_fdp:              {requires: [pip]}
-  agg_power_fdp:          {requires: [pip]}
-  causal_pip:             {requires: [pip], simulation_filter: has_causal}
-  agg_causal_pip:         {requires: [pip], simulation_filter: has_causal}
-  mass_above_causal:      {requires: [cs],  simulation_filter: has_causal}
-  agg_mass_above_causal:  {requires: [cs],  simulation_filter: has_causal}
+  pip_calibration: { requires: [pip] }
+  agg_pip_calibration: { requires: [pip] }
+  power_fdp: { requires: [pip] }
+  agg_power_fdp: { requires: [pip] }
+  causal_pip: { requires: [pip], simulation_filter: has_causal }
+  agg_causal_pip: { requires: [pip], simulation_filter: has_causal }
+  mass_above_causal: { requires: [cs], simulation_filter: has_causal }
+  agg_mass_above_causal: { requires: [cs], simulation_filter: has_causal }
   # --- cs family ---
-  causal_rank:                       {requires: [cs]}
-  agg_causal_rank:                   {requires: [cs]}
-  cs_power_fdp:                      {requires: [cs]}
-  agg_cs_power_fdp:                  {requires: [cs]}
-  cs_size_power:                     {requires: [cs]}
-  agg_cs_size_power:                 {requires: [cs]}
-  cs_radius_power:                   {requires: [cs]}
-  agg_cs_radius_power:               {requires: [cs]}
-  cs_power_size_coverage_trace:      {requires: [cs]}
-  agg_cs_power_size_coverage_trace:  {requires: [cs]}
-  cs_coverage_trace:                 {requires: [cs]}
-  agg_cs_coverage_trace:             {requires: [cs]}
-  cs_dot_summary:                    {requires: [cs]}
-  cs_calibration:                    {requires: [cs]}
-  agg_cs_calibration:                {requires: [cs]}
-  preceding_posterior_mass_ecdf:     {requires: [cs]}
-  agg_preceding_posterior_mass_ecdf: {requires: [cs]}
-  cs_coverage_size:                  {requires: [cs], simulation_filter: has_causal}
-  agg_cs_coverage_size:              {requires: [cs], simulation_filter: has_causal}
-  cs_coverage_radius:                {requires: [cs], simulation_filter: has_causal}
-  agg_cs_coverage_radius:            {requires: [cs], simulation_filter: has_causal}
-  cs_calibrated_dot:                 {requires: [cs], simulation_filter: has_causal}
-  agg_cs_calibrated_dot:             {requires: [cs], simulation_filter: has_causal}
+  # power/FDP keep nulls (false positives); coverage-bearing analyses filter them
+  # out (a null sim has no causal, so it can only ever read as "not covered" and
+  # caps empirical coverage at the causal fraction).
+  cs_power_fdp: { requires: [cs] }
+  agg_cs_power_fdp: { requires: [cs] }
+  causal_rank: { requires: [cs] }
+  agg_causal_rank: { requires: [cs] }
+  preceding_posterior_mass_ecdf: { requires: [cs] }
+  agg_preceding_posterior_mass_ecdf: { requires: [cs] }
+  cs_size_power: { requires: [cs], simulation_filter: has_causal }
+  agg_cs_size_power: { requires: [cs], simulation_filter: has_causal }
+  cs_radius_power: { requires: [cs], simulation_filter: has_causal }
+  agg_cs_radius_power: { requires: [cs], simulation_filter: has_causal }
+  cs_power_size_coverage_trace: { requires: [cs], simulation_filter: has_causal }
+  agg_cs_power_size_coverage_trace: { requires: [cs], simulation_filter: has_causal }
+  cs_coverage_trace: { requires: [cs], simulation_filter: has_causal }
+  agg_cs_coverage_trace: { requires: [cs], simulation_filter: has_causal }
+  cs_dot_summary: { requires: [cs], simulation_filter: has_causal }
+  cs_calibration: { requires: [cs], simulation_filter: has_causal }
+  agg_cs_calibration: { requires: [cs], simulation_filter: has_causal }
+  cs_coverage_size: { requires: [cs], simulation_filter: has_causal }
+  agg_cs_coverage_size: { requires: [cs], simulation_filter: has_causal }
+  cs_coverage_radius: { requires: [cs], simulation_filter: has_causal }
+  agg_cs_coverage_radius: { requires: [cs], simulation_filter: has_causal }
+  cs_calibrated_dot: { requires: [cs], simulation_filter: has_causal }
+  agg_cs_calibrated_dot: { requires: [cs], simulation_filter: has_causal }
 
 analysis_groups:
   pip:
