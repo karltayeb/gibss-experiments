@@ -1,9 +1,9 @@
 # First comparison: globaljj vs localjj vs quadrature across designs,
-# under a single causal effect (ser_b2) and a null (null_b0) control.
+# under a single causal effect (ser__b0=-2__b=1) and a null (ser__b0=-2_null) control.
 supercollections:
   000-impl-comparison:
     collections:
-      template: {enrichment: [ser_b2, null_b0]}
+      template: {enrichment: [ser__b0=-2__b=1, ser__b0=-2_null]}
       over:
         design: [gaussian_rho0.90_n500_p100, uniform_rho0.90_n500_p100, hallmark]
     methods: [globaljj, localjj, quadrature]
@@ -11,5 +11,5 @@ supercollections:
   # Tiny, fast scenario for end-to-end smoke testing.
   999-smoke:
     collections:
-      template: {design: gaussian_p8_smoke, enrichment: [ser_b2, null_b0]}
+      template: {design: gaussian_p8_smoke, enrichment: [ser__b0=-2__b=1, ser__b0=-2_null]}
     methods: [globaljj, localjj, quadrature]

@@ -239,12 +239,19 @@ def _as_list(value: Any) -> list:
     return value if isinstance(value, list) else [value]
 
 
-def _resolve_enrichment_refs(library: dict[str, Any], names: list[str]) -> list[str]:
-    """Expand any enrichment-family group name into its concrete member names."""
+def _resolve_enrichment_refs(library: dict[str, Any], names: list) -> list:
+    """Expand any enrichment-family group name into its concrete member names.
+
+    Non-string items (e.g. a nested ``[signal, null]`` list used to pair a null
+    into an ``over`` collection) are passed through untouched.
+    """
     groups = library.get("enrichment_groups", {})
-    out: list[str] = []
+    out: list = []
     for name in names:
-        out.extend(groups[name] if name in groups else [name])
+        if isinstance(name, str) and name in groups:
+            out.extend(groups[name])
+        else:
+            out.append(name)
     return out
 
 
