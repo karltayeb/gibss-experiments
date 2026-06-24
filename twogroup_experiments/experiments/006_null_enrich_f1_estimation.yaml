@@ -1,106 +1,40 @@
+_anchors:
+  loc_signals: &loc_signals [loc_0.5, loc_1.0, loc_1.5, loc_2.0, loc_2.5, loc_3.0]
+  loc_aliases: &loc_aliases [mu=0.50, mu=1.00, mu=1.50, mu=2.00, mu=2.50, mu=3.00]
+  scale_signals: &scale_signals [scale_0.75, scale_1.0, scale_1.5, scale_1.75, scale_2.0, scale_3.0, scale_4.0, scale_5.0]
+  scale_aliases: &scale_aliases [sigma=0.75, sigma=1.00, sigma=1.50, sigma=1.75, sigma=2.00, sigma=3.00, sigma=4.00, sigma=5.00]
+  twogroup_methods: &twogroup_methods
+    [twogroup__L=1, twogroup_loc_fam__L=1, twogroup_oracle__L=1, twogroup_oracle_init__L=1, twogroup_scale_fam__L=1]
+  twogroup_filter: &twogroup_filter
+    [twogroup_oracle__L=1, twogroup_oracle_init__L=1, twogroup__L=1, twogroup_scale_fam__L=1, twogroup_loc_fam__L=1]
+  twogroup_loc_filter: &twogroup_loc_filter
+    [twogroup_oracle__L=1, twogroup_oracle_init__L=1, twogroup__L=1, twogroup_loc_fam__L=1]
+  twogroup_scale_filter: &twogroup_scale_filter
+    [twogroup_oracle__L=1, twogroup_oracle_init__L=1, twogroup__L=1, twogroup_scale_fam__L=1]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+  f1_analyses: &f1_analyses [f1]
+
 supercollections:
   006-null-enrich-signal-loc:
     collections:
-      template:
-        design: null_enrich
-        enrichment: null_enrich
-        error: gaussian
-      over:
-        signal:
-        - loc_0.5
-        - loc_1.0
-        - loc_1.5
-        - loc_2.0
-        - loc_2.5
-        - loc_3.0
-      aliases:
-      - mu=0.50
-      - mu=1.00
-      - mu=1.50
-      - mu=2.00
-      - mu=2.50
-      - mu=3.00
-    methods:
-    - twogroup__L=1
-    - twogroup_loc_fam__L=1
-    - twogroup_oracle__L=1
-    - twogroup_oracle_init__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
+      template: {design: null_enrich, enrichment: null_enrich, error: gaussian}
+      over: {signal: *loc_signals}
+      aliases: *loc_aliases
+    methods: *twogroup_methods
+    default_args: *default_args
     outputs:
-    - name: twogroup_methods
-      method_filter: &id001
-      - twogroup_oracle__L=1
-      - twogroup_oracle_init__L=1
-      - twogroup__L=1
-      - twogroup_scale_fam__L=1
-      - twogroup_loc_fam__L=1
-      analyses:
-      - f1
-    - name: twogroup_loc_methods
-      method_filter: &id002
-      - twogroup_oracle__L=1
-      - twogroup_oracle_init__L=1
-      - twogroup__L=1
-      - twogroup_loc_fam__L=1
-      analyses:
-      - f1
-    - name: twogroup_scale_methods
-      method_filter: &id003
-      - twogroup_oracle__L=1
-      - twogroup_oracle_init__L=1
-      - twogroup__L=1
-      - twogroup_scale_fam__L=1
-      analyses:
-      - f1
+      - {name: twogroup_methods,       method_filter: *twogroup_filter,       analyses: *f1_analyses}
+      - {name: twogroup_loc_methods,   method_filter: *twogroup_loc_filter,   analyses: *f1_analyses}
+      - {name: twogroup_scale_methods, method_filter: *twogroup_scale_filter, analyses: *f1_analyses}
+
   006-null-enrich-signal-scale:
     collections:
-      template:
-        design: null_enrich
-        enrichment: null_enrich
-        error: gaussian
-      over:
-        signal:
-        - scale_0.75
-        - scale_1.0
-        - scale_1.5
-        - scale_1.75
-        - scale_2.0
-        - scale_3.0
-        - scale_4.0
-        - scale_5.0
-      aliases:
-      - sigma=0.75
-      - sigma=1.00
-      - sigma=1.50
-      - sigma=1.75
-      - sigma=2.00
-      - sigma=3.00
-      - sigma=4.00
-      - sigma=5.00
-    methods:
-    - twogroup__L=1
-    - twogroup_loc_fam__L=1
-    - twogroup_oracle__L=1
-    - twogroup_oracle_init__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
+      template: {design: null_enrich, enrichment: null_enrich, error: gaussian}
+      over: {signal: *scale_signals}
+      aliases: *scale_aliases
+    methods: *twogroup_methods
+    default_args: *default_args
     outputs:
-    - name: twogroup_methods
-      method_filter: *id001
-      analyses:
-      - f1
-    - name: twogroup_loc_methods
-      method_filter: *id002
-      analyses:
-      - f1
-    - name: twogroup_scale_methods
-      method_filter: *id003
-      analyses:
-      - f1
+      - {name: twogroup_methods,       method_filter: *twogroup_filter,       analyses: *f1_analyses}
+      - {name: twogroup_loc_methods,   method_filter: *twogroup_loc_filter,   analyses: *f1_analyses}
+      - {name: twogroup_scale_methods, method_filter: *twogroup_scale_filter, analyses: *f1_analyses}

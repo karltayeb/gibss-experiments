@@ -1,0 +1,147 @@
+# 008 oracle EM update comparison: twogroup oracle with the default local EM
+# updates versus the global EM updates supported by GIBSS.
+_anchors:
+  loc_signals: &loc_signals [loc_1.0, loc_2.0, loc_3.0]
+  loc_aliases: &loc_aliases [mu=1.00, mu=2.00, mu=3.00]
+  scale_signals: &scale_signals [scale_1.0, scale_2.0, scale_3.0]
+  scale_aliases: &scale_aliases [scale=1.00, scale=2.00, scale=3.00]
+  oracle_em_methods:
+    &oracle_em_methods [twogroup_oracle__L=1, twogroup_oracle_global__L=1]
+  default_args:
+    &default_args { min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5 }
+  all_analyses: &all_analyses [pip, cs, logbf, pip_non_null, cs_non_null]
+
+supercollections:
+  008-hallmark-oracle-em-loc:
+    collections:
+      template:
+        { design: hallmark, enrichment: [ser_b2, null_b0], error: gaussian }
+      over: { signal: *loc_signals }
+      aliases: *loc_aliases
+    methods: *oracle_em_methods
+    default_args: *default_args
+    outputs:
+      - {
+          name: oracle-em,
+          method_filter: *oracle_em_methods,
+          analyses: *all_analyses,
+        }
+
+  008-hallmark-oracle-em-scale:
+    collections:
+      template:
+        { design: hallmark, enrichment: [ser_b2, null_b0], error: gaussian }
+      over: { signal: *scale_signals }
+      aliases: *scale_aliases
+    methods: *oracle_em_methods
+    default_args: *default_args
+    outputs:
+      - {
+          name: oracle-em,
+          method_filter: *oracle_em_methods,
+          analyses: *all_analyses,
+        }
+
+  008-c4-oracle-em-loc:
+    collections:
+      template: { design: c4, enrichment: [ser_b2, null_b0], error: gaussian }
+      over: { signal: *loc_signals }
+      aliases: *loc_aliases
+    methods: *oracle_em_methods
+    default_args: *default_args
+    outputs:
+      - {
+          name: oracle-em,
+          method_filter: *oracle_em_methods,
+          analyses: *all_analyses,
+        }
+
+  008-c4-oracle-em-scale:
+    collections:
+      template: { design: c4, enrichment: [ser_b2, null_b0], error: gaussian }
+      over: { signal: *scale_signals }
+      aliases: *scale_aliases
+    methods: *oracle_em_methods
+    default_args: *default_args
+    outputs:
+      - {
+          name: oracle-em,
+          method_filter: *oracle_em_methods,
+          analyses: *all_analyses,
+        }
+
+  008-gaussian-p100-oracle-em-loc:
+    collections:
+      template:
+        {
+          design: gaussian_rho0.90_n500_p100,
+          enrichment: [ser_b2, null_b0],
+          error: gaussian,
+        }
+      over: { signal: *loc_signals }
+      aliases: *loc_aliases
+    methods: *oracle_em_methods
+    default_args: *default_args
+    outputs:
+      - {
+          name: oracle-em,
+          method_filter: *oracle_em_methods,
+          analyses: *all_analyses,
+        }
+
+  008-gaussian-p100-oracle-em-scale:
+    collections:
+      template:
+        {
+          design: gaussian_rho0.90_n500_p100,
+          enrichment: [ser_b2, null_b0],
+          error: gaussian,
+        }
+      over: { signal: *scale_signals }
+      aliases: *scale_aliases
+    methods: *oracle_em_methods
+    default_args: *default_args
+    outputs:
+      - {
+          name: oracle-em,
+          method_filter: *oracle_em_methods,
+          analyses: *all_analyses,
+        }
+
+  008-uniform-p100-oracle-em-loc:
+    collections:
+      template:
+        {
+          design: uniform_rho0.90_n500_p100,
+          enrichment: [ser_b2, null_b0],
+          error: gaussian,
+        }
+      over: { signal: *loc_signals }
+      aliases: *loc_aliases
+    methods: *oracle_em_methods
+    default_args: *default_args
+    outputs:
+      - {
+          name: oracle-em,
+          method_filter: *oracle_em_methods,
+          analyses: *all_analyses,
+        }
+
+  008-uniform-p100-oracle-em-scale:
+    collections:
+      template:
+        {
+          design: uniform_rho0.90_n500_p100,
+          enrichment: [ser_b2, null_b0],
+          error: gaussian,
+        }
+      over: { signal: *scale_signals }
+      aliases: *scale_aliases
+    methods: *oracle_em_methods
+    default_args: *default_args
+    outputs:
+      - {
+          name: oracle-em,
+          method_filter: *oracle_em_methods,
+          analyses: *all_analyses,
+        }

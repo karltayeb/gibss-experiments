@@ -1,196 +1,64 @@
+_anchors:
+  null_intercepts: &null_intercepts [null_b0_int-3, null_b0, null_b0_int-1, null_b0_int0]
+  intercept_aliases: &intercept_aliases [intercept=-3, intercept=-2, intercept=-1, intercept=0]
+  minimal: &minimal
+    [twogroup_oracle__L=1, cox_reversed__L=1, cox__threshold=2.00__L=1, logistic_threshold__threshold=2.00__L=1, linear_fixed__L=1]
+  minimal_no_linear: &minimal_no_linear
+    [twogroup_oracle__L=1, cox_reversed__L=1, cox__threshold=2.00__L=1, logistic_threshold__threshold=2.00__L=1]
+  minimal_loc: &minimal_loc [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1]
+  minimal_scale: &minimal_scale [twogroup_oracle__L=1, twogroup__L=1, twogroup_scale_fam__L=1]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+  methods_loc: &methods_loc
+    [cox_reversed__L=1, cox__threshold=2.00__L=1, linear_fixed__L=1, logistic_threshold__threshold=2.00__L=1,
+     twogroup__L=1, twogroup_loc_fam__L=1, twogroup_oracle__L=1]
+  methods_scale: &methods_scale
+    [cox_reversed__L=1, cox__threshold=2.00__L=1, linear_fixed__L=1, logistic_threshold__threshold=2.00__L=1,
+     twogroup__L=1, twogroup_oracle__L=1, twogroup_scale_fam__L=1]
+  null_analyses: &null_analyses [pip, cs, logbf]
+
 supercollections:
   007-hallmark-null-intercept-loc:
     collections:
-      template:
-        design: hallmark
-        signal: loc_0.0
-        error: gaussian
-      over:
-        enrichment:
-        - null_b0_int-3
-        - null_b0
-        - null_b0_int-1
-        - null_b0_int0
-      aliases:
-      - intercept=-3
-      - intercept=-2
-      - intercept=-1
-      - intercept=0
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_loc_fam__L=1
-    - twogroup_oracle__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
+      template: {design: hallmark, signal: loc_0.0, error: gaussian}
+      over: {enrichment: *null_intercepts}
+      aliases: *intercept_aliases
+    methods: *methods_loc
+    default_args: *default_args
     outputs:
-    - name: minimal
-      method_filter: &id001
-      - twogroup_oracle__L=1
-      - cox_reversed__L=1
-      - cox__threshold=2.00__L=1
-      - logistic_threshold__threshold=2.00__L=1
-      - linear_fixed__L=1
-      analyses:
-      - pip
-      - cs
-      - logbf
-    - name: minimal-loc
-      method_filter: &id002
-      - twogroup_oracle__L=1
-      - twogroup__L=1
-      - twogroup_loc_fam__L=1
-      analyses:
-      - pip
-      - cs
-      - logbf
+      - {name: minimal,     method_filter: *minimal,     analyses: *null_analyses}
+      - {name: minimal-loc, method_filter: *minimal_loc, analyses: *null_analyses}
+
   007-hallmark-null-intercept-scale:
     collections:
-      template:
-        design: hallmark
-        signal: scale_0.0
-        error: gaussian
-      over:
-        enrichment:
-        - null_b0_int-3
-        - null_b0
-        - null_b0_int-1
-        - null_b0_int0
-      aliases:
-      - intercept=-3
-      - intercept=-2
-      - intercept=-1
-      - intercept=0
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_oracle__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
+      template: {design: hallmark, signal: scale_0.0, error: gaussian}
+      over: {enrichment: *null_intercepts}
+      aliases: *intercept_aliases
+    methods: *methods_scale
+    default_args: *default_args
     outputs:
-    - name: minimal
-      method_filter: *id001
-      analyses:
-      - pip
-      - cs
-      - logbf
-    - name: minimal-scale
-      method_filter: &id003
-      - twogroup_oracle__L=1
-      - twogroup__L=1
-      - twogroup_scale_fam__L=1
-      analyses:
-      - pip
-      - cs
-      - logbf
-    - name: minimal_no_linear
-      method_filter: &id004
-      - twogroup_oracle__L=1
-      - cox_reversed__L=1
-      - cox__threshold=2.00__L=1
-      - logistic_threshold__threshold=2.00__L=1
-      analyses:
-      - pip
-      - cs
-      - logbf
+      - {name: minimal,           method_filter: *minimal,           analyses: *null_analyses}
+      - {name: minimal-scale,     method_filter: *minimal_scale,     analyses: *null_analyses}
+      - {name: minimal_no_linear, method_filter: *minimal_no_linear, analyses: *null_analyses}
+
   007-c4-null-intercept-loc:
     collections:
-      template:
-        design: c4
-        signal: loc_0.0
-        error: gaussian
-      over:
-        enrichment:
-        - null_b0_int-3
-        - null_b0
-        - null_b0_int-1
-        - null_b0_int0
-      aliases:
-      - intercept=-3
-      - intercept=-2
-      - intercept=-1
-      - intercept=0
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_loc_fam__L=1
-    - twogroup_oracle__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
+      template: {design: c4, signal: loc_0.0, error: gaussian}
+      over: {enrichment: *null_intercepts}
+      aliases: *intercept_aliases
+    methods: *methods_loc
+    default_args: *default_args
     outputs:
-    - name: minimal
-      method_filter: *id001
-      analyses:
-      - pip
-      - cs
-      - logbf
-    - name: minimal-loc
-      method_filter: *id002
-      analyses:
-      - pip
-      - cs
-      - logbf
+      - {name: minimal,     method_filter: *minimal,     analyses: *null_analyses}
+      - {name: minimal-loc, method_filter: *minimal_loc, analyses: *null_analyses}
+
   007-c4-null-intercept-scale:
     collections:
-      template:
-        design: c4
-        signal: scale_0.0
-        error: gaussian
-      over:
-        enrichment:
-        - null_b0_int-3
-        - null_b0
-        - null_b0_int-1
-        - null_b0_int0
-      aliases:
-      - intercept=-3
-      - intercept=-2
-      - intercept=-1
-      - intercept=0
-    methods:
-    - cox_reversed__L=1
-    - cox__threshold=2.00__L=1
-    - linear_fixed__L=1
-    - logistic_threshold__threshold=2.00__L=1
-    - twogroup__L=1
-    - twogroup_oracle__L=1
-    - twogroup_scale_fam__L=1
-    default_args:
-      min_log_bf: 2.0
-      max_cs_size: 10000
-      max_fdp: 0.5
+      template: {design: c4, signal: scale_0.0, error: gaussian}
+      over: {enrichment: *null_intercepts}
+      aliases: *intercept_aliases
+    methods: *methods_scale
+    default_args: *default_args
     outputs:
-    - name: minimal
-      method_filter: *id001
-      analyses:
-      - pip
-      - cs
-      - logbf
-    - name: minimal-scale
-      method_filter: *id003
-      analyses:
-      - pip
-      - cs
-      - logbf
-    - name: minimal_no_linear
-      method_filter: *id004
-      analyses:
-      - pip
-      - cs
-      - logbf
+      - {name: minimal,           method_filter: *minimal,           analyses: *null_analyses}
+      - {name: minimal-scale,     method_filter: *minimal_scale,     analyses: *null_analyses}
+      - {name: minimal_no_linear, method_filter: *minimal_no_linear, analyses: *null_analyses}
