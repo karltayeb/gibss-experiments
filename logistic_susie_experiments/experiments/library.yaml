@@ -20,6 +20,18 @@ designs:
     arguments: {n: 200, p: 8, rho: 0.5}
 
 enrichments:
+  # Enrichment FAMILY: any list-valued field (intercept or an argument) is a grid
+  # axis; the cartesian product expands into concrete enrichments named via the
+  # `name` template. The family key `ser` also becomes a group of all member names
+  # that experiments can reference in one `over` axis. Use `:g` in the template for
+  # clean numeric labels (1.5 -> "1.5", -2.0 -> "-2").
+  ser:
+    function: uniform_single_effect
+    arguments:
+      causal_effect: [-2, -1.5, -1, 1, 1.5, 2]
+    intercept: [-2, -1, 0, 1, 2]
+    name: "ser__b0={intercept:g}__b={causal_effect:g}"
+
   ser_b2:
     function: uniform_single_effect
     arguments: {causal_effect: 2.0}

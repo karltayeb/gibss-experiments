@@ -154,6 +154,56 @@ def resolve_methods_for_sc(library: dict[str, Any], sc: dict[str, Any]) -> dict[
 # Library / config loading
 # ---------------------------------------------------------------------------
 
+def _expand_enrichment_family(entry: dict[str, Any]) -> list[tuple[str, dict]]:
+    """Expand one enrichment-family entry (has a ``name`` template) into concrete
+    enrichments. Any list-valued field — ``intercept`` or an ``arguments`` value —
+    becomes a grid axis; the cartesian product is taken and ``name`` is formatted
+    with the per-combo scalar values.
+    """
+    fn = entry["function"]
+    membership = entry.get("membership")
+    args = dict(entry.get("arguments") or {})
+    axes: dict[str, list] = {"intercept": _as_list(entry["intercept"])}
+    for key, value in args.items():
+        axes[key] = _as_list(value)
+    keys = list(axes)
+    out: list[tuple[str, dict]] = []
+    for combo in itertools.product(*(axes[k] for k in keys)):
+        vals = dict(zip(keys, combo))
+        name = entry["name"].format(**vals)
+        concrete = {
+            "function": fn,
+            "arguments": {k: vals[k] for k in args},
+            "intercept": vals["intercept"],
+        }
+        if membership is not None:
+            concrete["membership"] = membership
+        out.append((name, concrete))
+    return out
+
+
+def _expand_enrichments(raw: dict[str, Any]) -> tuple[dict[str, dict], dict[str, list[str]]]:
+    """Split the raw enrichments map into concrete entries + family groups.
+
+    An entry with a ``name`` template is a family that expands into many concrete
+    enrichments; the family key becomes a group listing the generated names.
+    Entries without ``name`` are literal enrichments keyed by their map key.
+    """
+    flat: dict[str, dict] = {}
+    groups: dict[str, list[str]] = {}
+    for key, entry in raw.items():
+        if "name" not in entry:
+            flat[key] = entry
+            continue
+        members = _expand_enrichment_family(entry)
+        groups[key] = [name for name, _ in members]
+        for name, concrete in members:
+            if name in flat:
+                raise ValueError(f"Duplicate enrichment name from family {key!r}: {name!r}")
+            flat[name] = concrete
+    return flat, groups
+
+
 def load_library(experiments_dir: Path | None = None) -> dict[str, Any]:
     import yaml
     base = Path(experiments_dir) if experiments_dir is not None else EXPERIMENTS_DIR
@@ -161,6 +211,7 @@ def load_library(experiments_dir: Path | None = None) -> dict[str, Any]:
     for section in ("defaults", "designs", "enrichments", "methods", "reductions",
                     "analyses", "analysis_groups"):
         data.setdefault(section, {})
+    data["enrichments"], data["enrichment_groups"] = _expand_enrichments(data["enrichments"])
     return data
 
 
@@ -188,6 +239,15 @@ def _as_list(value: Any) -> list:
     return value if isinstance(value, list) else [value]
 
 
+def _resolve_enrichment_refs(library: dict[str, Any], names: list[str]) -> list[str]:
+    """Expand any enrichment-family group name into its concrete member names."""
+    groups = library.get("enrichment_groups", {})
+    out: list[str] = []
+    for name in names:
+        out.extend(groups[name] if name in groups else [name])
+    return out
+
+
 def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) -> list[dict]:
     if "simulations" in block:  # explicit one-off list
         coords, sims = [], []
@@ -200,7 +260,12 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
                  "simulations": sims, "coordinates": coords}]
 
     template = dict(block["template"])
-    over = block.get("over") or {}
+    over = dict(block.get("over") or {})
+    # A family group named as an `over` enrichment value expands into separate
+    # over-values (one collection each). At the `template` level it instead unions
+    # into a single collection (handled below via member_lists).
+    if "enrichment" in over:
+        over["enrichment"] = _resolve_enrichment_refs(library, _as_list(over["enrichment"]))
     over_keys = list(over.keys())
     combos = list(itertools.product(*(over[k] for k in over_keys))) if over_keys else [()]
     aliases = block.get("aliases")
@@ -213,6 +278,7 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
         over_map = dict(zip(over_keys, combo))
         fields = {**template, **over_map}
         member_lists = {f: _as_list(fields.get(f)) for f in _SIM_FIELDS}
+        member_lists["enrichment"] = _resolve_enrichment_refs(library, member_lists["enrichment"])
         sims, coords = [], []
         for d, e in itertools.product(member_lists["design"], member_lists["enrichment"]):
             coord = simulation_coordinate(library, d, e)
