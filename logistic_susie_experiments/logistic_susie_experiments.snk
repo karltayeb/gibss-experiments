@@ -1,0 +1,116 @@
+"""Logistic SuSiE experiments — Snakemake workflow.
+
+Backbone pipeline: simulate -> fit -> reduce. Parallels twogroup_experiments,
+restricted to comparing gibss logistic SuSiE implementations. The plotting
+(analyses) layer is intentionally not wired up yet.
+
+Targets:
+  simulate_all   build every batch's simulations.parquet
+  fit_all        build every (batch, method) fits.parquet
+  reduce_all     build every reduction parquet (default target)
+"""
+import polars as pl
+
+RESULTS_ROOT = "results"
+
+from utils import fit_batch_method, simulate_batch, write_parquet
+from plot_ready import build_sample_metadata
+from experiments import loader
+from manifest_cache import load_manifest_cached
+
+MANIFEST = load_manifest_cached()
+CONFIG = loader.load_config()
+LIBRARY = CONFIG["library"]
+
+
+wildcard_constraints:
+    batch_hash=r"[0-9a-f]{64}",
+    method_hash=r"[0-9a-f]{64}",
+    reduction=r"[A-Za-z0-9_]+",
+
+
+rule reduce_all:
+    input:
+        loader.all_reduction_targets(CONFIG),
+
+
+rule fit_all:
+    input:
+        [
+            f"{RESULTS_ROOT}/by_batch/{bh}/fits/{mh}/fits.parquet"
+            for bh in MANIFEST["batches"]
+            for mh in MANIFEST["methods"]
+        ],
+
+
+rule simulate_all:
+    input:
+        [f"{RESULTS_ROOT}/by_batch/{bh}/simulations.parquet" for bh in MANIFEST["batches"]],
+
+
+# ---------------------------------------------------------------------------
+# Simulate
+# ---------------------------------------------------------------------------
+
+rule simulate:
+    output:
+        simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+        sample_metadata=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/sample_metadata.parquet",
+    input:
+        code=lambda wc: loader.simulation_code_files(
+            MANIFEST["batches"][wc.batch_hash]["coordinate"], LIBRARY
+        ),
+    run:
+        b = MANIFEST["batches"][wildcards.batch_hash]
+        spec = loader.resolve_simulation_from_coord(b["coordinate"])
+        df = simulate_batch(spec, replicates=b["replicates"])
+        write_parquet(df, output.simulations)
+        write_parquet(build_sample_metadata(wildcards.batch_hash, df), output.sample_metadata)
+
+
+# ---------------------------------------------------------------------------
+# Fit
+# ---------------------------------------------------------------------------
+
+rule fit:
+    output:
+        fits=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
+    input:
+        simulations=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+        code=lambda wc: (
+            loader.method_code_files(MANIFEST["methods"][wc.method_hash], LIBRARY)
+            + loader.simulation_code_files(
+                MANIFEST["batches"][wc.batch_hash]["coordinate"], LIBRARY
+            )
+        ),
+    run:
+        b = MANIFEST["batches"][wildcards.batch_hash]
+        spec = loader.resolve_simulation_from_coord(b["coordinate"])
+        method_coord = MANIFEST["methods"][wildcards.method_hash]
+        df = fit_batch_method(spec, method_coord=method_coord, replicates=b["replicates"])
+        write_parquet(df, output.fits)
+
+
+# ---------------------------------------------------------------------------
+# Reduce — one loop-generated rule per reduction in the library.
+# Wrapped in a function to capture the loop variable at definition time
+# (Snakemake 9 defers script: evaluation, so a bare for-loop closes over the
+# last iteration's value).
+# ---------------------------------------------------------------------------
+
+def _make_reduce_rule(r):
+    rule:
+        name: f"reduce_{r}"
+        output:
+            f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/reductions/{r}.parquet"
+        input:
+            fits=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
+            sims=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/simulations.parquet",
+            sample_md=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/sample_metadata.parquet",
+        params:
+            coordinate=lambda wc, _r=r: MANIFEST["batches"][wc.batch_hash]["coordinate"],
+        script:
+            f"reductions/{r}.py"
+
+for _r in LIBRARY["reductions"]:
+    _make_reduce_rule(_r)

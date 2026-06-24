@@ -1,0 +1,69 @@
+# library.yaml — building blocks for logistic SuSiE experiments.
+# Simulation model has two axes: design (X) x enrichment (causal effect + intercept).
+defaults:
+  base_seed: 20260501
+  replicates_per_batch: 20
+  n_batches: 1
+
+designs:
+  hallmark:
+    function: hallmark_gene_sets_X
+    arguments: {}
+  gaussian_rho0.90_n500_p100:
+    function: gaussian_markov_X
+    arguments: {n: 500, p: 100, rho: 0.9}
+  uniform_rho0.90_n500_p100:
+    function: uniform_markov_X
+    arguments: {n: 500, p: 100, rho: 0.9}
+  gaussian_p8_smoke:
+    function: gaussian_markov_X
+    arguments: {n: 200, p: 8, rho: 0.5}
+
+enrichments:
+  ser_b2:
+    function: uniform_single_effect
+    arguments: {causal_effect: 2.0}
+    intercept: -2.0
+  null_b0:
+    function: uniform_single_effect
+    arguments: {causal_effect: 0.0}
+    intercept: -2.0
+
+# Each method is one gibss logistic SuSiE implementation. logistic_quadrature is
+# the most accurate reference; globaljj / localjj are the variational variants.
+methods:
+  globaljj:
+    function: run_logistic_method
+    template: {impl: globaljj, L: 1}
+  localjj:
+    function: run_logistic_method
+    template: {impl: localjj, L: 1}
+  quadrature:
+    function: run_logistic_method
+    template: {impl: logistic_quadrature, L: 1}
+
+reductions:
+  pip:
+    function: build_pip_plot_data
+  cs:
+    function: build_cs_plot_data
+
+# Analyses are declared for forward-compatibility; the current Snakefile builds
+# through reductions only (plotting layer is a later step).
+analyses:
+  pip_calibration:
+    requires: [pip]
+  power_fdp:
+    requires: [pip]
+  causal_pip:
+    requires: [pip]
+    simulation_filter: has_causal
+  cs_power_fdp:
+    requires: [cs]
+  cs_coverage_size:
+    requires: [cs]
+    simulation_filter: has_causal
+
+analysis_groups:
+  pip: [pip_calibration, power_fdp]
+  cs: [cs_power_fdp, cs_coverage_size]
