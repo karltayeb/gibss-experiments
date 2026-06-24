@@ -3,6 +3,7 @@
 # dependencies = [
 #   "nicegui",
 #   "pypdfium2",
+#   "pillow",
 # ]
 # ///
 """Browse PDFs under results/plots/by_type with a small NiceGUI app.
