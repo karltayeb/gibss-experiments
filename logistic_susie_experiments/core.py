@@ -178,3 +178,8 @@ from fits.logistic import (
     summarize_logistic_method,
     run_logistic_method,
 )
+from fits.score import (
+    fit_score_method,
+    summarize_score_method,
+    run_score_method,
+)

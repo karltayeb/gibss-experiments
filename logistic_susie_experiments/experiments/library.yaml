@@ -18,6 +18,9 @@ designs:
   gaussian_p8_smoke:
     function: gaussian_markov_X
     arguments: { n: 200, p: 8, rho: 0.5 }
+  c4:
+    function: c4_gene_sets_X
+    arguments: {}
 
 enrichments:
   # Enrichment FAMILY: any list-valued field (intercept or an argument) is a grid
@@ -36,9 +39,18 @@ enrichments:
     arguments: { causal_effect: 0.0 }
     intercept: [-2.0, -1., 0.0, 1., 2.0]
     name: "ser__b0={intercept:g}_null"
+  # strong single effect on a sparse gene-set design: heterogeneous logits
+  # (causal-set members get a large shift, everything else stays at baseline)
+  # stress the global JJ bound the most.
+  ser_c4_strong:
+    function: uniform_single_effect
+    arguments: { causal_effect: 3.0 }
+    intercept: -2.0
 
 # Each method is one gibss logistic SuSiE implementation. logistic_quadrature is
-# the most accurate reference; globaljj / localjj are the variational variants.
+# the most accurate reference; globaljj / localjj are the variational variants;
+# cheb / newton are the profile-likelihood SER (sparse chebyshev vs exact
+# quadrature background), via gibss.logistic_profile.
 methods:
   globaljj:
     function: run_logistic_method
@@ -49,6 +61,27 @@ methods:
   quadrature:
     function: run_logistic_method
     template: { impl: logistic_quadrature, L: 1 }
+  cheb:
+    function: run_logistic_method
+    template:
+      impl: logistic_profile
+      L: 1
+      family_state_kwargs: { background_mode: chebyshev }
+  newton:
+    function: run_logistic_method
+    template:
+      impl: logistic_profile
+      L: 1
+      family_state_kwargs: { background_mode: exact }
+  # one-step Taylor (score) linearizations: linear SER on a recoded response.
+  # score expands about eta0=0 (free intercept); score_null_intercept expands
+  # about the null-MLE intercept logit(ybar), held fixed.
+  score:
+    function: run_score_method
+    template: { null_intercept: false, L: 1 }
+  score_null_intercept:
+    function: run_score_method
+    template: { null_intercept: true, L: 1 }
 
 reductions:
   pip:
