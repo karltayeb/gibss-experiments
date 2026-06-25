@@ -64,8 +64,8 @@ def method_family_color_map() -> dict[str, str]:
         "localjj":               "#E69F00",  # orange
         "quadrature":            "#009E73",  # green (reference)
         "profile_cheb":          "#CC79A7",  # rose
-        "score":                 "#999999",  # grey
-        "score_null_intercept":  "#444444",  # dark grey
+        "score":                 "#999999",  # grey  (crude b0=0 baseline)
+        "score_null_intercept":  "#882255",  # wine  (distinct from the grey baseline)
     }
 
 
