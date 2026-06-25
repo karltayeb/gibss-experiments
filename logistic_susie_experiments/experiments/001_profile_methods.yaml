@@ -22,7 +22,7 @@ supercollections:
           - [ser__b0=-2__b=3,   ser__b0=-2_null]
           - [ser__b0=-2__b=4,   ser__b0=-2_null]
       aliases: ["b=0.5", "b=1.0", "b=1.5", "b=2.0", "b=3.0", "b=4.0"]
-    methods: [globaljj, localjj, quadrature, profile_cheb, score, score_null_intercept]
+    methods: [globaljj, localjj, quadrature, irls, profile_cheb, score, score_null_intercept]
     default_args:
       min_log_bf: 2.0
       max_cs_size: 10000
@@ -30,7 +30,7 @@ supercollections:
       cs_beta: 0.95
     outputs:
       - name: profile_methods
-        method_filter: [globaljj, localjj, quadrature, profile_cheb, score, score_null_intercept]
+        method_filter: [globaljj, localjj, quadrature, irls, profile_cheb, score, score_null_intercept]
         analyses: [pip, pip_non_null, cs, cs_non_null, cs_extra]
 
   # L=5 SuSiE on a 3-causal scenario: same six methods, fit with L=5, on c4 with
@@ -53,6 +53,7 @@ supercollections:
       - globaljj:     { function: run_logistic_method, template: { impl: globaljj },           over: { L: [5] } }
       - localjj:      { function: run_logistic_method, template: { impl: localjj },            over: { L: [5] } }
       - quadrature:   { function: run_logistic_method, template: { impl: logistic_quadrature }, over: { L: [5] } }
+      - irls:         { function: run_logistic_method, template: { impl: irls },               over: { L: [5] } }
       - profile_cheb: { function: run_logistic_method, template: { impl: logistic_profile, family_state_kwargs: { background_mode: chebyshev } }, over: { L: [5] } }
       - score:                { function: run_score_method, template: { null_intercept: false }, over: { L: [5] } }
       - score_null_intercept: { function: run_score_method, template: { null_intercept: true },  over: { L: [5] } }
@@ -63,5 +64,5 @@ supercollections:
       cs_beta: 0.95
     outputs:
       - name: susie_L5
-        method_filter: [globaljj__L=5, localjj__L=5, quadrature__L=5, profile_cheb__L=5, score__L=5, score_null_intercept__L=5]
+        method_filter: [globaljj__L=5, localjj__L=5, quadrature__L=5, irls__L=5, profile_cheb__L=5, score__L=5, score_null_intercept__L=5]
         analyses: [pip, pip_non_null, cs, cs_non_null, cs_extra]

@@ -65,6 +65,9 @@ methods:
   quadrature:
     function: run_logistic_method
     template: { impl: logistic_quadrature, L: 1 }
+  irls:
+    function: run_logistic_method
+    template: { impl: irls, L: 1 }
   profile_cheb:
     function: run_logistic_method
     template:

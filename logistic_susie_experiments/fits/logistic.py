@@ -17,6 +17,7 @@ import gibss.globaljj as _globaljj
 import gibss.localjj as _localjj
 import gibss.logistic_quadrature as _quadrature
 import gibss.logistic_profile as _profile
+import gibss.irls as _irls
 
 _IMPLS = {
     "globaljj": _globaljj,
@@ -25,6 +26,8 @@ _IMPLS = {
     # profile-likelihood SER; cheb vs newton selected via
     # family_state_kwargs={"background_mode": "chebyshev"|"exact"}
     "logistic_profile": _profile,
+    # IRLS / Laplace logistic SuSiE (default Logistic GLM family)
+    "irls": _irls,
 }
 
 
