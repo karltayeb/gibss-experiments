@@ -40,7 +40,7 @@ supercollections:
     collections:
       template:
         design: c4
-        enrichment: [multi_k3_b1.5, ser__b0=-2_null]
+        enrichment: [mult__k=3__b0=-2__b=1.5, ser__b0=-2_null]
     methods:
       - globaljj:     { function: run_logistic_method, template: { impl: globaljj },           over: { L: [5] } }
       - localjj:      { function: run_logistic_method, template: { impl: localjj },            over: { L: [5] } }

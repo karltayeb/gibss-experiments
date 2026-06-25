@@ -39,11 +39,16 @@ enrichments:
     arguments: { causal_effect: 0.0 }
     intercept: [-2.0, -1., 0.0, 1., 2.0]
     name: "ser__b0={intercept:g}_null"
-  # multi-effect: 3 causal features at the same effect size (for L>1 SuSiE).
-  multi_k3_b1.5:
+  # multi-effect FAMILY: k causal features at the same effect size (for L>1
+  # SuSiE). Same name-template convention as ser; list k / causal_effect /
+  # intercept to sweep.
+  mult:
     function: uniform_k_effects
-    arguments: { causal_effect: 1.5, k: 3 }
+    arguments:
+      causal_effect: 1.5
+      k: 3
     intercept: -2.0
+    name: "mult__k={k:g}__b0={intercept:g}__b={causal_effect:g}"
 
 # Each method is one gibss logistic SuSiE implementation. logistic_quadrature is
 # the most accurate reference; globaljj / localjj are the variational variants;
