@@ -18,7 +18,9 @@ supercollections:
           - [ser__b0=-2__b=0.5, ser__b0=-2_null]
           - [ser__b0=-2__b=1,   ser__b0=-2_null]
           - [ser__b0=-2__b=1.5, ser__b0=-2_null]
-      aliases: ["b=0.5", "b=1.0", "b=1.5"]
+          - [ser__b0=-2__b=2,   ser__b0=-2_null]
+          - [ser__b0=-2__b=3,   ser__b0=-2_null]
+      aliases: ["b=0.5", "b=1.0", "b=1.5", "b=2.0", "b=3.0"]
     methods: [globaljj, localjj, quadrature, profile_cheb, score, score_null_intercept]
     default_args:
       min_log_bf: 2.0
