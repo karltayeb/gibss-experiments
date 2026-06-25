@@ -29,3 +29,28 @@ supercollections:
       - name: profile_methods
         method_filter: [globaljj, localjj, quadrature, profile_cheb, score, score_null_intercept]
         analyses: [pip, pip_non_null, cs, cs_non_null, cs_extra]
+
+  # L=5 SuSiE on a 3-causal scenario: same six methods, fit with L=5, on c4 with
+  # 3 causal gene sets (multi_k3_b1.5, b0=-2) paired with the b0=-2 null. Methods
+  # are inlined here at L=5 so the L=1 method bank (used above) is untouched.
+  001_susie_L5:
+    collections:
+      template:
+        design: c4
+        enrichment: [multi_k3_b1.5, ser__b0=-2_null]
+    methods:
+      - globaljj:     { function: run_logistic_method, template: { impl: globaljj },           over: { L: [5] } }
+      - localjj:      { function: run_logistic_method, template: { impl: localjj },            over: { L: [5] } }
+      - quadrature:   { function: run_logistic_method, template: { impl: logistic_quadrature }, over: { L: [5] } }
+      - profile_cheb: { function: run_logistic_method, template: { impl: logistic_profile, family_state_kwargs: { background_mode: chebyshev } }, over: { L: [5] } }
+      - score:                { function: run_score_method, template: { null_intercept: false }, over: { L: [5] } }
+      - score_null_intercept: { function: run_score_method, template: { null_intercept: true },  over: { L: [5] } }
+    default_args:
+      min_log_bf: 2.0
+      max_cs_size: 10000
+      max_fdp: 0.5
+      cs_beta: 0.95
+    outputs:
+      - name: susie_L5
+        method_filter: [globaljj__L=5, localjj__L=5, quadrature__L=5, profile_cheb__L=5, score__L=5, score_null_intercept__L=5]
+        analyses: [pip, pip_non_null, cs, cs_non_null, cs_extra]

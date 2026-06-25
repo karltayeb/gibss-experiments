@@ -595,7 +595,7 @@ def method_metadata(methods: dict[str, dict]) -> pl.DataFrame:
     semantics, so those columns are constant (None / False)."""
     rows = []
     for name, spec in methods.items():
-        family = name
+        family = name.split("__")[0]  # strip over-suffix (e.g. __L=5) for label lookup
         L = int(spec["kwargs"].get("L", 1))
         suffix = "SER" if L == 1 else f"SuSiE [L={L}]"
         from viz_utils import method_family_label_map

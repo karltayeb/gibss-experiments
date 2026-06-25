@@ -172,7 +172,7 @@ from simulations.design.genesets import (
     c4_gene_sets_X,
     msigdb_gene_sets_X,
 )
-from simulations.effect.effects import uniform_single_effect
+from simulations.effect.effects import uniform_single_effect, uniform_k_effects
 from fits.logistic import (
     fit_logistic_method,
     summarize_logistic_method,
