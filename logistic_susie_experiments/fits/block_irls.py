@@ -28,7 +28,7 @@ import gibss.irls as _irls
 from gibss.engine import Schedule
 from gibss.irls import (
     add_message_index_step,
-    check_skl_convergence_step,
+    check_convergence_step,
     snapshot_state_step,
     subtract_message_index_step,
     to_numpy_state_step,
@@ -48,7 +48,7 @@ _BLOCK_INNER = Schedule(
         update_prior_variance_index_step,
         add_message_index_step,
     ),
-    after_sweep=(check_skl_convergence_step,),
+    after_sweep=(check_convergence_step,),
 )
 
 
@@ -61,7 +61,11 @@ def fit_block_irls_method(simulation, *, n_outer: int = 1, L: int = 1):
 
     data = _irls.prep_data(simulation.X, y)  # pass X through (preserve sparsity)
     state = _irls.initialize_state(
-        data, L=L, family_state_kwargs={"intercept": eta0, "estimate_intercept": False}
+        data,
+        L=L,
+        # global intercept fixed at the null MLE, no weighted centering -> the
+        # n_outer=1 truncation stays bit-identical to score_null.
+        family_state_kwargs={"intercept": eta0, "estimate_intercept": False, "center": False},
     )
     for _ in range(int(n_outer)):
         # before_fit reweights at the current eta; reset converged so the inner
