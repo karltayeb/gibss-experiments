@@ -33,6 +33,8 @@ def method_family_label_map() -> dict[str, str]:
         "quadrature":            "Quadrature",
         "irls":                  "IRLS (Laplace)",
         "block_irls":            "Block IRLS",
+        "irls_1step":            "IRLS 1-step",
+        "irls_conv":             "IRLS converged",
         "profile_cheb":          "Profile (Cheb)",
         "score":                 "Score (b0=0)",
         "score_null_intercept":  "Score (null b0)",
@@ -67,6 +69,8 @@ def method_family_color_map() -> dict[str, str]:
         "quadrature":            "#009E73",  # green (reference)
         "irls":                  "#44AA99",  # teal
         "block_irls":            "#AA4499",  # purple
+        "irls_1step":            "#E69F00",  # orange (one step)
+        "irls_conv":             "#0072B2",  # blue (converged)
         "profile_cheb":          "#CC79A7",  # rose
         "score":                 "#999999",  # grey  (crude b0=0 baseline)
         "score_null_intercept":  "#882255",  # wine  (distinct from the grey baseline)

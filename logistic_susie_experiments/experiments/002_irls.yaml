@@ -1,0 +1,55 @@
+# 002_irls — IRLS one outer step vs converged, drilling into the prior x intercept
+# controls. Four supercollections cross {EB, fixed sigma0^2=100} x {global, local
+# (weighted-centering) intercept}. Each compares irls_1step (one outer sweep) vs
+# irls_conv (run to convergence) on a ~centered-column design (Gaussian Markov)
+# and an uncentered binary design (c4 gene sets), with a moderate SER paired with
+# the matching null. L=1.
+_anchors:
+  collections: &collections
+    template: {enrichment: [ser__b0=-2__b=1.5, ser__b0=-2_null]}
+    over:
+      design: [gaussian_rho0.90_n500_p100, c4]
+    aliases: ["gaussian (centered)", "c4 (uncentered)"]
+  default_args: &default_args
+    min_log_bf: 2.0
+    max_cs_size: 10000
+    max_fdp: 0.5
+    cs_beta: 0.95
+  analyses: &analyses [pip, pip_non_null, cs, cs_non_null, cs_extra]
+
+supercollections:
+  002_irls_eb:
+    collections: *collections
+    methods:
+      - irls_1step: {function: run_irls_steps_method, template: {n_outer: 1,  center: false}}
+      - irls_conv:  {function: run_irls_steps_method, template: {n_outer: 50, center: false}}
+    default_args: *default_args
+    outputs:
+      - {name: irls, method_filter: [irls_1step, irls_conv], analyses: *analyses}
+
+  002_irls_eb_centered:
+    collections: *collections
+    methods:
+      - irls_1step: {function: run_irls_steps_method, template: {n_outer: 1,  center: true}}
+      - irls_conv:  {function: run_irls_steps_method, template: {n_outer: 50, center: true}}
+    default_args: *default_args
+    outputs:
+      - {name: irls, method_filter: [irls_1step, irls_conv], analyses: *analyses}
+
+  002_irls_fixed:
+    collections: *collections
+    methods:
+      - irls_1step: {function: run_irls_steps_method, template: {n_outer: 1,  center: false, estimate_prior_variance: false, prior_variance: 100.0}}
+      - irls_conv:  {function: run_irls_steps_method, template: {n_outer: 50, center: false, estimate_prior_variance: false, prior_variance: 100.0}}
+    default_args: *default_args
+    outputs:
+      - {name: irls, method_filter: [irls_1step, irls_conv], analyses: *analyses}
+
+  002_irls_fixed_centered:
+    collections: *collections
+    methods:
+      - irls_1step: {function: run_irls_steps_method, template: {n_outer: 1,  center: true, estimate_prior_variance: false, prior_variance: 100.0}}
+      - irls_conv:  {function: run_irls_steps_method, template: {n_outer: 50, center: true, estimate_prior_variance: false, prior_variance: 100.0}}
+    default_args: *default_args
+    outputs:
+      - {name: irls, method_filter: [irls_1step, irls_conv], analyses: *analyses}

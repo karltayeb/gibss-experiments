@@ -2,8 +2,8 @@
 # Simulation model has two axes: design (X) x enrichment (causal effect + intercept).
 defaults:
   base_seed: 20260501
-  replicates_per_batch: 20
-  n_batches: 1
+  replicates_per_batch: 50
+  n_batches: 2
 
 designs:
   hallmark:

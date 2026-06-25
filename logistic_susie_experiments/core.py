@@ -188,3 +188,8 @@ from fits.block_irls import (
     summarize_block_irls_method,
     run_block_irls_method,
 )
+from fits.irls_steps import (
+    fit_irls_steps_method,
+    summarize_irls_steps_method,
+    run_irls_steps_method,
+)
