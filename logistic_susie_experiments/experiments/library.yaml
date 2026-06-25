@@ -31,7 +31,7 @@ enrichments:
   ser:
     function: uniform_single_effect
     arguments:
-      causal_effect: [-1, -0.5, -0.2, -0.1, 0.1, 0.2, 0.5, 1]
+      causal_effect: [-1.5, -1, -0.5, -0.2, -0.1, 0.1, 0.2, 0.5, 1, 1.5]
     intercept: [-2, -1, 0, 1, 2]
     name: "ser__b0={intercept:g}__b={causal_effect:g}"
   ser_null:
@@ -39,13 +39,6 @@ enrichments:
     arguments: { causal_effect: 0.0 }
     intercept: [-2.0, -1., 0.0, 1., 2.0]
     name: "ser__b0={intercept:g}_null"
-  # strong single effect on a sparse gene-set design: heterogeneous logits
-  # (causal-set members get a large shift, everything else stays at baseline)
-  # stress the global JJ bound the most.
-  ser_c4_strong:
-    function: uniform_single_effect
-    arguments: { causal_effect: 3.0 }
-    intercept: -2.0
 
 # Each method is one gibss logistic SuSiE implementation. logistic_quadrature is
 # the most accurate reference; globaljj / localjj are the variational variants;
