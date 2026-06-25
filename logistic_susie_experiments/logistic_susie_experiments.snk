@@ -9,13 +9,6 @@ Targets:
   fit_all        build every (batch, method) fits.parquet
   reduce_all     build every reduction parquet (default target)
 """
-# Persistent jax compilation cache MUST be set before jax is first imported
-# (the utils import below pulls in core -> fits -> gibss -> jax). Snakemake
-# re-parses this preamble in every fit subprocess, so each one sees it before
-# its own cold jax import and reuses the on-disk compiled kernels.
-import os
-os.environ.setdefault("JAX_COMPILATION_CACHE_DIR", os.path.abspath(".jax_cache"))
-
 import polars as pl
 
 RESULTS_ROOT = "results"

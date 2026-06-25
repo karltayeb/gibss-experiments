@@ -1,5 +1,4 @@
 .snakemake/
 results/
-.jax_cache/
 **/__pycache__/
 *.py[cod]
