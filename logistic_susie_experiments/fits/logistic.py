@@ -16,19 +16,16 @@ from gibss import engine
 import gibss.globaljj as _globaljj
 import gibss.localjj as _localjj
 import gibss.logistic_quadrature as _quadrature
+import gibss.logistic_profile as _profile
 
 _IMPLS = {
     "globaljj": _globaljj,
     "localjj": _localjj,
     "logistic_quadrature": _quadrature,
+    # profile-likelihood SER; cheb vs newton selected via
+    # family_state_kwargs={"background_mode": "chebyshev"|"exact"}
+    "logistic_profile": _profile,
 }
-
-
-def _as_dense_array(X: Any) -> np.ndarray:
-    """Densify to a float array, handling sparse designs (e.g. jax BCOO)."""
-    if hasattr(X, "todense"):
-        X = X.todense()
-    return np.asarray(X, dtype=float)
 
 
 def fit_logistic_method(
@@ -44,7 +41,11 @@ def fit_logistic_method(
         )
     module = _IMPLS[impl]
     y = np.asarray(simulation.y, dtype=float)
-    X = _as_dense_array(simulation.X)
+    # Pass X through as-is: dense numpy for Markov designs, sparse BCOO for gene
+    # sets. Densifying a sparse design is ~30-50x slower and, for the chebyshev
+    # profile background, disables the sparse fast path entirely (it requires a
+    # BCOO X), forcing a dense-quadrature fallback.
+    X = simulation.X
 
     data = module.prep_data(X, y)
     state = module.initialize_state(

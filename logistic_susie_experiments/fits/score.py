@@ -21,15 +21,11 @@ import numpy as np
 from gibss import engine, linear
 
 
-def _as_dense_array(X: Any) -> np.ndarray:
-    if hasattr(X, "todense"):
-        X = X.todense()
-    return np.asarray(X, dtype=float)
-
-
 def fit_score_method(simulation, *, null_intercept: bool, L: int = 1):
     y = np.asarray(simulation.y, dtype=float)
-    X = _as_dense_array(simulation.X)
+    # Pass X through (dense numpy or sparse BCOO); gibss.linear handles both, and
+    # densifying a gene-set design is far slower. Only the response is recoded.
+    X = simulation.X
 
     if null_intercept:
         n = y.shape[0]
