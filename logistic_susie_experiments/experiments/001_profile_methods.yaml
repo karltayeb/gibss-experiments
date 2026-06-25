@@ -40,7 +40,15 @@ supercollections:
     collections:
       template:
         design: c4
-        enrichment: [mult__k=3__b0=-2__b=1.5, ser__b0=-2_null]
+      over:
+        enrichment:
+          - [mult__k=3__b0=-2__b=0.5, ser__b0=-2_null]
+          - [mult__k=3__b0=-2__b=1,   ser__b0=-2_null]
+          - [mult__k=3__b0=-2__b=1.5, ser__b0=-2_null]
+          - [mult__k=3__b0=-2__b=2,   ser__b0=-2_null]
+          - [mult__k=3__b0=-2__b=3,   ser__b0=-2_null]
+          - [mult__k=3__b0=-2__b=4,   ser__b0=-2_null]
+      aliases: ["b=0.5", "b=1.0", "b=1.5", "b=2.0", "b=3.0", "b=4.0"]
     methods:
       - globaljj:     { function: run_logistic_method, template: { impl: globaljj },           over: { L: [5] } }
       - localjj:      { function: run_logistic_method, template: { impl: localjj },            over: { L: [5] } }

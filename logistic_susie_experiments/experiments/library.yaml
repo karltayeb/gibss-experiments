@@ -45,7 +45,7 @@ enrichments:
   mult:
     function: uniform_k_effects
     arguments:
-      causal_effect: 1.5
+      causal_effect: [0.5, 1, 1.5, 2, 3, 4]
       k: 3
     intercept: -2.0
     name: "mult__k={k:g}__b0={intercept:g}__b={causal_effect:g}"
