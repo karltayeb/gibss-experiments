@@ -68,6 +68,11 @@ methods:
   irls:
     function: run_logistic_method
     template: { impl: irls, L: 1 }
+  # block IRLS: outer Fisher-scoring loop, fixed null intercept; n_outer=1 is
+  # exactly score_null, larger n_outer -> the Laplace fixed point.
+  block_irls:
+    function: run_block_irls_method
+    template: { n_outer: 1, L: 1 }
   profile_cheb:
     function: run_logistic_method
     template:

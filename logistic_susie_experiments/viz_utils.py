@@ -32,6 +32,7 @@ def method_family_label_map() -> dict[str, str]:
         "localjj":               "Local JJ",
         "quadrature":            "Quadrature",
         "irls":                  "IRLS (Laplace)",
+        "block_irls":            "Block IRLS",
         "profile_cheb":          "Profile (Cheb)",
         "score":                 "Score (b0=0)",
         "score_null_intercept":  "Score (null b0)",
@@ -65,6 +66,7 @@ def method_family_color_map() -> dict[str, str]:
         "localjj":               "#E69F00",  # orange
         "quadrature":            "#009E73",  # green (reference)
         "irls":                  "#44AA99",  # teal
+        "block_irls":            "#AA4499",  # purple
         "profile_cheb":          "#CC79A7",  # rose
         "score":                 "#999999",  # grey  (crude b0=0 baseline)
         "score_null_intercept":  "#882255",  # wine  (distinct from the grey baseline)

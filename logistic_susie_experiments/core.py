@@ -183,3 +183,8 @@ from fits.score import (
     summarize_score_method,
     run_score_method,
 )
+from fits.block_irls import (
+    fit_block_irls_method,
+    summarize_block_irls_method,
+    run_block_irls_method,
+)
