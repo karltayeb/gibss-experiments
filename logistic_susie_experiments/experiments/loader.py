@@ -293,7 +293,13 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
             sims.append(spec)
             coords.append({"coordinate": coord, "name": spec.name})
         suffix = "".join(f"__{k}={over_map[k]}" for k in over_keys)
-        name = f"{sc_name}{suffix}" if over_keys else sc_name
+        if over_keys:
+            name = f"{sc_name}{suffix}"
+        else:
+            # template-form block with no `over`: disambiguate sibling blocks via
+            # an explicit per-block `name` (else they collide on sc_name).
+            block_name = block.get("name")
+            name = f"{sc_name}__{block_name}" if block_name else sc_name
         if aliases is not None:
             alias = aliases[idx]
         else:

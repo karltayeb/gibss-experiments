@@ -37,6 +37,9 @@ def fit_logistic_method(
     impl: str,
     L: int = 1,
     family_state_kwargs: dict | None = None,
+    estimate_prior_variance: bool = True,
+    prior_variance: float = 1.0,
+    center: bool | None = None,
 ):
     if impl not in _IMPLS:
         raise ValueError(
@@ -50,10 +53,22 @@ def fit_logistic_method(
     # BCOO X), forcing a dense-quadrature fallback.
     X = simulation.X
 
+    fsk = dict(family_state_kwargs or {})
+    fsk.setdefault("estimate_prior_variance", estimate_prior_variance)
+    if center is not None:  # weighted-centering axis (irls only)
+        fsk["center"] = center
     data = module.prep_data(X, y)
-    state = module.initialize_state(
-        data, L=L, family_state_kwargs=dict(family_state_kwargs or {})
-    )
+    state = module.initialize_state(data, L=L, family_state_kwargs=fsk)
+    if not estimate_prior_variance:
+        # fix the slab variance: set every effect's prior_variance, no EB update
+        from dataclasses import replace
+        state = replace(
+            state,
+            single_effects=[
+                replace(e, prior_variance=float(prior_variance))
+                for e in state.single_effects
+            ],
+        )
     fitted = engine.fit_ibss(data, state, module.default_schedule())
     return {
         "state": fitted,
@@ -70,13 +85,16 @@ def summarize_logistic_method(
     impl: str,
     L: int = 1,
     family_state_kwargs: dict | None = None,
+    estimate_prior_variance: bool = True,
+    prior_variance: float = 1.0,
+    center: bool | None = None,
 ):
     from core import (
         _extract_ser_struct,
         _make_cs_struct,
         _make_fit_summary_struct,
     )
-    del impl, L, family_state_kwargs
+    del impl, L, family_state_kwargs, estimate_prior_variance, prior_variance, center
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {

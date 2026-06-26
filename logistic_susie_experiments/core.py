@@ -189,7 +189,12 @@ from fits.block_irls import (
     run_block_irls_method,
 )
 from fits.irls_steps import (
-    fit_irls_steps_method,
-    summarize_irls_steps_method,
-    run_irls_steps_method,
+    fit_irls_method,
+    summarize_irls_method,
+    run_irls_method,
+)
+from fits.globaljj_steps import (
+    fit_globaljj_method,
+    summarize_globaljj_method,
+    run_globaljj_method,
 )

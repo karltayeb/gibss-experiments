@@ -268,8 +268,8 @@ def shortcut_action(
 
 def shortcut_help_items() -> list[tuple[str, str]]:
     return [
-        ("Cmd Left/Right", "Supercollection"),
-        ("Option Left/Right", "Output"),
+        ("Cmd Left/Right", "Experiment"),
+        ("Option Left/Right", "Comparison"),
         ("Cmd Up/Down", "Plot type"),
         ("Option A", "Aggregate"),
     ]
@@ -546,12 +546,12 @@ def run_app(
             )
             method_select = ui.select(
                 [],
-                label="Output",
+                label="Comparison",
                 on_change=on_method_change,
             ).classes("w-full")
             super_select = ui.select(
                 [],
-                label="Supercollection",
+                label="Experiment",
                 on_change=on_super_change,
             ).classes("w-full")
             with ui.element("div").classes("shortcut-help"):

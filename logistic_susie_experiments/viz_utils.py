@@ -32,11 +32,24 @@ def method_family_label_map() -> dict[str, str]:
         "localjj":               "Local JJ",
         "quadrature":            "Quadrature",
         "irls":                  "IRLS (Laplace)",
+        "irls_block":            "IRLS block",
+        "globaljj_block":        "Global JJ block",
+        "globaljj_block_1":      "Global JJ block-1",
+        # 002_global families (factor = family x step x prior; center via __suffix)
+        "irls_block_1_eb":       "IRLS 1-step EB",
+        "irls_block_1_fixed":    "IRLS 1-step fixed",
+        "irls_block_eb":         "IRLS conv EB",
+        "irls_block_fixed":      "IRLS conv fixed",
+        "globaljj_block_1_eb":   "JJ 1-step EB",
+        "globaljj_block_1_fixed": "JJ 1-step fixed",
+        "globaljj_block_eb":     "JJ conv EB",
+        "globaljj_block_fixed":  "JJ conv fixed",
         "block_irls":            "Block IRLS",
         "irls_1step":            "IRLS 1-step",
         "irls_conv":             "IRLS converged",
         "profile_cheb":          "Profile (Cheb)",
         "score":                 "Score (b0=0)",
+        "score_null":            "Score (null b0)",
         "score_null_intercept":  "Score (null b0)",
     }
 
@@ -68,11 +81,25 @@ def method_family_color_map() -> dict[str, str]:
         "localjj":               "#E69F00",  # orange
         "quadrature":            "#009E73",  # green (reference)
         "irls":                  "#44AA99",  # teal
+        "irls_block":            "#AA4499",  # purple
+        "globaljj_block":        "#88CCEE",  # light blue
+        "globaljj_block_1":      "#332288",  # indigo
+        # 002_global families (distinct hues; center=true/false share a family ->
+        # same color in center_irls, distinguished by legend only)
+        "irls_block_1_eb":       "#E69F00",  # orange
+        "irls_block_1_fixed":    "#D55E00",  # vermillion
+        "irls_block_eb":         "#0072B2",  # blue
+        "irls_block_fixed":      "#009E73",  # green (reference)
+        "globaljj_block_1_eb":   "#56B4E9",  # sky
+        "globaljj_block_1_fixed": "#CC79A7", # rose
+        "globaljj_block_eb":     "#AA4499",  # purple
+        "globaljj_block_fixed":  "#882255",  # wine
         "block_irls":            "#AA4499",  # purple
         "irls_1step":            "#E69F00",  # orange (one step)
         "irls_conv":             "#0072B2",  # blue (converged)
         "profile_cheb":          "#CC79A7",  # rose
         "score":                 "#999999",  # grey  (crude b0=0 baseline)
+        "score_null":            "#882255",  # wine
         "score_null_intercept":  "#882255",  # wine  (distinct from the grey baseline)
     }
 

@@ -1,16 +1,28 @@
-"""IRLS logistic SuSiE with a capped number of outer steps.
+"""IRLS logistic SuSiE — four reweight cadences, one unified entry point.
 
-Runs gibss.irls (intercept Newton + reweight + optional weighted centering +
-effect update per sweep) for ``n_outer`` sweeps. ``n_outer=1`` is one outer
-step; a large ``n_outer`` runs to convergence. Exposes the two controls that the
-002_irls factorial varies:
+The intercept (null model) is ALWAYS solved to convergence at each linearization
+point (`converge_intercept_step`: Newton on a concave objective at the current
+SuSiE offset, quadratic convergence). What varies is the **reweight cadence** —
+how much SER/SuSiE work happens per GLM re-linearization (weight+response update),
+coarse -> fine:
 
-- ``center``: weighted column centering = per-feature (local) intercept (FWL).
-  False = single global intercept.
-- ``estimate_prior_variance`` / ``prior_variance``: EB vs a fixed prior variance.
+  block        weights <-> full SuSiE fit   reweight once per inner IBSS-to-
+                                             convergence (n_outer outer steps).
+                                             n_outer=1, center=false == score_null.
+  interleaved  weights <-> 1 sweep          reweight before each sweep (one pass
+                                             over l=1..L).
+  greedy       weights <-> 1 SER update     reweight before each single (closed-
+                                             form) effect update, cycling l.
+  thorough     weights <-> full SER fit     for each effect l, loop (reweight +
+                                             refit l) until effect l self-converges
+                                             before moving on (per-effect Laplace).
 
-For L=1 the inner SER is non-iterative, so one ``fit_ibss`` sweep == one outer
-IRLS step (block and interleaved coincide).
+Reweights per outer pass: block 1 < interleaved (#sweeps) < greedy (L*#sweeps) <
+thorough (sum of per-effect iters). For L=1 all four coincide (one effect: a sweep
+= one SER update = converged inner); they diverge only at L>1.
+
+Options (all): ``center`` (weighted FWL per-feature/local intercept),
+``estimate_prior_variance`` / ``prior_variance`` (EB vs fixed slab).
 """
 from __future__ import annotations
 
@@ -36,16 +48,19 @@ from gibss.irls import (
 )
 
 
-def _intercept_to_convergence_step(data, state, n_newton: int = 50, tol: float = 1e-12):
-    """Run the intercept Newton update to convergence (vs gibss's single step),
-    holding effects fixed. At effects=0 this yields the null MLE logit(ybar), so
-    the n_outer=1 truncation matches score_null (the calibrated one-step)."""
+def converge_intercept_step(data, state, n_newton: int = 100, tol: float = 1e-12):
+    """Solve the intercept (null model) to convergence at the current SuSiE offset.
+
+    Newton on b0 with mu, w recomputed each step at eta = glm_offset + b0 +
+    total_message.mean (effects held fixed). Quadratic convergence. At effects=0
+    and zero offset this is exactly the null MLE logit(ybar); with a nonzero SER /
+    covariate offset it is the correct conditional intercept MLE. Schedule step."""
     fs = state.family_state
     if not fs.estimate_intercept:
         return state
     b0 = float(fs.intercept)
-    mean = jnp.asarray(state.total_message.mean)
     offset = jnp.asarray(fs.glm_offset)
+    mean = jnp.asarray(state.total_message.mean)
     yv = jnp.asarray(data.y)
     for _ in range(n_newton):
         mu, w = fs.glm.mean_and_weight(offset + b0 + mean)
@@ -56,29 +71,70 @@ def _intercept_to_convergence_step(data, state, n_newton: int = 50, tol: float =
     return replace(state, family_state=replace(fs, intercept=b0))
 
 
-# Inner schedule: effect + EB to convergence at FIXED weights/intercept/centering
-# (no reweight, no intercept update). This is the "block" inner SER fit.
-_INNER = Schedule(
-    before_sweep=(snapshot_state_step,),
-    effect_update=(
-        subtract_message_index_step,
-        update_effect_index_step,
-        update_prior_variance_index_step,
-        add_message_index_step,
-    ),
-    after_sweep=(check_convergence_step,),
+# The reweight = full intercept solve + GLM linearization (working data) + weighted
+# centering, in that order (centering uses the new weights).
+_REWEIGHT = (converge_intercept_step, update_working_data_step, update_centering_step)
+
+_EFFECT = (
+    subtract_message_index_step,
+    update_effect_index_step,
+    update_prior_variance_index_step,
+    add_message_index_step,
 )
 
 
-def fit_irls_steps_method(
-    simulation,
-    *,
-    n_outer: int = 1,
-    L: int = 1,
-    center: bool = True,
-    estimate_prior_variance: bool = True,
-    prior_variance: float = 1.0,
-):
+def _thorough_effect_step(data, l, state, max_iter: int = 50, tol: float = 1e-6):
+    """THOROUGH: fully fit effect l's own logistic SER (Laplace) given the others.
+
+    Loops (reweight at current eta -> refit effect l) until effect l's (alpha, mu)
+    stop moving, i.e. effect l converges to its own fixed point under reweighting,
+    before the sweep advances to l+1."""
+    prev = None
+    for _ in range(max_iter):
+        for step in _REWEIGHT:
+            state = step(data, state)
+        for step in _EFFECT:
+            state = step(data, l, state)
+        e = state.single_effects[l]
+        cur = (np.asarray(e.alpha), np.asarray(e.mu))
+        if prev is not None:
+            d = max(np.abs(cur[0] - prev[0]).max(), np.abs(cur[1] - prev[1]).max())
+            if d < tol:
+                break
+        prev = cur
+    return state
+
+
+# Schedules per cadence (block runs its own outer loop; the rest fit_ibss to conv).
+_INNER_BLOCK = Schedule(
+    before_sweep=(snapshot_state_step,),
+    effect_update=_EFFECT,
+    after_sweep=(check_convergence_step,),
+)
+_SCHED_INTERLEAVED = Schedule(
+    before_sweep=(snapshot_state_step, *_REWEIGHT),
+    effect_update=_EFFECT,
+    after_sweep=(check_convergence_step,),
+    after_fit=(to_numpy_state_step,),
+)
+_SCHED_GREEDY = Schedule(
+    before_sweep=(snapshot_state_step,),
+    before_effect_update=_REWEIGHT,
+    effect_update=_EFFECT,
+    after_sweep=(check_convergence_step,),
+    after_fit=(to_numpy_state_step,),
+)
+_SCHED_THOROUGH = Schedule(
+    before_sweep=(snapshot_state_step,),
+    effect_update=(_thorough_effect_step,),
+    after_sweep=(check_convergence_step,),
+    after_fit=(to_numpy_state_step,),
+)
+
+_CADENCES = {"block", "interleaved", "greedy", "thorough"}
+
+
+def _init_state(simulation, *, L, center, estimate_prior_variance, prior_variance):
     y = np.asarray(simulation.y, dtype=float)
     data = _irls.prep_data(simulation.X, y)  # pass X through (preserve sparsity)
     state = _irls.initialize_state(
@@ -90,7 +146,6 @@ def fit_irls_steps_method(
         },
     )
     if not estimate_prior_variance:
-        # fix the slab variance: set every effect's prior_variance, no EB update
         state = replace(
             state,
             single_effects=tuple(
@@ -98,26 +153,49 @@ def fit_irls_steps_method(
                 for e in state.single_effects
             ),
         )
-    # Block outer loop: each step = converge intercept -> reweight -> center ->
-    # inner SER (effect + EB) to convergence. n_outer=1 => one linearization with
-    # everything converged at it == score_null (calibrated); large n_outer => the
-    # Laplace fixed point.
-    for _ in range(int(n_outer)):
-        state = _intercept_to_convergence_step(data, state)
-        state = update_working_data_step(data, state)
-        state = update_centering_step(data, state)
-        state = replace(state, converged=False)
-        state = engine.fit_ibss(data, state, _INNER, max_iter=100)
-    state = to_numpy_state_step(data, state)
-    return {"state": state, "n_outer": int(n_outer)}
+    return data, state
 
 
-def summarize_irls_steps_method(fit_obj, simulation, **kwargs):
+def fit_irls_method(
+    simulation,
+    *,
+    ser_cadence: str = "block",
+    n_outer: int = 50,
+    L: int = 1,
+    center: bool = True,
+    estimate_prior_variance: bool = True,
+    prior_variance: float = 1.0,
+    max_iter: int = 200,
+):
+    if ser_cadence not in _CADENCES:
+        raise ValueError(f"ser_cadence must be one of {sorted(_CADENCES)}; got {ser_cadence!r}")
+    data, state = _init_state(
+        simulation, L=L, center=center,
+        estimate_prior_variance=estimate_prior_variance, prior_variance=prior_variance,
+    )
+    if ser_cadence == "block":
+        # outer reweight loop; inner SuSiE to convergence at fixed linearization.
+        # n_outer=1 (center=false) == score_null; large n_outer -> Laplace.
+        for _ in range(int(n_outer)):
+            for step in _REWEIGHT:
+                state = step(data, state)
+            state = replace(state, converged=False)
+            state = engine.fit_ibss(data, state, _INNER_BLOCK, max_iter=100)
+        state = to_numpy_state_step(data, state)
+    else:
+        sched = {"interleaved": _SCHED_INTERLEAVED, "greedy": _SCHED_GREEDY,
+                 "thorough": _SCHED_THOROUGH}[ser_cadence]
+        state = engine.fit_ibss(data, state, sched, max_iter=max_iter)
+    return {"state": state, "ser_cadence": ser_cadence}
+
+
+def summarize_irls_method(fit_obj, simulation, **kwargs):
     from core import _extract_ser_struct, _make_cs_struct, _make_fit_summary_struct
     state = fit_obj["state"]
+    cad = fit_obj["ser_cadence"]
     n_eff = len(state.single_effects)
     return {
-        "impl": "irls_steps",
+        "impl": "irls_block" if cad == "block" else f"irls_{cad}",
         "threshold": None,
         "single_effects": [_extract_ser_struct(state, l) for l in range(n_eff)],
         "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_eff)],
@@ -125,7 +203,5 @@ def summarize_irls_steps_method(fit_obj, simulation, **kwargs):
     }
 
 
-def run_irls_steps_method(simulation, **kwargs) -> dict[str, Any]:
-    return summarize_irls_steps_method(
-        fit_irls_steps_method(simulation, **kwargs), simulation, **kwargs
-    )
+def run_irls_method(simulation, **kwargs) -> dict[str, Any]:
+    return summarize_irls_method(fit_irls_method(simulation, **kwargs), simulation, **kwargs)
