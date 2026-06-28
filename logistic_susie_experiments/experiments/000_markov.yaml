@@ -1,0 +1,136 @@
+# 000_markov — L=1 SER calibration batch. Synthetic Markov designs x correlation
+# x signal (exact-LRT-sized expected logBF) x intercept. Effects frozen in
+# library.yaml (see simulations/effect/logbf_sizing.py and
+# notes/2026-06-27-univariate-logbf-z-grid.md). n=1000, p=500.
+_anchors:
+  default_args: &default_args
+    min_log_bf: 2.0
+    max_cs_size: 10000
+    max_fdp: 0.5
+    cs_beta: 0.95
+
+supercollections:
+  000_markov:
+    n_batches: 2   # 2 x 50 = 100 replicates per simulation
+    collections:
+      - name: gaussian
+        sweep:
+          design: {function: gaussian_markov_X, n: 1000, p: 500}
+          rho: [0, 0.5, 0.8, 0.9, 0.95, 0.99]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32, 64]   # 0 = null
+      - name: uniform
+        sweep:
+          design: {function: uniform_markov_X, n: 1000, p: 500}
+          rho: [0, 0.5, 0.8, 0.9, 0.95, 0.99]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32, 64]   # 0 = null
+      - name: binary_q0.5
+        sweep:
+          design: {function: binary_markov_X, n: 1000, p: 500, freq: 0.5}
+          rho: [0, 0.5, 0.8, 0.9, 0.95, 0.99]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32, 64]   # 0 = null
+      - name: binary_q0.1
+        sweep:
+          design: {function: binary_markov_X, n: 1000, p: 500, freq: 0.1}
+          rho: [0, 0.5, 0.8, 0.9, 0.95, 0.99]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32, 64]   # 0 = null
+    # The 10-method taxonomy: {taylor, jj} x {local, global} x {centered, not} (8)
+    # + exact marginal quadrature (shared intercept) + profile (profiled
+    # intercept). taylor.local = quadrature/profile at m=1 (single-node Laplace);
+    # the exact pair are the same impls at the default order. L=1.
+    #
+    # Each method is fit with BOTH fixed prior (sigma0^2=1) and EB
+    # (estimate_prior_variance) via `over` -> 10 names x 2 priors = 20 fits. The
+    # method NAME (taylor_local, ...) is the plot color dim; the `prior`
+    # {fixed, eb} dim is the linestyle. prior_variance=1.0 is the fixed value /
+    # EB init.
+    _eb: &eb_over { estimate_prior_variance: [false, true] }
+    methods: &markov_methods
+      # --- taylor (Laplace) ---
+      - taylor_local:    # quadrature m=1 (shared intercept, non-centered)
+          { function: run_logistic_method, over: *eb_over,
+            template: { impl: logistic_quadrature, L: 1,
+                        prior_variance: 1.0, family_state_kwargs: { quadrature_order: 1 } } }
+      - taylor_local_c:  # profile m=1 (profiled intercept, centered)
+          { function: run_logistic_method, over: *eb_over,
+            template: { impl: logistic_profile, L: 1, prior_variance: 1.0,
+                        family_state_kwargs: { quadrature_order: 1, background_mode: exact } } }
+      - taylor_global:   # irls, shared working weights, non-centered
+          { function: run_irls_method, over: *eb_over,
+            template: { ser_cadence: block, n_outer: 50, L: 1, center: false, prior_variance: 1.0 } }
+      - taylor_global_c:
+          { function: run_irls_method, over: *eb_over,
+            template: { ser_cadence: block, n_outer: 50, L: 1, center: true, prior_variance: 1.0 } }
+      # --- jj (variational) ---
+      - jj_local:
+          { function: run_logistic_method, over: *eb_over,
+            template: { impl: localjj, L: 1, center: false, prior_variance: 1.0 } }
+      - jj_local_c:
+          { function: run_logistic_method, over: *eb_over,
+            template: { impl: localjj, L: 1, center: true, prior_variance: 1.0 } }
+      - jj_global:
+          { function: run_logistic_method, over: *eb_over,
+            template: { impl: globaljj, L: 1, center: false, prior_variance: 1.0 } }
+      - jj_global_c:
+          { function: run_logistic_method, over: *eb_over,
+            template: { impl: globaljj, L: 1, center: true, prior_variance: 1.0 } }
+      # --- exact marginal ---
+      - quadrature:  # shared intercept (non-centered), default order
+          { function: run_logistic_method, over: *eb_over,
+            template: { impl: logistic_quadrature, L: 1, prior_variance: 1.0 } }
+      - profile:     # profiled intercept (centered), default order
+          { function: run_logistic_method, over: *eb_over,
+            template: { impl: logistic_profile, L: 1, prior_variance: 1.0,
+                        family_state_kwargs: { background_mode: exact } } }
+    default_args: *default_args
+    # One figure per (design x analysis): facet rho (rows) x logbf (cols), color =
+    # family. b0 is filtered to -2 by default; add b0=0 / b0=-4 variants as needed.
+    plots: &markov_plots
+      # Three thematic summaries. Each: analyses as rows x designs as columns, all
+      # 10 methods overlaid (color: method), pooled over rho x logbf at b0=-2.
+      # (Per-(design,analysis) faceted-by-rho-x-logbf views can be added back ad hoc.)
+      pip_summary:
+        { layout: thematic, rows: [pip_calibration, power_fdp], color: method, linestyle: prior,
+          filter: { intercept: -2, center: true, prior: fixed } }
+      cs_summary:
+        { layout: thematic, rows: [cs_calibration, cs_coverage_size], color: method, linestyle: prior,
+          filter: { intercept: -2, center: true, prior: fixed, signal: true } }
+      lbf_summary:
+        { layout: thematic, rows: [cs_power_fdp, cs_roc], color: method, linestyle: prior,
+          filter: { intercept: -2, center: true, prior: fixed } }
+
+  # Quick pilot: 1 b0 (-2), 3 rho, 5 target_logbf (incl null), all 4 designs,
+  # all 20 methods, 1 batch (50 reps). ~1200 fits vs 17280 for the full batch.
+  000_markov_pilot:
+    n_batches: 1
+    collections:
+      - name: gaussian
+        sweep:
+          design: {function: gaussian_markov_X, n: 1000, p: 500}
+          rho: [0, 0.8, 0.95]
+          b0: [-2]
+          target_logbf: [0, 4, 8, 16, 32]
+      - name: uniform
+        sweep:
+          design: {function: uniform_markov_X, n: 1000, p: 500}
+          rho: [0, 0.8, 0.95]
+          b0: [-2]
+          target_logbf: [0, 4, 8, 16, 32]
+      - name: binary_q0.5
+        sweep:
+          design: {function: binary_markov_X, n: 1000, p: 500, freq: 0.5}
+          rho: [0, 0.8, 0.95]
+          b0: [-2]
+          target_logbf: [0, 4, 8, 16, 32]
+      - name: binary_q0.1
+        sweep:
+          design: {function: binary_markov_X, n: 1000, p: 500, freq: 0.1}
+          rho: [0, 0.8, 0.95]
+          b0: [-2]
+          target_logbf: [0, 4, 8, 16, 32]
+    methods: *markov_methods
+    default_args: *default_args
+    plots: *markov_plots

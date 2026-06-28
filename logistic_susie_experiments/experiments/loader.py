@@ -25,6 +25,7 @@ import core
 from core import spec_hash
 from experiments import predicates as _predicates
 from utils import BatchSpec
+from viz_dims import method_dims, sim_dims
 
 EXPERIMENTS_DIR = Path(__file__).resolve().parent
 
@@ -154,64 +155,14 @@ def resolve_methods_for_sc(library: dict[str, Any], sc: dict[str, Any]) -> dict[
 # Library / config loading
 # ---------------------------------------------------------------------------
 
-def _expand_enrichment_family(entry: dict[str, Any]) -> list[tuple[str, dict]]:
-    """Expand one enrichment-family entry (has a ``name`` template) into concrete
-    enrichments. Any list-valued field — ``intercept`` or an ``arguments`` value —
-    becomes a grid axis; the cartesian product is taken and ``name`` is formatted
-    with the per-combo scalar values.
-    """
-    fn = entry["function"]
-    membership = entry.get("membership")
-    args = dict(entry.get("arguments") or {})
-    axes: dict[str, list] = {"intercept": _as_list(entry["intercept"])}
-    for key, value in args.items():
-        axes[key] = _as_list(value)
-    keys = list(axes)
-    out: list[tuple[str, dict]] = []
-    for combo in itertools.product(*(axes[k] for k in keys)):
-        vals = dict(zip(keys, combo))
-        name = entry["name"].format(**vals)
-        concrete = {
-            "function": fn,
-            "arguments": {k: vals[k] for k in args},
-            "intercept": vals["intercept"],
-        }
-        if membership is not None:
-            concrete["membership"] = membership
-        out.append((name, concrete))
-    return out
-
-
-def _expand_enrichments(raw: dict[str, Any]) -> tuple[dict[str, dict], dict[str, list[str]]]:
-    """Split the raw enrichments map into concrete entries + family groups.
-
-    An entry with a ``name`` template is a family that expands into many concrete
-    enrichments; the family key becomes a group listing the generated names.
-    Entries without ``name`` are literal enrichments keyed by their map key.
-    """
-    flat: dict[str, dict] = {}
-    groups: dict[str, list[str]] = {}
-    for key, entry in raw.items():
-        if "name" not in entry:
-            flat[key] = entry
-            continue
-        members = _expand_enrichment_family(entry)
-        groups[key] = [name for name, _ in members]
-        for name, concrete in members:
-            if name in flat:
-                raise ValueError(f"Duplicate enrichment name from family {key!r}: {name!r}")
-            flat[name] = concrete
-    return flat, groups
-
-
 def load_library(experiments_dir: Path | None = None) -> dict[str, Any]:
+    """Load library.yaml. Enrichments are literal {function, arguments, intercept}
+    entries (sweep blocks generate their own inline); no family expansion."""
     import yaml
     base = Path(experiments_dir) if experiments_dir is not None else EXPERIMENTS_DIR
     data = yaml.safe_load((base / "library.yaml").read_text(encoding="utf-8")) or {}
-    for section in ("defaults", "designs", "enrichments", "methods", "reductions",
-                    "analyses", "analysis_groups"):
+    for section in ("defaults", "designs", "enrichments", "methods", "reductions", "analyses"):
         data.setdefault(section, {})
-    data["enrichments"], data["enrichment_groups"] = _expand_enrichments(data["enrichments"])
     return data
 
 
@@ -232,30 +183,52 @@ def load_config(experiments_dir: Path | None = None) -> dict[str, Any]:
 # Collection expansion
 # ---------------------------------------------------------------------------
 
-_SIM_FIELDS = ("design", "enrichment")
+def _expand_sweep(library: dict[str, Any], sc_name: str, block: dict[str, Any]) -> list[dict]:
+    """Expand a sweep block into one collection per rho value.
 
-
-def _as_list(value: Any) -> list:
-    return value if isinstance(value, list) else [value]
-
-
-def _resolve_enrichment_refs(library: dict[str, Any], names: list) -> list:
-    """Expand any enrichment-family group name into its concrete member names.
-
-    Non-string items (e.g. a nested ``[signal, null]`` list used to pair a null
-    into an ``over`` collection) are passed through untouched.
+    Each collection is the full ``b0 × target_logbf`` grid (cartesian). Include
+    ``target_logbf: 0`` in the list to get null simulations (no causal) — there is
+    no implicit/auto-appended null.
     """
-    groups = library.get("enrichment_groups", {})
-    out: list = []
-    for name in names:
-        if isinstance(name, str) and name in groups:
-            out.extend(groups[name])
-        else:
-            out.append(name)
-    return out
+    from simulations.effect import logbf_sizing
+    sw = block["sweep"]
+    dspec = dict(sw["design"])
+    fn = dspec.pop("function")
+    freq = dspec.get("freq")
+    design_key = logbf_sizing.DESIGN_KEY[(fn, freq if fn == "binary_markov_X" else None)]
+    rhos = list(sw["rho"])
+    b0s = list(sw["b0"])
+    lbfs = list(sw["target_logbf"])
+    base_seed = int(library["defaults"]["base_seed"])
+    results: list[dict] = []
+    for rho in rhos:
+        design_coord = {"function": fn, "arguments": {**dspec, "rho": rho}}
+        sims, coords = [], []
+        cells = [(b0, L) for b0 in b0s for L in lbfs]   # target_logbf=0 -> null
+        for b0, L in cells:
+            enr = {
+                "function": "logbf_single_effect",
+                "arguments": {"design": design_key, "b0": float(b0), "target_logbf": int(L)},
+                "intercept": float(b0),
+            }
+            coord = {"design": design_coord, "enrichment": enr, "base_seed": base_seed}
+            name = f"{design_key}__b0={b0:g}__" + (f"lbf={L:g}" if L else "null")
+            spec = _spec_from_coord(coord, f"{sc_name}__{name}")
+            sims.append(spec)
+            coords.append({"coordinate": coord, "name": spec.name})
+        results.append({
+            "name": f"{sc_name}__{block.get('name', design_key)}__rho={rho:g}",
+            "alias": f"{block.get('name', design_key)} rho={rho:g}",
+            "simulations": sims,
+            "coordinates": coords,
+        })
+    return results
 
 
 def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) -> list[dict]:
+    if "sweep" in block:
+        return _expand_sweep(library, sc_name, block)
+
     if "simulations" in block:  # explicit one-off list
         coords, sims = [], []
         for s in block["simulations"]:
@@ -266,46 +239,11 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
         return [{"name": block["name"], "alias": block.get("alias", block["name"]),
                  "simulations": sims, "coordinates": coords}]
 
-    template = dict(block["template"])
-    over = dict(block.get("over") or {})
-    # A family group named as an `over` enrichment value expands into separate
-    # over-values (one collection each). At the `template` level it instead unions
-    # into a single collection (handled below via member_lists).
-    if "enrichment" in over:
-        over["enrichment"] = _resolve_enrichment_refs(library, _as_list(over["enrichment"]))
-    over_keys = list(over.keys())
-    combos = list(itertools.product(*(over[k] for k in over_keys))) if over_keys else [()]
-    aliases = block.get("aliases")
-    if aliases is not None and len(aliases) != len(combos):
-        raise ValueError(
-            f"aliases length {len(aliases)} != number of over-combos {len(combos)} for {sc_name!r}"
-        )
-    results: list[dict] = []
-    for idx, combo in enumerate(combos):
-        over_map = dict(zip(over_keys, combo))
-        fields = {**template, **over_map}
-        member_lists = {f: _as_list(fields.get(f)) for f in _SIM_FIELDS}
-        member_lists["enrichment"] = _resolve_enrichment_refs(library, member_lists["enrichment"])
-        sims, coords = [], []
-        for d, e in itertools.product(member_lists["design"], member_lists["enrichment"]):
-            coord = simulation_coordinate(library, d, e)
-            spec = resolve_simulation(library, d, e)
-            sims.append(spec)
-            coords.append({"coordinate": coord, "name": spec.name})
-        suffix = "".join(f"__{k}={over_map[k]}" for k in over_keys)
-        if over_keys:
-            name = f"{sc_name}{suffix}"
-        else:
-            # template-form block with no `over`: disambiguate sibling blocks via
-            # an explicit per-block `name` (else they collide on sc_name).
-            block_name = block.get("name")
-            name = f"{sc_name}__{block_name}" if block_name else sc_name
-        if aliases is not None:
-            alias = aliases[idx]
-        else:
-            alias = block.get("alias") or "__".join(str(over_map[k]) for k in over_keys) or sc_name
-        results.append({"name": name, "alias": alias, "simulations": sims, "coordinates": coords})
-    return results
+    raise ValueError(
+        f"collection block in {sc_name!r} must use 'sweep' or 'simulations'; the "
+        f"'template'/'over' forms were removed (faceting replaced over; sweep is "
+        f"the fit enumerator). Got keys: {sorted(block)}"
+    )
 
 
 def expand_collections(library: dict[str, Any], sc_name: str, collections_entry: Any) -> list[dict]:
@@ -497,99 +435,72 @@ def reduction_code_files(reduction: str, library: dict[str, Any]) -> list[str]:
 # Analyses (plotting layer)
 # ---------------------------------------------------------------------------
 
-def _base_analysis(analysis: str) -> str:
-    return analysis
+_CHANNEL_KEYS = ("color", "linestyle", "facet_row", "facet_col", "facet_wrap", "ncol")
 
 
-def flatten_analyses(library: dict[str, Any], analyses_list: list[str]) -> list[str]:
-    groups = library["analysis_groups"]
-    analyses = library["analyses"]
-    overlap = set(groups) & set(analyses)
-    if overlap:
-        raise ValueError(f"Analysis/group name collision: {sorted(overlap)}")
-    out: list[str] = []
-    for item in analyses_list:
-        names = groups[item] if item in groups else [item]
-        for n in names:
-            if n not in analyses:
-                raise KeyError(f"Unknown analysis: {n!r}")
-            if n not in out:
-                out.append(n)
+def resolve_plot_specs(config: dict, sc_name: str) -> dict:
+    sc = config["supercollections"][sc_name]
+    out = {}
+    for name, spec in (sc.get("plots") or {}).items():
+        # a plot is either a single `analysis` or a `panels` list (dashboard)
+        if not any(k in spec for k in ("analysis", "panels", "columns", "layout")):
+            raise KeyError(f"plot {name!r} in {sc_name!r} needs 'analysis', 'panels', 'columns', or 'layout'")
+        out[name] = {
+            "name": name,
+            "analysis": spec.get("analysis"),
+            "panels": list(spec["panels"]) if spec.get("panels") else None,
+            "columns": [list(c) for c in spec["columns"]] if spec.get("columns") else None,
+            "rows": list(spec["rows"]) if spec.get("rows") else None,
+            "designs": list(spec["designs"]) if spec.get("designs") else None,
+            "layout": spec.get("layout"),
+            "bottom_panels": list(spec["bottom_panels"]) if spec.get("bottom_panels") else None,
+            "wrap_panel": spec.get("wrap_panel"),
+            "inset": dict(spec.get("inset") or {}),
+            "filter": dict(spec.get("filter") or {}),
+            **{k: spec.get(k) for k in _CHANNEL_KEYS},
+        }
     return out
 
 
-def resolve_sc_analyses(config: dict[str, Any], sc_name: str) -> list[tuple[str, str]]:
-    """Return (analysis, output_name) pairs for a supercollection."""
-    library = config["library"]
-    sc = config["supercollections"][sc_name]
-    seen: dict[tuple[str, str], None] = {}
-    for output in sc.get("outputs", []):
-        for analysis in flatten_analyses(library, output.get("analyses", [])):
-            seen[(analysis, output["name"])] = None
-    return list(seen.keys())
+def resolve_plot_spec(config: dict, sc_name: str, plot_name: str) -> dict:
+    specs = resolve_plot_specs(config, sc_name)
+    if plot_name not in specs:
+        raise KeyError(f"No plot named {plot_name!r} in {sc_name!r}")
+    return specs[plot_name]
 
 
-def analysis_requires(config: dict[str, Any], analysis: str) -> list[str]:
-    return list(config["library"]["analyses"][analysis].get("requires", []))
+def plot_bucket(spec: dict) -> str:
+    """Output-dir bucket for a plot: the analysis name for single-analysis plots,
+    'summary' for multi-analysis dashboards."""
+    return "summary" if (spec.get("panels") or spec.get("columns") or spec.get("layout")) else spec["analysis"]
 
 
-def analysis_simulation_filter(library: dict[str, Any], analysis: str) -> str | None:
-    return library["analyses"][analysis].get("simulation_filter")
+def plot_reductions(config: dict, sc_name: str, plot_name: str) -> list[str]:
+    """Reduction keys a plot consumes (union over its panels, or its single analysis)."""
+    from analyses.hooks import HOOKS
+    spec = resolve_plot_spec(config, sc_name, plot_name)
+    if spec.get("layout"):
+        if spec.get("rows"):           # thematic layout: analyses listed in the spec
+            analyses = list(spec["rows"])
+        else:                          # bespoke layout: static analysis list
+            import generate_plots
+            analyses = list(generate_plots.LAYOUT_ANALYSES[spec["layout"]])
+    elif spec.get("columns"):
+        analyses = [a for col in spec["columns"] for a in col]
+    elif spec.get("panels"):
+        analyses = list(spec["panels"])
+    else:
+        analyses = [spec["analysis"]]
+    if spec.get("bottom_panels"):
+        analyses += spec["bottom_panels"]
+    if spec.get("wrap_panel"):
+        analyses.append(spec["wrap_panel"])
+    return sorted({HOOKS[a].requires for a in analyses})
 
 
-def analysis_family(analysis: str) -> str:
-    """Family module name (pip|cs) for an analysis."""
-    from analyses import pip, cs
-    if analysis in pip.RENDERERS:
-        return "pip"
-    if analysis in cs.RENDERERS:
-        return "cs"
-    raise KeyError(f"Unknown analysis (not in any family RENDERERS): {analysis!r}")
-
-
-def analysis_function(config: dict[str, Any], analysis: str):
-    import generate_plots
-    return generate_plots.ANALYSIS_RENDERERS[analysis]
-
-
-def analysis_code_files(analysis: str) -> list[str]:
-    import generate_plots
-    return [_file(generate_plots.ANALYSIS_RENDERERS[analysis])]
-
-
-def resolve_args(config: dict[str, Any], sc_name: str, args_name: str) -> dict[str, Any]:
-    sc = config["supercollections"][sc_name]
-    defaults = dict(sc.get("default_args", {}) or {})
-    for output in sc.get("outputs", []):
-        if output["name"] == args_name:
-            return {**defaults, **(output.get("args") or {}),
-                    "method_filter": output.get("method_filter", [])}
-    raise KeyError(f"No output named {args_name!r} in supercollection {sc_name!r}")
-
-
-def analysis_inputs(config: dict[str, Any], manifest: dict[str, Any],
-                    sc_name: str, analysis: str) -> list[str]:
-    library = config["library"]
-    requires = analysis_requires(config, analysis)
-    sim_filter_name = analysis_simulation_filter(library, analysis)
-    sim_pred = resolve_predicate(sim_filter_name) if sim_filter_name is not None else None
-    cmp = collection_method_pairs(config, sc_name)
-    paths: list[str] = []
-    seen: set[str] = set()
-    for reduction in requires:
-        mfilter_name = reduction_method_filter(library, reduction)
-        method_pred = resolve_predicate(mfilter_name) if mfilter_name else None
-        for coll in cmp.values():
-            for bh, mh, _mname, mcoord, sim_coord in coll["pairs"]:
-                if method_pred is not None and not method_pred(mcoord):
-                    continue
-                if sim_pred is not None and not sim_pred(sim_coord):
-                    continue
-                p = reduction_output(bh, mh, reduction)
-                if p not in seen:
-                    seen.add(p)
-                    paths.append(p)
-    return paths
+def plot_analyses(config: dict, sc_name: str) -> list[tuple]:
+    """(bucket, plot_name) pairs — bucket is the output-dir component."""
+    return [(plot_bucket(s), s["name"]) for s in resolve_plot_specs(config, sc_name).values()]
 
 
 # ---------------------------------------------------------------------------
@@ -630,19 +541,30 @@ def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
     bundle: dict[str, Any] = {}
     collection_names = [info["alias"] for info in cmp.values()]
     sim_pred = resolve_predicate(simulation_filter) if simulation_filter is not None else None
+    from manifest_cache import load_manifest_cached
+    manifest = load_manifest_cached()
+    method_dim_by_hash = {h: method_dims(m) for h, m in manifest["methods"].items()}
+    sim_dim_by_batch = {h: sim_dims(b["coordinate"]) for h, b in manifest["batches"].items()}
+    # map method NAME -> dims (rows carry method name, not hash)
+    method_dim_by_name = {m["name"]: method_dim_by_hash[h] for h, m in manifest["methods"].items()}
     for reduction in requires:
         mfilter_name = reduction_method_filter(library, reduction)
         method_pred = resolve_predicate(mfilter_name) if mfilter_name else None
         frames = []
         for info in cmp.values():
             sub = []
-            for bh, mh, _mname, mcoord, sim_coord in info["pairs"]:
+            for bh, mh, mname, mcoord, sim_coord in info["pairs"]:
                 if method_pred is not None and not method_pred(mcoord):
                     continue
                 if sim_pred is not None and not sim_pred(sim_coord):
                     continue
                 path = f"{results_root}/{reduction_output(bh, mh, reduction).split('/', 1)[1]}"
-                sub.append(pl.read_parquet(path))
+                frame = pl.read_parquet(path)
+                dims = {**method_dim_by_name.get(mname, {}), **sim_dim_by_batch.get(bh, {})}
+                # only scalar dims become columns (skip nested); cast via pl.lit
+                lit_cols = [pl.lit(v).alias(k) for k, v in dims.items()
+                            if not isinstance(v, (list, dict, tuple))]
+                sub.append(frame.with_columns(lit_cols))
             if sub:
                 merged = pl.concat(sub, how="diagonal_relaxed").with_columns(
                     pl.lit(info["alias"]).alias("collection_name"))

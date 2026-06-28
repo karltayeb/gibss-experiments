@@ -17,6 +17,8 @@ from utils import fit_batch_method, simulate_batch, write_parquet
 from plot_ready import build_sample_metadata
 from experiments import loader
 from manifest_cache import load_manifest_cached
+from analyses.hooks import HOOKS
+from analyses import pip as _pip_init, cs as _cs_init  # populate HOOKS registry
 
 MANIFEST = load_manifest_cached()
 CONFIG = loader.load_config()
@@ -29,29 +31,52 @@ wildcard_constraints:
     method_hash=r"[0-9a-f]{64}",
     reduction=r"[A-Za-z0-9_]+",
     analysis=r"[A-Za-z0-9_]+",
-    args_name=r"[A-Za-z0-9_\-]+",
+    bucket=r"[A-Za-z0-9_]+",
+    plot_name=r"[A-Za-z0-9_\-]+",
     supercollection=r"[A-Za-z0-9_\-\.]+",
 
 
-def _all_analysis_targets():
-    targets = []
+def _all_plot_targets():
+    paths = []
     for sc in SUPERCOLLECTIONS:
-        for analysis, args_name in loader.resolve_sc_analyses(CONFIG, sc):
-            targets.append(f"{RESULTS_ROOT}/supercollections/{sc}/{analysis}/{args_name}.pdf")
-    return targets
+        for bucket, plot_name in loader.plot_analyses(CONFIG, sc):
+            paths.append(f"{RESULTS_ROOT}/supercollections/{sc}/{bucket}/{plot_name}.pdf")
+    return paths
 
 
-def _all_analysis_names():
+def _plot_inputs(config, sc_name, plot_name):
+    """Union of reduction parquets a plot consumes (one analysis or several)."""
+    paths, seen = [], set()
+    for rkey in loader.plot_reductions(config, sc_name, plot_name):
+        for p in _sc_reduction_inputs(config, sc_name, rkey):
+            if p not in seen:
+                seen.add(p)
+                paths.append(p)
+    return paths
+
+
+def _sc_reduction_inputs(config, sc_name, reduction_key):
+    """All reduction parquets for a given reduction key across a supercollection."""
+    library = config["library"]
+    mfilter_name = loader.reduction_method_filter(library, reduction_key)
+    method_pred = loader.resolve_predicate(mfilter_name) if mfilter_name else None
+    cmp = loader.collection_method_pairs(config, sc_name)
+    paths = []
     seen = set()
-    for sc in SUPERCOLLECTIONS:
-        for analysis, _ in loader.resolve_sc_analyses(CONFIG, sc):
-            seen.add(analysis)
-    return sorted(seen)
+    for coll in cmp.values():
+        for bh, mh, _mname, mcoord, _sim in coll["pairs"]:
+            if method_pred is not None and not method_pred(mcoord):
+                continue
+            p = loader.reduction_output(bh, mh, reduction_key)
+            if p not in seen:
+                seen.add(p)
+                paths.append(p)
+    return paths
 
 
 rule all_plots:
     input:
-        _all_analysis_targets(),
+        _all_plot_targets(),
 
 
 rule reduce_all:
@@ -142,40 +167,29 @@ for _r in LIBRARY["reductions"]:
 
 
 # ---------------------------------------------------------------------------
-# Analyze — one loop-generated rule per analysis referenced by any
-# supercollection. Same closure-capture fix as reduce: `a` and its family are
-# bound at definition time. Analysis name is passed via params (it is baked
-# into the output path, not a wildcard).
+# Analyze — one generic rule for every plot. The plot spec (resolved by
+# supercollection + plot_name) determines its reductions (one analysis, or
+# several for a dashboard) and its output-dir bucket. render.py dispatches.
 # ---------------------------------------------------------------------------
 
-def _make_analyze_rule(a):
-    _family = loader.analysis_family(a)
-    rule:
-        name: f"analyze_{a}"
-        output:
-            f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{a}/{{args_name}}.pdf"
-        input:
-            deps=lambda wc, _a=a: loader.analysis_inputs(
-                CONFIG, MANIFEST, wc.supercollection, _a
-            ),
-        params:
-            analysis=a,
-        script:
-            f"analyses/{_family}.py"
-
-for _a in _all_analysis_names():
-    _make_analyze_rule(_a)
+rule analyze:
+    output:
+        f"{RESULTS_ROOT}/supercollections/{{supercollection}}/{{bucket}}/{{plot_name}}.pdf"
+    input:
+        deps=lambda wc: _plot_inputs(CONFIG, wc.supercollection, wc.plot_name),
+    script:
+        "analyses/render.py"
 
 
 # ---------------------------------------------------------------------------
-# Per-supercollection aggregator: build every analysis PDF for one SC
+# Per-supercollection aggregator: build every plot PDF for one SC
 # ---------------------------------------------------------------------------
 
 rule supercollection:
     input:
         lambda wc: [
-            f"{RESULTS_ROOT}/supercollections/{wc.supercollection}/{analysis}/{args_name}.pdf"
-            for analysis, args_name in loader.resolve_sc_analyses(CONFIG, wc.supercollection)
+            f"{RESULTS_ROOT}/supercollections/{wc.supercollection}/{bucket}/{plot_name}.pdf"
+            for bucket, plot_name in loader.plot_analyses(CONFIG, wc.supercollection)
         ],
     output:
         touch(f"{RESULTS_ROOT}/supercollections/{{supercollection}}/.done"),

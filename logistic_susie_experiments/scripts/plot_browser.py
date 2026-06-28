@@ -6,7 +6,12 @@
 #   "pillow",
 # ]
 # ///
-"""Browse PDFs under results/plots/by_type with a small NiceGUI app.
+"""Browse plot PDFs with a small NiceGUI app.
+
+Experiment-first: pick an experiment (supercollection), then the available
+analyses and plots are populated conditional on that choice. Reads the canonical
+tree results/supercollections/{experiment}/{analysis}/{plot}.pdf directly (no
+symlink view needed).
 
 Run:
     uv run scripts/plot_browser.py
@@ -22,7 +27,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 
-DEFAULT_PLOT_ROOT = Path("results/plots/by_type")
+DEFAULT_PLOT_ROOT = Path("results/supercollections")
 DEFAULT_CACHE_DIR = Path("results/plots/.plot_browser_cache")
 DEFAULT_RENDER_SCALE = 3.0
 
@@ -31,13 +36,17 @@ RenderPdf = Callable[[Path, Path, float], None]
 
 @dataclass(frozen=True, order=True)
 class PlotSelection:
-    agg: bool
-    plot_type: str
-    method_collection: str
-    supercollection: str
+    experiment: str
+    analysis: str
+    plot: str
 
 
 class PlotIndex:
+    """Index of plot PDFs, queried experiment-first.
+
+    Source layout: results/supercollections/{experiment}/{analysis}/{plot}.pdf
+    """
+
     def __init__(self, files: dict[PlotSelection, Path]) -> None:
         self.files = dict(sorted(files.items()))
 
@@ -46,18 +55,13 @@ class PlotIndex:
         files: dict[PlotSelection, Path] = {}
         if not root.exists():
             return cls(files)
-
         for pdf in sorted(root.glob("*/*/*.pdf")):
             if not pdf.is_file() and not pdf.is_symlink():
                 continue
-            raw_plot_type = pdf.parts[-3]
-            agg = raw_plot_type.startswith("agg_")
-            plot_type = raw_plot_type.removeprefix("agg_")
             selection = PlotSelection(
-                agg=agg,
-                plot_type=plot_type,
-                method_collection=pdf.parts[-2],
-                supercollection=pdf.stem,
+                experiment=pdf.parts[-3],
+                analysis=pdf.parts[-2],
+                plot=pdf.stem,
             )
             files[selection] = pdf
         return cls(files)
@@ -65,46 +69,20 @@ class PlotIndex:
     def is_empty(self) -> bool:
         return not self.files
 
-    def plot_types(self, agg: bool | None = None) -> list[str]:
+    def experiments(self) -> list[str]:
+        return sorted({s.experiment for s in self.files})
+
+    def analyses(self, experiment: str) -> list[str]:
         return sorted(
-            {
-                selection.plot_type
-                for selection in self.files
-                if agg is None or selection.agg == agg
-            }
+            {s.analysis for s in self.files if s.experiment == experiment}
         )
 
-    def aggregate_options(self, plot_type: str) -> list[bool]:
+    def plots(self, experiment: str, analysis: str) -> list[str]:
         return sorted(
             {
-                selection.agg
-                for selection in self.files
-                if selection.plot_type == plot_type
-            }
-        )
-
-    def method_collections(self, agg: bool, plot_type: str) -> list[str]:
-        return sorted(
-            {
-                selection.method_collection
-                for selection in self.files
-                if selection.agg == agg and selection.plot_type == plot_type
-            }
-        )
-
-    def supercollections(
-        self,
-        agg: bool,
-        plot_type: str,
-        method_collection: str,
-    ) -> list[str]:
-        return sorted(
-            {
-                selection.supercollection
-                for selection in self.files
-                if selection.agg == agg
-                and selection.plot_type == plot_type
-                and selection.method_collection == method_collection
+                s.plot
+                for s in self.files
+                if s.experiment == experiment and s.analysis == analysis
             }
         )
 
@@ -122,93 +100,54 @@ class PlotIndex:
         *,
         previous: PlotSelection | None = None,
     ) -> PlotSelection:
+        """Snap a (possibly stale) selection to a valid one, cascading
+        experiment -> analysis -> plot. When an upstream field changes, prefer
+        carrying the previous downstream choice if it is still available."""
         if not self.files:
             raise ValueError("No PDFs found")
 
-        plot_types = self.plot_types()
-        plot_type = _nearest(plot_types, selection.plot_type)
+        experiment = _nearest(self.experiments(), selection.experiment)
 
-        agg_options = self.aggregate_options(plot_type)
-        agg = selection.agg if selection.agg in agg_options else agg_options[0]
+        analyses = self.analyses(experiment)
+        analysis_pref = selection.analysis
+        if previous and previous.experiment != experiment:
+            analysis_pref = previous.analysis
+        analysis = _nearest(analyses, analysis_pref)
 
-        methods = self.method_collections(agg, plot_type)
-        method_preference = selection.method_collection
-        if previous and previous.plot_type != plot_type:
-            method_preference = previous.method_collection
-        method = _nearest(methods, method_preference)
-
-        supers = self.supercollections(agg, plot_type, method)
-        super_preference = selection.supercollection
+        plots = self.plots(experiment, analysis)
+        plot_pref = selection.plot
         if previous and (
-            previous.plot_type != plot_type
-            or previous.agg != agg
-            or previous.method_collection != method
+            previous.experiment != experiment or previous.analysis != analysis
         ):
-            super_preference = previous.supercollection
-        supercollection = _nearest(supers, super_preference)
+            plot_pref = previous.plot
+        plot = _nearest(plots, plot_pref)
 
-        return PlotSelection(agg, plot_type, method, supercollection)
+        return PlotSelection(experiment, analysis, plot)
 
-    def cycle_plot_type(self, selection: PlotSelection, delta: int) -> PlotSelection:
-        plot_type = _cycle(self.plot_types(), selection.plot_type, delta)
+    def cycle_experiment(self, selection: PlotSelection, delta: int) -> PlotSelection:
+        experiment = _cycle(self.experiments(), selection.experiment, delta)
         return self.normalize(
-            PlotSelection(
-                selection.agg,
-                plot_type,
-                selection.method_collection,
-                selection.supercollection,
-            ),
+            PlotSelection(experiment, selection.analysis, selection.plot),
             previous=selection,
         )
 
-    def cycle_method(self, selection: PlotSelection, delta: int) -> PlotSelection:
-        method = _cycle(
-            self.method_collections(selection.agg, selection.plot_type),
-            selection.method_collection,
+    def cycle_analysis(self, selection: PlotSelection, delta: int) -> PlotSelection:
+        analysis = _cycle(
+            self.analyses(selection.experiment), selection.analysis, delta
+        )
+        return self.normalize(
+            PlotSelection(selection.experiment, analysis, selection.plot),
+            previous=selection,
+        )
+
+    def cycle_plot(self, selection: PlotSelection, delta: int) -> PlotSelection:
+        plot = _cycle(
+            self.plots(selection.experiment, selection.analysis),
+            selection.plot,
             delta,
         )
         return self.normalize(
-            PlotSelection(
-                selection.agg,
-                selection.plot_type,
-                method,
-                selection.supercollection,
-            ),
-            previous=selection,
-        )
-
-    def cycle_supercollection(
-        self,
-        selection: PlotSelection,
-        delta: int,
-    ) -> PlotSelection:
-        supercollection = _cycle(
-            self.supercollections(
-                selection.agg,
-                selection.plot_type,
-                selection.method_collection,
-            ),
-            selection.supercollection,
-            delta,
-        )
-        return self.normalize(
-            PlotSelection(
-                selection.agg,
-                selection.plot_type,
-                selection.method_collection,
-                supercollection,
-            ),
-            previous=selection,
-        )
-
-    def toggle_aggregate(self, selection: PlotSelection) -> PlotSelection:
-        return self.normalize(
-            PlotSelection(
-                not selection.agg,
-                selection.plot_type,
-                selection.method_collection,
-                selection.supercollection,
-            ),
+            PlotSelection(selection.experiment, selection.analysis, plot),
             previous=selection,
         )
 
@@ -238,30 +177,27 @@ def shortcut_action(
     meta: bool,
     alt: bool,
     ctrl: bool = False,
-    code: str | None = None,
 ) -> str | None:
     key = key.lower()
-    if alt and not meta and not ctrl and (key in {"a", "å"} or code == "KeyA"):
-        return "toggle_aggregate"
     if key in {"arrowleft", "left"}:
         if meta and not alt and not ctrl:
-            return "previous_supercollection"
+            return "previous_experiment"
         if alt and not meta and not ctrl:
-            return "previous_method"
+            return "previous_analysis"
         return None
     if key in {"arrowright", "right"}:
         if meta and not alt and not ctrl:
-            return "next_supercollection"
+            return "next_experiment"
         if alt and not meta and not ctrl:
-            return "next_method"
+            return "next_analysis"
         return None
     if key in {"arrowup", "up"}:
         if meta and not alt and not ctrl:
-            return "previous_plot_type"
+            return "previous_plot"
         return None
     if key in {"arrowdown", "down"}:
         if meta and not alt and not ctrl:
-            return "next_plot_type"
+            return "next_plot"
         return None
     return None
 
@@ -269,9 +205,8 @@ def shortcut_action(
 def shortcut_help_items() -> list[tuple[str, str]]:
     return [
         ("Cmd Left/Right", "Experiment"),
-        ("Option Left/Right", "Comparison"),
-        ("Cmd Up/Down", "Plot type"),
-        ("Option A", "Aggregate"),
+        ("Option Left/Right", "Analysis"),
+        ("Cmd Up/Down", "Plot"),
     ]
 
 
@@ -406,47 +341,33 @@ def run_app(
     state = {"selection": index.first_selection(), "syncing": False}
     assert state["selection"] is not None
 
+    experiment_select = None
+    analysis_select = None
     plot_select = None
-    method_select = None
-    super_select = None
-    agg_switch = None
     image = None
 
     def sync_controls() -> None:
-        nonlocal plot_select, method_select, super_select, agg_switch, image
+        nonlocal experiment_select, analysis_select, plot_select, image
         selection = state["selection"]
         assert selection is not None
 
         state["syncing"] = True
         try:
-            plot_select.options = index.plot_types()
-            plot_select.value = selection.plot_type
+            experiment_select.options = index.experiments()
+            experiment_select.value = selection.experiment
 
-            agg_switch.value = selection.agg
-            if len(index.aggregate_options(selection.plot_type)) > 1:
-                agg_switch.enable()
-            else:
-                agg_switch.disable()
+            analysis_select.options = index.analyses(selection.experiment)
+            analysis_select.value = selection.analysis
 
-            method_select.options = index.method_collections(
-                selection.agg,
-                selection.plot_type,
-            )
-            method_select.value = selection.method_collection
-
-            super_select.options = index.supercollections(
-                selection.agg,
-                selection.plot_type,
-                selection.method_collection,
-            )
-            super_select.value = selection.supercollection
+            plot_select.options = index.plots(selection.experiment, selection.analysis)
+            plot_select.value = selection.plot
 
             path = index.path_for(selection)
             if path is not None:
                 preview = cache.image_for(path)
                 image.props(f'src="{cache.url_for(preview)}"')
 
-            for control in (plot_select, method_select, super_select, agg_switch, image):
+            for control in (experiment_select, analysis_select, plot_select, image):
                 control.update()
         finally:
             state["syncing"] = False
@@ -456,56 +377,28 @@ def run_app(
         state["selection"] = index.normalize(selection, previous=previous)
         sync_controls()
 
+    def on_experiment_change(event) -> None:
+        if state["syncing"]:
+            return
+        selection = state["selection"]
+        set_selection(
+            PlotSelection(event.value, selection.analysis, selection.plot)
+        )
+
+    def on_analysis_change(event) -> None:
+        if state["syncing"]:
+            return
+        selection = state["selection"]
+        set_selection(
+            PlotSelection(selection.experiment, event.value, selection.plot)
+        )
+
     def on_plot_change(event) -> None:
         if state["syncing"]:
             return
         selection = state["selection"]
         set_selection(
-            PlotSelection(
-                selection.agg,
-                event.value,
-                selection.method_collection,
-                selection.supercollection,
-            )
-        )
-
-    def on_method_change(event) -> None:
-        if state["syncing"]:
-            return
-        selection = state["selection"]
-        set_selection(
-            PlotSelection(
-                selection.agg,
-                selection.plot_type,
-                event.value,
-                selection.supercollection,
-            )
-        )
-
-    def on_super_change(event) -> None:
-        if state["syncing"]:
-            return
-        selection = state["selection"]
-        set_selection(
-            PlotSelection(
-                selection.agg,
-                selection.plot_type,
-                selection.method_collection,
-                event.value,
-            )
-        )
-
-    def on_agg_change(event) -> None:
-        if state["syncing"]:
-            return
-        selection = state["selection"]
-        set_selection(
-            PlotSelection(
-                bool(event.value),
-                selection.plot_type,
-                selection.method_collection,
-                selection.supercollection,
-            )
+            PlotSelection(selection.experiment, selection.analysis, event.value)
         )
 
     def on_key(event) -> None:
@@ -514,45 +407,37 @@ def run_app(
             return
         key_arg = getattr(event, "key", "")
         key = str(getattr(key_arg, "name", key_arg)).lower()
-        code = getattr(key_arg, "code", None)
         modifiers = getattr(event, "modifiers", None)
         meta = bool(getattr(modifiers, "meta", False))
         alt = bool(getattr(modifiers, "alt", False))
         ctrl = bool(getattr(modifiers, "ctrl", False))
         selection = state["selection"]
 
-        action_name = shortcut_action(key, meta=meta, alt=alt, ctrl=ctrl, code=code)
+        action_name = shortcut_action(key, meta=meta, alt=alt, ctrl=ctrl)
 
-        if action_name == "toggle_aggregate":
-            set_selection(index.toggle_aggregate(selection))
-        elif action_name == "previous_method":
-            set_selection(index.cycle_method(selection, -1))
-        elif action_name == "previous_plot_type":
-            set_selection(index.cycle_plot_type(selection, -1))
-        elif action_name == "previous_supercollection":
-            set_selection(index.cycle_supercollection(selection, -1))
-        elif action_name == "next_method":
-            set_selection(index.cycle_method(selection, 1))
-        elif action_name == "next_plot_type":
-            set_selection(index.cycle_plot_type(selection, 1))
-        elif action_name == "next_supercollection":
-            set_selection(index.cycle_supercollection(selection, 1))
+        if action_name == "previous_experiment":
+            set_selection(index.cycle_experiment(selection, -1))
+        elif action_name == "next_experiment":
+            set_selection(index.cycle_experiment(selection, 1))
+        elif action_name == "previous_analysis":
+            set_selection(index.cycle_analysis(selection, -1))
+        elif action_name == "next_analysis":
+            set_selection(index.cycle_analysis(selection, 1))
+        elif action_name == "previous_plot":
+            set_selection(index.cycle_plot(selection, -1))
+        elif action_name == "next_plot":
+            set_selection(index.cycle_plot(selection, 1))
 
     with ui.element("div").classes("plot-shell"):
         with ui.column().classes("plot-sidebar"):
-            agg_switch = ui.switch("Aggregate", on_change=on_agg_change)
-            plot_select = ui.select([], label="Plot type", on_change=on_plot_change).classes(
-                "w-full"
-            )
-            method_select = ui.select(
-                [],
-                label="Comparison",
-                on_change=on_method_change,
+            experiment_select = ui.select(
+                [], label="Experiment", on_change=on_experiment_change
             ).classes("w-full")
-            super_select = ui.select(
-                [],
-                label="Experiment",
-                on_change=on_super_change,
+            analysis_select = ui.select(
+                [], label="Analysis", on_change=on_analysis_change
+            ).classes("w-full")
+            plot_select = ui.select(
+                [], label="Plot", on_change=on_plot_change
             ).classes("w-full")
             with ui.element("div").classes("shortcut-help"):
                 ui.label("Shortcuts").classes("text-xs font-medium text-gray-700")

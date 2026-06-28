@@ -59,6 +59,12 @@ def build_cs_plot_data(
                 min(int(np.searchsorted(cumulative, float(beta), side="left") + 1), n_feat)
                 for beta in CS_BETA_GRID
             ]
+            # Causal radius = correlation-distance from the causal (the "center")
+            # to the CS's least-correlated member (its furthest edge):
+            #   r_min = min_{m in CS} |corr(m, causal)|  ->  radius = sqrt(1 - r_min^2)
+            # 0 = every member tightly correlated with the truth (tight CS); larger
+            # = the CS reaches a feature nearly uncorrelated with the causal.
+            # Only defined when the CS covers the causal (causal_rank < cs_size).
             cs_causal_radius: list[list[float | None]] = []
             for ci, causal_rank in zip(causal_indices, rank_of_causal):
                 causal_corr = np.abs(np.asarray(corr_by_causal[int(ci)], dtype=float))
@@ -66,7 +72,8 @@ def build_cs_plot_data(
                 for cs_size in cs_sizes:
                     if causal_rank < cs_size:
                         prefix = order[:cs_size]
-                        radius_by_beta.append(float(np.min(causal_corr[prefix])))
+                        r_min = float(np.min(causal_corr[prefix]))
+                        radius_by_beta.append(float(np.sqrt(max(0.0, 1.0 - r_min * r_min))))
                     else:
                         radius_by_beta.append(None)
                 cs_causal_radius.append(radius_by_beta)

@@ -5,50 +5,21 @@ defaults:
   replicates_per_batch: 50
   n_batches: 2
 
+# Gene-set designs (X). Kept for the upcoming gene-set experiments; the active
+# Markov designs are generated inline by 000_markov's sweep blocks (function +
+# n/p/rho), so they need no named entries here.
 designs:
   hallmark:
     function: hallmark_gene_sets_X
     arguments: {}
-  gaussian_rho0.90_n500_p100:
-    function: gaussian_markov_X
-    arguments: { n: 500, p: 100, rho: 0.9 }
-  uniform_rho0.90_n500_p100:
-    function: uniform_markov_X
-    arguments: { n: 500, p: 100, rho: 0.9 }
-  gaussian_p8_smoke:
-    function: gaussian_markov_X
-    arguments: { n: 200, p: 8, rho: 0.5 }
   c4:
     function: c4_gene_sets_X
     arguments: {}
 
-enrichments:
-  # Enrichment FAMILY: any list-valued field (intercept or an argument) is a grid
-  # axis; the cartesian product expands into concrete enrichments named via the
-  # `name` template. The family key `ser` also becomes a group of all member names
-  # that experiments can reference in one `over` axis. Use `:g` in the template for
-  # clean numeric labels (1.5 -> "1.5", -2.0 -> "-2").
-  ser:
-    function: uniform_single_effect
-    arguments:
-      causal_effect: [-4, -3, -2, -1.5, -1, -0.5, -0.2, -0.1, 0.1, 0.2, 0.5, 1, 1.5, 2, 3, 4]
-    intercept: [-2, -1, 0, 1, 2]
-    name: "ser__b0={intercept:g}__b={causal_effect:g}"
-  ser_null:
-    function: uniform_single_effect
-    arguments: { causal_effect: 0.0 }
-    intercept: [-2.0, -1., 0.0, 1., 2.0]
-    name: "ser__b0={intercept:g}_null"
-  # multi-effect FAMILY: k causal features at the same effect size (for L>1
-  # SuSiE). Same name-template convention as ser; list k / causal_effect /
-  # intercept to sweep.
-  mult:
-    function: uniform_k_effects
-    arguments:
-      causal_effect: [0.5, 1, 1.5, 2, 3, 4]
-      k: 3
-    intercept: -2.0
-    name: "mult__k={k:g}__b0={intercept:g}__b={causal_effect:g}"
+# Enrichments are generated inline by sweep blocks (logbf_single_effect). A
+# `simulations:` collection can still reference a literal enrichment defined here
+# (a plain {function, arguments, intercept} entry) if ever needed.
+enrichments: {}
 
 # Each method is one gibss logistic SuSiE implementation. logistic_quadrature is
 # the most accurate reference; globaljj / localjj are the variational variants;
@@ -95,81 +66,3 @@ reductions:
   cs:
     function: build_cs_plot_data
 
-# Each analysis names the reduction(s) it consumes and an optional
-# simulation_filter. `requires` reflects which plot_data the renderer reads
-# (mass_above_causal reads cs_plot_data despite being in the pip family).
-analyses:
-  # --- pip family ---
-  pip_calibration: { requires: [pip] }
-  agg_pip_calibration: { requires: [pip] }
-  power_fdp: { requires: [pip] }
-  agg_power_fdp: { requires: [pip] }
-  causal_pip: { requires: [pip], simulation_filter: has_causal }
-  agg_causal_pip: { requires: [pip], simulation_filter: has_causal }
-  mass_above_causal: { requires: [cs], simulation_filter: has_causal }
-  agg_mass_above_causal: { requires: [cs], simulation_filter: has_causal }
-  # --- cs family ---
-  # power/FDP keep nulls (false positives); coverage-bearing analyses filter them
-  # out (a null sim has no causal, so it can only ever read as "not covered" and
-  # caps empirical coverage at the causal fraction).
-  cs_power_fdp: { requires: [cs] }
-  agg_cs_power_fdp: { requires: [cs] }
-  causal_rank: { requires: [cs] }
-  agg_causal_rank: { requires: [cs] }
-  preceding_posterior_mass_ecdf: { requires: [cs] }
-  agg_preceding_posterior_mass_ecdf: { requires: [cs] }
-  cs_size_power: { requires: [cs], simulation_filter: has_causal }
-  agg_cs_size_power: { requires: [cs], simulation_filter: has_causal }
-  cs_radius_power: { requires: [cs], simulation_filter: has_causal }
-  agg_cs_radius_power: { requires: [cs], simulation_filter: has_causal }
-  cs_power_size_coverage_trace: { requires: [cs], simulation_filter: has_causal }
-  agg_cs_power_size_coverage_trace: { requires: [cs], simulation_filter: has_causal }
-  cs_coverage_trace: { requires: [cs], simulation_filter: has_causal }
-  agg_cs_coverage_trace: { requires: [cs], simulation_filter: has_causal }
-  cs_dot_summary: { requires: [cs], simulation_filter: has_causal }
-  cs_calibration: { requires: [cs], simulation_filter: has_causal }
-  agg_cs_calibration: { requires: [cs], simulation_filter: has_causal }
-  cs_coverage_size: { requires: [cs], simulation_filter: has_causal }
-  agg_cs_coverage_size: { requires: [cs], simulation_filter: has_causal }
-  cs_coverage_radius: { requires: [cs], simulation_filter: has_causal }
-  agg_cs_coverage_radius: { requires: [cs], simulation_filter: has_causal }
-  cs_calibrated_dot: { requires: [cs], simulation_filter: has_causal }
-  agg_cs_calibrated_dot: { requires: [cs], simulation_filter: has_causal }
-
-analysis_groups:
-  pip:
-    - pip_calibration
-    - agg_pip_calibration
-    - power_fdp
-    - agg_power_fdp
-  pip_non_null:
-    - causal_pip
-    - agg_causal_pip
-    - mass_above_causal
-    - agg_mass_above_causal
-  cs:
-    - cs_power_size_coverage_trace
-    - agg_cs_power_size_coverage_trace
-    - cs_power_fdp
-    - agg_cs_power_fdp
-    - cs_size_power
-    - agg_cs_size_power
-    - cs_radius_power
-    - agg_cs_radius_power
-  cs_non_null:
-    - cs_coverage_size
-    - agg_cs_coverage_size
-    - cs_coverage_radius
-    - agg_cs_coverage_radius
-    - cs_calibrated_dot
-    - agg_cs_calibrated_dot
-  cs_extra:
-    - causal_rank
-    - agg_causal_rank
-    - cs_dot_summary
-    - cs_coverage_trace
-    - agg_cs_coverage_trace
-    - cs_calibration
-    - agg_cs_calibration
-    - preceding_posterior_mass_ecdf
-    - agg_preceding_posterior_mass_ecdf

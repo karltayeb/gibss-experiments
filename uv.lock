@@ -610,7 +610,7 @@ dev = [{ name = "pytest", specifier = ">=9.0.3" }]
 [[package]]
 name = "gibss-mono"
 version = "0.1.0"
-source = { git = "https://github.com/karltayeb/gibss-mono#3912836a5e03de02b3a8a404b091dbc0e2f5a936" }
+source = { git = "https://github.com/karltayeb/gibss-mono#3c52ffd62c89a45e6848cea7a3280281fab95b01" }
 dependencies = [
     { name = "jax" },
     { name = "numpy" },

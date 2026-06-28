@@ -166,13 +166,13 @@ def spec_hash(spec_node: dict[str, Any]) -> str:
 # (keeps getattr(core, name) working; inspect.getfile follows the real
 # definition so Snakemake tracks the right source file)
 # ---------------------------------------------------------------------------
-from simulations.design.markov import gaussian_markov_X, uniform_markov_X
+from simulations.design.markov import gaussian_markov_X, uniform_markov_X, binary_markov_X
 from simulations.design.genesets import (
     hallmark_gene_sets_X,
     c4_gene_sets_X,
     msigdb_gene_sets_X,
 )
-from simulations.effect.effects import uniform_single_effect, uniform_k_effects
+from simulations.effect.effects import uniform_single_effect, uniform_k_effects, logbf_single_effect
 from fits.logistic import (
     fit_logistic_method,
     summarize_logistic_method,
@@ -197,4 +197,9 @@ from fits.globaljj_steps import (
     fit_globaljj_method,
     summarize_globaljj_method,
     run_globaljj_method,
+)
+from fits.linear_susie import (
+    fit_linear_susie_method,
+    summarize_linear_susie_method,
+    run_linear_susie_method,
 )

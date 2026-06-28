@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Create symlink views of results/supercollections/{sc}/{analysis}/{args_name}.pdf.
+"""Create symlink views of results/supercollections/{sc}/{analysis}/{plot_name}.pdf.
 
 Two views under results/plots/ for browsing the same PDFs along different axes:
-  by_type/{analysis}/{args_name}/{supercollection}.pdf  -- compare across supercollections
-  by_sc/{supercollection}/{args_name}/{analysis}.pdf    -- browse one supercollection
+  by_type/{analysis}/{plot_name}/{supercollection}.pdf  -- compare across supercollections
+  by_sc/{supercollection}/{plot_name}/{analysis}.pdf    -- browse one supercollection
 
 Usage:
     uv run python scripts/symlink_plots.py
@@ -36,10 +36,10 @@ def symlink_plots(results: Path) -> None:
     for pdf in sorted(sc_root.glob("*/*/*.pdf")):
         sc = pdf.parts[-3]
         analysis = pdf.parts[-2]
-        args_name = pdf.stem
+        plot_name = pdf.stem
 
-        count += _link(pdf, by_type / analysis / args_name / f"{sc}.pdf")
-        count += _link(pdf, by_sc / sc / args_name / f"{analysis}.pdf")
+        count += _link(pdf, by_type / analysis / plot_name / f"{sc}.pdf")
+        count += _link(pdf, by_sc / sc / plot_name / f"{analysis}.pdf")
 
     print(f"Created/updated {count} symlinks under {results / 'plots'}")
 
