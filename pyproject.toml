@@ -15,6 +15,7 @@ dependencies = [
     "polars>=1.40.1",
     "pypdfium2>=5.9.0",
     "snakemake>=9.20.0",
+    "snakemake-executor-plugin-cluster-generic>=1.0.9",
 ]
 
 [tool.uv.sources]
