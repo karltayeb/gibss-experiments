@@ -173,9 +173,9 @@ both (0.36 vs 0.79 local, 0.82 vs 1.05 global).
 
 The ordering is robust to correlation. RMSE at ρ = 0 / 0.5 / 0.9 is
 0.004 / 0.014 / 0.007 for `taylor_local`, rising monotonically through
-`jj_local` (0.94 / 0.94 / 0.30), `jj_global` (1.12 / 1.15 / 0.87),
+`jj_local` (0.94 / 0.94 / 0.29), `jj_global` (1.12 / 1.15 / 0.87),
 `taylor_global` (2.16 / 2.16 / 1.04), to `taylor_global_c`
-(3.79 / 3.86 / 3.00) — local Laplace is exact and the global/variational gap is
+(3.78 / 3.86 / 3.00) — local Laplace is exact and the global/variational gap is
 present at every ρ (errors shrink at ρ=0.9, where the shared block weakens each
 column's individual evidence).
 
@@ -224,15 +224,14 @@ Even the 6-nat `taylor_global_c` error leaves the ranking essentially intact
 (Spearman 0.999); the SER reads off the ranking, so its inference is unmoved.
 The **global-JJ pair are the only methods that perturb the ranking** (`jj_global`
 0.868/0.973, `jj_global_c` 0.855/0.974) — precisely the methods whose coverage and
-PIP calibration depart from exact. Rank preservation, not Bayes-factor fidelity,
-is the operative property.
+PIP calibration depart from exact (Table 3). Rank preservation, not Bayes-factor
+fidelity, is the operative property.
 
-The one method that *does* leak is **global JJ**: its error is non-monotone
-enough to shift PIP sharpness (`B_causal` 0.37 vs 0.34) and, notably, coverage —
-it is the only method near nominal (0.94) while all others **over-cover** (≈0.99;
-the level delivering honest 95% coverage is β≈0.71–0.79). On a near-collinear
-p=500 block the spike-and-slab CS is conservative; global JJ's looseness happens
-to offset that, but §5 shows the offset is not free.
+Separately, every method **over-covers** the nominal 95% CS (empirical ≈0.99;
+honest 95% coverage needs β≈0.71–0.79) — the spike-and-slab CS is conservative on a
+near-collinear p=500 block. Global JJ alone sits near nominal (0.94, `B_causal`
+0.37 vs 0.34), its ranking perturbation offsetting the conservatism rather than
+reflecting better calibration; §5 shows the offset is not free.
 
 ## 5. Empirical Bayes is the amplifier; detection and resolution
 
@@ -283,7 +282,8 @@ weak-signal margin and is barely touched.
 
 Resolution is dominated by the design, not the method: exact CS size@95 is
 140 / 159 / 104 features at ρ = 0 / 0.5 / 0.9 — large throughout, as expected on a
-correlated p=500 block — and EB inflates every method's size by ~20–45%.
+correlated p=500 block — and EB inflates every method's size by ~16–44%
+(least for the exact/global methods, most for global JJ).
 
 ## 6. Conclusions for practice
 
