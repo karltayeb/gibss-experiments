@@ -132,6 +132,23 @@ def ranking_preservation(cs):
     return pl.DataFrame(rows)
 
 
+def bf_separation(cs):
+    """Mean SER logBF on null vs weak/strong signal, fixed vs EB — shows EB
+    removing the Occam penalty (null -> ~0) and the JJ weak-signal margin collapse."""
+    rows = []
+    for m in ["quadrature", "jj_local", "jj_global", "taylor_global"]:
+        for prior in ["fixed", "eb"]:
+            sub = subset(cs, method=m, prior=prior)
+            nul = sub.filter(~pl.col("signal"))["ser_log_bf"].to_numpy()
+            s4 = sub.filter(pl.col("signal") & (pl.col("logbf") == 4))["ser_log_bf"].to_numpy()
+            s32 = sub.filter(pl.col("signal") & (pl.col("logbf") == 32))["ser_log_bf"].to_numpy()
+            rows.append({"method": m, "prior": prior,
+                         "null": round(float(np.nanmean(nul)), 2),
+                         "L4": round(float(np.nanmean(s4)), 2),
+                         "L32": round(float(np.nanmean(s32)), 2)})
+    return pl.DataFrame(rows)
+
+
 if __name__ == "__main__":
     pip, cs = load()
     print("=== rows:", "pip", pip.shape, "cs", cs.shape)
@@ -144,3 +161,5 @@ if __name__ == "__main__":
         print(per_method_table(pip, cs))
     print("\n=== ranking preservation vs exact ===")
     print(ranking_preservation(cs))
+    print("\n=== BF separation: null vs signal, fixed vs eb ===")
+    print(bf_separation(cs))

@@ -252,9 +252,30 @@ bias back into the prior, and the harm scales with the bias.
 EB is benign for the exact and Laplace families (AUC loss ≤ 0.014) but corrosive
 for the variational bound: global JJ's detection AUC falls from 0.913 to 0.773
 and its mean CS grows 44% (133→191). The same ordering holds for PIP sharpness
-(`B_causal` under EB: quadrature 0.371, `jj_local` 0.390, `jj_global` 0.470). The
-mechanism is direct — the JJ bound's systematic understatement of evidence biases
-the EB σ0² estimate, and the resulting mis-set prior dilutes the posterior.
+(`B_causal` under EB: quadrature 0.371, `jj_local` 0.390, `jj_global` 0.470).
+
+The mechanism is *not* a mis-set σ0² — estimated σ0² agrees across methods at
+strong signal (≈0.6 at logBF 32). It is a loss of separation at the detection
+margin. Empirical Bayes removes the fixed prior's Occam penalty: averaged over the
+grid the null logBF rises from negative to ≈0, and so does the weak-signal logBF
+(Table 5). Detection then hinges on the residual null-vs-weak-signal gap, which
+the JJ bound — understating weak signal, most for its global variant (Table 2) —
+nearly closes.
+
+**Table 5. Mean SER logBF on null and signal datasets, fixed → EB.**
+
+| cell | null (fix) | null (eb) | L4 (fix) | L4 (eb) | L32 (eb) |
+|---|---:|---:|---:|---:|---:|
+| `quadrature` | −1.34 | 0.04 | −0.46 | **0.57** | 26.2 |
+| `jj_local` | −1.62 | 0.02 | −0.73 | 0.46 | 27.1 |
+| `jj_global` | −2.20 | −0.02 | −1.43 | **0.22** | 27.0 |
+| `taylor_global` | −1.34 | 0.06 | −0.43 | 0.60 | 29.1 |
+
+Under EB, global JJ's weak (L4) signal sits at 0.22 against a null of −0.02 — a gap
+of 0.24 — versus 0.57 against 0.04 (gap 0.53) for quadrature. The strong-signal
+logBF is unaffected; the damage is entirely at the margin, where the loose bound
+and the lost Occam penalty compound. The exact/Laplace evidence keeps a clear
+weak-signal margin and is barely touched.
 
 Resolution is dominated by the design, not the method: exact CS size@95 is
 140 / 159 / 104 features at ρ = 0 / 0.5 / 0.9 — large throughout, as expected on a
