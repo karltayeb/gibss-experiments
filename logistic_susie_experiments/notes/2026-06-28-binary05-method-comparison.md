@@ -165,9 +165,9 @@ signal-dependence explicit.
 The global Laplace shares one working-weight vector across all `p` candidates;
 that vector, set at the aggregate linear predictor, misfits an individually
 strong effect, so its error climbs to +3 nats (non-centered) and the centered
-variant to −6 nats at logBF 32. The JJ bound understates by ~1 nat at weak
-signal and relaxes toward the truth as the effect strengthens (the bound tightens
-where the likelihood is sharp). Local JJ is more accurate than global
+variant to −6 nats at logBF 32. The JJ bound understates at weak signal —
+by ~1 nat for the global variant, ~0.3 for local — and relaxes toward the truth as
+the effect strengthens (the bound tightens where the likelihood is sharp). Local JJ is more accurate than global
 JJ (RMSE 0.79 vs 1.05 uncentered, 0.36 vs 0.82 centered), and centering tightens
 both (0.36 vs 0.79 local, 0.82 vs 1.05 global).
 
