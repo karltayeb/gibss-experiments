@@ -148,6 +148,30 @@ supercollections:
                 family_state_kwargs: { background_mode: exact },
               },
           }
+      # --- baselines ---
+      # one-step IRLS = single Laplace at the null intercept (weights frozen).
+      # onestep (center=false) == score_null (verified to numerical precision).
+      - onestep: # one outer iter, non-centered
+          {
+            function: run_irls_method,
+            over: *eb_over,
+            template:
+              { ser_cadence: block, n_outer: 1, L: 1, center: false, prior_variance: 1.0 },
+          }
+      - onestep_c: # one outer iter, centered
+          {
+            function: run_irls_method,
+            over: *eb_over,
+            template:
+              { ser_cadence: block, n_outer: 1, L: 1, center: true, prior_variance: 1.0 },
+          }
+      # linear/Gaussian SuSiE on raw y (resid var fixed 1/4, implicit centering).
+      - linear:
+          {
+            function: run_linear_susie_method,
+            over: *eb_over,
+            template: { L: 1, prior_variance: 1.0 },
+          }
     default_args: *default_args
     # One figure per (design x analysis): facet rho (rows) x logbf (cols), color =
     # family. b0 is filtered to -2 by default; add b0=0 / b0=-4 variants as needed.

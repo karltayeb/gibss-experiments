@@ -12,7 +12,7 @@ def test_000_markov_supercollection_expands():
     assert len(cols[0]["simulations"]) == 18
     # methods: the 6 requested
     methods = loader.resolve_methods_for_sc(cfg["library"], sc)
-    assert len(methods) == 20
+    assert len(methods) == 26
 
 
 def test_000_global_local_removed():
@@ -27,7 +27,7 @@ def test_000_markov_expands_via_sweep():
     assert len(cols) == 24                       # 4 designs x 6 rho
     assert len(cols[0]["simulations"]) == 18     # 3 b0 x 5 logbf + 3 null
     methods = loader.resolve_methods_for_sc(cfg["library"], sc)
-    assert len(methods) == 20
+    assert len(methods) == 26
 
 
 def test_000_markov_plot_keys_are_path_safe():
