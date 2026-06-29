@@ -109,7 +109,7 @@ The naming map (config → contrast cell):
 
 ## 2. Quantities
 
-For each `(method, prior)` we report, computed by the cited hook:
+For each `(method, prior)` we report (all computed by `scripts/report_binary05.py`):
 
 - **Approximation error** of the SER logBF against the matched exact marginal
   (`quadrature` for non-centered, `profile` for centered), at the *same prior* and
