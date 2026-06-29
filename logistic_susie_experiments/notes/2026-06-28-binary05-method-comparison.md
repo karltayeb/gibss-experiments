@@ -167,8 +167,9 @@ that vector, set at the aggregate linear predictor, misfits an individually
 strong effect, so its error climbs to +3 nats (non-centered) and the centered
 variant to −6 nats at logBF 32. The JJ bound understates by ~1 nat at weak
 signal and relaxes toward the truth as the effect strengthens (the bound tightens
-where the likelihood is sharp). Local JJ is roughly twice as accurate as global
-JJ, and centering tightens local JJ (RMSE 0.357 vs 0.785).
+where the likelihood is sharp). Local JJ is more accurate than global
+JJ (RMSE 0.79 vs 1.05 uncentered, 0.36 vs 0.82 centered), and centering tightens
+both (0.36 vs 0.79 local, 0.82 vs 1.05 global).
 
 The ordering is robust to correlation. RMSE at ρ = 0 / 0.5 / 0.9 is
 0.004 / 0.014 / 0.007 for `taylor_local`, rising monotonically through
@@ -221,14 +222,15 @@ per dataset (fixed prior): the probability that the causal feature receives the
 
 Even the 6-nat `taylor_global_c` error leaves the ranking essentially intact
 (Spearman 0.999); the SER reads off the ranking, so its inference is unmoved.
-**Global JJ is the sole method that perturbs the ranking** (0.868, 0.973) — and it
-is precisely the method whose coverage and PIP calibration depart from exact. Rank
-preservation, not Bayes-factor fidelity, is the operative property.
+The **global-JJ pair are the only methods that perturb the ranking** (`jj_global`
+0.868/0.973, `jj_global_c` 0.855/0.974) — precisely the methods whose coverage and
+PIP calibration depart from exact. Rank preservation, not Bayes-factor fidelity,
+is the operative property.
 
 The one method that *does* leak is **global JJ**: its error is non-monotone
 enough to shift PIP sharpness (`B_causal` 0.37 vs 0.34) and, notably, coverage —
 it is the only method near nominal (0.94) while all others **over-cover** (≈0.99;
-the level delivering honest 95% coverage is β≈0.75–0.79). On a near-collinear
+the level delivering honest 95% coverage is β≈0.71–0.79). On a near-collinear
 p=500 block the spike-and-slab CS is conservative; global JJ's looseness happens
 to offset that, but §5 shows the offset is not free.
 
