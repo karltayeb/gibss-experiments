@@ -1,6 +1,6 @@
 # Approximate single-effect logistic regression: a comparison of variational, Laplace, and quadrature Bayes factors
 
-**Technical report — draft (numbers pending build of `000_binary05`)**
+**Technical report**
 **Date:** 2026-06-28
 
 > All quantities in this report are computed by `scripts/report_binary05.py` from
@@ -169,6 +169,14 @@ variant to −6 nats at logBF 32. The JJ bound understates by ~1 nat at weak
 signal and relaxes toward the truth as the effect strengthens (the bound tightens
 where the likelihood is sharp). Local JJ is roughly twice as accurate as global
 JJ, and centering tightens local JJ (RMSE 0.357 vs 0.785).
+
+The ordering is robust to correlation. RMSE at ρ = 0 / 0.5 / 0.9 is
+0.004 / 0.014 / 0.007 for `taylor_local`, rising monotonically through
+`jj_local` (0.94 / 0.94 / 0.30), `jj_global` (1.12 / 1.15 / 0.87),
+`taylor_global` (2.16 / 2.16 / 1.04), to `taylor_global_c`
+(3.79 / 3.86 / 3.00) — local Laplace is exact and the global/variational gap is
+present at every ρ (errors shrink at ρ=0.9, where the shared block weakens each
+column's individual evidence).
 
 ## 4. Calibration, and why absolute BF accuracy is the wrong yardstick
 
