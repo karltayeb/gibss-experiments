@@ -74,14 +74,15 @@ supercollections:
                   { quadrature_order: 1, background_mode: exact },
               },
           }
+      # converged IRLS via gibss NATIVE default_schedule (robust under imbalance;
+      # the repo block cadence diverges there). native == block at balance.
       - taylor_global: # irls, shared working weights, non-centered
           {
             function: run_irls_method,
             over: *eb_over,
             template:
               {
-                ser_cadence: block,
-                n_outer: 50,
+                ser_cadence: native,
                 L: 1,
                 center: false,
                 prior_variance: 1.0,
@@ -93,8 +94,7 @@ supercollections:
             over: *eb_over,
             template:
               {
-                ser_cadence: block,
-                n_outer: 50,
+                ser_cadence: native,
                 L: 1,
                 center: true,
                 prior_variance: 1.0,

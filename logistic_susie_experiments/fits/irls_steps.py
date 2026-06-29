@@ -38,6 +38,7 @@ from gibss.engine import Schedule
 from gibss.irls import (
     add_message_index_step,
     check_convergence_step,
+    default_schedule,
     snapshot_state_step,
     subtract_message_index_step,
     to_numpy_state_step,
@@ -131,7 +132,12 @@ _SCHED_THOROUGH = Schedule(
     after_fit=(to_numpy_state_step,),
 )
 
-_CADENCES = {"block", "interleaved", "greedy", "thorough"}
+# "native" = gibss's own default_schedule (single intercept update + reweight per
+# sweep, iterate to convergence). PREFERRED for converged IRLS: numerically robust
+# under extreme class/feature imbalance, where the repo block cadence (over-solved
+# intercept x many reweights) diverges. The block/interleaved/greedy/thorough
+# cadences remain for the reweight-cadence comparison (002), not as the default.
+_CADENCES = {"native", "block", "interleaved", "greedy", "thorough"}
 
 
 def _init_state(simulation, *, L, center, estimate_prior_variance, prior_variance):
@@ -183,8 +189,8 @@ def fit_irls_method(
             state = engine.fit_ibss(data, state, _INNER_BLOCK, max_iter=100)
         state = to_numpy_state_step(data, state)
     else:
-        sched = {"interleaved": _SCHED_INTERLEAVED, "greedy": _SCHED_GREEDY,
-                 "thorough": _SCHED_THOROUGH}[ser_cadence]
+        sched = {"native": default_schedule(), "interleaved": _SCHED_INTERLEAVED,
+                 "greedy": _SCHED_GREEDY, "thorough": _SCHED_THOROUGH}[ser_cadence]
         state = engine.fit_ibss(data, state, sched, max_iter=max_iter)
     return {"state": state, "ser_cadence": ser_cadence}
 
