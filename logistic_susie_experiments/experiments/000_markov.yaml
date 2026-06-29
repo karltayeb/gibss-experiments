@@ -212,3 +212,19 @@ supercollections:
     methods: *markov_methods
     default_args: *default_args
     plots: *markov_plots
+
+  # Smallest subset for the method-comparison technical report: binary q=0.5 only,
+  # n_batches=1 (50 reps), b0=-2, rho in {0, 0.5, 0.9}, target_logbf in
+  # {0(null),4,8,16,32}. All 20 methods. 15 sims x 20 = 300 fits.
+  000_binary05:
+    n_batches: 1
+    collections:
+      - name: binary_q0.5
+        sweep:
+          design: {function: binary_markov_X, n: 1000, p: 500, freq: 0.5}
+          rho: [0, 0.5, 0.9]
+          b0: [-2]
+          target_logbf: [0, 4, 8, 16, 32]
+    methods: *markov_methods
+    default_args: *default_args
+    plots: *markov_plots
