@@ -236,9 +236,11 @@ to offset that, but §5 shows the offset is not free.
 
 ## 5. Empirical Bayes is the amplifier; detection and resolution
 
-The fixed prior hides the approximations; empirical Bayes exposes them.
-Estimating σ0² from a method's *own* approximate evidence feeds that method's
-bias back into the prior, and the harm scales with the bias.
+The fixed prior hides the approximations; empirical Bayes exposes them — and the
+exposure is uneven, falling almost entirely on the variational bound (the
+mechanism, dissected below, is a loss of detection margin, not overall logBF bias:
+`taylor_global_c` has the worst BF accuracy of any method (RMSE 3.6, §3) yet is
+nearly unharmed by EB (AUC 0.915→0.908)).
 
 **Table 4. EB amplification: logBF detection AUC and CS size, fixed → EB.**
 
