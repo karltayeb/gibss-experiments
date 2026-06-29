@@ -104,6 +104,34 @@ def per_method_table(pip, cs):
     return pl.DataFrame(rows).sort(["method", "prior"])
 
 
+def ranking_preservation(cs):
+    """Per (method): P(causal gets the same posterior rank as the matched exact)
+    and Spearman of the causal PIP, paired per dataset (fixed prior, signal).
+    Substantiates that BF error is inert when it preserves the ranking."""
+    from scipy.stats import spearmanr
+    sig = cs.filter(pl.col("signal") & (pl.col("prior") == "fixed"))
+
+    def col(df):
+        return df.select(["batch_hash", "sample_id", "rank_of_causal", "causal_alpha"])
+
+    def first(lst):
+        return np.array([x[0] if len(x) > 0 else np.nan for x in lst])
+
+    rows = []
+    for m in ["taylor_local", "taylor_global", "taylor_local_c", "taylor_global_c",
+              "jj_local", "jj_local_c", "jj_global", "jj_global_c"]:
+        refm = "profile" if m in _CENTERED else "quadrature"
+        a = col(subset(sig, method=m))
+        b = col(subset(sig, method=refm)).rename({"rank_of_causal": "r2", "causal_alpha": "a2"})
+        j = a.join(b, on=["batch_hash", "sample_id"], how="inner")
+        r, rr = first(j["rank_of_causal"].to_list()), first(j["r2"].to_list())
+        aa, ar = first(j["causal_alpha"].to_list()), first(j["a2"].to_list())
+        rows.append({"method": m, "ref": refm,
+                     "p_same_rank": round(float(np.nanmean((r == rr).astype(float))), 3),
+                     "spearman_pip": round(float(spearmanr(aa, ar, nan_policy="omit").statistic), 3)})
+    return pl.DataFrame(rows)
+
+
 if __name__ == "__main__":
     pip, cs = load()
     print("=== rows:", "pip", pip.shape, "cs", cs.shape)
@@ -114,3 +142,5 @@ if __name__ == "__main__":
     print("\n=== per-method metrics ===")
     with pl.Config(tbl_rows=40, tbl_cols=20):
         print(per_method_table(pip, cs))
+    print("\n=== ranking preservation vs exact ===")
+    print(ranking_preservation(cs))

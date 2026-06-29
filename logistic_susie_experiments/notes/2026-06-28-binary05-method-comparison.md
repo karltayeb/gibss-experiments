@@ -207,6 +207,24 @@ essentially at the exact values. `taylor_global_c`, whose logBF is wrong by 6
 nats at strong signal (Table 2), nonetheless has AUC 0.915 and coverage 0.995,
 indistinguishable from exact.
 
+This is verifiable directly. Comparing each method to its matched exact, paired
+per dataset (fixed prior): the probability that the causal feature receives the
+*same rank* in the posterior, and the Spearman correlation of the causal PIP, are
+
+| cell | P(same causal rank) | Spearman(causal PIP) |
+|---|---:|---:|
+| `taylor_local` | 0.983 | 1.000 |
+| `taylor_global` | 0.950 | 1.000 |
+| `taylor_global_c` | 0.935 | 0.999 |
+| `jj_local` | 0.965 | 1.000 |
+| `jj_global` | **0.868** | **0.973** |
+
+Even the 6-nat `taylor_global_c` error leaves the ranking essentially intact
+(Spearman 0.999); the SER reads off the ranking, so its inference is unmoved.
+**Global JJ is the sole method that perturbs the ranking** (0.868, 0.973) — and it
+is precisely the method whose coverage and PIP calibration depart from exact. Rank
+preservation, not Bayes-factor fidelity, is the operative property.
+
 The one method that *does* leak is **global JJ**: its error is non-monotone
 enough to shift PIP sharpness (`B_causal` 0.37 vs 0.34) and, notably, coverage —
 it is the only method near nominal (0.94) while all others **over-cover** (≈0.99;
