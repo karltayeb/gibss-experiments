@@ -266,32 +266,32 @@ supercollections:
       - name: gaussian
         sweep:
           design: { function: gaussian_markov_X, n: 1000, p: 500 }
-          rho: [0, 0.8, 0.95]
-          b0: [0, -2, -4]
+          rho: [0.8]
+          b0: [-2]
           target_logbf: [0, 4, 8, 16, 32]
           effect: logbf_k_effects
           effect_args: { k: 3 }
       - name: uniform
         sweep:
           design: { function: uniform_markov_X, n: 1000, p: 500 }
-          rho: [0, 0.8, 0.95]
-          b0: [0, -2, -4]
+          rho: [0.8]
+          b0: [-2]
           target_logbf: [0, 4, 8, 16, 32]
           effect: logbf_k_effects
           effect_args: { k: 3 }
       - name: binary_q0.5
         sweep:
           design: { function: binary_markov_X, n: 1000, p: 500, freq: 0.5 }
-          rho: [0, 0.8, 0.95]
-          b0: [0, -2, -4]
+          rho: [0.8]
+          b0: [-2]
           target_logbf: [0, 4, 8, 16, 32]
           effect: logbf_k_effects
           effect_args: { k: 3 }
       - name: binary_q0.1
         sweep:
           design: { function: binary_markov_X, n: 1000, p: 500, freq: 0.1 }
-          rho: [0, 0.8, 0.95]
-          b0: [0, -2, -4]
+          rho: [0.8]
+          b0: [-2]
           target_logbf: [0, 4, 8, 16, 32]
           effect: logbf_k_effects
           effect_args: { k: 3 }
