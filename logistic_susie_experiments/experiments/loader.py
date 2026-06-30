@@ -199,6 +199,8 @@ def _expand_sweep(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
     rhos = list(sw["rho"])
     b0s = list(sw["b0"])
     lbfs = list(sw["target_logbf"])
+    effect_fn = sw.get("effect", "logbf_single_effect")     # e.g. logbf_k_effects
+    effect_args = dict(sw.get("effect_args", {}))           # e.g. {k: 3}
     base_seed = int(library["defaults"]["base_seed"])
     results: list[dict] = []
     for rho in rhos:
@@ -207,8 +209,8 @@ def _expand_sweep(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
         cells = [(b0, L) for b0 in b0s for L in lbfs]   # target_logbf=0 -> null
         for b0, L in cells:
             enr = {
-                "function": "logbf_single_effect",
-                "arguments": {"design": design_key, "b0": float(b0), "target_logbf": int(L)},
+                "function": effect_fn,
+                "arguments": {"design": design_key, "b0": float(b0), "target_logbf": int(L), **effect_args},
                 "intercept": float(b0),
             }
             coord = {"design": design_coord, "enrichment": enr, "base_seed": base_seed}

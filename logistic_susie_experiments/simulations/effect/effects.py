@@ -45,3 +45,27 @@ def logbf_single_effect(
     b = FROZEN_B[design][float(b0)][int(target_logbf)]
     index = int(rng.integers(0, X.shape[1]))
     return [index], [float(b)]
+
+
+def logbf_k_effects(
+    X: np.ndarray,
+    rng: np.random.Generator,
+    *,
+    design: str,
+    b0: float,
+    target_logbf: float,
+    k: int = 3,
+) -> tuple[list[int], list[float]]:
+    """``k`` causal features, each frozen-sized to ``target_logbf`` (single-effect
+    sizing; the realized per-effect logBF is approximate once effects coexist).
+    Causals are placed one per contiguous block of the design so they sit in
+    distinct correlated neighborhoods (identifiable, mutually ~independent).
+    target_logbf==0 => null."""
+    if target_logbf == 0 or k == 0:
+        return [], []
+    from simulations.effect.logbf_sizing import FROZEN_B
+    b = FROZEN_B[design][float(b0)][int(target_logbf)]
+    p = X.shape[1]
+    edges = np.linspace(0, p, int(k) + 1).astype(int)
+    indices = [int(rng.integers(edges[i], edges[i + 1])) for i in range(int(k))]
+    return indices, [float(b)] * int(k)

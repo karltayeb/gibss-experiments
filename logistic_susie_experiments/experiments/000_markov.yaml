@@ -81,24 +81,14 @@ supercollections:
             function: run_irls_method,
             over: *eb_over,
             template:
-              {
-                ser_cadence: native,
-                L: 1,
-                center: false,
-                prior_variance: 1.0,
-              },
+              { ser_cadence: native, L: 1, center: false, prior_variance: 1.0 },
           }
       - taylor_global_c:
           {
             function: run_irls_method,
             over: *eb_over,
             template:
-              {
-                ser_cadence: native,
-                L: 1,
-                center: true,
-                prior_variance: 1.0,
-              },
+              { ser_cadence: native, L: 1, center: true, prior_variance: 1.0 },
           }
       # --- jj (variational) ---
       - jj_local:
@@ -156,14 +146,26 @@ supercollections:
             function: run_irls_method,
             over: *eb_over,
             template:
-              { ser_cadence: block, n_outer: 1, L: 1, center: false, prior_variance: 1.0 },
+              {
+                ser_cadence: block,
+                n_outer: 1,
+                L: 1,
+                center: false,
+                prior_variance: 1.0,
+              },
           }
       - onestep_c: # one outer iter, centered
           {
             function: run_irls_method,
             over: *eb_over,
             template:
-              { ser_cadence: block, n_outer: 1, L: 1, center: true, prior_variance: 1.0 },
+              {
+                ser_cadence: block,
+                n_outer: 1,
+                L: 1,
+                center: true,
+                prior_variance: 1.0,
+              },
           }
       # linear/Gaussian SuSiE on raw y (resid var fixed 1/4, implicit centering).
       - linear:
@@ -245,10 +247,91 @@ supercollections:
     collections:
       - name: binary_q0.5
         sweep:
-          design: {function: binary_markov_X, n: 1000, p: 500, freq: 0.5}
+          design: { function: binary_markov_X, n: 1000, p: 500, freq: 0.5 }
           rho: [0, 0.5, 0.9]
           b0: [-2]
           target_logbf: [0, 4, 8, 16, 32]
     methods: *markov_methods
+    default_args: *default_args
+    plots: *markov_plots
+
+  # SuSiE (L=3 causal variants) variant of the pilot: 4 designs, rho {0,0.8,0.95},
+  # b0 {0,-2,-4}, target_logbf {0(null),4,8,16,32}, n_batches=2. 3 causals per sim
+  # (one per design third, each frozen-sized to target_logbf). Fit ONLY the exact
+  # marginals quadrature (non-centered) + profile (centered), at L=3 and L=5,
+  # each eb/fixed -> 8 methods.
+  000_markov_susie:
+    n_batches: 2
+    collections:
+      - name: gaussian
+        sweep:
+          design: { function: gaussian_markov_X, n: 1000, p: 500 }
+          rho: [0, 0.8, 0.95]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32]
+          effect: logbf_k_effects
+          effect_args: { k: 3 }
+      - name: uniform
+        sweep:
+          design: { function: uniform_markov_X, n: 1000, p: 500 }
+          rho: [0, 0.8, 0.95]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32]
+          effect: logbf_k_effects
+          effect_args: { k: 3 }
+      - name: binary_q0.5
+        sweep:
+          design: { function: binary_markov_X, n: 1000, p: 500, freq: 0.5 }
+          rho: [0, 0.8, 0.95]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32]
+          effect: logbf_k_effects
+          effect_args: { k: 3 }
+      - name: binary_q0.1
+        sweep:
+          design: { function: binary_markov_X, n: 1000, p: 500, freq: 0.1 }
+          rho: [0, 0.8, 0.95]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32]
+          effect: logbf_k_effects
+          effect_args: { k: 3 }
+    _eb_susie: &eb_susie { estimate_prior_variance: [false, true] }
+    methods:
+      - quadrature_L3:
+          {
+            function: run_logistic_method,
+            over: *eb_susie,
+            template: { impl: logistic_quadrature, L: 3, prior_variance: 1.0 },
+          }
+      - quadrature_L5:
+          {
+            function: run_logistic_method,
+            over: *eb_susie,
+            template: { impl: logistic_quadrature, L: 5, prior_variance: 1.0 },
+          }
+      - profile_L3:
+          {
+            function: run_logistic_method,
+            over: *eb_susie,
+            template:
+              {
+                impl: logistic_profile,
+                L: 3,
+                prior_variance: 1.0,
+                family_state_kwargs: { background_mode: exact },
+              },
+          }
+      - profile_L5:
+          {
+            function: run_logistic_method,
+            over: *eb_susie,
+            template:
+              {
+                impl: logistic_profile,
+                L: 5,
+                prior_variance: 1.0,
+                family_state_kwargs: { background_mode: exact },
+              },
+          }
     default_args: *default_args
     plots: *markov_plots
