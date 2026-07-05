@@ -1,16 +1,16 @@
 from viz_dims import method_dims, sim_dims
 
 
-def test_method_dims_irls_converged_fixed_centered():
+def test_method_dims_irls_converged_fixed_profiled():
     coord = {"function": "run_irls_method",
              "kwargs": {"ser_cadence": "block", "n_outer": 50, "L": 1,
-                        "center": True, "estimate_prior_variance": False,
+                        "profile": True, "estimate_prior_variance": False,
                         "prior_variance": 100.0}}
     d = method_dims(coord)
     assert d["family"] == "irls"
     assert d["step"] == "converged"
     assert d["prior"] == "fixed"
-    assert d["center"] is True
+    assert d["profile"] is True
     assert d["cadence"] == "block"
     assert d["L"] == 1
     assert d["function"] == "run_irls_method"
@@ -25,7 +25,7 @@ def test_method_dims_one_step_eb_globaljj():
     assert d["family"] == "globaljj"
     assert d["step"] == "one_step"
     assert d["prior"] == "eb"      # estimate_prior_variance absent -> EB
-    assert d["center"] is False    # absent -> False
+    assert d["profile"] is False   # absent -> False
 
 
 def test_method_dims_logistic_impl_family():
@@ -63,12 +63,12 @@ def test_sim_dims_rho_binary_logbf():
     coord = {
         "design": {"function": "binary_markov_X",
                    "arguments": {"n": 1000, "p": 500, "rho": 0.9, "freq": 0.1}},
-        "enrichment": {"arguments": {"causal_effect": 1.180}, "intercept": -2.0},
+        "enrichment": {"arguments": {"causal_effect": 0.968}, "intercept": -2.0},
     }
     d = sim_dims(coord)
     assert d["design"] == "binary_q0.1"
     assert d["rho"] == 0.9
-    assert d["logbf"] == 32          # frozen b for binary q=0.1, b0=-2, L32
+    assert d["logbf"] == 32          # frozen b for binary q=0.1, b0=-2, L32 (centered)
     assert d["signal"] is True
 
 

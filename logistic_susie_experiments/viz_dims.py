@@ -37,7 +37,13 @@ def method_dims(coord: dict) -> dict:
         "family": family,
         "step": "one_step" if k.get("n_outer") == 1 else "converged",
         "prior": "fixed" if k.get("estimate_prior_variance") is False else "eb",
-        "center": bool(k.get("center", False)),
+        # intercept-profiling axis (family `profile` flag / `_c` methods); distinct
+        # from the `center` column pre-centering preprocessing (default on).
+        "profile": bool(k.get("profile", False)),
+        # offset integration ON/off over the leave-one-out offset variance. OFF =
+        # {None, False, "none"}; anything else ("taylor", GH order int) = ON. Raw
+        # value kept in m_offset_integration for order-level faceting.
+        "offset_integration": k.get("offset_integration", "none") not in (None, False, "none"),
         "cadence": k.get("ser_cadence", "block"),
         "L": int(k.get("L", 1)),
         "function": fn,

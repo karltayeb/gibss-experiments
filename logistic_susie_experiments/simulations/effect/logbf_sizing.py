@@ -34,6 +34,7 @@ MARGINALS = {
     "uniform": _uniform(),
     "binary q=0.5": _binary(0.5),
     "binary q=0.1": _binary(0.1),
+    "binary q=0.9": _binary(0.9),
 }
 
 
@@ -47,9 +48,13 @@ def _H(p):
 
 
 def expected_lrt(design: str, b0: float, b: float, n: int) -> float:
-    """Λ = n·MI(x;y). Monotone in |b|."""
+    """Λ = n·MI(x;y), sized on the CENTERED feature x - E[x] so that b0 fixes the
+    base rate σ(b0) at the average individual (independent of b). For symmetric
+    designs (E[x]=0) this is identical to the uncentered form; for asymmetric
+    binary (q≠0.5) it differs. Monotone in |b|."""
     x, pw = MARGINALS[design]
-    px = _sigmoid(b0 + b * x)
+    xbar = float(np.sum(pw * x))
+    px = _sigmoid(b0 + b * (x - xbar))
     pbar = float(np.sum(pw * px))
     return float(n) * (_H(pbar) - float(np.sum(pw * _H(px))))
 
@@ -89,9 +94,11 @@ DESIGN_KEY = {
     ("uniform_markov_X", None): "uniform",
     ("binary_markov_X", 0.5): "binary q=0.5",
     ("binary_markov_X", 0.1): "binary q=0.1",
+    ("binary_markov_X", 0.9): "binary q=0.9",
 }
 
-# Frozen exact-LRT effect sizes at n=1000 (regenerate with frozen_table()).
+# Frozen exact-LRT effect sizes at n=1000, sized on CENTERED x (regenerate with
+# frozen_table()). Symmetric designs unchanged vs uncentered; q0.1/q0.9 differ.
 FROZEN_B = {
     "gaussian": {
         0.0:  {4: 0.180, 8: 0.256, 16: 0.366, 32: 0.531, 64: 0.789},
@@ -109,9 +116,14 @@ FROZEN_B = {
         -4.0: {4: 0.674, 8: 0.951, 16: 1.337, 32: 1.853, 64: 2.502},
     },
     "binary q=0.1": {
-        0.0:  {4: 0.299, 8: 0.425, 16: 0.607, 32: 0.874, 64: 1.286},
-        -2.0: {4: 0.440, 8: 0.613, 16: 0.851, 32: 1.180, 64: 1.649},
-        -4.0: {4: 0.974, 8: 1.313, 16: 1.752, 32: 2.316, 64: 3.039},
+        0.0:  {4: 0.303, 8: 0.436, 16: 0.640, 32: 0.983, 64: 1.759},
+        -2.0: {4: 0.396, 8: 0.536, 16: 0.720, 32: 0.968, 64: 1.322},
+        -4.0: {4: 0.758, 8: 0.967, 16: 1.218, 32: 1.520, 64: 1.896},
+    },
+    "binary q=0.9": {
+        0.0:  {4: 0.303, 8: 0.436, 16: 0.640, 32: 0.983, 64: 1.759},
+        -2.0: {4: 0.591, 8: 0.989, 16: 2.080, 32: 5.494, 64: 9.966},
+        -4.0: {4: 4.292, 8: 7.861, 16: 11.555, 32: 15.493, 64: 19.966},
     },
 }
 

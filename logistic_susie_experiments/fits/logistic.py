@@ -15,20 +15,37 @@ import numpy as np
 from gibss import engine
 import gibss.globaljj as _globaljj
 import gibss.localjj as _localjj
-import gibss.logistic_quadrature as _quadrature
-import gibss.logistic_profile as _profile
+import gibss.logistic_localtaylor as _localtaylor
 import gibss.irls as _irls
 
+# impl name -> (module, family_state_kwargs fixing the intercept-PROFILING axis).
+# quadrature + profile are now one module (logistic_localtaylor) dispatched by the
+# per-feature `profile` flag: False = single SHARED intercept (old
+# logistic_quadrature), True = per-feature PROFILED intercept (old
+# logistic_profile). `profile` (intercept profiling) is distinct from `center`
+# (cheap column pre-centering in prep_data); see fit_logistic_method.
 _IMPLS = {
-    "globaljj": _globaljj,
-    "localjj": _localjj,
-    "logistic_quadrature": _quadrature,
-    # profile-likelihood SER; cheb vs newton selected via
+    "globaljj": (_globaljj, {}),
+    "localjj": (_localjj, {}),
+    "logistic_quadrature": (_localtaylor, {"profile": False}),
+    # profile-likelihood SER; cheb vs newton background selected via
     # family_state_kwargs={"background_mode": "chebyshev"|"exact"}
-    "logistic_profile": _profile,
+    "logistic_profile": (_localtaylor, {"profile": True}),
     # IRLS / Laplace logistic SuSiE (default Logistic GLM family)
-    "irls": _irls,
+    "irls": (_irls, {}),
 }
+
+
+def _offset_integration_value(v):
+    """Map the yaml bool to gibss's `offset_integration` (None passes through).
+
+    gibss expects "none" (fixed offset), "taylor" (2nd-order convolution, the
+    standard integration), or an int Gauss-Hermite order. A plain bool would be
+    coerced to 0/1 (0 => hermgauss(0) crash, 1 => trivial), so map explicitly:
+    False -> "none" (off), True -> "taylor" (on). Strings/ints pass through."""
+    if isinstance(v, bool):
+        return "taylor" if v else "none"
+    return v
 
 
 def fit_logistic_method(
@@ -39,13 +56,15 @@ def fit_logistic_method(
     family_state_kwargs: dict | None = None,
     estimate_prior_variance: bool = True,
     prior_variance: float = 1.0,
-    center: bool | None = None,
+    center: bool = True,
+    profile: bool | None = None,
+    offset_integration: bool | None = None,
 ):
     if impl not in _IMPLS:
         raise ValueError(
             f"Unknown logistic impl {impl!r}; expected one of {sorted(_IMPLS)}"
         )
-    module = _IMPLS[impl]
+    module, impl_fsk = _IMPLS[impl]
     y = np.asarray(simulation.y, dtype=float)
     # Pass X through as-is: dense numpy for Markov designs, sparse BCOO for gene
     # sets. Densifying a sparse design is ~30-50x slower and, for the chebyshev
@@ -55,9 +74,17 @@ def fit_logistic_method(
 
     fsk = dict(family_state_kwargs or {})
     fsk.setdefault("estimate_prior_variance", estimate_prior_variance)
-    if center is not None:  # weighted-centering axis (irls only)
-        fsk["center"] = center
-    data = module.prep_data(X, y)
+    # Intercept-profiling axis: impl-fixed for taylor (quadrature vs profile),
+    # else the explicit `profile` arg (jj families). Distinct from `center`.
+    if "profile" in impl_fsk:
+        fsk["profile"] = impl_fsk["profile"]
+    elif profile is not None:
+        fsk["profile"] = profile
+    # offset integration over the leave-one-out offset variance (off/taylor/GH-k).
+    if offset_integration is not None:
+        fsk["offset_integration"] = _offset_integration_value(offset_integration)
+    # `center`: column pre-centering (prep_data preprocessing), default on.
+    data = module.prep_data(X, y, center=center)
     state = module.initialize_state(data, L=L, family_state_kwargs=fsk)
     if not estimate_prior_variance:
         # fix the slab variance: set every effect's prior_variance, no EB update
@@ -87,14 +114,17 @@ def summarize_logistic_method(
     family_state_kwargs: dict | None = None,
     estimate_prior_variance: bool = True,
     prior_variance: float = 1.0,
-    center: bool | None = None,
+    center: bool = True,
+    profile: bool | None = None,
+    offset_integration: bool | None = None,
 ):
     from core import (
         _extract_ser_struct,
         _make_cs_struct,
         _make_fit_summary_struct,
     )
-    del impl, L, family_state_kwargs, estimate_prior_variance, prior_variance, center
+    del impl, L, family_state_kwargs, estimate_prior_variance, prior_variance
+    del center, profile, offset_integration
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {

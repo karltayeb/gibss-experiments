@@ -8,7 +8,7 @@ coarse -> fine:
 
   block        weights <-> full SuSiE fit   reweight once per inner IBSS-to-
                                              convergence (n_outer outer steps).
-                                             n_outer=1, center=false == score_null.
+                                             n_outer=1, profile=false == score_null.
   interleaved  weights <-> 1 sweep          reweight before each sweep (one pass
                                              over l=1..L).
   greedy       weights <-> 1 SER update     reweight before each single (closed-
@@ -21,7 +21,8 @@ Reweights per outer pass: block 1 < interleaved (#sweeps) < greedy (L*#sweeps) <
 thorough (sum of per-effect iters). For L=1 all four coincide (one effect: a sweep
 = one SER update = converged inner); they diverge only at L>1.
 
-Options (all): ``center`` (weighted FWL per-feature/local intercept),
+Options (all): ``center`` (column pre-centering, prep_data preprocessing),
+``profile`` (weighted FWL / intercept profiling, distinct from ``center``),
 ``estimate_prior_variance`` / ``prior_variance`` (EB vs fixed slab).
 """
 from __future__ import annotations
@@ -140,17 +141,17 @@ _SCHED_THOROUGH = Schedule(
 _CADENCES = {"native", "block", "interleaved", "greedy", "thorough"}
 
 
-def _init_state(simulation, *, L, center, estimate_prior_variance, prior_variance):
+def _init_state(simulation, *, L, center, profile, offset_integration,
+                estimate_prior_variance, prior_variance):
     y = np.asarray(simulation.y, dtype=float)
-    data = _irls.prep_data(simulation.X, y)  # pass X through (preserve sparsity)
-    state = _irls.initialize_state(
-        data,
-        L=L,
-        family_state_kwargs={
-            "center": center,
-            "estimate_prior_variance": estimate_prior_variance,
-        },
-    )
+    # `center`: column pre-centering (prep_data preprocessing). `profile`:
+    # per-iteration WEIGHTED centering = intercept profiling (family flag).
+    data = _irls.prep_data(simulation.X, y, center=center)
+    fsk = {"profile": profile, "estimate_prior_variance": estimate_prior_variance}
+    if offset_integration is not None:  # off/taylor/GH-k over leave-one-out offset var
+        from fits.logistic import _offset_integration_value
+        fsk["offset_integration"] = _offset_integration_value(offset_integration)
+    state = _irls.initialize_state(data, L=L, family_state_kwargs=fsk)
     if not estimate_prior_variance:
         state = replace(
             state,
@@ -169,6 +170,8 @@ def fit_irls_method(
     n_outer: int = 50,
     L: int = 1,
     center: bool = True,
+    profile: bool = False,
+    offset_integration: bool | None = None,
     estimate_prior_variance: bool = True,
     prior_variance: float = 1.0,
     max_iter: int = 200,
@@ -176,7 +179,8 @@ def fit_irls_method(
     if ser_cadence not in _CADENCES:
         raise ValueError(f"ser_cadence must be one of {sorted(_CADENCES)}; got {ser_cadence!r}")
     data, state = _init_state(
-        simulation, L=L, center=center,
+        simulation, L=L, center=center, profile=profile,
+        offset_integration=offset_integration,
         estimate_prior_variance=estimate_prior_variance, prior_variance=prior_variance,
     )
     if ser_cadence == "block":

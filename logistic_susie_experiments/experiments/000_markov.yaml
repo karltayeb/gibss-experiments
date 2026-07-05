@@ -37,10 +37,21 @@ supercollections:
           rho: [0, 0.5, 0.8, 0.9, 0.95, 0.99]
           b0: [0, -2, -4]
           target_logbf: [0, 4, 8, 16, 32, 64] # 0 = null
-    # The 10-method taxonomy: {taylor, jj} x {local, global} x {centered, not} (8)
+      - name: binary_q0.9
+        sweep:
+          design: { function: binary_markov_X, n: 1000, p: 500, freq: 0.9 }
+          rho: [0, 0.5, 0.8, 0.9, 0.95, 0.99]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32, 64] # 0 = null
+    # The 10-method taxonomy: {taylor, jj} x {local, global} x {profiled, not} (8)
     # + exact marginal quadrature (shared intercept) + profile (profiled
     # intercept). taylor.local = quadrature/profile at m=1 (single-node Laplace);
     # the exact pair are the same impls at the default order. L=1.
+    #
+    # `_c` == intercept PROFILING (family `profile` flag), distinct from column
+    # pre-centering: every method now pre-centers the design (prep_data center=
+    # default true, a preprocessing step). `profile` is the plot linestyle-free
+    # profiling axis; `center` is no longer a per-method knob here.
     #
     # Each method is fit with BOTH fixed prior (sigma0^2=1) and EB
     # (estimate_prior_variance) via `over` -> 10 names x 2 priors = 20 fits. The
@@ -81,14 +92,14 @@ supercollections:
             function: run_irls_method,
             over: *eb_over,
             template:
-              { ser_cadence: native, L: 1, center: false, prior_variance: 1.0 },
+              { ser_cadence: native, L: 1, profile: false, prior_variance: 1.0 },
           }
       - taylor_global_c:
           {
             function: run_irls_method,
             over: *eb_over,
             template:
-              { ser_cadence: native, L: 1, center: true, prior_variance: 1.0 },
+              { ser_cadence: native, L: 1, profile: true, prior_variance: 1.0 },
           }
       # --- jj (variational) ---
       - jj_local:
@@ -96,37 +107,40 @@ supercollections:
             function: run_logistic_method,
             over: *eb_over,
             template:
-              { impl: localjj, L: 1, center: false, prior_variance: 1.0 },
+              { impl: localjj, L: 1, profile: false, prior_variance: 1.0 },
           }
       - jj_local_c:
           {
             function: run_logistic_method,
             over: *eb_over,
             template:
-              { impl: localjj, L: 1, center: true, prior_variance: 1.0 },
+              { impl: localjj, L: 1, profile: true, prior_variance: 1.0 },
           }
       - jj_global:
           {
             function: run_logistic_method,
             over: *eb_over,
             template:
-              { impl: globaljj, L: 1, center: false, prior_variance: 1.0 },
+              { impl: globaljj, L: 1, profile: false, prior_variance: 1.0 },
           }
       - jj_global_c:
           {
             function: run_logistic_method,
             over: *eb_over,
             template:
-              { impl: globaljj, L: 1, center: true, prior_variance: 1.0 },
+              { impl: globaljj, L: 1, profile: true, prior_variance: 1.0 },
           }
       # --- exact marginal ---
-      - quadrature: # shared intercept (non-centered), default order
+      # Both run on the pre-centered design (center=true default). The only
+      # difference: quadrature keeps a single SHARED intercept; profile RE-CENTERS
+      # per feature (per-feature profiled intercept).
+      - quadrature: # shared intercept, default order
           {
             function: run_logistic_method,
             over: *eb_over,
             template: { impl: logistic_quadrature, L: 1, prior_variance: 1.0 },
           }
-      - profile: # profiled intercept (centered), default order
+      - profile: # per-feature profiled intercept (re-centers), default order
           {
             function: run_logistic_method,
             over: *eb_over,
@@ -139,9 +153,10 @@ supercollections:
               },
           }
       # --- baselines ---
-      # one-step IRLS = single Laplace at the null intercept (weights frozen).
-      # onestep (center=false) == score_null (verified to numerical precision).
-      - onestep: # one outer iter, non-centered
+      # score = one-step IRLS = single Laplace at the null intercept (weights
+      # frozen). On the pre-centered design this == score_null (verified to
+      # numerical precision); profiling is redundant, so a single method.
+      - score: # one outer iter, pre-centered design
           {
             function: run_irls_method,
             over: *eb_over,
@@ -150,20 +165,6 @@ supercollections:
                 ser_cadence: block,
                 n_outer: 1,
                 L: 1,
-                center: false,
-                prior_variance: 1.0,
-              },
-          }
-      - onestep_c: # one outer iter, centered
-          {
-            function: run_irls_method,
-            over: *eb_over,
-            template:
-              {
-                ser_cadence: block,
-                n_outer: 1,
-                L: 1,
-                center: true,
                 prior_variance: 1.0,
               },
           }
@@ -187,7 +188,7 @@ supercollections:
           rows: [pip_calibration, power_fdp],
           color: method,
           linestyle: prior,
-          filter: { intercept: -2, center: true, prior: fixed },
+          filter: { intercept: -2, profile: true, prior: fixed },
         }
       cs_summary:
         {
@@ -195,7 +196,7 @@ supercollections:
           rows: [cs_calibration, cs_coverage_size],
           color: method,
           linestyle: prior,
-          filter: { intercept: -2, center: true, prior: fixed, signal: true },
+          filter: { intercept: -2, profile: true, prior: fixed, signal: true },
         }
       lbf_summary:
         {
@@ -203,12 +204,12 @@ supercollections:
           rows: [cs_power_fdp, cs_roc],
           color: method,
           linestyle: prior,
-          filter: { intercept: -2, center: true, prior: fixed },
+          filter: { intercept: -2, profile: true, prior: fixed },
         }
 
   # Quick pilot: 1 b0 (-2), 3 rho, 5 target_logbf (incl null), all 4 designs,
   # all 20 methods, 1 batch (50 reps). ~1200 fits vs 17280 for the full batch.
-  000_markov_pilot:
+  000_markov_ser:
     n_batches: 2
     collections:
       - name: gaussian
@@ -232,6 +233,12 @@ supercollections:
       - name: binary_q0.1
         sweep:
           design: { function: binary_markov_X, n: 1000, p: 500, freq: 0.1 }
+          rho: [0, 0.8, 0.95]
+          b0: [0, -2, -4]
+          target_logbf: [0, 4, 8, 16, 32]
+      - name: binary_q0.9
+        sweep:
+          design: { function: binary_markov_X, n: 1000, p: 500, freq: 0.9 }
           rho: [0, 0.8, 0.95]
           b0: [0, -2, -4]
           target_logbf: [0, 4, 8, 16, 32]
@@ -295,36 +302,36 @@ supercollections:
           target_logbf: [0, 4, 8, 16, 32]
           effect: logbf_k_effects
           effect_args: { k: 3 }
-    _eb_susie: &eb_susie { estimate_prior_variance: [false, true] }
+      - name: binary_q0.9
+        sweep:
+          design: { function: binary_markov_X, n: 1000, p: 500, freq: 0.9 }
+          rho: [0.8]
+          b0: [-2]
+          target_logbf: [0, 4, 8, 16, 32]
+          effect: logbf_k_effects
+          effect_args: { k: 3 }
+    # sweep prior {fixed, eb} x offset_integration {none, GH-5}; all methods L=5.
+    # "none" (quoted -> string, not YAML null) = fixed offset; 5 = Gauss-Hermite
+    # order-5 (exact to degree 9) over the leave-one-out offset variance.
+    _susie_over: &susie_over
+      { estimate_prior_variance: [false, true], offset_integration: ["none", 5] }
     methods:
-      - quadrature_L3:
+      - quadrature: # shared intercept, exact background
           {
             function: run_logistic_method,
-            over: *eb_susie,
-            template: { impl: logistic_quadrature, L: 3, prior_variance: 1.0 },
-          }
-      - quadrature_L5:
-          {
-            function: run_logistic_method,
-            over: *eb_susie,
-            template: { impl: logistic_quadrature, L: 5, prior_variance: 1.0 },
-          }
-      - profile_L3:
-          {
-            function: run_logistic_method,
-            over: *eb_susie,
+            over: *susie_over,
             template:
               {
-                impl: logistic_profile,
-                L: 3,
+                impl: logistic_quadrature,
+                L: 5,
                 prior_variance: 1.0,
                 family_state_kwargs: { background_mode: exact },
               },
           }
-      - profile_L5:
+      - profile: # per-feature profiled intercept (re-centers), exact background
           {
             function: run_logistic_method,
-            over: *eb_susie,
+            over: *susie_over,
             template:
               {
                 impl: logistic_profile,
@@ -332,6 +339,32 @@ supercollections:
                 prior_variance: 1.0,
                 family_state_kwargs: { background_mode: exact },
               },
+          }
+      - global_taylor: # irls / Laplace (converged, native cadence)
+          {
+            function: run_irls_method,
+            over: *susie_over,
+            template: { ser_cadence: native, L: 5, prior_variance: 1.0 },
+          }
+      # score = fix the linearization (working weights) at the null model, then
+      # fit weighted linear SuSiE around it. The leave-one-out offset still enters
+      # the inner linear SER, but the offset variance is never re-integrated (one
+      # reweight at null; inner is linear) => offset_integration is a no-op here.
+      # Prior-only sweep.
+      - score:
+          {
+            function: run_irls_method,
+            over: *eb_over,
+            template:
+              { ser_cadence: block, n_outer: 1, L: 5, prior_variance: 1.0 },
+          }
+      # linear/Gaussian SuSiE on raw y (resid var 1/4). No offset integration
+      # (identity model), so prior-only sweep.
+      - linear:
+          {
+            function: run_linear_susie_method,
+            over: *eb_over,
+            template: { L: 5, prior_variance: 1.0 },
           }
     default_args: *default_args
     plots: *markov_plots

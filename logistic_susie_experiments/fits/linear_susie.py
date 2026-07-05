@@ -60,12 +60,15 @@ def fit_linear_susie_method(
     n = y.shape[0]
     ybar = float(y.mean())
 
-    data = _irls.prep_data(simulation.X, y)  # X, y, X_sq (BCOO preserved)
+    # center=False in prep_data: this baseline does its OWN column centering via
+    # the weighted-FWL `profile` machinery (update_centering_step below), so we
+    # must not also pre-center in prep_data (that would double-center).
+    data = _irls.prep_data(simulation.X, y, center=False)  # X, y, X_sq (BCOO preserved)
     state = _irls.initialize_state(
         data,
         L=L,
         family_state_kwargs={
-            "center": True,                          # implicit column centering (sparse-safe)
+            "profile": True,                         # implicit column centering (sparse-safe)
             "estimate_prior_variance": estimate_prior_variance,
             "intercept": ybar,                       # centering handles the response mean
             "estimate_intercept": False,
