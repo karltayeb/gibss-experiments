@@ -38,15 +38,10 @@ if [ -z "${N:-}" ]; then
 fi
 
 cd "$(dirname "$0")/.."          # -> logistic_susie_experiments (Snakefile lives here)
-mkdir -p logs run/targets
+mkdir -p logs
 
-T="run/targets/${SC}_${SLURM_ARRAY_TASK_ID}.txt"
-uv run python run/emit_targets.py --sc "$SC" --chunk "${SLURM_ARRAY_TASK_ID}" --n "$N" > "$T"
-
-if [ -s "$T" ]; then
-    # small per-task DAG (one batch slice) -> fast build, run on the node's cores
-    uv run snakemake --executor local -j "${SLURM_CPUS_PER_TASK}" \
-        --rerun-incomplete --nocolor $(cat "$T")
-else
-    echo "chunk ${SLURM_ARRAY_TASK_ID}/${N} for ${SC}: no batches in slice — skip"
-fi
+# Native chunk target: reduce_chunk's input function returns only this slice's
+# reductions -> small per-task DAG (fast build, no groups), run on the node's cores.
+# Chunks with no batches just touch the sentinel (no work).
+uv run snakemake --executor local -j "${SLURM_CPUS_PER_TASK}" --rerun-incomplete --nocolor \
+    "results/supercollections/${SC}/.done_${SLURM_ARRAY_TASK_ID}_of_${N}"

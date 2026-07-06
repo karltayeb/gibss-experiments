@@ -9,34 +9,43 @@ Why not `--groups` / `--batch`:
 - `--batch rule=i/N` batches only **one** rule — batching `fit` still pulls every
   `reduce_pip`/`reduce_cs` job into the DAG.
 
-Instead: partition by whole batch and target the reductions directly. Each array
-task builds a *small* DAG (its batch slice) and runs simulate -> fit ->
-reduce_pip + reduce_cs on the node's cores.
+Instead: the `reduce_chunk` rule exposes a native target
+
+    results/supercollections/<SC>/.done_<i>_of_<N>
+
+whose input function returns only chunk `i`'s reductions (both pip + cs),
+partitioned by whole `batch_hash`. Snakemake then builds a *small* DAG (that slice
++ its fits/sims) — fast build, no groups. Each array task runs one chunk with the
+local executor on the node's cores.
 
 ## Usage
 
 ```bash
-# 1. reductions, as a SLURM array (use --array=1-N; N is derived from it)
+cd .../logistic_susie_experiments
+mkdir -p logs                       # --output=logs/... must be writable at submit
+# 1. reductions, as a SLURM array (use --array=1-N; N derived from it).
 #    account=pi-mstephens / partition=caslake baked into the sbatch.
-mkdir -p logs
 sbatch --array=1-100 --export=SC=000_markov_ser run/fit_array.sbatch
 
 # 2. plots, once all reductions exist (single, non-array step)
 uv run snakemake -j8 results/supercollections/000_markov_ser/.done
 ```
 
-`emit_targets.py --sc <SC> --chunk i --n N` prints the reduction parquet targets
-for chunk `i` (batches where `index % N == i-1`; both reductions, method-filtered).
-`N` == chunk count == array size; the sbatch derives it from `SLURM_ARRAY_TASK_COUNT`
-(or the array MAX-MIN+1), so you only pass `SC`. Use a 1-based array (`--array=1-N`).
+Manually build one chunk (no SLURM):
+```bash
+uv run snakemake --executor local -j8 \
+  results/supercollections/000_markov_ser/.done_1_of_100
+```
 
 ## Sizing N
 Aim each task ~15–60 min. Cheap SCs (score/global_taylor ~1–2s/fit) need small N;
-the exact-quadrature / profile+GH5 cells and the n=50k tier want large N. If some
+exact-quadrature / profile+GH5 cells and the n=50k tier want large N. If some
 batches are far heavier (50k), weight the split rather than round-robin.
 
 ## Notes
 - Partition is by whole batch, so a batch's pip, cs, and shared
-  `simulations.parquet` always co-locate in one chunk (no recompute / racing).
-- Local executor per task (`--executor local -j $CPUS`) — no per-fit sbatch.
+  `simulations.parquet` co-locate in one chunk (no recompute / racing).
+- `N` == chunk count == array size; the sbatch derives it from
+  `SLURM_ARRAY_TASK_COUNT` (or the array `MAX-MIN+1`). Use a 1-based array.
+- Chunks with no batches (N > #batches) just touch the sentinel — harmless.
 - Scope every submission to ONE `SC`; never the global default target.

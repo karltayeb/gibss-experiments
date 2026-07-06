@@ -4,5 +4,4 @@ results/
 *.py[cod]
 
 # cluster array run artifacts
-run/targets/
 logs/

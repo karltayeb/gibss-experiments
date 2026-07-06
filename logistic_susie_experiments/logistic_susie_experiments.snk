@@ -34,6 +34,8 @@ wildcard_constraints:
     bucket=r"[A-Za-z0-9_]+",
     plot_name=r"[A-Za-z0-9_\-]+",
     supercollection=r"[A-Za-z0-9_\-\.]+",
+    chunk_i=r"[0-9]+",
+    chunk_n=r"[0-9]+",
 
 
 def _all_plot_targets():
@@ -193,3 +195,35 @@ rule supercollection:
         ],
     output:
         touch(f"{RESULTS_ROOT}/supercollections/{{supercollection}}/.done"),
+
+
+# ---------------------------------------------------------------------------
+# Per-supercollection reduction chunk: `.done_<i>_of_<n>` builds only chunk i's
+# reductions (both pip + cs), partitioned by whole batch_hash. The input function
+# returns just that slice, so snakemake builds a SMALL DAG (chunk + its fits/sims)
+# -- fast build, no job groups. Drive a SLURM array over i with --executor local:
+#   snakemake --executor local -j$CPUS \
+#     results/supercollections/<SC>/.done_${SLURM_ARRAY_TASK_ID}_of_<N>
+# Whole-batch partition keeps a batch's pip/cs/simulations in one chunk.
+# ---------------------------------------------------------------------------
+
+def _chunk_reduction_targets(config, sc_name, i, n):
+    targets = []
+    for reduction in LIBRARY["reductions"]:
+        targets.extend(_sc_reduction_inputs(config, sc_name, reduction))
+    by_batch = {}
+    for t in targets:
+        bh = t.split("/by_batch/")[1].split("/")[0]
+        by_batch.setdefault(bh, []).append(t)
+    out = []
+    for k, bh in enumerate(sorted(by_batch)):
+        if k % n == (i - 1):
+            out.extend(by_batch[bh])
+    return out
+
+
+rule reduce_chunk:
+    output:
+        touch(f"{RESULTS_ROOT}/supercollections/{{supercollection}}/.done_{{chunk_i}}_of_{{chunk_n}}"),
+    input:
+        lambda wc: _chunk_reduction_targets(CONFIG, wc.supercollection, int(wc.chunk_i), int(wc.chunk_n)),
