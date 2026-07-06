@@ -40,7 +40,9 @@ for i in $(seq "$START" "$END"); do
     echo "==================================================================="
     echo "[$(date '+%F %T')] chunk ${i}/${N}  ->  ${tgt}"
     uv run snakemake --unlock >/dev/null 2>&1 || true   # clear a stale lock from a killed chunk
-    if uv run snakemake "$tgt" --profile profile/; then
+    # --rerun-incomplete: redo outputs left partial by a killed/timed-out chunk
+    # (otherwise snakemake treats a truncated parquet as done and skips it).
+    if uv run snakemake "$tgt" --profile profile/ --rerun-incomplete; then
         echo "[$(date '+%F %T')] chunk ${i}/${N} OK"
     else
         rc=$?
