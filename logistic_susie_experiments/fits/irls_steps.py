@@ -171,7 +171,7 @@ def fit_irls_method(
     L: int = 1,
     center: bool = True,
     profile: bool = False,
-    offset_integration: bool | None = None,
+    offset_integration: str | int | bool = "taylor",
     estimate_prior_variance: bool = True,
     prior_variance: float = 1.0,
     max_iter: int = 200,

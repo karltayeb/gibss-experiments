@@ -58,7 +58,7 @@ def fit_logistic_method(
     prior_variance: float = 1.0,
     center: bool = True,
     profile: bool | None = None,
-    offset_integration: bool | None = None,
+    offset_integration: str | int | bool = "taylor",
 ):
     if impl not in _IMPLS:
         raise ValueError(
@@ -116,7 +116,7 @@ def summarize_logistic_method(
     prior_variance: float = 1.0,
     center: bool = True,
     profile: bool | None = None,
-    offset_integration: bool | None = None,
+    offset_integration: str | int | bool = "taylor",
 ):
     from core import (
         _extract_ser_struct,
