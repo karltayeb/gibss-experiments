@@ -5,16 +5,21 @@
 # batches BOTH reduce_pip and reduce_cs (+ their fits/sims).
 #
 # N (the chunk count) == the array size. It is derived from the array itself, so
-# you only pass SC. Submit:
+# you only pass SC. Submit (midway3 / caslake), from logistic_susie_experiments/
+# (mkdir -p logs once so --output can be written):
+#     mkdir -p logs
 #     sbatch --array=1-100 --export=SC=000_markov_ser run/fit_array.sbatch
-# (Override only if you know better: --export=SC=...,N=100 — must match --array.)
+# (account=pi-mstephens / partition=caslake baked in below; override on the CLI if
+#  needed. Override chunk count with --export=SC=...,N=100 — must match --array.)
 # Then, once all reductions exist, build plots in a single non-array step:
 #     uv run snakemake -j8 results/supercollections/$SC/.done
 #
 #SBATCH --job-name=gibss-reduce
+#SBATCH --account=pi-mstephens
+#SBATCH --partition=caslake
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=16G
-#SBATCH --time=02:00:00
+#SBATCH --mem=32G
+#SBATCH --time=04:00:00
 #SBATCH --output=logs/%x_%A_%a.out
 set -euo pipefail
 

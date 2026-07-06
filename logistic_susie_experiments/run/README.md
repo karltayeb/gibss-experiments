@@ -17,6 +17,8 @@ reduce_pip + reduce_cs on the node's cores.
 
 ```bash
 # 1. reductions, as a SLURM array (use --array=1-N; N is derived from it)
+#    account=pi-mstephens / partition=caslake baked into the sbatch.
+mkdir -p logs
 sbatch --array=1-100 --export=SC=000_markov_ser run/fit_array.sbatch
 
 # 2. plots, once all reductions exist (single, non-array step)
