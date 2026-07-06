@@ -6,13 +6,13 @@ def test_000_markov_supercollection_expands():
     assert "000_markov" in cfg["supercollections"]
     sc = cfg["supercollections"]["000_markov"]
     cols = loader.expand_collections(cfg["library"], "000_markov", sc["collections"])
-    # 4 design types x 6 rho = 24 collections
-    assert len(cols) == 24
+    # 5 design types (incl binary_q0.9) x 6 rho = 30 collections
+    assert len(cols) == 30
     # each collection unions 15 signal (3 b0 x 5 logBF) + 3 null = 18 sims
     assert len(cols[0]["simulations"]) == 18
-    # methods: the 6 requested
+    # methods: 12 names x 2 priors (fixed/eb) = 24
     methods = loader.resolve_methods_for_sc(cfg["library"], sc)
-    assert len(methods) == 26
+    assert len(methods) == 24
 
 
 def test_000_global_local_removed():
@@ -24,10 +24,10 @@ def test_000_markov_expands_via_sweep():
     cfg = loader.load_config()
     sc = cfg["supercollections"]["000_markov"]
     cols = loader.expand_collections(cfg["library"], "000_markov", sc["collections"])
-    assert len(cols) == 24                       # 4 designs x 6 rho
+    assert len(cols) == 30                       # 5 designs (incl q0.9) x 6 rho
     assert len(cols[0]["simulations"]) == 18     # 3 b0 x 5 logbf + 3 null
     methods = loader.resolve_methods_for_sc(cfg["library"], sc)
-    assert len(methods) == 26
+    assert len(methods) == 24                     # 12 names x 2 priors
 
 
 def test_000_markov_plot_keys_are_path_safe():

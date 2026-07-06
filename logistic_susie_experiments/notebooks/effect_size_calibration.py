@@ -29,8 +29,15 @@ def _title():
     Wald-approximation *methods*, not the evidence or the sizing — shown as an
     aside.) `glmbf`-free throughout.
 
+    **Centered.** Everything is sized on the *centered* feature $x-\mathrm E[x]$,
+    to match how methods fit (`center=True`) and how `simulate()` generates $y$
+    (from the centered design). So $b_0$ fixes the base rate $\sigma(b_0)$
+    *independently of $b$* — no base-rate drift for asymmetric designs. Symmetric
+    designs (gaussian/uniform/q=0.5) are unchanged; asymmetric binary (q=0.1,
+    q=0.9) differ from the uncentered sizing.
+
     Design marginals (rho-independent for the univariate evidence): `gaussian`
-    $N(0,1)$, `uniform` $U(-1,1)$, `binary q=0.5`, `binary q=0.1` ($\pm1$).
+    $N(0,1)$, `uniform` $U(-1,1)$, `binary q=0.5/0.1/0.9` ($\pm1$).
     """)
     return
 
@@ -43,7 +50,7 @@ def _config():
     B0_GRID = [0.0, -2.0, -4.0]    # mapping table sweeps these
     REPS = 800
     LOGBF = [4, 8, 16, 32, 64]
-    DESIGNS = ["gaussian", "uniform", "binary q=0.5", "binary q=0.1"]
+    DESIGNS = ["gaussian", "uniform", "binary q=0.5", "binary q=0.1", "binary q=0.9"]
     return B0, B0_GRID, DESIGNS, LOGBF, N, N_GRID, REPS
 
 
@@ -68,22 +75,29 @@ def _analytic():
             return np.array([-1.0, 1.0]), np.array([0.5, 0.5])
         if dist == "binary q=0.1":
             return np.array([-1.0, 1.0]), np.array([0.9, 0.1])
+        if dist == "binary q=0.9":
+            return np.array([-1.0, 1.0]), np.array([0.1, 0.9])
         raise ValueError(dist)
 
     def expected_lrt(dist, b0, b, n):
-        """Λ = n·MI(x;y) = n·[H(p̄) − E_x H(p_x)]. Monotone in b; saturates at the
-        deviance n·H(p̄_∞)."""
+        """Λ = n·MI(x;y) = n·[H(p̄) − E_x H(p_x)], sized on the CENTERED feature
+        x − E[x] so b0 fixes the base rate σ(b0) (matches center=True fits and
+        the centered simulate). Symmetric designs (E[x]=0) unchanged; asymmetric
+        binary (q≠0.5) differ. Monotone in b; saturates at deviance n·H(p̄_∞)."""
         x, pw = marginal(dist)
-        px = sigmoid(b0 + b * x)
+        xbar = float(np.sum(pw * x))
+        px = sigmoid(b0 + b * (x - xbar))
         pbar = float(np.sum(pw * px))
         return n * (_H(pbar) - float(np.sum(pw * _H(px))))
 
     def wald_half_z2(dist, b0, b, n):
-        """½ z² from the (true-parameter) profile information — the Wald-method
-        proxy. Non-monotone in b (separation collapses the information)."""
+        """½ z² from the (true-parameter) profile information on the CENTERED
+        feature — the Wald-method proxy. Non-monotone in b (separation collapses
+        the information)."""
         x, pw = marginal(dist)
-        w = sigmoid(b0 + b * x) * (1.0 - sigmoid(b0 + b * x))
-        Ew = float(np.sum(pw * w)); Ewx = float(np.sum(pw * w * x)); Ewx2 = float(np.sum(pw * w * x * x))
+        xbar = float(np.sum(pw * x)); xc = x - xbar
+        w = sigmoid(b0 + b * xc) * (1.0 - sigmoid(b0 + b * xc))
+        Ew = float(np.sum(pw * w)); Ewx = float(np.sum(pw * w * xc)); Ewx2 = float(np.sum(pw * w * xc * xc))
         return 0.5 * n * b * b * (Ewx2 - Ewx * Ewx / Ew)
 
     def solve_b(dist, logbf_target, b0, n):
@@ -185,7 +199,7 @@ def _simulate(B0, DESIGNS, LOGBF, N_GRID, REPS, mapping, sigmoid):
             return rng.normal(size=n)
         if dist == "uniform":
             return rng.uniform(-1.0, 1.0, size=n)
-        q = 0.5 if "0.5" in dist else 0.1
+        q = float(dist.split("=")[1])  # binary q=0.5/0.1/0.9
         return 2.0 * (rng.random(n) < q) - 1.0
 
     def _loglik(p, y):
@@ -224,8 +238,9 @@ def _simulate(B0, DESIGNS, LOGBF, N_GRID, REPS, mapping, sigmoid):
                     lrts = np.empty(REPS); zs = np.empty(REPS)
                     for r in range(REPS):
                         x = draw_x(dist, n, rng)
-                        y = (rng.random(n) < sigmoid(B0 + b * x)).astype(float)
-                        lrts[r], zs[r] = fit_lrt_z(x, y)
+                        xc = x - x.mean()  # centered design (matches centered simulate/fit)
+                        y = (rng.random(n) < sigmoid(B0 + b * xc)).astype(float)
+                        lrts[r], zs[r] = fit_lrt_z(xc, y)
                     m = np.isfinite(lrts)
                     out[(n, dist, lbf)] = (lrts[m], zs[np.isfinite(zs)])
         return out
@@ -304,8 +319,14 @@ def _conclusions():
     ## Takeaways
 
     - **Exact-LRT sizing works and is monotone** — `Λ(b)=target` reproduces the
-      target mean realized LRT; no pilot, no glmbf, no Wald ceiling. Every rung
-      (incl. logBF=64) is reachable at every (design, b0, n).
+      target mean realized LRT; no glmbf, no Wald ceiling. Every rung (incl.
+      logBF=64) is reachable at every (design, b0, n).
+    - **Centered sizing is accurate across imbalance.** Empirical mean LLR / Λ
+      (n=1000, ≥40 reps): at strong signal (L≥16) ratio 0.95–1.07 for every
+      design at b0 ∈ {0, −2, −4}; at the imbalanced b0=−4 (σ≈1.8%, ~18 cases)
+      ratio 0.95–1.11. Only logBF=4 (weak) overshoots (~1.1–1.3×, worst at
+      balanced b0) — finite-sample LLR bias vs the asymptotic n·MI, not a
+      centering/imbalance defect. So Λ is a good prior-free target everywhere.
     - **logBF and z² decouple at saturation** — `Λ` keeps rising while Wald `½z²`
       falls (see the decouple figure). Size by `Λ`; the z label is a
       regular-regime mnemonic only.
