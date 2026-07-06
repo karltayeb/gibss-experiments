@@ -48,9 +48,9 @@ supercollections:
     # intercept). taylor.local = quadrature/profile at m=1 (single-node Laplace);
     # the exact pair are the same impls at the default order. L=1.
     #
-    # `_c` == intercept PROFILING (family `profile` flag), distinct from column
-    # pre-centering: every method now pre-centers the design (prep_data center=
-    # default true, a preprocessing step). `profile` is the plot linestyle-free
+    # `_profile` suffix == intercept PROFILING (family `profile` flag), distinct
+    # from column pre-centering: every method now pre-centers the design (prep_data
+    # center= default true, a preprocessing step). `profile` is the plot
     # profiling axis; `center` is no longer a per-method knob here.
     #
     # Each method is fit with BOTH fixed prior (sigma0^2=1) and EB
@@ -72,7 +72,7 @@ supercollections:
                 family_state_kwargs: { quadrature_order: 1 },
               },
           }
-      - taylor_local_c: # profile m=1 (profiled intercept, centered)
+      - taylor_local_profile: # profile m=1 (profiled intercept)
           {
             function: run_logistic_method,
             over: *eb_over,
@@ -94,7 +94,7 @@ supercollections:
             template:
               { ser_cadence: native, L: 1, profile: false, prior_variance: 1.0 },
           }
-      - taylor_global_c:
+      - taylor_global_profile:
           {
             function: run_irls_method,
             over: *eb_over,
@@ -109,7 +109,7 @@ supercollections:
             template:
               { impl: localjj, L: 1, profile: false, prior_variance: 1.0 },
           }
-      - jj_local_c:
+      - jj_local_profile:
           {
             function: run_logistic_method,
             over: *eb_over,
@@ -123,7 +123,7 @@ supercollections:
             template:
               { impl: globaljj, L: 1, profile: false, prior_variance: 1.0 },
           }
-      - jj_global_c:
+      - jj_global_profile:
           {
             function: run_logistic_method,
             over: *eb_over,
