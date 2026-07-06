@@ -16,8 +16,8 @@ reduce_pip + reduce_cs on the node's cores.
 ## Usage
 
 ```bash
-# 1. reductions, as a SLURM array (N must equal the array size)
-sbatch --array=1-100 --export=SC=000_markov_ser,N=100 run/fit_array.sbatch
+# 1. reductions, as a SLURM array (use --array=1-N; N is derived from it)
+sbatch --array=1-100 --export=SC=000_markov_ser run/fit_array.sbatch
 
 # 2. plots, once all reductions exist (single, non-array step)
 uv run snakemake -j8 results/supercollections/000_markov_ser/.done
@@ -25,6 +25,8 @@ uv run snakemake -j8 results/supercollections/000_markov_ser/.done
 
 `emit_targets.py --sc <SC> --chunk i --n N` prints the reduction parquet targets
 for chunk `i` (batches where `index % N == i-1`; both reductions, method-filtered).
+`N` == chunk count == array size; the sbatch derives it from `SLURM_ARRAY_TASK_COUNT`
+(or the array MAX-MIN+1), so you only pass `SC`. Use a 1-based array (`--array=1-N`).
 
 ## Sizing N
 Aim each task ~15–60 min. Cheap SCs (score/global_taylor ~1–2s/fit) need small N;
