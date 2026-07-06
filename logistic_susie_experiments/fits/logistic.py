@@ -35,6 +35,10 @@ _IMPLS = {
     "irls": (_irls, {}),
 }
 
+# Impls whose family state accepts `offset_integration` (localtaylor). The JJ
+# variational families (globaljj/localjj) have no such field.
+_OFFSET_IMPLS = {"logistic_quadrature", "logistic_profile"}
+
 
 def _offset_integration_value(v):
     """Map the yaml bool to gibss's `offset_integration` (None passes through).
@@ -81,7 +85,9 @@ def fit_logistic_method(
     elif profile is not None:
         fsk["profile"] = profile
     # offset integration over the leave-one-out offset variance (off/taylor/GH-k).
-    if offset_integration is not None:
+    # Only the localtaylor family (quadrature/profile) has this knob; the JJ
+    # variational families (globaljj/localjj) do not -- skip it for them.
+    if offset_integration is not None and impl in _OFFSET_IMPLS:
         fsk["offset_integration"] = _offset_integration_value(offset_integration)
     # `center`: column pre-centering (prep_data preprocessing), default on.
     data = module.prep_data(X, y, center=center)
