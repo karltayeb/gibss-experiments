@@ -37,6 +37,19 @@ uv run snakemake --executor local -j8 \
   results/supercollections/000_markov_ser/.done_1_of_100
 ```
 
+**Alternative — profile submission, chunk-by-chunk (sequential driver).** Instead
+of a SLURM array + `--executor local`, drive the chunks through the snakemake
+`profile/` (which submits group jobs to SLURM). `run_chunks.sh` loops
+`.done_i_of_N` for i=1..N; each chunk builds a small DAG and submits its group
+jobs, snakemake waits, then the next chunk. Run under tmux/screen (long-lived):
+```bash
+tmux new -s gibss 'bash run/run_chunks.sh 000_markov_ser 1000 | tee run/chunks.log'
+# resume a range:  bash run/run_chunks.sh 000_markov_ser 1000 250 500
+```
+Needs the untracked `profile/` (SLURM submit-cmd with `--cpus-per-task={threads}`,
+`mem_mb: 4000`). Bound: a group needs `threads ≤ 48` and `threads×mem_mb ≤ 184 GB`
+(threads ≈ group-components × fits-per-batch) — keep `group-components` modest.
+
 ## Sizing N
 Aim each task ~15–60 min. Cheap SCs (score/global_taylor ~1–2s/fit) need small N;
 exact-quadrature / profile+GH5 cells and the n=50k tier want large N. If some
