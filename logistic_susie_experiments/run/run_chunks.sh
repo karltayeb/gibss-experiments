@@ -20,14 +20,17 @@ cd "$(dirname "$0")/.."          # -> logistic_susie_experiments (Snakefile here
 
 # Disable the XLA compile cache for the SUBMITTED jobs too (sbatch --export=ALL
 # propagates this env to the compute nodes) -- avoids the cross-machine AOT SIGILL.
-export GIBSS_NO_JAX_CACHE=1
-unset JAX_COMPILATION_CACHE_DIR 2>/dev/null || true
-export JAX_ENABLE_COMPILATION_CACHE=false
+# NODE-LOCAL JAX compile cache: compile each kernel once per node and reuse across
+# all jobs landing there (a fresh process otherwise recompiles all ~24 methods,
+# ~2-3 min/batch of pure compile). Node-local (/tmp) avoids the cross-machine AOT
+# SIGILL a shared-FS cache causes. Propagates to jobs via sbatch --export=ALL.
+export GIBSS_JAX_CACHE_DIR="/tmp/gibss_jax_${USER}"
+unset GIBSS_NO_JAX_CACHE JAX_ENABLE_COMPILATION_CACHE JAX_COMPILATION_CACHE_DIR 2>/dev/null || true
 
-# Pin BLAS/JAX intra-op threads to 1. These fits (n~1000, p~500, L=1) are too small
-# to benefit from threads; unpinned, each 1-CPU job spawns ~node-many threads and
-# many concurrent jobs thrash the node (a 0.3s fit -> 30+ min). 1 thread -> ~0.3s.
-# (If you switch to cores>1, set these to that core count.)
+# Pin BLAS/JAX intra-op threads to the CPUs each job gets (1 for cores:1). Unpinned,
+# each 1-CPU job spawns node-many threads and ~100 concurrent jobs thrash the node
+# (a fit -> 30+ min). Pinned: no thrash (~6s/fit single-threaded; bump cores + these
+# together for faster per-fit at the cost of jobs-per-node).
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 export XLA_FLAGS="${XLA_FLAGS:-} --xla_cpu_multi_thread_eigen=false"
 

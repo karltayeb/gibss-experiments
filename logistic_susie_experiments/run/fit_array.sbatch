@@ -40,20 +40,16 @@ fi
 cd "$(dirname "$0")/.."          # -> logistic_susie_experiments (Snakefile lives here)
 mkdir -p logs
 
-# Disable ALL persistent XLA compile caches. A kernel AOT-compiled on a node with
-# different CPU features (e.g. avx512vnni) loaded on another node -> machine-type
-# mismatch -> SIGILL. gibss's own cache is opted out with GIBSS_NO_JAX_CACHE=1;
-# JAX also auto-reads JAX_COMPILATION_CACHE_DIR from the environment (a cluster
-# module / profile may set it), so unset it and force the cache OFF via XLA flags.
-# gibss kernels compile in <1s, so per-process recompile is cheap and safe.
-export GIBSS_NO_JAX_CACHE=1
-unset JAX_COMPILATION_CACHE_DIR
-export JAX_ENABLE_COMPILATION_CACHE=false   # authoritative jax off-switch (cache off even if a dir is set)
+# NODE-LOCAL JAX compile cache: compile each kernel once per node and reuse (a
+# fresh process otherwise recompiles all methods). Node-local (/tmp) avoids the
+# cross-machine AOT SIGILL a shared-FS cache causes; unset the env vars that would
+# re-enable a shared cache.
+export GIBSS_JAX_CACHE_DIR="/tmp/gibss_jax_${USER}"
+unset GIBSS_NO_JAX_CACHE JAX_ENABLE_COMPILATION_CACHE JAX_COMPILATION_CACHE_DIR 2>/dev/null || true
 
-# Pin BLAS/JAX intra-op threads. These fits are too small to benefit from threads;
-# unpinned, each task spawns node-many threads and concurrent tasks thrash (a 0.3s
-# fit -> 30+ min). Here the array task IS the parallel unit, so cap per-fit threads
-# to 1 and let -j run fits across the allocated cores.
+# Pin BLAS/JAX intra-op threads. Unpinned, each fit spawns node-many threads and
+# concurrent fits thrash. Here -j runs fits across the task's cores, so pin per-fit
+# threads to 1.
 export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
 export XLA_FLAGS="${XLA_FLAGS:-} --xla_cpu_multi_thread_eigen=false"
 
