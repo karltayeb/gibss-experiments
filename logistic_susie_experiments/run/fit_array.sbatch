@@ -40,12 +40,11 @@ fi
 cd "$(dirname "$0")/.."          # -> logistic_susie_experiments (Snakefile lives here)
 mkdir -p logs
 
-# JAX/XLA persistent compile cache: keep it NODE-LOCAL. gibss auto-enables a cache
-# at ~/.cache/gibss/jax (shared FS); loading an AOT-compiled kernel built on a node
-# with different CPU features (e.g. avx512vnni) on another node -> SIGILL. A
-# node-local dir avoids the cross-machine mismatch (still reused across tasks on the
-# same node). Set GIBSS_NO_JAX_CACHE=1 instead to disable entirely.
-export GIBSS_JAX_CACHE_DIR="/tmp/gibss_jax_${USER}"
+# Disable gibss's persistent XLA compile cache (default at ~/.cache/gibss/jax on the
+# shared FS): loading an AOT-compiled kernel built on a node with different CPU
+# features (e.g. avx512vnni) on another node -> machine-type mismatch -> SIGILL.
+# gibss kernels compile in <1s, so per-process recompile is cheap and safe.
+export GIBSS_NO_JAX_CACHE=1
 
 # Native chunk target: reduce_chunk's input function returns only this slice's
 # reductions -> small per-task DAG (fast build, no groups), run on the node's cores.
