@@ -24,6 +24,13 @@ export GIBSS_NO_JAX_CACHE=1
 unset JAX_COMPILATION_CACHE_DIR 2>/dev/null || true
 export JAX_ENABLE_COMPILATION_CACHE=false
 
+# Pin BLAS/JAX intra-op threads to 1. These fits (n~1000, p~500, L=1) are too small
+# to benefit from threads; unpinned, each 1-CPU job spawns ~node-many threads and
+# many concurrent jobs thrash the node (a 0.3s fit -> 30+ min). 1 thread -> ~0.3s.
+# (If you switch to cores>1, set these to that core count.)
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
+export XLA_FLAGS="${XLA_FLAGS:-} --xla_cpu_multi_thread_eigen=false"
+
 fails=()
 for i in $(seq "$START" "$END"); do
     tgt="results/supercollections/${SC}/.done_${i}_of_${N}"

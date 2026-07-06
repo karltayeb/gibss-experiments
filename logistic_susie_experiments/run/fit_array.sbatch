@@ -50,6 +50,13 @@ export GIBSS_NO_JAX_CACHE=1
 unset JAX_COMPILATION_CACHE_DIR
 export JAX_ENABLE_COMPILATION_CACHE=false   # authoritative jax off-switch (cache off even if a dir is set)
 
+# Pin BLAS/JAX intra-op threads. These fits are too small to benefit from threads;
+# unpinned, each task spawns node-many threads and concurrent tasks thrash (a 0.3s
+# fit -> 30+ min). Here the array task IS the parallel unit, so cap per-fit threads
+# to 1 and let -j run fits across the allocated cores.
+export OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 NUMEXPR_NUM_THREADS=1
+export XLA_FLAGS="${XLA_FLAGS:-} --xla_cpu_multi_thread_eigen=false"
+
 # Native chunk target: reduce_chunk's input function returns only this slice's
 # reductions -> small per-task DAG (fast build, no groups), run on the node's cores.
 # Chunks with no batches just touch the sentinel (no work).
