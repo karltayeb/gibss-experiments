@@ -310,11 +310,11 @@ supercollections:
           target_logbf: [0, 4, 8, 16, 32]
           effect: logbf_k_effects
           effect_args: { k: 3 }
-    # sweep prior {fixed, eb}; all methods L=5. offset_integration defaults to
-    # "taylor" (2nd-order convolution over the leave-one-out offset variance) in
-    # the runners -- used everywhere; no longer swept.
+    # sweep prior {fixed, eb} x offset_integration {none, taylor}; all methods L=5.
+    # none = fixed offset; taylor = 2nd-order convolution over the leave-one-out
+    # offset variance. (Offset integration only bites at L>1; a no-op at L=1.)
     _susie_over: &susie_over
-      { estimate_prior_variance: [false, true] }
+      { estimate_prior_variance: [false, true], offset_integration: ["none", "taylor"] }
     methods:
       - quadrature: # shared intercept, exact background
           {
