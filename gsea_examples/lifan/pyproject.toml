@@ -1,0 +1,29 @@
+# Self-contained uv project for the Lifan GSEA example. Kept ISOLATED from the
+# repo-root env on purpose: this pipeline needs the gibss-mono front-door APIs
+# (fit_glm_susie / fit_cox_susie) at rev 1a9ba7a, whereas the shared repo .venv
+# tracks an older gibss. Build/run it from this directory:
+#
+#   cd gsea_examples/lifan
+#   uv sync
+#   uv run snakemake --profile profile          # cluster (Midway3 SLURM)
+#   uv run snakemake -c6                         # local
+[project]
+name = "lifan-gsea"
+version = "0.1.0"
+description = "GSEA on Lifan's factor analysis (logistic / cox / ORA SuSiE vs MSigDB)"
+requires-python = ">=3.13"
+dependencies = [
+    "gibss-mono",
+    "jax>=0.10.0",
+    "numpy>=2.4.4",
+    "polars>=1.40.1",
+    "snakemake>=9.20.0",
+    "snakemake-executor-plugin-cluster-generic>=1.0.9",
+]
+
+[tool.uv.sources]
+gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "1a9ba7a949eb5c8ff25605aef4184c0e61a2bd33" }
+
+# Standalone project, not a member of any parent uv workspace.
+[tool.uv.workspace]
+members = []

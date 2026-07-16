@@ -1,0 +1,76 @@
+# GSEA on Lifan's factor analysis vs MSigDB. Run from gsea_examples/lifan/.
+#
+# Pipeline: convert (R: RDS -> per-factor TSV + Entrez map)
+#        -> prep  (align + cache the sparse design once per factor)
+#        -> fit   (one job per factor x method; script:, no CLI)
+#        -> gather (concat a factor's SuSiE methods into results.parquet)
+#
+# One `methods` entry = one fit = one artifact. No expansion: to add a variant
+# (a new L, a different baseline, ...) enumerate it as another entry. A method's
+# fit config is `model_defaults` merged with its own fields. Snakemake's params
+# rerun-trigger is that resolved config, so restating a default is a no-op but
+# changing one reruns just that method.
+
+# ---- data / preprocessing (fixed inputs; not part of a method's identity) ----
+rds: factor_sumstats.RDS
+n_factors: 140
+collection: c2.all
+min_set_size: 10
+max_set_size: 500
+score: abs_loading                 # per-gene ranking statistic (|posterior_mean|)
+lfsr_floor: 1.0e-20
+sd_floor: 1.0e-4
+thresholds: [0.05, 0.10, 0.20]     # looped inside hitlist/select methods (not a separate artifact)
+
+# ---- defaults applied to every method (a method's own fields override) ----
+model_defaults:
+  # Fixed prior variance (=1). estimate_prior_variance=True destabilizes the IBSS
+  # at high L: weak components' estimated prior variance inflates (-> 10-30),
+  # reshuffling the fit so it cycles and never converges (L>=10 hit max_iter with
+  # converged=False). Fixing it converges cleanly and is far faster there; at L=1
+  # it's ~a no-op (cox identical, logistic top-10 unchanged, Spearman 0.99).
+  estimate_prior_variance: false
+  center: true
+  offset_integration: gh
+  offset_quadrature_points: 5      # gh(5) == gh(15) here, ~2-3x faster (converged)
+  intercept: shared                # logistic (glm quad kernel)
+  baseline: shared                 # cox default; the "shared_baseline" (fast, mildly overconfident) approximation
+  max_iter: 100
+
+# ---- methods: one entry = one fit = results/fits/{factor}/{name}.parquet ----
+# family: logistic | cox | ora   (logistic/ora -> GeneList; cox -> GeneRanks)
+# select: top_fraction           -> select/censor at each threshold; absent -> all events
+# order:  ascending              -> reversed ranking (rank 1 = lowest score); default descending
+# cox baseline: "shared" (working-likelihood, fast, ~overconfident) is named explicitly in the key;
+#   "coarse" = the exact profiled partial likelihood, made affordable by time_bins=1000 (calibrated).
+methods:
+  logistic__L1:                       {family: logistic, L: 1}
+  #logistic__L5:                       {family: logistic, L: 5}
+
+  cox__shared_baseline__L1:           {family: cox, select: top_fraction, L: 1}
+  cox_full__shared_baseline__L1:      {family: cox, L: 1}
+  cox_reversed__shared_baseline__L1:  {family: cox, order: ascending, L: 1}
+  #cox__shared_baseline__L5:           {family: cox, select: top_fraction, L: 5}
+  #cox_full__shared_baseline__L5:      {family: cox, L: 5}
+  #cox_reversed__shared_baseline__L5:  {family: cox, order: ascending, L: 5}
+
+  cox__coarse__L1:                    {family: cox, select: top_fraction, baseline: profiled, time_bins: 1000, L: 1}
+  cox_full__coarse__L1:               {family: cox, baseline: profiled, time_bins: 1000, L: 1}
+  cox_reversed__coarse__L1:           {family: cox, order: ascending, baseline: profiled, time_bins: 1000, L: 1}
+
+  # High-L (fixed L=20). Greedy L="auto" hits this cap on every factor anyway, so a
+  # single joint L=20 fit lands in the same place (identical top sets) ~3x faster and
+  # converges (epv=False). On weak factors the surplus components are just weak
+  # (filter post-hoc by ser_log_bf); no early-stopping machinery needed.
+  logistic__L20:                       {family: logistic, L: 20}
+  cox__shared_baseline__L20:           {family: cox, select: top_fraction, L: 20}
+  cox_full__shared_baseline__L20:      {family: cox, L: 20}
+  cox_reversed__shared_baseline__L20:  {family: cox, order: ascending, L: 20}
+  cox__coarse__L20:                    {family: cox, select: top_fraction, baseline: profiled, time_bins: 1000, L: 20}
+  cox_full__coarse__L20:               {family: cox, baseline: profiled, time_bins: 1000, L: 20}
+  cox_reversed__coarse__L20:           {family: cox, order: ascending, baseline: profiled, time_bins: 1000, L: 20}
+
+  ora:                                {family: ora}
+
+# ---- scope ----
+factors: null # [1, 2, 3]                 # pilot; null -> all n_factors

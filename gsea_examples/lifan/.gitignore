@@ -1,0 +1,9 @@
+results/
+resources/
+__pycache__/
+.jax_cache/
+.snakemake/
+.venv/
+logs/
+# Large input data: transferred out-of-band (rsync), not version-controlled.
+factor_sumstats.RDS
