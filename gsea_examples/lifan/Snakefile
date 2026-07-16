@@ -110,7 +110,8 @@ rule fit:
     threads: 2   # fit_cell.py caps JAX/BLAS threadpools to this (avoids node oversubscription)
     resources:
         mem_mb=8000,    # dense design (~n_genes x n_sets f32) + JAX runtime
-        runtime=120,    # generous: covers the slow coarse-baseline / L=auto cells
+        runtime=240,    # L=20 coarse/logistic fits ran up to ~85 min on pilot factors;
+                        # 4h cap gives headroom so the slowest factors don't hit TIMEOUT
     script:
         "scripts/fit_cell.py"
 
