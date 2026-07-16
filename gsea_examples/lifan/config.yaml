@@ -66,7 +66,8 @@ methods:
   cox__shared_baseline__L20:           {family: cox, select: top_fraction, L: 20}
   cox_full__shared_baseline__L20:      {family: cox, L: 20}
   cox_reversed__shared_baseline__L20:  {family: cox, order: ascending, L: 20}
-  cox__coarse__L20:                    {family: cox, select: top_fraction, baseline: profiled, time_bins: 1000, L: 20}
+  # cox__coarse__L20 (censored, profiled) dropped: ~8x cost, ranking already covered
+  # by cox__shared_baseline__L20 and calibrated evidence by cox__coarse__L1.
   cox_full__coarse__L20:               {family: cox, baseline: profiled, time_bins: 1000, L: 20}
   cox_reversed__coarse__L20:           {family: cox, order: ascending, baseline: profiled, time_bins: 1000, L: 20}
 
