@@ -1,0 +1,30 @@
+# Self-contained uv project for the purified-PBMC GSEA example. Kept ISOLATED from
+# the repo-root env on purpose: this pipeline needs the gibss-mono front-door APIs
+# (fit_glm_susie / fit_cox_susie) at rev 1a9ba7a. Build/run from this dir:
+#
+#   cd gsea_examples/pbmc_purified
+#   uv sync
+#   uv run snakemake -c6                         # local
+#   uv run snakemake --profile profile           # cluster (Midway3 SLURM)
+#
+# The `convert` rule shells out to R (reads the .RData); ensure Rscript is on PATH.
+[project]
+name = "pbmc-purified-gsea"
+version = "0.1.0"
+description = "GSEA on purified-PBMC topic-model DE (logistic / cox / ORA SuSiE vs MSigDB)"
+requires-python = ">=3.13"
+dependencies = [
+    "gibss-mono",
+    "jax>=0.10.0",
+    "numpy>=2.4.4",
+    "polars>=1.40.1",
+    "snakemake>=9.20.0",
+    "snakemake-executor-plugin-cluster-generic>=1.0.9",
+]
+
+[tool.uv.sources]
+gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "1a9ba7a949eb5c8ff25605aef4184c0e61a2bd33" }
+
+# Standalone project, not a member of any parent uv workspace.
+[tool.uv.workspace]
+members = []

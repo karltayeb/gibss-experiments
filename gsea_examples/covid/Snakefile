@@ -1,0 +1,119 @@
+# GSEA on the GSE147507 (COVID/NHBE) differential expression vs MSigDB.
+# Run from gsea_examples/covid/.
+#
+# Local:   uv run snakemake -c6
+# Cluster: uv run snakemake --profile profile   (Midway3 SLURM)
+#
+# convert (py: DESeq2 tables -> per-contrast tidy TSV + Entrez map)
+#   -> prep  (align + cache design/contrast)
+#   -> fit   (one job/contrast/method)
+#   -> gather.
+#
+# Same fit/prep machinery as the sibling `lifan` example (fit_cell.py / prep.py /
+# scoring.py are shared verbatim); only `convert` is bespoke, because the input is
+# a DESeq2 table (symbols, log2FC/stat/padj) rather than a factor-analysis RDS.
+
+configfile: "config.yaml"
+
+RESULTS = "results"
+RESOURCES = "resources"
+
+UNITS = list(config["units"])           # contrasts, e.g. nhbe_sars_cov_2_vs_mock
+
+METHODS = list(config["methods"])
+SUSIE_METHODS = [m for m in METHODS if config["methods"][m]["family"] != "ora"]
+ORA_METHODS = [m for m in METHODS if config["methods"][m]["family"] == "ora"]
+
+GENE_INFO_URL = (
+    "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz"
+)
+
+
+def resolved_spec(method):
+    return {**config["model_defaults"], **config["methods"][method]}
+
+
+wildcard_constraints:
+    unit=r"[A-Za-z0-9_]+",
+    method=r"[A-Za-z0-9_]+",
+
+
+localrules:
+    download_geneinfo,
+    gather,
+
+
+rule all:
+    input:
+        expand(f"{RESULTS}/{{unit}}/results.parquet", unit=UNITS),
+        expand(f"{RESULTS}/fits/{{unit}}/{{method}}.parquet", unit=UNITS, method=ORA_METHODS),
+
+
+rule download_geneinfo:
+    output:
+        gene_info=f"{RESOURCES}/Homo_sapiens.gene_info.gz",
+    shell:
+        "curl -sSL -o {output.gene_info} " + GENE_INFO_URL
+
+
+rule convert:
+    input:
+        de=ancient(config["de_source"]),
+        gene_info=ancient(f"{RESOURCES}/Homo_sapiens.gene_info.gz"),
+    output:
+        mapping=f"{RESULTS}/genes/gene_mapping.tsv",
+        units=expand(f"{RESULTS}/units/{{unit}}.tsv", unit=UNITS),
+    params:
+        units=UNITS,
+        score_kind=config["score_kind"],
+    threads: 1
+    resources:
+        mem_mb=4000,
+        runtime=15,
+    script:
+        "scripts/convert.py"
+
+
+rule prep:
+    input:
+        unit_tsv=f"{RESULTS}/units/{{unit}}.tsv",
+    output:
+        design=f"{RESULTS}/prep/{{unit}}_design.npz",
+        sets=f"{RESULTS}/prep/{{unit}}_sets.parquet",
+    params:
+        collection=config["collection"],
+        min_set_size=config["min_set_size"],
+        max_set_size=config["max_set_size"],
+    threads: 1
+    resources:
+        mem_mb=8000,
+        runtime=20,
+    script:
+        "scripts/prep.py"
+
+
+rule fit:
+    input:
+        design=f"{RESULTS}/prep/{{unit}}_design.npz",
+        sets=f"{RESULTS}/prep/{{unit}}_sets.parquet",
+    output:
+        f"{RESULTS}/fits/{{unit}}/{{method}}.parquet",
+    params:
+        spec=lambda wc: resolved_spec(wc.method),
+        thresholds=config["thresholds"],
+    threads: 2
+    resources:
+        mem_mb=8000,
+        runtime=120,
+    script:
+        "scripts/fit_cell.py"
+
+
+rule gather:
+    input:
+        lambda wc: expand(f"{RESULTS}/fits/{wc.unit}/{{m}}.parquet", m=SUSIE_METHODS),
+    output:
+        f"{RESULTS}/{{unit}}/results.parquet",
+    run:
+        import polars as pl
+        pl.concat([pl.read_parquet(f) for f in input], how="vertical").write_parquet(output[0])

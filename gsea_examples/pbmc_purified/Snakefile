@@ -1,0 +1,121 @@
+# GSEA on the purified-PBMC topic-model DE (Zheng et al. 2017) vs MSigDB.
+# Run from gsea_examples/pbmc_purified/.
+#
+# Local:   uv run snakemake -c6
+# Cluster: uv run snakemake --profile profile   (Midway3 SLURM)
+#
+# convert (R: topic-model DE RData -> per-topic tidy TSV + Entrez map)
+#   -> prep  (align + cache design/topic)
+#   -> fit   (one job/topic/method)
+#   -> gather.
+#
+# Same fit/prep machinery as the sibling `lifan` example (fit_cell.py / prep.py /
+# scoring.py shared verbatim); only `convert` is bespoke (R, because the source is
+# an RData topic-model DE object keyed by Ensembl ids).
+
+configfile: "config.yaml"
+
+RESULTS = "results"
+RESOURCES = "resources"
+
+UNITS = list(config["units"])           # topics k1..k6
+
+METHODS = list(config["methods"])
+SUSIE_METHODS = [m for m in METHODS if config["methods"][m]["family"] != "ora"]
+ORA_METHODS = [m for m in METHODS if config["methods"][m]["family"] == "ora"]
+
+GENE_INFO_URL = (
+    "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz"
+)
+
+
+def resolved_spec(method):
+    return {**config["model_defaults"], **config["methods"][method]}
+
+
+wildcard_constraints:
+    unit=r"[A-Za-z0-9_]+",
+    method=r"[A-Za-z0-9_]+",
+
+
+localrules:
+    download_geneinfo,
+    gather,
+
+
+rule all:
+    input:
+        expand(f"{RESULTS}/{{unit}}/results.parquet", unit=UNITS),
+        expand(f"{RESULTS}/fits/{{unit}}/{{method}}.parquet", unit=UNITS, method=ORA_METHODS),
+
+
+rule download_geneinfo:
+    output:
+        gene_info=f"{RESOURCES}/Homo_sapiens.gene_info.gz",
+    shell:
+        "curl -sSL -o {output.gene_info} " + GENE_INFO_URL
+
+
+rule convert:
+    input:
+        rdata=ancient(config["rdata"]),
+        gene_info=ancient(f"{RESOURCES}/Homo_sapiens.gene_info.gz"),
+    output:
+        mapping=f"{RESULTS}/genes/gene_mapping.tsv",
+        units=expand(f"{RESULTS}/units/{{unit}}.tsv", unit=UNITS),
+    params:
+        units_csv=",".join(UNITS),
+        score_kind=config["score_kind"],
+        units_dir=f"{RESULTS}/units",
+    threads: 1
+    resources:
+        mem_mb=8000,    # loads the RData + the gene_info lookups
+        runtime=20,
+    shell:
+        "Rscript scripts/convert.R {input.rdata} {input.gene_info} "
+        "{params.units_csv} {params.score_kind} {output.mapping} {params.units_dir}"
+
+
+rule prep:
+    input:
+        unit_tsv=f"{RESULTS}/units/{{unit}}.tsv",
+    output:
+        design=f"{RESULTS}/prep/{{unit}}_design.npz",
+        sets=f"{RESULTS}/prep/{{unit}}_sets.parquet",
+    params:
+        collection=config["collection"],
+        min_set_size=config["min_set_size"],
+        max_set_size=config["max_set_size"],
+    threads: 1
+    resources:
+        mem_mb=8000,
+        runtime=20,
+    script:
+        "scripts/prep.py"
+
+
+rule fit:
+    input:
+        design=f"{RESULTS}/prep/{{unit}}_design.npz",
+        sets=f"{RESULTS}/prep/{{unit}}_sets.parquet",
+    output:
+        f"{RESULTS}/fits/{{unit}}/{{method}}.parquet",
+    params:
+        spec=lambda wc: resolved_spec(wc.method),
+        thresholds=config["thresholds"],
+    threads: 2
+    resources:
+        mem_mb=8000,
+        runtime=120,
+    script:
+        "scripts/fit_cell.py"
+
+
+rule gather:
+    input:
+        lambda wc: expand(f"{RESULTS}/fits/{wc.unit}/{{m}}.parquet", m=SUSIE_METHODS),
+    output:
+        f"{RESULTS}/{{unit}}/results.parquet",
+    run:
+        import polars as pl
+        pl.concat([pl.read_parquet(f) for f in input], how="vertical").write_parquet(output[0])

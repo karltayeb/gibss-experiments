@@ -1,0 +1,64 @@
+# GSEA on the purified-PBMC topic-model DE vs MSigDB. Run from
+# gsea_examples/pbmc_purified/.
+#
+# Pipeline: convert (R: topic-model DE RData -> per-topic TSV + Entrez map)
+#        -> prep  (align + cache the sparse design once per topic)
+#        -> fit   (one job per topic x method; script:, no CLI)
+#        -> gather (concat a topic's SuSiE methods into results.parquet)
+#
+# One `methods` entry = one fit = one artifact. A method's fit config is
+# `model_defaults` merged with its own fields.
+
+# ---- data / preprocessing (fixed inputs; not part of a method's identity) ----
+rdata: de-pbmc-purified-noshrink.RData
+units:                             # topic-model components in the RData
+  - k1
+  - k2
+  - k3
+  - k4
+  - k5
+  - k6
+score_kind: abs_z                 # per-gene ranking: abs_z=|Wald z| (two-sided),
+                                  # signed_postmean (topic-up first), or abs_postmean
+collection: c2.all
+min_set_size: 10
+max_set_size: 500
+thresholds: [0.05, 0.10, 0.20]    # top-fraction hit lists / Cox censoring points
+
+# ---- defaults applied to every method (a method's own fields override) ----
+model_defaults:
+  # Fixed prior variance (=1); see the lifan / covid examples for why epv=True
+  # destabilizes the IBSS at high L. ~no-op at L=1.
+  estimate_prior_variance: false
+  center: true
+  offset_integration: gh
+  offset_quadrature_points: 5
+  intercept: shared                # logistic (glm quad kernel)
+  baseline: profiled               # cox: exact profiled partial likelihood ("coarse")
+  time_bins: 1000                  # calibrates the profiled baseline (affordable exact PL)
+  max_iter: 100
+
+# ---- methods: one entry = one fit = results/fits/{unit}/{name}.parquet ----
+# family: logistic | cox | ora   (logistic/ora -> hit list; cox -> ranked genes)
+# select: top_fraction           -> censor at each threshold; absent -> all events
+# order:  ascending              -> reversed ranking (least-significant first)
+#
+# Cox uses the exact profiled partial likelihood everywhere (model_defaults:
+# baseline=profiled). On lifan the fast shared-baseline Poisson approximation gave
+# ~identical rankings (Spearman ~1.0), so we keep only the exact baseline rather
+# than run both. (Censored Cox is fit only at L=1; at L=20 the full/reversed
+# rankings carry the signal and the censored+profiled+L20 cell is the priciest fit.)
+methods:
+  logistic__L1:        {family: logistic, L: 1}
+  logistic__L20:       {family: logistic, L: 20}
+
+  cox__L1:             {family: cox, select: top_fraction, L: 1}   # censored at each threshold
+  cox_full__L1:        {family: cox, L: 1}                          # all genes ranked, forward
+  cox_reversed__L1:    {family: cox, order: ascending, L: 1}        # reversed ranking
+
+  # High-L (fixed L=20): a single joint fit lands where greedy L="auto" would, ~3x
+  # faster, and converges (epv=False). Filter surplus weak components by ser_log_bf.
+  cox_full__L20:       {family: cox, L: 20}
+  cox_reversed__L20:   {family: cox, order: ascending, L: 20}
+
+  ora:                 {family: ora}

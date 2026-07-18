@@ -1,0 +1,12 @@
+results/
+resources/
+__pycache__/
+.jax_cache/
+.snakemake/
+.venv/
+logs/
+
+# Input data: transferred out-of-band (rsync), not version-controlled (see README).
+de/
+raw/
+gene_lists/

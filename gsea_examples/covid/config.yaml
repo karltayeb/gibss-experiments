@@ -1,0 +1,62 @@
+# GSEA on GSE147507 (COVID/NHBE) DE vs MSigDB. Run from gsea_examples/covid/.
+#
+# Pipeline: convert (py: DESeq2 tables -> per-contrast TSV + Entrez map)
+#        -> prep  (align + cache the sparse design once per contrast)
+#        -> fit   (one job per contrast x method; script:, no CLI)
+#        -> gather (concat a contrast's SuSiE methods into results.parquet)
+#
+# One `methods` entry = one fit = one artifact. A method's fit config is
+# `model_defaults` merged with its own fields (Snakemake's params rerun-trigger is
+# that resolved config, so restating a default is a no-op but changing one reruns
+# just that method).
+
+# ---- data / preprocessing (fixed inputs; not part of a method's identity) ----
+de_source: de/de_results.tsv
+units:                             # DESeq2 contrast_ids present in de_source
+  - nhbe_sars_cov_2_vs_mock
+  - nhbe_iav_vs_mock
+score_kind: abs_stat              # per-gene ranking: abs_stat=|Wald z| (two-sided),
+                                  # signed_stat (up-regulated first), or neglog_padj
+collection: c2.all
+min_set_size: 10
+max_set_size: 500
+thresholds: [0.05, 0.10, 0.20]    # top-fraction hit lists / Cox censoring points
+
+# ---- defaults applied to every method (a method's own fields override) ----
+model_defaults:
+  # Fixed prior variance (=1): estimate_prior_variance=True destabilizes the IBSS
+  # at high L (weak components' prior variance inflates and the fit cycles). Fixing
+  # it converges cleanly and is ~a no-op at L=1. Matches the lifan example.
+  estimate_prior_variance: false
+  center: true
+  offset_integration: gh
+  offset_quadrature_points: 5
+  intercept: shared                # logistic (glm quad kernel)
+  baseline: profiled               # cox: exact profiled partial likelihood ("coarse")
+  time_bins: 1000                  # calibrates the profiled baseline (affordable exact PL)
+  max_iter: 100
+
+# ---- methods: one entry = one fit = results/fits/{unit}/{name}.parquet ----
+# family: logistic | cox | ora   (logistic/ora -> hit list; cox -> ranked genes)
+# select: top_fraction           -> censor at each threshold; absent -> all events
+# order:  ascending              -> reversed ranking (least-significant first)
+#
+# Cox uses the exact profiled partial likelihood everywhere (model_defaults:
+# baseline=profiled). On lifan the fast shared-baseline Poisson approximation gave
+# ~identical rankings (Spearman ~1.0), so we keep only the exact baseline rather
+# than run both. (Censored Cox is fit only at L=1; at L=20 the full/reversed
+# rankings carry the signal and the censored+profiled+L20 cell is the priciest fit.)
+methods:
+  logistic__L1:        {family: logistic, L: 1}
+  logistic__L20:       {family: logistic, L: 20}
+
+  cox__L1:             {family: cox, select: top_fraction, L: 1}   # censored at each threshold
+  cox_full__L1:        {family: cox, L: 1}                          # all genes ranked, forward
+  cox_reversed__L1:    {family: cox, order: ascending, L: 1}        # reversed ranking
+
+  # High-L (fixed L=20): a single joint fit lands where greedy L="auto" would, ~3x
+  # faster, and converges (epv=False). Filter surplus weak components by ser_log_bf.
+  cox_full__L20:       {family: cox, L: 20}
+  cox_reversed__L20:   {family: cox, order: ascending, L: 20}
+
+  ora:                 {family: ora}
