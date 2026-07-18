@@ -104,7 +104,7 @@ rule fit:
     threads: 2
     resources:
         mem_mb=8000,
-        runtime=120,
+        runtime=240,   # L=20 logistic/cox fits run up to ~2h on Midway cores; 4h cap gives headroom
     script:
         "scripts/fit_cell.py"
 
