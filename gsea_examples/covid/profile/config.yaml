@@ -1,16 +1,16 @@
 # Snakemake profile for UChicago RCC Midway3 (SLURM via the cluster-generic
 # plugin - the same convention as the sibling experiments in this repo).
 #
-#   cd gsea_examples/lifan && uv run snakemake --profile profile
+#   cd gsea_examples/covid && uv run snakemake --profile profile
 #
 # Per-rule mem_mb / runtime (minutes) / threads come from the Snakefile and are
 # substituted into the sbatch line below. --output is relative to the run dir
-# (gsea_examples/lifan), so logs land in ./logs/ regardless of checkout path.
+# (gsea_examples/covid), so logs land in ./logs/ regardless of checkout path.
 #
 # >>> EDIT --account / --partition if your allocation differs. <<<
 
 executor: cluster-generic
-cluster-generic-submit-cmd: "mkdir -p logs && sbatch --account=pi-mstephens --partition=caslake --qos=caslake --mem={resources.mem_mb} --cpus-per-task={threads} --time={resources.runtime} --job-name=lifan-{rule} --output=logs/%j_{rule}.out --parsable"
+cluster-generic-submit-cmd: "mkdir -p logs && sbatch --account=pi-mstephens --partition=caslake --qos=caslake --mem={resources.mem_mb} --cpus-per-task={threads} --time={resources.runtime} --job-name=covid-{rule} --output=logs/%j_{rule}.out --parsable"
 
 default-resources:
   mem_mb: 8000
