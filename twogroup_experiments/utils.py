@@ -156,6 +156,22 @@ def simulate_batch(
     return pl.from_dicts(rows)
 
 
+def _fill_empty_structs(value: Any) -> Any:
+    """Replace empty dicts with a dummy-child struct so Polars can write them to
+    Parquet. An empty ``{}`` infers to ``Struct({})``, which ``write_parquet``
+    rejects ("Unable to write struct type with no child field"). This surfaces
+    for logistic/twogroup family states whose ``response.base`` is a parameterless
+    kernel serialized to ``{}``. Applied generically so any method's diagnostic
+    state is safe; the key is preserved (schema stays stable)."""
+    if isinstance(value, Mapping):
+        if len(value) == 0:
+            return {"_empty": True}
+        return {str(key): _fill_empty_structs(val) for key, val in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_fill_empty_structs(item) for item in value]
+    return value
+
+
 def fit_batch_method(
     simulation_spec: SimulationSpec,
     *,
@@ -166,7 +182,9 @@ def fit_batch_method(
     rows: list[dict[str, Any]] = []
     for replicate in (int(r) for r in replicates):
         sim = simulate(simulation_spec, replicate)
-        rows.append({"replicate": replicate, **run_method(method_coord, sim)})
+        rows.append(
+            _fill_empty_structs({"replicate": replicate, **run_method(method_coord, sim)})
+        )
     return pl.from_dicts(rows)
 
 
