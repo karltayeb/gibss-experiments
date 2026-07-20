@@ -1,12 +1,9 @@
+# results/ = all pipeline outputs (incl. DE and figures); resources/ = inputs
+# (raw counts + sample sheet, transferred out-of-band; gene_info downloaded).
 results/
-resources/
+resources
 __pycache__/
 .jax_cache/
 .snakemake/
 .venv/
 logs/
-
-# Input data: transferred out-of-band (rsync), not version-controlled (see README).
-de/
-raw/
-gene_lists/

@@ -4,25 +4,55 @@
 # Local:   uv run snakemake -c6
 # Cluster: uv run snakemake --profile profile   (Midway3 SLURM)
 #
-# convert (py: DESeq2 tables -> per-contrast tidy TSV + Entrez map)
+# deseq2 (py: raw GSE147507 counts -> DESeq2 table via pydeseq2)
+#   -> convert (py: DE table -> per-contrast tidy TSV + Entrez map)
 #   -> prep  (align + cache design/contrast)
 #   -> fit   (one job/contrast/method)
 #   -> gather.
 #
-# Same fit/prep machinery as the sibling `lifan` example (fit_cell.py / prep.py /
-# scoring.py are shared verbatim); only `convert` is bespoke, because the input is
-# a DESeq2 table (symbols, log2FC/stat/padj) rather than a factor-analysis RDS.
+# The ONLY provided input is resources/raw/ (counts + sample sheet); everything else
+# - DE included - is generated into results/. `prep.py` / `scoring.py` are shared with
+# the sibling `lifan` example; the fit step is split by family (fit_susie / fit_ora /
+# fit_gsea) here, since their outputs differ in schema and cost (to be back-ported to
+# lifan once stable). `deseq2` / `convert` are bespoke (raw counts -> DESeq2 -> tidy).
 
 configfile: "config.yaml"
 
 RESULTS = "results"
 RESOURCES = "resources"
 
-UNITS = list(config["units"])           # contrasts, e.g. nhbe_sars_cov_2_vs_mock
+TARGETS = list(config["targets"])       # analysis targets (DE contrasts here)
+COLLECTIONS = list(config["collections"])  # gene-set collections, e.g. c2_all, go_bp, c7
+SCORES = list(config["scores"])         # per-gene ranking variants, e.g. abs, signed
+
+import re
 
 METHODS = list(config["methods"])
-SUSIE_METHODS = [m for m in METHODS if config["methods"][m]["family"] != "ora"]
+# One rule per family, since their outputs have different schemas and costs:
+#   fit_susie (logistic/cox/linear) -> gathered, heavy; fit_ora / fit_gsea -> standalone, light.
+SUSIE_METHODS = [m for m in METHODS if config["methods"][m]["family"] in ("logistic", "cox", "linear")]
 ORA_METHODS = [m for m in METHODS if config["methods"][m]["family"] == "ora"]
+GSEA_METHODS = [m for m in METHODS if config["methods"][m]["family"] == "gsea"]
+# R-backed multiset methods (glmnet / Bioconductor mgsa); each a standalone fit.
+SLPR_METHODS = [m for m in METHODS if config["methods"][m]["family"] == "slpr"]
+MGSA_METHODS = [m for m in METHODS if config["methods"][m]["family"] == "mgsa"]
+MARGINAL_METHODS = ORA_METHODS + GSEA_METHODS + SLPR_METHODS + MGSA_METHODS
+
+
+def method_scores(m):  # score variants a method is run on (default: all)
+    return config["methods"][m].get("scores", SCORES)
+
+
+def susie_methods_for_score(score):  # which SuSiE methods gather should concat for a score
+    return [m for m in SUSIE_METHODS if score in method_scores(m)]
+
+
+# scores that have at least one SuSiE method (i.e. get a results.parquet)
+SUSIE_SCORES = [s for s in SCORES if susie_methods_for_score(s)]
+
+
+def _alt(names):  # regex alternation to constrain each fit rule to its own methods
+    return "(" + "|".join(re.escape(m) for m in names) + ")"
 
 GENE_INFO_URL = (
     "https://ftp.ncbi.nlm.nih.gov/gene/DATA/GENE_INFO/Mammalia/Homo_sapiens.gene_info.gz"
@@ -34,7 +64,9 @@ def resolved_spec(method):
 
 
 wildcard_constraints:
-    unit=r"[A-Za-z0-9_]+",
+    score=r"[A-Za-z0-9_]+",
+    collection=r"[A-Za-z0-9_]+",
+    target=r"[A-Za-z0-9_]+",
     method=r"[A-Za-z0-9_]+",
 
 
@@ -45,8 +77,15 @@ localrules:
 
 rule all:
     input:
-        expand(f"{RESULTS}/{{unit}}/results.parquet", unit=UNITS),
-        expand(f"{RESULTS}/fits/{{unit}}/{{method}}.parquet", unit=UNITS, method=ORA_METHODS),
+        # gathered SuSiE results, one per (score with any SuSiE method) x collection x target
+        expand(
+            f"{RESULTS}/{{score}}/{{collection}}/{{target}}/results.parquet",
+            score=SUSIE_SCORES, collection=COLLECTIONS, target=TARGETS,
+        ),
+        # standalone marginal fits (ora / gsea), each only on its own `scores`
+        [f"{RESULTS}/fits/{s}/{c}/{t}/{m}.parquet"
+         for m in MARGINAL_METHODS for s in method_scores(m)
+         for c in COLLECTIONS for t in TARGETS],
 
 
 rule download_geneinfo:
@@ -56,16 +95,32 @@ rule download_geneinfo:
         "curl -sSL -o {output.gene_info} " + GENE_INFO_URL
 
 
+rule deseq2:
+    input:
+        counts=ancient(config["raw_counts"]),
+        meta=ancient(config["sample_metadata"]),
+    output:
+        de=f"{RESULTS}/de/de_results.tsv",
+    params:
+        targets=config["targets"],
+    threads: 2
+    resources:
+        mem_mb=8000,
+        runtime=30,
+    script:
+        "scripts/deseq2.py"
+
+
 rule convert:
     input:
-        de=ancient(config["de_source"]),
+        de=f"{RESULTS}/de/de_results.tsv",
         gene_info=ancient(f"{RESOURCES}/Homo_sapiens.gene_info.gz"),
     output:
-        mapping=f"{RESULTS}/genes/gene_mapping.tsv",
-        units=expand(f"{RESULTS}/units/{{unit}}.tsv", unit=UNITS),
+        mapping=f"{RESULTS}/genes/{{score}}/gene_mapping.tsv",
+        targets=expand(f"{RESULTS}/targets/{{{{score}}}}/{{target}}.tsv", target=TARGETS),
     params:
-        units=UNITS,
-        score_kind=config["score_kind"],
+        targets=TARGETS,
+        score_kind=lambda wc: wc.score,   # score name is consumed directly by de_score
     threads: 1
     resources:
         mem_mb=4000,
@@ -76,12 +131,13 @@ rule convert:
 
 rule prep:
     input:
-        unit_tsv=f"{RESULTS}/units/{{unit}}.tsv",
+        unit_tsv=f"{RESULTS}/targets/{{score}}/{{target}}.tsv",
     output:
-        design=f"{RESULTS}/prep/{{unit}}_design.npz",
-        sets=f"{RESULTS}/prep/{{unit}}_sets.parquet",
+        design=f"{RESULTS}/prep/{{score}}/{{collection}}/{{target}}_design.npz",
+        sets=f"{RESULTS}/prep/{{score}}/{{collection}}/{{target}}_sets.parquet",
     params:
-        collection=config["collection"],
+        collection=lambda wc: config["collections"][wc.collection]["gmt"],
+        prefix=lambda wc: config["collections"][wc.collection].get("prefix"),
         min_set_size=config["min_set_size"],
         max_set_size=config["max_set_size"],
     threads: 1
@@ -92,28 +148,108 @@ rule prep:
         "scripts/prep.py"
 
 
-rule fit:
+# One rule per method family (same output path; the {method} name carries the
+# schema). Disambiguated by per-rule wildcard_constraints on {method}.
+_DESIGN = dict(
+    design=f"{RESULTS}/prep/{{score}}/{{collection}}/{{target}}_design.npz",
+    sets=f"{RESULTS}/prep/{{score}}/{{collection}}/{{target}}_sets.parquet",
+)
+_FIT_OUT = f"{RESULTS}/fits/{{score}}/{{collection}}/{{target}}/{{method}}.parquet"
+
+
+rule fit_susie:
     input:
-        design=f"{RESULTS}/prep/{{unit}}_design.npz",
-        sets=f"{RESULTS}/prep/{{unit}}_sets.parquet",
+        **_DESIGN,
     output:
-        f"{RESULTS}/fits/{{unit}}/{{method}}.parquet",
+        _FIT_OUT,
+    wildcard_constraints:
+        method=_alt(SUSIE_METHODS),
     params:
         spec=lambda wc: resolved_spec(wc.method),
         thresholds=config["thresholds"],
     threads: 2
     resources:
         mem_mb=8000,
-        runtime=240,   # L=20 logistic/cox fits run up to ~2h on Midway cores; 4h cap gives headroom
+        runtime=240,   # L=20 cox profiled PL can run ~2h on Midway cores; 4h cap gives headroom
     script:
-        "scripts/fit_cell.py"
+        "scripts/fit_susie.py"
+
+
+rule fit_ora:
+    input:
+        **_DESIGN,
+    output:
+        _FIT_OUT,
+    wildcard_constraints:
+        method=_alt(ORA_METHODS),
+    params:
+        thresholds=config["thresholds"],
+    threads: 1
+    resources:
+        mem_mb=4000,
+        runtime=20,
+    script:
+        "scripts/fit_ora.py"
+
+
+rule fit_gsea:
+    input:
+        **_DESIGN,
+    output:
+        _FIT_OUT,
+    wildcard_constraints:
+        method=_alt(GSEA_METHODS),
+    params:
+        spec=lambda wc: resolved_spec(wc.method),
+    threads: 2
+    resources:
+        mem_mb=4000,
+        runtime=30,   # gseapy permutations
+    script:
+        "scripts/fit_gsea.py"
+
+
+rule fit_slpr:
+    input:
+        **_DESIGN,
+    output:
+        _FIT_OUT,
+    wildcard_constraints:
+        method=_alt(SLPR_METHODS),
+    params:
+        spec=lambda wc: resolved_spec(wc.method),
+    threads: 2
+    resources:
+        mem_mb=8000,
+        runtime=60,   # cv.glmnet on the full membership; scales with #sets
+    script:
+        "scripts/fit_slpr.py"
+
+
+rule fit_mgsa:
+    input:
+        **_DESIGN,
+    output:
+        _FIT_OUT,
+    wildcard_constraints:
+        method=_alt(MGSA_METHODS),
+    params:
+        spec=lambda wc: resolved_spec(wc.method),
+        thresholds=config["thresholds"],
+    threads: 4
+    resources:
+        mem_mb=8000,
+        runtime=480,   # MCMC per threshold; per-step cost grows with #sets (see README timings)
+    script:
+        "scripts/fit_mgsa.py"
 
 
 rule gather:
     input:
-        lambda wc: expand(f"{RESULTS}/fits/{wc.unit}/{{m}}.parquet", m=SUSIE_METHODS),
+        lambda wc: expand(f"{RESULTS}/fits/{wc.score}/{wc.collection}/{wc.target}/{{m}}.parquet",
+                          m=susie_methods_for_score(wc.score)),
     output:
-        f"{RESULTS}/{{unit}}/results.parquet",
+        f"{RESULTS}/{{score}}/{{collection}}/{{target}}/results.parquet",
     run:
         import polars as pl
         pl.concat([pl.read_parquet(f) for f in input], how="vertical").write_parquet(output[0])

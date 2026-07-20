@@ -11,13 +11,33 @@
 # just that method).
 
 # ---- data / preprocessing (fixed inputs; not part of a method's identity) ----
-de_source: de/de_results.tsv
-units:                             # DESeq2 contrast_ids present in de_source
-  - nhbe_sars_cov_2_vs_mock
-  - nhbe_iav_vs_mock
-score_kind: abs_stat              # per-gene ranking: abs_stat=|Wald z| (two-sided),
-                                  # signed_stat (up-regulated first), or neglog_padj
-collection: c2.all
+# Only provided input is the raw GSE147507 human counts + sample sheet; the DESeq2
+# table is generated in-pipeline (rule deseq2 -> results/de/de_results.tsv).
+raw_counts: resources/raw/GSE147507_RawReadCounts_Human.tsv.gz
+sample_metadata: resources/raw/sample_metadata.tsv
+# `targets` = the analysis units enrichment is run on. Here each target is a DESeq2
+# contrast (treatment vs control); in a sibling example a target might instead be a
+# factor, a cluster, a cell type, etc. One target -> one fit per score x collection x method.
+targets:
+  nhbe_sars_cov_2_vs_mock: {series: Series1, treatment: sars_cov_2, control: mock}
+  nhbe_iav_vs_mock:        {series: Series9, treatment: iav, control: mock}
+# Per-gene ranking / response variants (one output namespace each). The name is
+# consumed directly by convert.de_score - no mapping. z = DESeq2 Wald stat (log2fc/lfcSE):
+#   abs_score |z| (two-sided) | score z (up first) | neg_score -z (down first)
+#   log2fc_unweighted log2fc | log2fc_weighted log2fc + lfcSE (obs variance, linear only)
+scores: [abs_score, score, neg_score, log2fc_unweighted, log2fc_weighted]
+# also defined in convert.de_score but not enabled: neglog_padj (-log10 padj) - add it
+# to the list above to run it.
+# Gene-set collections to run. Each name is one output namespace
+# (results/{collection}/...); `gmt` is the MSigDB GMT gseasusie resolves, and the
+# optional `prefix` restricts to set_ids under that prefix (e.g. GO:BP within C5).
+# NOTE: c2_all's CGP half contains BLANCO_MELO_* = GSE147507 (this very dataset),
+# so its top components are circular - a built-in positive control, not a finding.
+collections:
+  c2_all: {gmt: c2.all}                  # curated: canonical pathways + CGP perturbation sigs
+  go_bp:  {gmt: c5.all, prefix: GOBP_}   # GO biological process only (subset of C5)
+  c7:     {gmt: c7.all}                  # ImmuneSigDB immunologic signatures (no GSE147507)
+  hallmark: {gmt: h.all}                 # 50 hallmark sets; small, for piloting / runtime baselines
 min_set_size: 10
 max_set_size: 500
 thresholds: [0.05, 0.10, 0.20]    # top-fraction hit lists / Cox censoring points
@@ -46,17 +66,46 @@ model_defaults:
 # ~identical rankings (Spearman ~1.0), so we keep only the exact baseline rather
 # than run both. (Censored Cox is fit only at L=1; at L=20 the full/reversed
 # rankings carry the signal and the censored+profiled+L20 cell is the priciest fit.)
+# `scores`: which ranking variants each method is run on (defaults to all if omitted).
+# Hit-list methods (logistic, ora) are directional so get all three; ranking methods
+# (cox, linear, gsea) get only [abs, descending] - `ascending` is redundant there
+# (cox_reversed already gives the down direction; linear/gsea just flip sign).
 methods:
-  logistic__L1:        {family: logistic, L: 1}
-  logistic__L20:       {family: logistic, L: 20}
+  logistic__L1:        {family: logistic, L: 1,  scores: [abs_score, score, neg_score]}
+  logistic__L20:       {family: logistic, L: 20, scores: [abs_score, score, neg_score]}
 
-  cox__L1:             {family: cox, select: top_fraction, L: 1}   # censored at each threshold
-  cox_full__L1:        {family: cox, L: 1}                          # all genes ranked, forward
-  cox_reversed__L1:    {family: cox, order: ascending, L: 1}        # reversed ranking
+  linear__L1:          {family: linear, L: 1,  scores: [log2fc_weighted, log2fc_unweighted]}   # SuSiE on the effect
+  linear__L20:         {family: linear, L: 20, scores: [log2fc_weighted, log2fc_unweighted]}
+
+  cox__L1:             {family: cox, select: top_fraction, L: 1, scores: [abs_score, score]}  # censored at each threshold
+  cox_full__L1:        {family: cox, L: 1, scores: [abs_score, score]}                         # all genes ranked, forward
+  cox_reversed__L1:    {family: cox, order: ascending, L: 1, scores: [abs_score, score]}       # reversed ranking
 
   # High-L (fixed L=20): a single joint fit lands where greedy L="auto" would, ~3x
   # faster, and converges (epv=False). Filter surplus weak components by ser_log_bf.
-  cox_full__L20:       {family: cox, L: 20}
-  cox_reversed__L20:   {family: cox, order: ascending, L: 20}
+  cox_full__L20:       {family: cox, L: 20, scores: [abs_score, score]}
+  cox_reversed__L20:   {family: cox, order: ascending, L: 20, scores: [abs_score, score]}
 
-  ora:                 {family: ora}
+  ora:                 {family: ora,  scores: [abs_score, score, neg_score]}
+  gsea:                {family: gsea, scores: [abs_score, score]}   # NES sign = direction on `score`
+
+  # ---- R-backed multiset methods (Frost & Amos 2017; Bauer et al. 2010) ----
+  # SLPR regresses the per-gene EFFECT SIZE (log2FC) on set membership under a LASSO
+  # penalty (the paper's recommended response, not z/t-stats). log2FC is the same in
+  # every score namespace, so both variants pin to `log2fc_unweighted` to avoid
+  # redundant identical fits; `abs_response` toggles signed log2FC vs |log2FC|.
+  slpr:                {family: slpr, scores: [log2fc_unweighted]}
+  slpr_abs:            {family: slpr, abs_response: true, scores: [log2fc_unweighted]}
+
+  # MGSA: binary multiset model over the top-fraction hit list at each threshold (same
+  # hit lists as ora/logistic), directional like ora -> all three namespaces. MCMC:
+  # `steps`/`restarts`/`thin` control cost (restarts>1 => std errors). Expensive.
+  mgsa:                {family: mgsa, scores: [abs_score, score, neg_score], steps: 1000000, restarts: 1, thin: 100}
+
+  # --- design space: considered but not currently run (uncomment to enable) ---
+  # cox_full__L20_shared: {family: cox, L: 20, baseline: shared_baseline, scores: [abs_score, score]}
+  #     fast shared-baseline (Poisson) Cox; on lifan it gave ~identical rankings to the
+  #     exact profiled baseline, so we keep only profiled here.
+  # twogroup__L20:        {family: twogroup, L: 20, scores: [log2fc_weighted]}
+  #     two-group (null/non-null) SuSiE on the weighted effect; needs a `twogroup` branch
+  #     in fit_susie.py (gibss.fit_twogroup_susie) before it can run.

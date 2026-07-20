@@ -16,11 +16,11 @@ cd gsea_examples/covid
 uv sync                 # builds ./.venv (fetches gibss-mono@1a9ba7a from GitHub)
 ```
 
-Inputs are transferred out-of-band (rsync), not committed: `de/de_results.tsv`
-(the DESeq2 tables the pipeline reads) plus `raw/` and `gene_lists/` for
-provenance. The `convert` rule
-downloads NCBI `Homo_sapiens.gene_info.gz` into `resources/` on first run
-(`download_geneinfo`); `resources/` and `results/` regenerate.
+The only provided input is `resources/raw/` (GSE147507 human counts +
+`sample_metadata.tsv`), transferred out-of-band (rsync), not committed. The DESeq2
+table is generated in-pipeline by `deseq2` (pydeseq2) into `results/de/`; the
+`download_geneinfo` rule fetches NCBI `Homo_sapiens.gene_info.gz` into `resources/`
+on first run. `resources/` (beyond raw/) and `results/` regenerate.
 
 ## Launch
 
