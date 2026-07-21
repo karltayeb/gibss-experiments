@@ -1,0 +1,7 @@
+/.quarto/
+**/*.quarto_ipynb
+# rendered output + caches: track the .qmd source, not these (re-render to view)
+*.html
+**/*_files/
+/.cache/
+/.cache_landscape/
