@@ -21,6 +21,12 @@ def method_family_label_map() -> dict[str, str]:
         "cox_reversed":          "Cox (reversed)",
         "cox_reversed_censored": "Cox reversed (censored)",
         "cox_uncensored":        "Cox (uncensored)",
+        # cost-of-discretizing (010) fits use these binned/z-vs-abs family names
+        "cox_binned":            "Cox",
+        "cox_full_binned":       "Cox (full)",
+        "cox_reversed_binned":   "Cox (reversed)",
+        "linear_z":              "Linear (z)",
+        "linear_abs":            "Linear (|z|)",
         "twogroup_oracle_init":  "TG Oracle Init",
         "twogroup_scale_fam":    "Twogroup Scale",
         "twogroup_loc_fam":      "Twogroup Loc",
@@ -44,6 +50,12 @@ def method_family_color_map() -> dict[str, str]:
         "cox_reversed":          "#E69F00",
         "cox_reversed_censored": "#E69F00",  # share cox_reversed color
         "cox_uncensored":        "#009E73",  # share cox color
+        # cost-of-discretizing (010) family names: keep cox=green / reversed=orange / linear=brown
+        "cox_binned":            "#009E73",  # forward cox (threshold-swept), share cox green
+        "cox_full_binned":       "#1B7837",  # full-ranking cox, darker green to distinguish
+        "cox_reversed_binned":   "#E69F00",  # share cox_reversed orange
+        "linear_z":              "#8B4513",  # saddle brown (signed z)
+        "linear_abs":            "#A0522D",  # sienna (|z|)
         "twogroup":              "#D55E00",  # vermillion
         "twogroup_oracle":       "#CC79A7",  # rose/mauve
         "twogroup_oracle_global": "#AA4499",  # purple
@@ -2307,6 +2319,10 @@ def render_cs_coverage_trace_chart(
     return fig
 
 
+# credible-set nominal levels marked on the coverage/size traces (shape per level)
+CS_SIZE_MARKER_BETAS = {0.95: "o", 0.80: "s", 0.50: "^"}
+
+
 def render_cs_coverage_size_chart(
     summary: pl.DataFrame,
     *,
@@ -2361,35 +2377,26 @@ def render_cs_coverage_size_chart(
                 trace_df["cs_size_frac"].to_numpy(),
                 color=color, linewidth=2.0,
             )
-            marker_row = trace_df.filter(pl.col("beta") == 0.95)
-            if not marker_row.is_empty():
-                ax_cov.plot(
-                    marker_row["coverage"].to_numpy(),
-                    marker_row["cs_size_frac"].to_numpy(),
-                    marker="o", markersize=6, color=color, linestyle="none",
-                )
             ax_nom.plot(
                 trace_df["beta"].to_numpy(),
                 trace_df["cs_size_frac"].to_numpy(),
                 color=color, linewidth=2.0,
             )
-            if not marker_row.is_empty():
-                ax_nom.plot(
-                    marker_row["beta"].to_numpy(),
-                    marker_row["cs_size_frac"].to_numpy(),
-                    marker="o", markersize=6, color=color, linestyle="none",
-                )
             ax_cal.plot(
                 trace_df["beta"].to_numpy(),
                 trace_df["coverage"].to_numpy(),
                 color=color, linewidth=2.0,
             )
-            if not marker_row.is_empty():
-                ax_cal.plot(
-                    marker_row["beta"].to_numpy(),
-                    marker_row["coverage"].to_numpy(),
-                    marker="o", markersize=6, color=color, linestyle="none",
-                )
+            # mark the 95 / 80 / 50% credible-set operating points on each panel
+            for beta_mark, mk in CS_SIZE_MARKER_BETAS.items():
+                mrow = trace_df.filter(pl.col("beta") == beta_mark)
+                if mrow.is_empty():
+                    continue
+                _mkw = dict(marker=mk, markersize=6, color=color, linestyle="none",
+                            markeredgecolor="black", markeredgewidth=0.5)
+                ax_cov.plot(mrow["coverage"].to_numpy(), mrow["cs_size_frac"].to_numpy(), **_mkw)
+                ax_nom.plot(mrow["beta"].to_numpy(), mrow["cs_size_frac"].to_numpy(), **_mkw)
+                ax_cal.plot(mrow["beta"].to_numpy(), mrow["coverage"].to_numpy(), **_mkw)
             if label not in seen_labels:
                 legend_handles.append(line)
                 legend_labels.append(label)
@@ -2426,11 +2433,22 @@ def render_cs_coverage_size_chart(
         axes[n_rows, 0].set_title("All (aggregate)", fontsize=9, fontweight="bold")
 
     if legend_handles:
-        fig.legend(
+        method_legend = fig.legend(
             legend_handles, legend_labels,
             frameon=False, fontsize=8,
             loc="upper left", bbox_to_anchor=(_plot_frac + 0.02, 0.98),
         )
+        fig.add_artist(method_legend)
+    # second legend: which marker shape is which credible-set nominal level
+    beta_handles = [
+        plt.Line2D([], [], marker=mk, color="0.3", linestyle="none", markersize=6,
+                   markeredgecolor="black", markeredgewidth=0.5, label=f"β = {b:.2f}")
+        for b, mk in CS_SIZE_MARKER_BETAS.items()
+    ]
+    fig.legend(
+        handles=beta_handles, title="CS level", frameon=False, fontsize=8, title_fontsize=8,
+        loc="lower left", bbox_to_anchor=(_plot_frac + 0.02, 0.04),
+    )
     fig.tight_layout(rect=[0, 0, _plot_frac, 1])
     return fig
 
