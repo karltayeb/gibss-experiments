@@ -115,14 +115,11 @@ C_OFFSET = 1.0                 # profile-max overshoot = LRT degrees of freedom 
 _ZGRID = np.linspace(-15.0, 20.0, 4000)             # z-quadrature grid for the per-gene KL
 _DZ = _ZGRID[1] - _ZGRID[0]
 
-
 def _sigmoid(t):
     return 1.0 / (1.0 + np.exp(-t))
 
-
 def _npdf(z, mean, sd):
     return np.exp(-0.5 * ((z - mean) / sd) ** 2) / (sd * np.sqrt(2.0 * np.pi))
-
 
 def kl_field(scenario, b_axis, sig_axis, b0=B0):
     """Per-gene KL(q* || q0) over (b_axis on x, sig_axis on y). Exact 1-D quadrature.
@@ -145,11 +142,9 @@ def kl_field(scenario, b_axis, sig_axis, b0=B0):
         KL[iy] = np.sum(q_star * (np.log(q_star) - np.log(q0)[None, :]), axis=1) * _DZ
     return KL
 
-
 def expected_lrt(m, KL):
     """Set-level expected LRT F = 2 m KL + C_OFFSET, from the per-gene KL field."""
     return 2.0 * m * KL + C_OFFSET
-
 
 LRT_TARGET = 25.0                                   # set-level difficulty target (expected LRT)
 print(f"per-gene expected-LRT contribution = 2 KL(q*||q0); set F = 2 m KL + {C_OFFSET}; "
@@ -203,7 +198,6 @@ print("shapes:", perobs_loc.shape, perobs_scale.shape,
 # genes reaches the LRT_TARGET, i.e. 2 m KL + C_OFFSET = LRT_TARGET  <=>  2 KL = 24/m.
 SIZE_REFS = [50, 100, 200, 400]
 
-
 def _panel(ax, B, Y, perobs, ylabel, title, vmax):
     cf = ax.contourf(B, Y, np.clip(perobs, 0, vmax), levels=np.linspace(0, vmax, 21), cmap="Blues")
     size_levels = sorted((LRT_TARGET - C_OFFSET) / m for m in SIZE_REFS)   # 2*KL = 24/m
@@ -252,7 +246,6 @@ across $b_0 \in \{-4, -3, -2, -1\}$, holding everything else fixed, once for eac
 #| fig-cap: "Location per-gene expected-LRT 2*KL over (b, mu) at four background rates b0 = -4, -3, -2, -1 (shared colour scale). Dashed lines = iso-detectability set sizes (a size-m set reaches expected LRT ~ 25 along the line). b0 shifts both the enrichment mapping p*=sigmoid(b0+b) and the null marginal."
 B0_GRID = [-4, -3, -2, -1]
 
-
 def _b0_row(scenario, b_axis, sig_axis, ylabel, cmap):
     fields = [2.0 * kl_field(scenario, b_axis, sig_axis, b0=b0) for b0 in B0_GRID]
     vmax = max(float(np.percentile(f, 99.5)) for f in fields)
@@ -272,7 +265,6 @@ def _b0_row(scenario, b_axis, sig_axis, ylabel, cmap):
     cb = fig.colorbar(cf, ax=axes, label="per-gene expected LRT  $2\\,\\mathrm{KL}$", shrink=0.85)
     cb.set_ticks(np.arange(0.0, vmax + 1e-9, 0.5))
     return fig
-
 
 _b0_row("loc", b_axis_loc, mu_axis, "per-gene shift  $\\mu$", "Blues")
 ```
@@ -317,7 +309,6 @@ whole design; what varies is *how* the detectability is sourced.
 DESIGN_SIZES = [50, 100, 200, 400]
 REGIME_ORDER = ["enrichment-heavy", "balanced", "signal-heavy"]
 
-
 def tradeoff_points(perobs, b_axis, sig_axis, m):
     """Three (b, signal) points on the size-m iso-detectability curve, by normalized arc
     length. Endpoints = the enrichment-heavy / signal-heavy box corners of the curve,
@@ -339,7 +330,6 @@ def tradeoff_points(perobs, b_axis, sig_axis, m):
            for fr in (0.0, 0.5, 1.0)]
     pts.sort(key=lambda p: p[1])                 # ascending signal: enrich-heavy -> signal-heavy
     return [{"m": m, "regime": r, "b": b, "signal": s} for r, (b, s) in zip(REGIME_ORDER, pts)]
-
 
 design_loc = [dict(p, scenario="loc") for m in DESIGN_SIZES
               for p in tradeoff_points(perobs_loc, b_axis_loc, mu_axis, m)]
@@ -408,89 +398,61 @@ $= m\,p_\ast$ - expected number of active genes planted in the set; *E[LRT]* - t
 LRT the closed form assigns the point (matched to 25 by construction, small quadrature wiggle
 aside).
 
-## Sanity checks
+## Simulation
+
+The landscape above is closed-form; here we check it against direct simulation. We simulate data at a few points and
+compute the profiled LRT under the oracle two-group model (the oracle knows $g_0, g_1$ and
+profiles the scalar $b$; $b_0 = -2$ fixed), reporting the mean and a few quantiles alongside
+the analytic $2m\,\mathrm{KL} + c$. The mean tracks the closed form; the distribution is
+right-skewed (a non-central $\chi^2_1$-like profile statistic), and the null point ($b = 0$)
+sits at $\approx 1$ - the $\chi^2_1$ mean - with the expected long right tail.
 
 ```{python}
-#| label: tbl-sanity
+#| label: tbl-mc-lrt
 #| output: asis
-def _md(rows, hdr):
-    out = ["| " + " | ".join(hdr) + " |", "| " + " | ".join("---" for _ in hdr) + " |"]
-    for r in rows:
-        out.append("| " + " | ".join(str(v) for v in r) + " |")
-    return "\n".join(out)
-
-# 1. Monotone in b (fixed mu, medium set), in mu (fixed b), and in m.
-_iy2 = int(np.argmin(np.abs(mu_axis - 1.5)))
-_ib2 = int(np.argmin(np.abs(b_axis_loc - 2.0)))
-mono_b = np.all(np.diff(perobs_loc[_iy2, :]) > 0.0)              # exact quadrature: strict
-mono_mu = np.all(np.diff(perobs_loc[:, _ib2]) > 0.0)
-# set size is a positive multiplier, so per-gene monotonicity ⇒ set-level monotonicity in m
-mono_m = (expected_lrt(50, perobs_loc[_iy2, _ib2] / 2) <
-          expected_lrt(300, perobs_loc[_iy2, _ib2] / 2))
-
-# 2. Reference set-level point f(m=50, b=3, mu=2) ~ 46 (plan calibrated m=45 -> 46.5).
-_kl_ref = float(np.interp(3.0, b_axis_loc, kl_loc[int(np.argmin(np.abs(mu_axis - 2.0)))]))
-_ref = expected_lrt(50, _kl_ref)
-
-# 3. LRT=25 target reached at smaller b for a large set than a small one, on the mu=1.5 row.
-def _min_b_reaching(m, iy, target=LRT_TARGET):
-    F = expected_lrt(m, kl_loc[iy])
-    hit = np.where(F >= target)[0]
-    return float(b_axis_loc[hit[0]]) if len(hit) else float("nan")
-_bmin_small = _min_b_reaching(50, _iy2)
-_bmin_large = _min_b_reaching(300, _iy2)
-
-# 4. Scale is harder per gene: at a matched per-gene energy (loc mu=2 vs scale sigma=2,
-# both a causal E[z^2]=5) and matched b, the location contribution exceeds the scale one.
-# Compare at the signal value, NOT the raw grid index - the two y-axes cover different ranges.
-_iy_loc2 = int(np.argmin(np.abs(mu_axis - 2.0)))
-_iy_sca2 = int(np.argmin(np.abs(sigma_axis - 2.0)))
-_loc_at2 = perobs_loc[_iy_loc2, _ib2]
-_sca_at2 = perobs_scale[_iy_sca2, _ib2]
-_scale_harder = _loc_at2 > _sca_at2
-
-# 5. Monte-Carlo cross-check of the closed form at one point: simulate the profiled LRT
-# directly and confirm it matches 2 m KL + C_OFFSET. This is the only place we draw z.
 from scipy.optimize import minimize_scalar
 from scipy.stats import norm
 
-
-def _mc_lrt(m, b_true, mu, tau0=TAU0, n_rep=4000, seed=0):
+def _lrt_samples(scenario, m, b, s, n_rep=4000, seed=0):
+    """Profiled oracle-two-group LRT for n_rep simulated sets of m in-set genes."""
     rng = np.random.default_rng(seed)
-    sd1 = np.sqrt(tau0 ** 2 + 1.0)
-    p = _sigmoid(B0 + b_true)
+    g1_mean, g1_sd = (s, np.sqrt(TAU0 ** 2 + 1.0)) if scenario == "loc" else (0.0, np.sqrt(s ** 2 + 1.0))
+    p = _sigmoid(B0 + b)
     out = np.empty(n_rep)
     for r in range(n_rep):
         gam = rng.binomial(1, p, m)
-        z = np.where(gam == 1, rng.normal(mu, sd1, m), rng.normal(0.0, 1.0, m))
-        d0, d1 = norm.pdf(z, 0.0, 1.0), norm.pdf(z, mu, sd1)
+        z = np.where(gam == 1, rng.normal(g1_mean, g1_sd, m), rng.normal(0.0, 1.0, m))
+        d0, d1 = norm.pdf(z, 0.0, 1.0), norm.pdf(z, g1_mean, g1_sd)
         ll0 = np.sum(np.log((1 - _sigmoid(B0)) * d0 + _sigmoid(B0) * d1))
-        neg = lambda b: -np.sum(np.log((1 - _sigmoid(B0 + b)) * d0 + _sigmoid(B0 + b) * d1))
+        neg = lambda bb: -np.sum(np.log((1 - _sigmoid(B0 + bb)) * d0 + _sigmoid(B0 + bb) * d1))
         out[r] = 2.0 * (-minimize_scalar(neg, bounds=(-2.0, 12.0), method="bounded").fun - ll0)
-    return float(out.mean())
+    return out
 
-
-_mc = _mc_lrt(50, 3.0, 2.0)
-_analytic_ref = expected_lrt(50, float(kl_loc[int(np.argmin(np.abs(mu_axis - 2.0))),
-                                              int(np.argmin(np.abs(b_axis_loc - 3.0)))]))
-
-rows = [
-    ["per-gene 2*KL monotone in b (mu=1.5)", mono_b],
-    ["per-gene 2*KL monotone in mu (b=2)", mono_mu],
-    ["set LRT monotone in m (b=2, mu=1.5)", mono_m],
-    ["reference f(m=50, b=3, mu=2) ~ 46", f"{_ref:.1f}"],
-    ["LRT=25 min-b, small set m=50 (mu=1.5)", f"{_bmin_small:.2f}"],
-    ["LRT=25 min-b, large set m=300 (mu=1.5)", f"{_bmin_large:.2f}"],
-    ["  -> large reaches LRT=25 at smaller b", _bmin_large < _bmin_small],
-    ["per-gene 2*KL loc (b=2, mu=2)", f"{_loc_at2:.3f}"],
-    ["per-gene 2*KL scale (b=2, sigma=2)", f"{_sca_at2:.3f}"],
-    ["  -> scale weaker per gene at matched E[z^2]=5", _scale_harder],
-    ["analytic f(m=50, b=3, mu=2)", f"{_analytic_ref:.2f}"],
-    ["Monte-Carlo LRT, same point (n=4000)", f"{_mc:.2f}"],
-    ["  -> analytic matches MC (abs diff < 1)", abs(_analytic_ref - _mc) < 1.0],
+# (scenario, m, b, signal): a spread of weak/moderate/strong loc + scale, plus a null (b=0)
+_MC_POINTS = [
+    ("loc", 50, 3.0, 2.0), ("loc", 150, 2.0, 1.5), ("loc", 300, 2.0, 1.5), ("loc", 50, 1.5, 1.0),
+    ("scale", 150, 2.0, 2.0), ("scale", 50, 3.0, 3.0), ("loc", 100, 0.0, 1.5),
 ]
-print(_md(rows, ["check", "value"]))
+_NREP = 4000
+_hdr = ["scenario", "m", "b", "mu", "sigma", "n_rep", "analytic 2mKL+c",
+        "MC mean", "q05", "q25", "median", "q75", "q95"]
+_lines = [f"Simulated profiled LRT (oracle two-group, $b_0={B0:g}$, $\\tau_0={TAU0:g}$):\n",
+          "| " + " | ".join(_hdr) + " |", "| " + " | ".join("---" for _ in _hdr) + " |"]
+for _i, (_sc, _m, _b, _s) in enumerate(_MC_POINTS):
+    _samp = _lrt_samples(_sc, _m, _b, _s, n_rep=_NREP, seed=_i)
+    _mu, _sigma = (_s, TAU0) if _sc == "loc" else (0.0, _s)
+    _ana = 2.0 * _m * float(kl_field(_sc, np.array([_b]), np.array([_s]))[0, 0]) + C_OFFSET
+    _q = np.quantile(_samp, [0.05, 0.25, 0.5, 0.75, 0.95])
+    _lines.append("| " + " | ".join([
+        _sc, str(_m), f"{_b:.2f}", f"{_mu:.2f}", f"{_sigma:g}", str(_NREP),
+        f"{_ana:.1f}", f"{_samp.mean():.1f}", *[f"{_v:.1f}" for _v in _q]]) + " |")
+print("\n".join(_lines))
 ```
+
+**Columns.** *scenario / m / b / mu / sigma* - the simulation parameters ($f_1 = \mathcal{N}(\mu,
+\sigma^2)$, membership logit $b_0 + b$ for in-set genes); *n_rep* - Monte-Carlo replicates;
+*analytic 2mKL+c* - the closed-form mean; *MC mean* - the simulated mean LRT; *q05 … q95* -
+quantiles of the simulated LRT.
 
 ## Takeaways
 
@@ -506,7 +468,7 @@ print(_md(rows, ["check", "value"]))
 - **The landscape is the in-set-only reduction, in closed form.** Fixing $b_0 = -2$
   makes the LRT depend on the $m$ in-set genes alone, and taking its expectation collapses
   to $2m\,\mathrm{KL}(q_\ast \Vert q_0) + c$ - one 1-D quadrature per grid point, no
-  simulation. The Monte-Carlo row in the sanity table confirms the closed form.
+  simulation. The simulation table confirms it - the simulated mean LRT tracks the closed form.
 
 Each figure legend defines its axes and the statistic (per-gene expected-LRT contribution
 $2\,\mathrm{KL}$; set-level $f = 2m\,\mathrm{KL} + 1$; $b_0 = -2$ fixed, in-set genes only).
