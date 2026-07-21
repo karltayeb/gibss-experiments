@@ -4,6 +4,9 @@
 # curve for one set size (m=50/100/200/400, drawn from [40,60]/[80,120]/[160,240]/[320,480]),
 # split into three enrichment-vs-signal trade-off regimes (enrich/balanced/signal). loc cells
 # vary mu at sigma=0.01; scale cells vary sigma at mu=0. 4 batches x 50 replicates = 200 reps.
+# Each cell also carries a PAIRED NULL (null_b0: same design+signal, b=0) so coverage/CS
+# analyses aren't diluted by null sims (has_causal restricts coverage; min_log_bf filters CSs)
+# and so log-BF ROC / null-based FDP have negatives.
 _anchors:
   op_methods: &op_methods
      [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1, twogroup_scale_fam__L=1, logistic_oracle__L=1, cox__threshold=1.00__L=1, cox__threshold=2.00__L=1, cox__threshold=3.00__L=1, cox__threshold=4.00__L=1, cox_reversed__L=1, linear_fixed__L=1]
@@ -17,99 +20,123 @@ supercollections:
         alias: loc_m50_enrich
         simulations:
           - {design: gobp_10_500, enrichment: op_b4.00_s40_60, signal: op_loc_0.96, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_0.96, error: gaussian}
       - name: loc_m50_balanced
         alias: loc_m50_balanced
         simulations:
           - {design: gobp_10_500, enrichment: op_b2.15_s40_60, signal: op_loc_1.93, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_1.93, error: gaussian}
       - name: loc_m50_signal
         alias: loc_m50_signal
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.62_s40_60, signal: op_loc_4.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_4.00, error: gaussian}
       - name: loc_m100_enrich
         alias: loc_m100_enrich
         simulations:
           - {design: gobp_10_500, enrichment: op_b4.00_s80_120, signal: op_loc_0.66, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_0.66, error: gaussian}
       - name: loc_m100_balanced
         alias: loc_m100_balanced
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.80_s80_120, signal: op_loc_1.62, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_1.62, error: gaussian}
       - name: loc_m100_signal
         alias: loc_m100_signal
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.21_s80_120, signal: op_loc_4.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_4.00, error: gaussian}
       - name: loc_m200_enrich
         alias: loc_m200_enrich
         simulations:
           - {design: gobp_10_500, enrichment: op_b4.00_s160_240, signal: op_loc_0.46, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_0.46, error: gaussian}
       - name: loc_m200_balanced
         alias: loc_m200_balanced
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.52_s160_240, signal: op_loc_1.37, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_1.37, error: gaussian}
       - name: loc_m200_signal
         alias: loc_m200_signal
         simulations:
           - {design: gobp_10_500, enrichment: op_b0.91_s160_240, signal: op_loc_4.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_4.00, error: gaussian}
       - name: loc_m400_enrich
         alias: loc_m400_enrich
         simulations:
           - {design: gobp_10_500, enrichment: op_b4.00_s320_480, signal: op_loc_0.32, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_0.32, error: gaussian}
       - name: loc_m400_balanced
         alias: loc_m400_balanced
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.29_s320_480, signal: op_loc_1.18, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_1.18, error: gaussian}
       - name: loc_m400_signal
         alias: loc_m400_signal
         simulations:
           - {design: gobp_10_500, enrichment: op_b0.68_s320_480, signal: op_loc_4.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_4.00, error: gaussian}
       - name: scale_m50_enrich
         alias: scale_m50_enrich
         simulations:
           - {design: gobp_10_500, enrichment: op_b4.00_s40_60, signal: op_scale_1.70, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_1.70, error: gaussian}
       - name: scale_m50_balanced
         alias: scale_m50_balanced
         simulations:
           - {design: gobp_10_500, enrichment: op_b2.36_s40_60, signal: op_scale_3.12, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_3.12, error: gaussian}
       - name: scale_m50_signal
         alias: scale_m50_signal
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.94_s40_60, signal: op_scale_6.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_6.00, error: gaussian}
       - name: scale_m100_enrich
         alias: scale_m100_enrich
         simulations:
           - {design: gobp_10_500, enrichment: op_b4.00_s80_120, signal: op_scale_1.22, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_1.22, error: gaussian}
       - name: scale_m100_balanced
         alias: scale_m100_balanced
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.91_s80_120, signal: op_scale_2.55, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_2.55, error: gaussian}
       - name: scale_m100_signal
         alias: scale_m100_signal
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.45_s80_120, signal: op_scale_6.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_6.00, error: gaussian}
       - name: scale_m200_enrich
         alias: scale_m200_enrich
         simulations:
           - {design: gobp_10_500, enrichment: op_b4.00_s160_240, signal: op_scale_0.94, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_0.94, error: gaussian}
       - name: scale_m200_balanced
         alias: scale_m200_balanced
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.57_s160_240, signal: op_scale_2.14, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_2.14, error: gaussian}
       - name: scale_m200_signal
         alias: scale_m200_signal
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.09_s160_240, signal: op_scale_6.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_6.00, error: gaussian}
       - name: scale_m400_enrich
         alias: scale_m400_enrich
         simulations:
           - {design: gobp_10_500, enrichment: op_b4.00_s320_480, signal: op_scale_0.75, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_0.75, error: gaussian}
       - name: scale_m400_balanced
         alias: scale_m400_balanced
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.31_s320_480, signal: op_scale_1.83, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_1.83, error: gaussian}
       - name: scale_m400_signal
         alias: scale_m400_signal
         simulations:
           - {design: gobp_10_500, enrichment: op_b0.81_s320_480, signal: op_scale_6.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_6.00, error: gaussian}
     methods: *op_methods
     default_args: *default_args
     outputs:
-      - {name: operating-points, method_filter: *op_methods, analyses: [pip]}
+      - {name: operating-points, method_filter: *op_methods, analyses: [pip, cs, cs_non_null, logbf]}
