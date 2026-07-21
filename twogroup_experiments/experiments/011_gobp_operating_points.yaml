@@ -6,7 +6,7 @@
 # vary mu at sigma=0.01; scale cells vary sigma at mu=0. 4 batches x 50 replicates = 200 reps.
 _anchors:
   op_methods: &op_methods
-     [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1, twogroup_scale_fam__L=1, logistic_oracle__L=1, cox__threshold=1.00__L=1, cox__threshold=2.00__L=1, cox__threshold=3.00__L=1, cox__threshold=4.00__L=1, linear_fixed__L=1]
+     [twogroup_oracle__L=1, twogroup__L=1, twogroup_loc_fam__L=1, twogroup_scale_fam__L=1, logistic_oracle__L=1, cox__threshold=1.00__L=1, cox__threshold=2.00__L=1, cox__threshold=3.00__L=1, cox__threshold=4.00__L=1, cox_reversed__L=1, linear_fixed__L=1]
   default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
 
 supercollections:
