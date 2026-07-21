@@ -805,6 +805,7 @@ methods:
     function: run_cox_method
     template:
       time_sign: -1.0
+      time_bins: 1000
     over:
       threshold:
       - 1.0
