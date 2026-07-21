@@ -232,6 +232,9 @@ designs:
     function: null_enrich_X
     arguments:
       n: 4384
+  gobp_10_500:
+    function: gobp_gene_sets_X
+    arguments: {min_size: 10, max_size: 500}
 enrichments:
   ser_b2:
     function: uniform_single_effect
@@ -280,6 +283,86 @@ enrichments:
       causal_effect: 0.0
     intercept: -1.0
     membership: deterministic
+  op_b0.68_s320_480:
+    function: sized_single_effect
+    arguments: {causal_effect: 0.68, size_lo: 320, size_hi: 480}
+    intercept: -2.0
+  op_b0.81_s320_480:
+    function: sized_single_effect
+    arguments: {causal_effect: 0.81, size_lo: 320, size_hi: 480}
+    intercept: -2.0
+  op_b0.91_s160_240:
+    function: sized_single_effect
+    arguments: {causal_effect: 0.91, size_lo: 160, size_hi: 240}
+    intercept: -2.0
+  op_b1.09_s160_240:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.09, size_lo: 160, size_hi: 240}
+    intercept: -2.0
+  op_b1.21_s80_120:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.21, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  op_b1.29_s320_480:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.29, size_lo: 320, size_hi: 480}
+    intercept: -2.0
+  op_b1.31_s320_480:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.31, size_lo: 320, size_hi: 480}
+    intercept: -2.0
+  op_b1.45_s80_120:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.45, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  op_b1.52_s160_240:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.52, size_lo: 160, size_hi: 240}
+    intercept: -2.0
+  op_b1.57_s160_240:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.57, size_lo: 160, size_hi: 240}
+    intercept: -2.0
+  op_b1.62_s40_60:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.62, size_lo: 40, size_hi: 60}
+    intercept: -2.0
+  op_b1.80_s80_120:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.8, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  op_b1.91_s80_120:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.91, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  op_b1.94_s40_60:
+    function: sized_single_effect
+    arguments: {causal_effect: 1.94, size_lo: 40, size_hi: 60}
+    intercept: -2.0
+  op_b2.15_s40_60:
+    function: sized_single_effect
+    arguments: {causal_effect: 2.15, size_lo: 40, size_hi: 60}
+    intercept: -2.0
+  op_b2.36_s40_60:
+    function: sized_single_effect
+    arguments: {causal_effect: 2.36, size_lo: 40, size_hi: 60}
+    intercept: -2.0
+  op_b4.00_s160_240:
+    function: sized_single_effect
+    arguments: {causal_effect: 4.0, size_lo: 160, size_hi: 240}
+    intercept: -2.0
+  op_b4.00_s320_480:
+    function: sized_single_effect
+    arguments: {causal_effect: 4.0, size_lo: 320, size_hi: 480}
+    intercept: -2.0
+  op_b4.00_s40_60:
+    function: sized_single_effect
+    arguments: {causal_effect: 4.0, size_lo: 40, size_hi: 60}
+    intercept: -2.0
+  op_b4.00_s80_120:
+    function: sized_single_effect
+    arguments: {causal_effect: 4.0, size_lo: 80, size_hi: 120}
+    intercept: -2.0
 signals:
   loc_0.5:
     f0:
@@ -549,6 +632,78 @@ signals:
     f1:
       Exponential:
         rate: 1.3333333333333333
+  op_loc_0.32:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.32, scale: 0.01, estimate_loc: false, estimate_scale: false}
+  op_loc_0.46:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.46, scale: 0.01, estimate_loc: false, estimate_scale: false}
+  op_loc_0.66:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.66, scale: 0.01, estimate_loc: false, estimate_scale: false}
+  op_loc_0.96:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.96, scale: 0.01, estimate_loc: false, estimate_scale: false}
+  op_loc_1.18:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 1.18, scale: 0.01, estimate_loc: false, estimate_scale: false}
+  op_loc_1.37:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 1.37, scale: 0.01, estimate_loc: false, estimate_scale: false}
+  op_loc_1.62:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 1.62, scale: 0.01, estimate_loc: false, estimate_scale: false}
+  op_loc_1.93:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 1.93, scale: 0.01, estimate_loc: false, estimate_scale: false}
+  op_loc_4.00:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 4.0, scale: 0.01, estimate_loc: false, estimate_scale: false}
+  op_scale_0.75:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.0, scale: 0.75, estimate_loc: false, estimate_scale: false}
+  op_scale_0.94:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.0, scale: 0.94, estimate_loc: false, estimate_scale: false}
+  op_scale_1.22:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.0, scale: 1.22, estimate_loc: false, estimate_scale: false}
+  op_scale_1.70:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.0, scale: 1.7, estimate_loc: false, estimate_scale: false}
+  op_scale_1.83:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.0, scale: 1.83, estimate_loc: false, estimate_scale: false}
+  op_scale_2.14:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.0, scale: 2.14, estimate_loc: false, estimate_scale: false}
+  op_scale_2.55:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.0, scale: 2.55, estimate_loc: false, estimate_scale: false}
+  op_scale_3.12:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.0, scale: 3.12, estimate_loc: false, estimate_scale: false}
+  op_scale_6.00:
+    f0: {PointMass: {value: 0.0}}
+    f1:
+      Normal: {loc: 0.0, scale: 6.0, estimate_loc: false, estimate_scale: false}
 errors:
   gaussian: null
   noiseless:
