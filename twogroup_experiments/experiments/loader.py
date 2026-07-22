@@ -224,7 +224,9 @@ def load_config(experiments_dir: Path | None = None) -> dict[str, Any]:
     library = load_library(base)
     supercollections: dict[str, Any] = {}
     for path in sorted(base.glob("*.yaml")):
-        if path.name == "library.yaml":
+        # library.yaml is loaded separately; a leading underscore marks a disabled
+        # experiment file (e.g. `_010_...yaml`) that the config skips entirely.
+        if path.name == "library.yaml" or path.name.startswith("_"):
             continue
         data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
         supercollections.update(data.get("supercollections", {}) or {})

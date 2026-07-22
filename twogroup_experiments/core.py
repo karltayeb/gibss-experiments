@@ -164,53 +164,66 @@ def _extract_ser_struct(state: Any, l: int) -> dict[str, Any]:
         "alpha": _to_python(effect.alpha),
         "prior_variance": float(effect.prior_variance),
         "marginal_log_likelihood": float(effect.marginal_log_likelihood),
-        "null_log_likelihood": float(effect.null_log_likelihood),
+        "null_log_likelihood": float(effect.null_log_marginal),
         "ser_log_bf": float(np.asarray(state.ser_log_bayes_factor[l])),
         "kl": float(effect.kl),
     }
 
 
+# Family-state fields that hold response/distribution/array OBJECTS, not scalars:
+# skipped when serializing the flat family_state struct (distributions are captured
+# separately by `_extract_twogroup_state_struct`; the response and per-row arrays are
+# not needed downstream and would not JSON-serialize cleanly).
+_FAMILY_STATE_SKIP = frozenset({"response", "f0", "f1", "llr", "row_param"})
+
+
 def _extract_family_state_struct(state: Any) -> dict[str, Any]:
-    family_state = (
-        state.family_state.inner_family_state
-        if hasattr(state.family_state, "inner_family_state")
-        else state.family_state
-    )
-    return _to_python(family_state)
+    """Flat, JSON-serializable snapshot of the (daf5a24) engine family state.
+
+    The glm-based families (logistic/twogroup) carry the *string* enrichment axis
+    on ``intercept`` ("shared"/"profiled"/"null") and the fitted *value* on
+    ``intercept_value``; the linear family carries the numeric intercept directly on
+    ``intercept``. Normalize so downstream always finds a numeric ``intercept`` (the
+    string axis is preserved as ``intercept_kind``).
+    """
+    fs = state.family_state
+    out: dict[str, Any] = {}
+    for field in fs.__dataclass_fields__:  # type: ignore[attr-defined]
+        if field in _FAMILY_STATE_SKIP:
+            continue
+        out[field] = _to_python(getattr(fs, field))
+    if hasattr(fs, "intercept_value"):
+        out["intercept_kind"] = out.pop("intercept", None)
+        out["intercept"] = float(fs.intercept_value)
+    return out
 
 
 def _extract_twogroup_state_struct(state: Any) -> dict[str, Any] | None:
-    family_state = state.family_state
-    if not hasattr(family_state, "inner_family_state"):
+    """Two-group f0/f1 + posterior enrichment, or None for non-twogroup families.
+
+    The daf5a24 twogroup family marginalizes z analytically: f0/f1 live directly on
+    the family state (no inner/outer nesting) and the posterior enrichment is
+    ``twogroup.compute_Ez(state)``.
+    """
+    from gibss import twogroup as _twogroup
+
+    fs = state.family_state
+    if getattr(fs, "llr", None) is None or not hasattr(fs, "f0"):
         return None
     return {
-        "f0": _distribution_struct(family_state.f0),
-        "f1": _distribution_struct(family_state.f1),
-        "Ez": _to_python(_derive_Ez(state)),
-        "update_f0": bool(family_state.update_f0),
-        "update_f1": bool(family_state.update_f1),
-        "n_null_iter": int(family_state.n_null_iter),
+        "f0": _distribution_struct(fs.f0),
+        "f1": _distribution_struct(fs.f1),
+        "Ez": _to_python(np.asarray(_twogroup.compute_Ez(state))),
+        "update_f0": bool(
+            getattr(fs.f0, "estimate_loc", False)
+            or getattr(fs.f0, "estimate_scale", False)
+        ),
+        "update_f1": bool(
+            getattr(fs.f1, "estimate_loc", False)
+            or getattr(fs.f1, "estimate_scale", False)
+        ),
+        "n_null_iter": int(getattr(fs, "init_em_iters", 0)),
     }
-
-
-def _derive_Ez(state: Any) -> np.ndarray:
-    """Enrichment probability ``Ez = sigmoid(eta + llr)``.
-
-    Mirrors ``twogroup.compute_Ez`` but reconstructs it from the stored state
-    (``llr`` on the family state, linear predictor on the total message) since
-    it is no longer materialized on the family state. Respects a fixed
-    ``Ez_override`` clamp if one was set by a thresholding mode.
-    """
-    family_state = state.family_state
-    override = getattr(family_state, "Ez_override", None)
-    if override is not None:
-        return np.asarray(override, dtype=float)
-    eta = np.asarray(state.total_message.mean, dtype=float)
-    inner = family_state.inner_family_state
-    if hasattr(inner, "intercept"):
-        eta = eta + float(inner.intercept)
-    llr = np.asarray(family_state.llr, dtype=float)
-    return 1.0 / (1.0 + np.exp(-(eta + llr)))
 
 
 def _make_cs_struct(

@@ -5,7 +5,11 @@ from typing import Any
 
 import numpy as np
 
-from gibss import engine, localjj
+from gibss.methods import fit_glm_susie
+
+# GH order for leave-one-out offset integration once L > 1 (SuSiE). At L=1 (a bare
+# SER) there is no offset, so the fit is plain GH-quadrature on the exact marginal.
+OFFSET_QUADRATURE_POINTS = 5
 
 
 def fit_logistic_method(
@@ -21,13 +25,16 @@ def fit_logistic_method(
     else:
         raise ValueError(f"Unsupported logistic response_source: {response_source}")
 
-    data = localjj.prep_data(simulation.X, y)
-    state = localjj.initialize_state(
-        data,
+    fitted = fit_glm_susie(
+        simulation.X,
+        y,
         L=L,
-        family_state_kwargs={"estimate_prior_variance": False},
+        family="logistic",
+        center=True,
+        estimate_prior_variance=False,
+        offset_integration="none" if L == 1 else "gh",
+        offset_quadrature_points=OFFSET_QUADRATURE_POINTS,
     )
-    fitted = engine.fit_ibss(data, state, localjj.default_schedule())
     return {
         "state": fitted,
         "threshold": threshold,

@@ -12,7 +12,7 @@ def fit_linear_method(
     estimate_residual_variance: bool,
     L: int = 1,
 ) -> dict[str, Any]:
-    data = linear.prep_data(simulation.X, simulation.thetahat)
+    data = linear.prep_data(simulation.X, simulation.thetahat, center=True)
     state = linear.initialize_state(
         data,
         L=L,

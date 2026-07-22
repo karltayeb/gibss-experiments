@@ -363,6 +363,315 @@ enrichments:
     function: sized_single_effect
     arguments: {causal_effect: 4.0, size_lo: 80, size_hi: 120}
     intercept: -2.0
+  # --- feature_log_bf level-curve points (011, weak/intermediate/strong) ---
+  op_b2.17_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.17
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b1.64_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.64
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b1.81_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.81
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.23_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.23
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b0.93_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 0.93
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.30_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.3
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b0.70_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 0.7
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b2.41_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.41
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b1.92_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.92
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b1.98_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.98
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.43_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.43
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.66_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.66
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.07_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.07
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.41_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.41
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b2.61_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.61
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b2.13_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.13
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.59_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.59
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.78_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.78
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.20_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.2
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.50_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.5
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b0.90_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 0.9
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b2.42_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.42
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b1.98_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.98
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b1.93_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.93
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.46_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.46
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.58_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.58
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.10_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.1
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.32_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.32
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b0.83_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 0.83
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b2.76_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.76
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b2.35_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.35
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b2.15_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.15
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.71_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.71
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.75_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.75
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.28_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.28
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.45_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.45
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b0.96_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 0.96
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b3.06_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 3.06
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b2.69_s40_60:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.69
+      size_lo: 40
+      size_hi: 60
+    intercept: -2.0
+  op_b2.35_s80_120:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 2.35
+      size_lo: 80
+      size_hi: 120
+    intercept: -2.0
+  op_b1.89_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.89
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.42_s160_240:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.42
+      size_lo: 160
+      size_hi: 240
+    intercept: -2.0
+  op_b1.55_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.55
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
+  op_b1.07_s320_480:
+    function: sized_single_effect
+    arguments:
+      causal_effect: 1.07
+      size_lo: 320
+      size_hi: 480
+    intercept: -2.0
 signals:
   loc_0.5:
     f0:
@@ -704,6 +1013,467 @@ signals:
     f0: {PointMass: {value: 0.0}}
     f1:
       Normal: {loc: 0.0, scale: 6.0, estimate_loc: false, estimate_scale: false}
+  # --- feature_log_bf level-curve points (011, weak/intermediate/strong) ---
+  op_loc_1.10:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.1
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_2.00:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 2.0
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_0.75:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.75
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.65:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.65
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_0.52:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.52
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.39:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.39
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_0.37:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.37
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.19:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.19
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.32:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.32
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_2.21:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 2.21
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_0.89:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.89
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.80:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.8
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_0.61:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.61
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.51:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.51
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_0.43:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.43
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.29:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.29
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.53:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.53
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_2.40:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 2.4
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.01:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.01
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_0.69:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.69
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_1.61:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 1.61
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_loc_0.48:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.48
+        scale: 0.01
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_1.92:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 1.92
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_3.26:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 3.26
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_1.33:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 1.33
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_2.60:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 2.6
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_1.01:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 1.01
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_2.16:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 2.16
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_0.80:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 0.8
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_1.84:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 1.84
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_2.40:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 2.4
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_3.73:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 3.73
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_1.55:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 1.55
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_2.89:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 2.89
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_1.14:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 1.14
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_2.37:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 2.37
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_0.89:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 0.89
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_2.00:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 2.0
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_2.96:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 2.96
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_4.18:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 4.18
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_1.77:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 1.77
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_3.14:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 3.14
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_1.26:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 1.26
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_2.54:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 2.54
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_0.96:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 0.96
+        estimate_loc: false
+        estimate_scale: false
+  op_scale_2.12:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 0.0
+        scale: 2.12
+        estimate_loc: false
+        estimate_scale: false
 errors:
   gaussian: null
   noiseless:
@@ -778,6 +1548,15 @@ methods:
     template:
       threshold: null
       time_sign: 1.0
+      time_bins: 1000
+    over:
+      L:
+      - 1
+  cox_full:
+    function: run_cox_method
+    template:
+      threshold: null
+      time_sign: -1.0
       time_bins: 1000
     over:
       L:

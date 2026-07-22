@@ -3,10 +3,14 @@ from __future__ import annotations
 
 from typing import Any
 
-import numpy as np
-
-from gibss import engine, localjj, twogroup, twogrouplocaljj
+from gibss import engine, twogroup
 from gibss.distributions import Normal
+from gibss.response import GH, Smoothed, TwoGroupMarginal
+
+# GH order for leave-one-out offset integration once L > 1 (SuSiE). At L=1 (a bare
+# SER) the message is zero, so the fit is plain GH-quadrature on the exact
+# z-marginal (TwoGroupMarginal); Smoothed(..., GH(k)) only matters across effects.
+OFFSET_QUADRATURE_POINTS = 5
 
 
 def fit_twogroup_method(
@@ -15,10 +19,16 @@ def fit_twogroup_method(
     f1,
     L=1,
     oracle_init=False,
+    nullweight=1.0,
+    # Legacy knobs of the old nested inner/outer EM implementation. The daf5a24
+    # twogroup family marginalizes z analytically (no inner SER state, no per-sweep
+    # inner-iteration counts, and only the "local" M-step survives), so these are
+    # accepted and ignored to keep the shared library templates resolving.
     n_null_iter=20,
     n_intercept_iter=20,
     em_update="local",
 ):
+    del n_null_iter, n_intercept_iter, em_update
     if oracle_init:
         resolved_f1 = Normal(
             loc=simulation.f1.loc,
@@ -28,32 +38,25 @@ def fit_twogroup_method(
         )
     else:
         resolved_f1 = simulation.f1 if f1 is None else f1
-    y0 = np.full(simulation.X.shape[0], 0.5, dtype=float)
-    if em_update == "local":
-        inner_module = twogrouplocaljj
-        schedule = twogroup.local_default_schedule(twogrouplocaljj.default_schedule())
-    elif em_update == "global":
-        inner_module = localjj
-        schedule = twogroup.default_schedule(localjj.default_schedule())
-    else:
-        raise ValueError(f"Unknown twogroup em_update mode: {em_update!r}")
 
-    inner_data = inner_module.prep_data(simulation.X, y0)
-    inner_state = inner_module.initialize_state(
-        inner_data,
-        L=L,
-        family_state_kwargs={"estimate_prior_variance": False},
+    response = (
+        TwoGroupMarginal()
+        if L == 1
+        else Smoothed(TwoGroupMarginal(), GH(OFFSET_QUADRATURE_POINTS))
     )
-    data = twogroup.prep_data(simulation.X, bhat=simulation.thetahat, se=simulation.se)
+    data = twogroup.prep_data(
+        simulation.X, bhat=simulation.thetahat, se=simulation.se, center=True
+    )
     state = twogroup.initialize_state(
         data,
-        inner_state=inner_state,
+        L=L,
         f0=simulation.f0,
         f1=resolved_f1,
-        n_null_iter=n_null_iter,
-        n_intercept_iter=n_intercept_iter,
+        response=response,
+        family_state_kwargs={"estimate_prior_variance": False},
+        nullweight=nullweight,
     )
-    fitted = engine.fit_ibss(data, state, schedule)
+    fitted = engine.fit_ibss(data, state, twogroup.default_schedule())
     return {
         "state": fitted,
         "threshold": None,
@@ -68,12 +71,13 @@ def summarize_twogroup_method(
     f1,
     L=1,
     oracle_init=False,
+    nullweight=1.0,
     n_null_iter=20,
     n_intercept_iter=20,
     em_update="local",
 ):
     from core import _extract_ser_struct, _extract_family_state_struct, _extract_twogroup_state_struct, _make_cs_struct, _make_fit_summary_struct
-    del f1, L, oracle_init, n_null_iter, n_intercept_iter, em_update
+    del f1, L, oracle_init, nullweight, n_null_iter, n_intercept_iter, em_update
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {
