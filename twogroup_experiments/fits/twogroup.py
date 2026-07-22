@@ -3,9 +3,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from gibss import engine, twogroup
 from gibss.distributions import Normal
 from gibss.response import GH, Smoothed, TwoGroupMarginal
+from gibss.twogroup import fit_twogroup_susie
 
 # GH order for leave-one-out offset integration once L > 1 (SuSiE). At L=1 (a bare
 # SER) the message is zero, so the fit is plain GH-quadrature on the exact
@@ -44,19 +44,22 @@ def fit_twogroup_method(
         if L == 1
         else Smoothed(TwoGroupMarginal(), GH(OFFSET_QUADRATURE_POINTS))
     )
-    data = twogroup.prep_data(
-        simulation.X, bhat=simulation.thetahat, se=simulation.se, center=True
-    )
-    state = twogroup.initialize_state(
-        data,
-        L=L,
+    # Route through the daf5a24 front door. center=True, prior_variance=1.0 and
+    # max_iter=50 are the front-door defaults; we pass estimate_prior_variance=False
+    # and the explicit response to match the experiment's fixed-prior SER.
+    fitted = fit_twogroup_susie(
+        simulation.X,
+        simulation.thetahat,
+        simulation.se,
         f0=simulation.f0,
         f1=resolved_f1,
+        L=L,
         response=response,
         family_state_kwargs={"estimate_prior_variance": False},
         nullweight=nullweight,
+        center=True,
+        max_iter=50,
     )
-    fitted = engine.fit_ibss(data, state, twogroup.default_schedule())
     return {
         "state": fitted,
         "threshold": None,

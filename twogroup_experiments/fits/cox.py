@@ -5,7 +5,7 @@ from typing import Any
 
 import numpy as np
 
-from gibss import cox, engine
+from gibss.cox_poisson import fit_cox_susie
 
 
 def _right_censored_survival(score, threshold, time_sign):
@@ -50,17 +50,20 @@ def fit_cox_method(simulation, *, threshold, time_sign, L=1, time_bins=None):
         event_time, event_type = _right_censored_survival(score, threshold, time_sign)
     if time_bins is not None:
         event_time = _bin_event_times(event_time, time_bins)
-    data = cox.prep_data(
+    # Route through the daf5a24 front door with the exact partial likelihood.
+    # Event-time censoring/binning stays local (above); time_bins is left at the
+    # default so the front door fits the times we pass unchanged. The cox family's
+    # own defaults (skl_tolerance=1e-4, prior_variance=1.0) match; max_iter=50
+    # mirrors engine.fit_ibss's default so the fixed point is unchanged.
+    fitted = fit_cox_susie(
         simulation.X,
         event_time=event_time,
         event_type=event_type,
-    )
-    state = cox.initialize_state(
-        data,
+        method="partial",
         L=L,
-        family_state_kwargs={"estimate_prior_variance": False},
+        estimate_prior_variance=False,
+        max_iter=50,
     )
-    fitted = engine.fit_ibss(data, state, cox.default_schedule())
     return {
         "state": fitted,
         "threshold": threshold,
