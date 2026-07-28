@@ -1,3 +1,34 @@
 .snakemake/
 .__pycache__/
 results/
+
+# Quarto notebook render intermediates + notebook data cache (analysis/*.qmd)
+# (the rendered *.html is left untracked, not ignored - commit it if you want to share it)
+analysis/.cache/
+analysis/.quarto/
+analysis/*_files/
+*.knit.md
+
+# OS cruft
+.DS_Store
+
+# Generated figures / data outputs (regenerated from the pipeline + notebooks)
+analysis/figures/
+analysis/figure/
+slides/figures/
+
+# marimo notebook cache
+__marimo__/
+
+# LaTeX build products for the slides deck (source kept: deck.tex, scripts/, resources/)
+slides/deck.pdf
+slides/*.aux
+slides/*.bbl
+slides/*.blg
+slides/*.fdb_latexmk
+slides/*.fls
+slides/*.log
+slides/*.nav
+slides/*.out
+slides/*.snm
+slides/*.toc
