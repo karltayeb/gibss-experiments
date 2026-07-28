@@ -1,0 +1,60 @@
+{
+  "source_gmt": "/Users/ktayeb/research/gibss-experiments/gsea_examples/covid/.venv/lib/python3.13/site-packages/gseasusie/msigdb/c5.all.v2026.1.Hs.entrez.gmt",
+  "seed": 20260730,
+  "set_size_band": [
+    12,
+    800
+  ],
+  "n_sets_total_gobp": 7538,
+  "n_sets_collection": 4870,
+  "n_genes_universe": 17050,
+  "n_causal": 10,
+  "causal": {
+    "large": [
+      {
+        "name": "GOBP_SENSORY_PERCEPTION_OF_SMELL",
+        "n_genes": 464
+      },
+      {
+        "name": "GOBP_CELL_JUNCTION_ASSEMBLY",
+        "n_genes": 527
+      }
+    ],
+    "medium": [
+      {
+        "name": "GOBP_INORGANIC_ION_IMPORT_ACROSS_PLASMA_MEMBRANE",
+        "n_genes": 144
+      },
+      {
+        "name": "GOBP_REGULATION_OF_NUCLEAR_DIVISION",
+        "n_genes": 157
+      },
+      {
+        "name": "GOBP_REGULATION_OF_BMP_SIGNALING_PATHWAY",
+        "n_genes": 127
+      }
+    ],
+    "small": [
+      {
+        "name": "GOBP_EPIGENETIC_PROGRAMMING_OF_GENE_EXPRESSION",
+        "n_genes": 35
+      },
+      {
+        "name": "GOBP_ESTABLISHMENT_OR_MAINTENANCE_OF_MONOPOLAR_CELL_POLARITY",
+        "n_genes": 25
+      },
+      {
+        "name": "GOBP_VASCULAR_ENDOTHELIAL_CELL_RESPONSE_TO_LAMINAR_FLUID_SHEAR_STRESS",
+        "n_genes": 22
+      },
+      {
+        "name": "GOBP_VIRAL_BUDDING",
+        "n_genes": 26
+      },
+      {
+        "name": "GOBP_ENDOPLASMIC_RETICULUM_TUBULAR_NETWORK_ORGANIZATION",
+        "n_genes": 23
+      }
+    ]
+  }
+}
