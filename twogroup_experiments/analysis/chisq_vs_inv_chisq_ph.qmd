@@ -1,0 +1,348 @@
+---
+title: "Squared z-scores and the proportional-hazards assumption"
+subtitle: "Hazard ratios of the forward ($1/z^2$) and reverse ($z^2$) arrival-time orderings, and where Cox PH breaks"
+format:
+  html:
+    toc: true
+    embed-resources: true
+    code-fold: true
+    fig-format: png
+engine: knitr
+---
+
+```{r}
+#| label: setup
+#| include: false
+# knitr engine so the doc is polyglot (R + Python). Analysis chunks are Python via
+# reticulate against the repo-root uv venv (one dir up from twogroup_experiments/).
+# This notebook needs only numpy + scipy + matplotlib.
+proj_root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+knitr::opts_knit$set(root.dir = proj_root)
+Sys.setenv(RETICULATE_PYTHON = file.path(proj_root, "..", ".venv", "bin", "python"))
+library(reticulate)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Setup
+
+When enrichment analysis has access only to the **magnitude** of a per-gene test statistic
+(an unsigned / two-sided score), the ordering variable is the squared z-score. Model a
+per-gene z-score as a two-group mixture: a **background** (null) gene has
+
+$$
+z \sim N(0, 1),
+$$
+
+while an **enriched** gene is drawn from a spike-and-slab mixture with null fraction $\pi_0$,
+
+$$
+z \sim \pi_0\, N(0,1) \;+\; (1-\pi_0)\, N(\mu, \sigma^2).
+$$
+
+$\pi_0$ is the fraction of the enriched set that is *actually* null: $\pi_0 = 1$ makes the
+enriched set indistinguishable from background, $\pi_0 = 0$ is a pure alternative. A background
+gene has $z^2 \sim \chi^2_1$; an enriched gene has $z^2$ distributed as a mixture of a central
+$\chi^2_1$ (weight $\pi_0$) and a location/scale-shifted squared normal (weight $1-\pi_0$).
+
+**Two arrival-time orderings.** To rank genes with a Cox / partial-likelihood model we treat
+the ranking as arrival times. There are two natural choices (following Efron's two-group
+framing):
+
+- **forward** (the usual ordering, *most significant first*): $T = 1/z^2$, so a large $z^2$ is a
+  *small* arrival time - the strongest genes arrive earliest. This is the inverse-$\chi^2_1$
+  ("InvChi2") type.
+- **reverse** (*most significant last*): $S = z^2$, so the strongest genes arrive latest. This
+  is the $\chi^2_1$ ("Chi2") type.
+
+**Why hazards.** A Cox model assumes the enriched-vs-background hazard ratio is *constant along
+the arrival-time axis* - the proportional-hazards (PH) assumption. So "is Cox PH appropriate?"
+becomes "is the hazard ratio flat in arrival time $t$?", asked separately for the forward
+ordering ($R_T$) and the reverse ordering ($R_S$).
+
+## The squared-normal law
+
+For $z \sim N(\mu, \sigma^2)$, the CDF of $z^2$ collects both roots $z = \pm\sqrt{w}$:
+
+$$
+F(w) \;=\; \mathbb{P}\!\left(z^2 \le w\right)
+        \;=\; \Phi\!\left(\tfrac{\sqrt{w}-\mu}{\sigma}\right)
+            - \Phi\!\left(\tfrac{-\sqrt{w}-\mu}{\sigma}\right),
+\qquad w > 0,
+$$
+
+and differentiating (chain rule, $\tfrac{d}{dw}\sqrt w = \tfrac{1}{2\sqrt w}$; $\phi$ even) gives
+
+$$
+f(w) \;=\; \frac{1}{2\sigma\sqrt{w}}
+   \left[\phi\!\left(\tfrac{\sqrt{w}-\mu}{\sigma}\right)
+        +\phi\!\left(\tfrac{\sqrt{w}+\mu}{\sigma}\right)\right].
+$$
+
+This is a scaled non-central $\chi^2_1$ ($z^2 = \sigma^2\chi^2_1(\lambda)$, $\lambda=(\mu/\sigma)^2$);
+the background is $\mu=0,\sigma=1$ (central $\chi^2_1$). The enriched group is the convex
+combination $f_1 = \pi_0 f_{0,1} + (1-\pi_0) f_{\mu,\sigma}$ (and likewise for $F_1$), where
+$f_{0,1}, F_{0,1}$ denote the $N(0,1)$-squared law.
+
+## The two hazard ratios in arrival time
+
+Write $\bar F = 1 - F$ for the survival of $z^2$. The **reverse** ordering uses $z^2$ directly
+as the arrival time $t$, so it is the ordinary hazard ratio of $z^2$:
+
+$$
+R_S(t) \;=\; \frac{f_1(t)/\bar F_1(t)}{f_0(t)/\bar F_0(t)}.
+$$
+
+The **forward** ordering uses $T = 1/z^2$. Since $1/z^2$ is monotone decreasing,
+$S_T(t) = \mathbb{P}(1/z^2 > t) = F(1/t)$ and $f_T(t) = f(1/t)/t^2$; the $t^2$ Jacobian cancels
+in the ratio, leaving (with $w = 1/t = z^2$)
+
+$$
+R_T(t) \;=\; \frac{f_1(1/t)/F_1(1/t)}{f_0(1/t)/F_0(1/t)}
+\;=\; \left.\frac{f_1(w)/F_1(w)}{f_0(w)/F_0(w)}\right|_{w=1/t}.
+$$
+
+**PH holds iff the curve is flat in $t$.** Because $R_S < 1$ while $R_T > 1$, we follow the note
+and plot $\log R_T$ and $-\log R_S$ (reverse *reciprocated*), so both are $\ge 0$ and the
+vertical *span* of each curve is its PH violation. Note the two orderings put the informative
+genes at **opposite ends** of the shared $t$-axis: forward's strongest genes are at small $t$,
+reverse's are at large $t$.
+
+```{python}
+#| label: hazard-defs
+#| code-summary: "Squared-normal hazards"
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+
+INK   = "#16202E"
+M_FWD = "#009E73"   # forward: T = 1/z^2 (InvChi2, most significant first)   -> cox palette
+M_REV = "#E69F00"   # reverse: S = z^2   (Chi2,   most significant last)     -> cox-reversed
+
+# Stable, human-named export dir for slide-bound figures (vector PDF + raster PNG),
+# matching the convention in exponential_arrival_beta.qmd.
+FIGDIR = "analysis/figures/chisq_ph"
+os.makedirs(FIGDIR, exist_ok=True)
+
+def sq_pdf(w, mu, sigma):
+    """Density of z^2 for z ~ N(mu, sigma^2) (sigma = std)."""
+    sw = np.sqrt(w)
+    return (norm.pdf((sw - mu) / sigma) + norm.pdf((sw + mu) / sigma)) / (sigma * 2 * sw)
+
+def sq_cdf(w, mu, sigma):
+    """CDF of z^2 for z ~ N(mu, sigma^2)."""
+    sw = np.sqrt(w)
+    return norm.cdf((sw - mu) / sigma) - norm.cdf((-sw - mu) / sigma)
+
+def sq_sf(w, mu, sigma):
+    """Survival of z^2, P(z^2 > w). Uses norm.sf so it stays stable in the far tail
+    (1 - sq_cdf would underflow to 0 for large w and break the hazard)."""
+    sw = np.sqrt(w)
+    return norm.sf((sw - mu) / sigma) + norm.cdf((-sw - mu) / sigma)
+
+def _mix(w, pi0, mu, sigma, fn):
+    # enriched group: pi0 mass on the N(0,1) null, (1-pi0) on N(mu, sigma^2)
+    return pi0 * fn(w, 0.0, 1.0) + (1.0 - pi0) * fn(w, mu, sigma)
+
+def R_reverse(t, pi0, mu, sigma):
+    """Reverse ordering S = z^2: ordinary hazard ratio at arrival time t = z^2."""
+    f1, S1 = _mix(t, pi0, mu, sigma, sq_pdf), _mix(t, pi0, mu, sigma, sq_sf)
+    f0, S0 = sq_pdf(t, 0.0, 1.0), sq_sf(t, 0.0, 1.0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return (f1 / S1) / (f0 / S0)
+
+def R_forward(t, pi0, mu, sigma):
+    """Forward ordering T = 1/z^2: hazard ratio at arrival time t = 1/z^2  (w = z^2 = 1/t)."""
+    w = 1.0 / t
+    f1, F1 = _mix(w, pi0, mu, sigma, sq_pdf), _mix(w, pi0, mu, sigma, sq_cdf)
+    f0, F0 = sq_pdf(w, 0.0, 1.0), sq_cdf(w, 0.0, 1.0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return (f1 / F1) / (f0 / F0)
+```
+
+## Main figure
+
+The headline comparison, at a **pure alternative** ($\pi_0 = 0$, directly comparable to the
+note): a location alternative $N(1,1)$ and a scale alternative $N(0,2)$, each overlaying the
+forward ($1/z^2$) and reverse ($z^2$) log hazard ratios in arrival time.
+
+```{python}
+#| label: fig-main
+#| fig-width: 9
+#| fig-height: 4.0
+#| fig-cap: "Forward ($T=1/z^2$, green, $\\log R_T$) vs reverse ($S=z^2$, amber, $-\\log R_S$) log hazard ratios at $\\pi_0=0$, for a location alternative $N(1,1)$ (left) and a scale alternative $N(0,2)$ (right). The forward ordering blows up as $t\\to0$ - a violent PH violation exactly at the most significant genes - while the reverse ordering stays nearly flat, tracking the dashed $\\log\\sigma^2$ asymptote. PH holds only where a curve is flat."
+t = np.logspace(-1.7, 2.0, 500)   # arrival time
+MAIN = [("location  $N(1,1)$", 1.0, 1.0),
+        ("scale  $N(0,2)$",   0.0, np.sqrt(2.0))]
+
+fig, axes = plt.subplots(1, 2, figsize=(9, 4.0), sharey=True)
+for ax, (name, mu, sigma) in zip(axes, MAIN):
+    lrt = np.log(R_forward(t, 0.0, mu, sigma))    # forward, pi0 = 0
+    lrs = -np.log(R_reverse(t, 0.0, mu, sigma))   # reverse (reciprocated)
+    ax.plot(t, lrt, color=M_FWD, lw=2.4, label=r"forward  $T=1/z^2$:  $\log R_T$")
+    ax.plot(t, lrs, color=M_REV, lw=2.4, label=r"reverse  $S=z^2$:  $-\log R_S$")
+    ax.axhline(0.0, color=INK, lw=0.8, ls=":", alpha=0.6)
+    ax.axhline(np.log(sigma ** 2), color=M_REV, lw=1.0, ls="--", alpha=0.7,
+               label=r"reverse asymptote  $-\log R_S \to \log\sigma^2$")
+    ax.set_xscale("log")
+    ax.set_xlim(t[0], t[-1])
+    ax.set_ylim(-0.6, 9.0)
+    ax.set_xlabel(r"arrival time  $t$")
+    ax.set_title(name, fontsize=11, color=INK)
+axes[0].set_ylabel("log hazard ratio", fontsize=10, color=INK)
+axes[0].legend(loc="upper right", frameon=False, fontsize=9)
+fig.tight_layout()
+for ext in ("pdf", "png"):
+    fig.savefig(f"{FIGDIR}/hazard_ratios_main.{ext}", bbox_inches="tight", dpi=150)
+fig
+```
+
+## Hazard ratios under location and scale alternatives
+
+The same comparison across the full null-fraction sweep. Two alternatives, both making the
+enriched set carry larger squared scores:
+
+- **location** $N(1, 1)$: a mean shift (non-central $\chi^2_1$, same tail rate $e^{-w/2}$ as
+  background).
+- **scale** $N(0, 2)$: a variance inflation to $\sigma^2 = 2$ (mean 0), heavier tail $e^{-w/4}$.
+
+Each is shown at null fractions $\pi_0 \in \{0, 0.5, 0.9\}$. The forward curve (green) explodes
+as $t \to 0$ - exactly where its most significant genes ($1/z^2$ small) live - and decays to
+$\log R_T = 0$ as $t \to \infty$; the reverse curve (amber) is far flatter, approaching the
+dashed asymptote $-\log R_S \to \log\sigma^2$ at large $t$.
+
+```{python}
+#| label: fig-hazard-ratios
+#| fig-width: 11
+#| fig-height: 6.4
+#| fig-cap: "Log hazard ratios in arrival-time coordinates for a location alternative $N(1,1)$ (top) and a scale alternative $N(0,2)$ (bottom) across null fractions $\\pi_0$. Green: forward ordering $T=1/z^2$, $\\log R_T(t)$ - it blows up as $t\\to0$ (the most significant genes) and decays to $0$; a violent PH violation right where the signal lives. Amber: reverse ordering $S=z^2$, $-\\log R_S(t)$ (reciprocated to be positive) - far flatter, tending to the dashed $\\log\\sigma^2$ asymptote. PH holds only where a curve is flat; the reverse ordering is much closer to it."
+t = np.logspace(-1.7, 2.0, 500)   # arrival time
+
+EXAMPLES = [("location  $N(1,1)$", 1.0, 1.0),
+            ("scale  $N(0,2)$",   0.0, np.sqrt(2.0))]
+PI0S = [0.0, 0.5, 0.9]
+
+fig, axes = plt.subplots(2, 3, figsize=(11, 6.4), sharex=True, sharey=True)
+for i, (name, mu, sigma) in enumerate(EXAMPLES):
+    for j, pi0 in enumerate(PI0S):
+        ax = axes[i, j]
+        lrt = np.log(R_forward(t, pi0, mu, sigma))     # log R_T  (forward)
+        lrs = -np.log(R_reverse(t, pi0, mu, sigma))    # -log R_S (reverse, reciprocated)
+        ax.plot(t, lrt, color=M_FWD, lw=2.2, label=r"forward  $T=1/z^2$:  $\log R_T$")
+        ax.plot(t, lrs, color=M_REV, lw=2.2, label=r"reverse  $S=z^2$:  $-\log R_S$")
+        ax.axhline(0.0, color=INK, lw=0.8, ls=":", alpha=0.6)
+        ax.axhline(np.log(sigma ** 2), color=M_REV, lw=1.0, ls="--", alpha=0.7,
+                   label=r"reverse asymptote  $-\log R_S \to \log\sigma^2$")
+        ax.set_xscale("log")
+        ax.set_xlim(t[0], t[-1])
+        ax.set_ylim(-0.03, 2.0)
+        if i == 0:
+            ax.set_title(rf"$\pi_0 = {pi0:g}$", fontsize=11, color=INK)
+        if i == 1:
+            ax.set_xlabel(r"arrival time  $t$")
+        if j == 0:
+            ax.set_ylabel(name + "\n\nlog hazard ratio", fontsize=10, color=INK)
+axes[0, 0].legend(loc="upper right", frameon=False, fontsize=8.5)
+fig.tight_layout()
+for ext in ("pdf", "png"):
+    fig.savefig(f"{FIGDIR}/hazard_ratios.{ext}", bbox_inches="tight", dpi=150)
+fig
+```
+
+Reading the panels:
+
+- **Forward ($1/z^2$) violently violates PH at the significant genes.** $\log R_T(t) \to \infty$
+  as $t \to 0$ (the small-$1/z^2$ = large-$z^2$ end, i.e. the most significant genes) and decays
+  to $0$ as $t \to \infty$. A Cox fit is forced to report one constant hazard ratio - a weighted
+  average over a curve that swings across many nats - so the estimate is dominated by, and
+  unstable to, a handful of top genes.
+- **Reverse ($z^2$) is much closer to PH.** $-\log R_S(t)$ has a far smaller vertical span,
+  approaching $\log\sigma^2$ (dashed) at large $t$ and staying appreciably above $0$ even for
+  small $z^2$. The reverse ordering is the better-specified direction for the partial
+  likelihood, and its non-zero hazard ratio in the bulk means it can pick up diffuse signal.
+- **Null contamination attenuates but never fixes it.** Larger $\pi_0$ scales both curves down
+  (weaker signal) and pushes the forward blow-up toward smaller $t$, but the qualitative
+  picture - forward span $\gg$ reverse span - is unchanged. The forward explosion persists for
+  every $\pi_0 < 1$.
+- **Takeaway (matching the note).** Neither ordering respects PH, but the violation is far more
+  extreme for the forward / InvChi2 type and is worst exactly for the most informative
+  observations. The reverse / Chi2 ordering is the better fit for a partial-likelihood analysis;
+  right-censoring past a threshold is a natural next step for both.
+
+## What the two-group note proves
+
+The companion note ("Misspecification of the Gaussian two group model") derives the limiting
+behaviour analytically (pure alternative, i.e. our $\pi_0 = 0$). Using Mills-ratio bounds
+$\frac{u}{1+u^2} \le \frac{1-\Phi(u)}{\phi(u)} \le \frac{1}{u}$:
+
+- **Reverse ($\chi^2_1$-type), $\mu=0$.** The hazard is pinned, $\frac{1}{2\sigma^2} \le h_S(t)
+  \le \frac{1}{2\sigma^2} + \frac{1}{2t}$, giving $\dfrac{t}{\sigma^2(t+1)} \le R_S(t) \le
+  \dfrac{1}{\sigma^2} + \dfrac{1}{t}$ and $R_S(t) \to \dfrac{1}{\sigma^2}$ as $t \to \infty$ - a
+  bounded, gently varying hazard ratio. (Hence the dashed $-\log R_S \to \log\sigma^2$ line.)
+- **Forward ($1/\chi^2_1$-type).** $R_T(t) \to 1$ as $t \to \infty$, while as $t \to 0$ (with
+  $\mu=0$, $\sigma^2 > 1$) $R_T(t) \asymp \frac{1}{\sigma}\exp\!\big(\frac{\sigma^2-1}{2\sigma^2
+  t}\big) \to \infty$ - an essential-singularity blow-up. For a location alternative the same
+  explosion is driven instead by the mean, $f_{\mu}(w)/f_0(w) \sim \tfrac12 e^{\mu\sqrt w}$ as
+  $w \to \infty$.
+
+So the shapes in the figure are not numerical artifacts: the forward ordering has an unbounded,
+essential-singularity hazard ratio at the informative end, the reverse ordering a bounded one.
+
+## Comparison to the note
+
+| | this notebook | the note |
+|---|---|---|
+| null / background | $z \sim N(0,1)$ | $\hat z \mid H_0 \sim N(0,1)$ |
+| alternative component | $N(\mu, \sigma^2)$ | marginal $\hat z \mid H_1 \sim N(\mu, 1+\sigma^2)$ |
+| enriched group | mixture $\pi_0 N(0,1) + (1-\pi_0)N(\mu,\sigma^2)$ | pure alternative ($\Leftrightarrow$ our $\pi_0 = 0$) |
+| forward $= T = 1/z^2$ | green, $\log R_T$ | blue, $\log R_T$ (InvChi2) |
+| reverse $= S = z^2$ | amber, $-\log R_S$ | orange, $-\log R_S$ (Chi2) |
+
+Two conventions to keep straight: (1) the note carries a measurement layer $\hat z \mid z \sim
+N(z,1)$, so its alternative marginal variance is $1+\sigma^2$; our $N(\mu,\sigma^2)$ *is* that
+marginal directly (our $\sigma^2 \leftrightarrow$ their $1+\sigma^2$). (2) The note's mixing
+weight $\pi$ cancels from the per-group hazard ratio (its alternative group is pure non-null),
+whereas our $\pi_0$ is a *within-set* null fraction that does enter - so our $\pi_0 = 0$ column
+reproduces the note exactly and $\pi_0 \in \{0.5, 0.9\}$ extend it to contaminated sets. The
+note's stronger settings ($\mu=0,\sigma=10$ and $\mu=3,\sigma=1$) make the blow-up more dramatic
+than our milder $N(0,2)$ / $N(1,1)$, but the shapes agree.
+
+## Numerical sanity check
+
+Confirm the analytic law against Monte-Carlo, the reverse asymptote $R_S \to 1/\sigma^2$, the
+forward $t\to0$ blow-up, and the identity $R \equiv 1$ when the enriched set is pure background.
+
+```{python}
+#| label: tbl-check
+#| code-summary: "Monte-Carlo and asymptotics"
+rng = np.random.default_rng(0)
+N = 4_000_000
+mu, sigma, pi0 = 1.0, 1.0, 0.5
+
+is_null = rng.random(N) < pi0
+z = np.where(is_null, rng.normal(0.0, 1.0, N), rng.normal(mu, sigma, N))
+W = z ** 2
+print(f"enriched mixture  pi0={pi0}, N({mu},{sigma**2})   survival  P(z^2 > w)")
+print(f"{'w':>6} {'MC':>10} {'analytic':>10}")
+for wq in [0.5, 1.0, 2.0, 4.0, 8.0]:
+    mc = float((W > wq).mean())
+    an = 1.0 - _mix(wq, pi0, mu, sigma, sq_cdf)
+    print(f"{wq:>6.1f} {mc:>10.4f} {an:>10.4f}")
+
+# reverse asymptote R_S(t) -> 1/sigma^2 for the scale alt (pi0 = 0)
+sig2 = 2.0
+rs_big = float(R_reverse(np.array([200.0]), 0.0, 0.0, np.sqrt(sig2))[0])
+print(f"\nscale N(0,{sig2:g}), pi0=0:  R_S(t=200) = {rs_big:.4f}   vs  1/sigma^2 = {1/sig2:.4f}")
+
+# forward blow-up as t -> 0  (small t = large z^2 = most significant)
+tt = np.array([1e-1, 1e-2, 1e-3])
+rt = R_forward(tt, 0.0, mu, 1.0)   # location alt, pi0 = 0
+print("forward R_T(t) as t->0 (location N(1,1)):")
+for a, b in zip(tt, rt):
+    print(f"   t={a:8.0e}   R_T={b:14.2f}")
+
+# pi0 = 1  =>  enriched == background  =>  both hazard ratios identically 1
+r1f, r1r = R_forward(t, 1.0, mu, sigma), R_reverse(t, 1.0, mu, sigma)
+print(f"\npi0=1 identity:  max|R_T-1| = {np.nanmax(np.abs(r1f-1)):.2e}, "
+      f"max|R_S-1| = {np.nanmax(np.abs(r1r-1)):.2e}")
+```

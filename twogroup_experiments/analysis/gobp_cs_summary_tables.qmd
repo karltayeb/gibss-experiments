@@ -1,0 +1,108 @@
+---
+title: "GO:BP operating points: credible-set summary tables"
+subtitle: "Compact per-method CS metrics over regime × set size (pooled over strength)"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    embed-resources: true
+    code-fold: true
+engine: knitr
+---
+
+```{r}
+#| label: setup
+#| include: false
+proj_root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+knitr::opts_knit$set(root.dir = proj_root)
+Sys.setenv(RETICULATE_PYTHON = file.path(proj_root, "..", ".venv", "bin", "python"))
+library(reticulate)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## What this is
+
+Compact credible-set summaries for the 011 GO:BP operating-points experiment - the
+scannable companion to the long per-cell tables in the landscape notebook. Every table:
+
+- **rows = method** (the 7 cross-methods: twogroup oracle/loc/scale, linear, cox-reversed,
+  cox@2, logistic@2);
+- **columns = a 2-level header, regime (outer) × set size m (inner)**;
+- **cells = one metric at the 95% CS, at the page's strength tier** (each cell aggregates that
+  tier's replicates for the regime × size);
+- pages run over `(signal-type × strength)`; within a page, one table per metric.
+
+The design is 1 causal set among p = 5,268 GO:BP sets, so a credible set is a needle-in-haystack
+localizer. A CS is "**small**" if it has ≤ 10 gene-sets. Five metrics per scenario:
+
+- **CS coverage** - `P(causal ∈ 95%-CS)`; the CS's contract (well-behaved ⇒ ≈ 0.95).
+- **median CS size** - the cost: how many gene-sets the CS carries.
+- **small CS power** - `P(causal ∈ CS AND |CS| ≤ 10)`: the truth is caught *and* pinned to a
+  short list (a genuinely useful call, not a diffuse set that merely contains it).
+- **small CS coverage** - `P(causal ∈ CS | |CS| ≤ 10)`: *given* a small CS, how often is it
+  right - can you trust a small CS when you get one.
+- **small CS median size** - median `|CS|` among the small (≤10) CSs: how tight the small ones are.
+
+Then, below a divider, the **null** block (paired `null_b0`, b=0 - no causal set). Coverage is
+undefined there, but a small CS on a null *is* a false confident localization, so:
+
+- **null small-CS rate** - `P(|CS| ≤ 10 | null)`; the false confident-localization rate (want ≈ 0).
+- **null median CS size** - a well-behaved null CS should stay diffuse (large ⇒ appropriately uncertain).
+- **null small-CS median size** - median `|CS|` on the false-positive subset (|CS| ≤ 10).
+
+In the causal tables the **best method per column is bold** and any cell that **under-covers**
+(coverage < 0.93) is **shaded light red** - so tight/high-power cells that aren't calibrated pop
+out. In the null tables red instead marks a **null small-CS rate > 0.05** (too many false calls).
+
+```{python}
+#| label: load
+#| code-summary: "Load reductions"
+import sys
+sys.path.insert(0, "analysis")
+import op_landscape as ol
+
+SC = "011-gobp-operating-points"        # or "011-pilot"
+MM = ol.method_meta(SC)
+CS = ol.load_reduction("cs", SC, include_null=True)   # causal + paired-null cells
+SCENARIOS = sorted({s for s, _ in ol.available(SC).rows()})
+
+CAUSAL_KEYS = ["coverage", "median_size", "loc_power", "localized_coverage", "small_median_size"]
+NULL_KEYS = ["null_small_rate", "null_median_size"]
+STRENGTH_ORDER = ["weak", "intermediate", "strong"]
+_HR = "<hr style='margin:22px 0;border:0;border-top:2px solid #999'>"
+
+def _block(scen, strength):
+    causal = "\n\n".join(
+        ol.cs_summary_html(SC, scen, CS, MM, metric=k, strength=strength, is_null=False)
+        for k in CAUSAL_KEYS)
+    nulls = "\n\n".join(
+        ol.cs_summary_html(SC, scen, CS, MM, metric=k, strength=strength, is_null=True,
+                           shade_high=(0.05 if k == "null_small_rate" else None))
+        for k in NULL_KEYS)
+    return causal + "\n\n" + _HR + "\n\n" + nulls
+
+def _present_strengths(scen):
+    return [s for s in STRENGTH_ORDER
+            if any(c["strength"] == s for c in ol.cells(SC) if c["scenario"] == scen)]
+
+# One markdown+HTML string, paged by scenario then strength; each "## scen - strength" is a
+# real heading (into the TOC), followed by that page's 5 causal + 2 null tables. Blank lines
+# around every heading and raw-HTML block so Pandoc keeps them separate.
+_parts = []
+for scen in SCENARIOS:
+    for st in _present_strengths(scen):
+        _parts.append(f"## {scen} - {st}\n\n{_block(scen, st)}\n")
+ALL_TABLES = "\n\n".join(_parts)
+print("built pages:", [(s, st) for s in SCENARIOS for st in _present_strengths(s)])
+```
+
+One page per **(signal-type × strength)**. Each page has the five causal tables (**CS coverage**,
+**median CS size**, **small CS power**, **small CS coverage**, **small CS median size**), a
+divider, then the two null tables (**null small-CS rate**, **null median CS size**).
+
+```{r}
+#| label: tbl-all
+#| echo: false
+#| output: asis
+cat(reticulate::py$ALL_TABLES, "\n\n", sep = "")
+```

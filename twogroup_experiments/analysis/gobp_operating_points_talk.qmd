@@ -1,0 +1,174 @@
+---
+title: "GO:BP operating points — the distilled story"
+subtitle: "m = 100, three metrics as layered 3×3 grids (rows = strength, cols = regime)"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    embed-resources: true
+    code-fold: true
+    fig-format: png
+engine: knitr
+---
+
+```{r}
+#| label: setup
+#| include: false
+# knitr engine (polyglot); Python chunks run via reticulate against the repo-root uv venv
+# (one dir up from twogroup_experiments/), same pattern as the sibling analysis/*.qmd.
+proj_root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+knitr::opts_knit$set(root.dir = proj_root)
+Sys.setenv(RETICULATE_PYTHON = file.path(proj_root, "..", ".venv", "bin", "python"))
+library(reticulate)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, dev = "png", dpi = 130)
+```
+
+## What this is
+
+The full landscape notebook (`gobp_operating_points_landscape.qmd`) shows every method on
+every cell — too dense to present. This companion strips it to a **presentation cut**: fix
+**m = 100**, keep the **3×3 grid** (rows = strength weak/intermediate/strong, cols = regime
+enrich→balanced→signal), and overlay only the handful of methods that carry the story, added
+in a fixed **reveal order** so the panel can be built up one method at a time in a talk.
+
+Three metrics per scenario: **power vs FDP**, **logBF detection ROC**, and **95%-CS size**.
+To stay snappy the reduction-backed figures load pip/cs **scoped to m = 100 only** (a handful
+of cells, not the 24-cell cube).
+
+```{python}
+#| label: load
+#| code-summary: "Load the m=100 reductions once (scoped — snappy)"
+import sys
+sys.path.insert(0, "analysis")
+import matplotlib.pyplot as plt
+import op_story as st
+
+MM = st.method_meta()
+PIP_LOC = st.load_pip("loc", 100)
+CS_LOC = st.load_cs("loc", 100)
+CS_LOC_PN = st.load_cs("loc", 100, include_null=True)   # + paired nulls (detection ROC)
+```
+
+Colour = method (twogroup Okabe-Ito palette). In the CS-size panel a marker is **filled**
+when the method covers the causal set (≥ 0.93) and **hollow** when it under-covers, so a
+tight-but-hollow credible set is flagged as untrustworthy.
+
+## loc — reveal order
+
+The loc panels build up in this order:
+
+1. **TG oracle** — the ceiling: what the correct model achieves *given* f1.
+2. **TG loc-family** — the **correct** family, estimated; the gap to the oracle is the cost
+   of estimating f1 (and it bites in `enrich`, where the shift is tiny).
+3. **TG scale-family** — the **misspecified** family (hunting excess variance that isn't the
+   generative story) — the specification cost on top of the estimation cost.
+4. **Linear** — sidesteps f1 entirely; ~correctly specified when the shift is small, so it
+   tracks the oracle in `enrich` and only under-covers once the shift grows in `signal`.
+5. **Logistic @2** and 6. **Cox @2** — binary vs rank-thresholded membership at the *same*
+   τ = 2 threshold (revealed together to compare the two discretizations).
+7. **Cox reversed** — rank model, safe ordering direction.
+
+```{python}
+#| label: loc-order
+LOC = st.LOC_LAYERS   # the reveal-ordered method keys
+```
+
+### Power vs FDP
+
+Per cell, power vs false-discovery proportion as the PIP inclusion threshold sweeps high→low;
+top-left = an efficient ordering of PIPs.
+
+```{python}
+#| label: fig-loc-power-fdp
+#| fig-width: 12
+#| fig-height: 9
+st.figure_power_fdp("loc", 100, PIP_LOC, MM, LOC)
+plt.show()
+```
+
+### logBF detection ROC
+
+Per cell, positive = an enriched replicate, negative = its paired `null_b0` replicate (same
+design + signal, enrichment b = 0); score = the SER log Bayes factor. Is `ser_log_bf` a
+trustworthy **detection** statistic? The diagonal is chance.
+
+```{python}
+#| label: fig-loc-detection-roc
+#| fig-width: 12
+#| fig-height: 9
+st.figure_detection_roc("loc", 100, CS_LOC_PN, MM, LOC)
+plt.show()
+```
+
+### 95%-CS size
+
+Per cell, a **forest strip**: one horizontal row per method (reveal order, top→bottom), dot =
+median 95%-CS size on a log axis, whisker = q25–q75 over replicates, marker filled if the
+method covers. Dashed vline = whole collection, dotted = "localized" (≤ 10). This reads the
+localization directly where the overlaid coverage-vs-size curves did not.
+
+```{python}
+#| label: fig-loc-cs-size
+#| fig-width: 12
+#| fig-height: 9
+st.figure_cs_size("loc", 100, CS_LOC, MM, LOC)
+plt.show()
+```
+
+## scale — the family must be right, and linear breaks
+
+In the heavier-tail (`scale`) design the alternative is $f_1=\mathcal N(0,\sigma^2)$: **no
+mean shift**, just excess variance. That flips the cast:
+
+- **Linear breaks — confidently.** With no mean shift, signed-$z$ linear sees no enrichment
+  signal, yet it still returns *tight* credible sets that almost never cover (coverage as low
+  as ~0.01 in `signal`). Tight-but-hollow everywhere: the dangerous failure mode.
+- **The $f_1$ family must be right.** Twogroup with the **scale** family (correct) localizes
+  to ~1 set; twogroup with the **loc** family (wrong — hunting a mean that isn't there)
+  collapses to the whole collection in every cell. The oracle-vs-wrong-family gap here is a
+  *specification* gap, not an *estimation* gap.
+- **Logistic @2, cox @2 and cox-reversed still work**, and the threshold sweep still matters
+  (only τ = 2 is shown; τ = 1/3/4 sprawl).
+
+Reveal order (`SCALE_LAYERS`): oracle → TG **scale-family** (correct) → TG **loc-family**
+(misspecified) → linear (confidently wrong) → logistic @2 & cox @2 (same threshold, together)
+→ cox-reversed. Same seven methods as loc, with the correct/misspecified families swapped.
+
+```{python}
+#| label: scale-load
+#| code-summary: "Load the m=100 scale reductions (scoped)"
+PIP_SCALE = st.load_pip("scale", 100)
+CS_SCALE = st.load_cs("scale", 100)
+CS_SCALE_PN = st.load_cs("scale", 100, include_null=True)
+SCALE = st.SCALE_LAYERS
+```
+
+### Power vs FDP
+
+```{python}
+#| label: fig-scale-power-fdp
+#| fig-width: 12
+#| fig-height: 9
+st.figure_power_fdp("scale", 100, PIP_SCALE, MM, SCALE)
+plt.show()
+```
+
+### logBF detection ROC
+
+```{python}
+#| label: fig-scale-detection-roc
+#| fig-width: 12
+#| fig-height: 9
+st.figure_detection_roc("scale", 100, CS_SCALE_PN, MM, SCALE)
+plt.show()
+```
+
+### 95%-CS size
+
+```{python}
+#| label: fig-scale-cs-size
+#| fig-width: 12
+#| fig-height: 9
+st.figure_cs_size("scale", 100, CS_SCALE, MM, SCALE)
+plt.show()
+```

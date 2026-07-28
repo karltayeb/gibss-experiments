@@ -1,0 +1,290 @@
+---
+title: "Exponential arrivals and the Beta ranking law"
+subtitle: "Why $\\mathbb{P}(X > Y)$ for two exponentials is Beta-distributed, and what its shape says about forward vs reverse Cox"
+format:
+  html:
+    toc: true
+    embed-resources: true
+    code-fold: true
+    fig-format: png
+engine: knitr
+---
+
+```{r}
+#| label: setup
+#| include: false
+# knitr engine so the doc is polyglot (R + Python). Analysis chunks are Python via
+# reticulate against the repo-root uv venv (one dir up from twogroup_experiments/).
+# This notebook needs only numpy + scipy + matplotlib.
+proj_root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+knitr::opts_knit$set(root.dir = proj_root)
+Sys.setenv(RETICULATE_PYTHON = file.path(proj_root, "..", ".venv", "bin", "python"))
+library(reticulate)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Setup
+
+Two-group exponential arrival-time model. A **background** gene arrives at time
+$X \sim \mathrm{Exp}(\lambda_0)$; an **enriched** gene arrives at
+$Y \sim \mathrm{Exp}(\lambda_1)$. Only the rate *ratio* ever matters, so we lose nothing
+by fixing the background rate to $\lambda_0 = 1$ and writing the enriched rate as
+$\lambda_1 = \lambda$. A single parameter $\lambda$ then carries the whole story:
+
+$$
+X \sim \mathrm{Exp}(1), \qquad Y \sim \mathrm{Exp}(\lambda).
+$$
+
+$\lambda > 1$ means the enriched gene tends to arrive *earlier* (higher hazard, "enriched
+faster"); $\lambda < 1$ means it tends to arrive *later* ("enriched slower").
+
+We care about where the enriched gene lands relative to the background arrival law. Two
+equivalent one-number summaries of "where $Y$ landed", both conditional on $Y$:
+
+$$
+U_\lambda \;=\; F_X(Y) \;=\; \mathbb{P}(X < Y \mid Y), \qquad
+W_\lambda \;=\; 1 - U_\lambda \;=\; \mathbb{P}(X > Y \mid Y).
+$$
+
+$U_\lambda$ is the enriched gene's **quantile among the background** (its rank, on a $[0,1]$
+scale); $W_\lambda = \mathbb{P}(X > Y \mid Y)$ is the probability a fresh background gene
+arrives *after* it. The subscript keeps the enriched rate $\lambda$ visible.
+
+## Derivation
+
+Take $F_X(t) = 1 - e^{-t}$ for the background CDF (rate $\lambda_0 = 1$), so
+
+$$
+U_\lambda \;=\; F_X(Y) \;=\; 1 - e^{-Y}.
+$$
+
+Push $Y \sim \mathrm{Exp}(\lambda)$ through this monotone map. For $u \in (0,1)$,
+
+$$
+\begin{aligned}
+F_{U_\lambda}(u)
+&= \mathbb{P}\!\left(1 - e^{-Y} \le u\right)
+ = \mathbb{P}\!\left(Y \le -\log(1-u)\right) \\[4pt]
+&= 1 - \exp\!\left(-\lambda \cdot \left(-\log(1-u)\right)\right)
+ = 1 - (1-u)^{\lambda}.
+\end{aligned}
+$$
+
+Differentiating gives the density
+
+$$
+f_{U_\lambda}(u) \;=\; \lambda\,(1-u)^{\lambda-1}, \qquad u \in (0,1)
+\qquad\Longleftrightarrow\qquad
+\boxed{\,U_\lambda \sim \mathrm{Beta}(1,\lambda)\,}.
+$$
+
+The complementary summary is just the reflection $W_\lambda = 1-U_\lambda$, so
+
+$$
+W_\lambda \;=\; \mathbb{P}(X > Y \mid Y) \;=\; e^{-Y} \;\sim\; \mathrm{Beta}(\lambda, 1),
+\qquad f_{W_\lambda}(w) = \lambda\,w^{\lambda-1}.
+$$
+
+Only the **rate** $\lambda$ survives - fixing $\lambda_0 = 1$ costs nothing because the
+individual rates only ever enter through their ratio, which is exactly the
+proportional-hazards invariance. Two consequences we use below:
+
+- **Mean rank.** $\mathbb{E}[U_\lambda] = \dfrac{1}{1+\lambda}$, so the marginal exceedance
+  probability is $\mathbb{E}[W_\lambda] = \mathbb{P}(X > Y) = \dfrac{\lambda}{1+\lambda}$.
+- **Uniform null.** At $\lambda = 1$ (no enrichment) both laws collapse to
+  $\mathrm{Beta}(1,1) = \mathrm{Uniform}(0,1)$, the PIT sanity check.
+
+## The Beta ranking law as a function of $\lambda$
+
+Each value of the enriched rate $\lambda$ gives a different member of the Beta family. For
+$\lambda > 1$ the mass piles up near $u = 0$ (enriched genes rank early); for $\lambda < 1$
+it piles up near $u = 1$ (enriched genes rank late); $\lambda = 1$ is flat.
+
+```{python}
+#| label: fig-beta-family
+#| fig-width: 7
+#| fig-height: 4.2
+#| fig-cap: "The ranking law $U_\\lambda = F_X(Y) \\sim \\mathrm{Beta}(1,\\lambda)$ for a range of enriched rates $\\lambda$ (background rate fixed at $\\lambda_0 = 1$). $\\lambda > 1$ (enriched arrives earlier) concentrates near rank 0; $\\lambda < 1$ (enriched arrives later) concentrates near rank 1; $\\lambda = 1$ is uniform (null)."
+import os
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.stats import beta as beta_dist
+
+INK = "#16202E"
+GRID = 600
+u = np.linspace(1e-3, 1 - 1e-3, GRID)
+
+# Stable, human-named export dir for slide-bound figures. Each slide chunk writes a
+# vector PDF (resolution-independent, crisp at any slide size) plus a raster PNG here,
+# rather than relying on knitr's chunk-indexed inline capture (figure/fig-*-N.png).
+FIGDIR = "analysis/figures/exponential_arrival"
+os.makedirs(FIGDIR, exist_ok=True)
+
+LAMBDAS = [0.25, 0.5, 1.0, 2.0, 4.0]
+cmap = plt.get_cmap("coolwarm")
+# map log-lambda to [0,1] for a diverging colour (blue = slow/late, red = fast/early)
+ll = np.log(LAMBDAS)
+norm = (ll - ll.min()) / (ll.max() - ll.min())
+
+fig, ax = plt.subplots(figsize=(7, 4.2))
+for lam, t in zip(LAMBDAS, norm):
+    style = dict(lw=2.4) if lam != 1.0 else dict(lw=1.6, ls="--")
+    ax.plot(u, beta_dist.pdf(u, 1.0, lam), color=cmap(t),
+            label=rf"$\lambda={lam:g}$", **style)
+ax.set_xlim(0, 1)
+ax.set_ylim(0, 4.5)
+ax.set_xlabel(r"arrival quantile among background  $u = F_X(Y)$")
+ax.set_ylabel(r"density  $f_{U_\lambda}(u)$  (capped)")
+ax.set_title(r"$U_\lambda \sim \mathrm{Beta}(1,\lambda)$", loc="left", fontsize=11, color=INK)
+ax.legend(frameon=False, fontsize=9, title=r"enriched rate $\lambda$",
+          title_fontsize=9)
+fig.tight_layout()
+for ext in ("pdf", "png"):
+    fig.savefig(f"{FIGDIR}/beta_family.{ext}", bbox_inches="tight", dpi=150)
+fig
+```
+
+## Tail asymmetry: forward vs reverse Cox
+
+The reason this law matters for enrichment: the tails of the two enrichment regimes are
+wildly unequal. Compare an **enriched-faster** set ($\lambda = 5$, which forward Cox is
+built to detect) against an **enriched-slower** set ($\lambda = 0.2$, which reverse Cox
+detects). A *late* arrival from the fast set lives in the right tail; an *early* arrival
+from the slow set lives in the left tail. The slow set's early tail is far heavier than the
+fast set's late tail, so a single "wrong-side" gene costs forward Cox much more than it
+costs reverse Cox.
+
+```{python}
+#| label: fig-tail-asymmetry
+#| fig-width: 5.2
+#| fig-height: 3.9
+#| fig-cap: "$U_\\lambda \\sim \\mathrm{Beta}(1,\\lambda)$ for the two regimes. Shaded: the enriched-slower left tail $[0, 0.2]$ (amber, favours reverse ordering) and the enriched-faster right tail $[0.8, 1]$ (green, favours forward ordering). The slow early tail is an order of magnitude heavier than the fast late tail."
+M_COX = "#009E73"           # forward ordering (green)
+M_COX_REVERSED = "#E69F00"  # reverse ordering (amber)
+
+LAM_FAST, LAM_SLOW = 5.0, 0.2
+LEFT, RIGHT, YCAP = 0.2, 0.8, 4.5
+
+fast = beta_dist.pdf(u, 1.0, LAM_FAST)
+slow = beta_dist.pdf(u, 1.0, LAM_SLOW)
+
+fig, ax = plt.subplots(figsize=(5.2, 3.9))
+ax.plot(u, fast, color=M_COX, lw=2.4, label=rf"enriched faster $\lambda={LAM_FAST:g}$ (forward)")
+ax.plot(u, slow, color=M_COX_REVERSED, lw=2.4, label=rf"enriched slower $\lambda={LAM_SLOW:g}$ (reverse)")
+
+lm, rm = u <= LEFT, u >= RIGHT
+ax.fill_between(u[lm], 0, slow[lm], color=M_COX_REVERSED, alpha=0.30)
+ax.fill_between(u[rm], 0, fast[rm], color=M_COX, alpha=0.30)
+
+p_slow_left = float(beta_dist.cdf(LEFT, 1.0, LAM_SLOW))
+p_fast_right = float(beta_dist.sf(RIGHT, 1.0, LAM_FAST))
+ax.text(0.42, 3.05, r"$P(U_\lambda>%.1f)=%.4f$" % (RIGHT, p_fast_right),
+        color=M_COX, fontsize=9, ha="left", va="center")
+ax.text(0.42, 2.45, r"$P(U_\lambda<%.1f)=%.3f$" % (LEFT, p_slow_left),
+        color=M_COX_REVERSED, fontsize=9, ha="left", va="center")
+
+ax.set_xlim(0, 1)
+ax.set_ylim(0, YCAP)
+ax.set_xlabel(r"arrival quantile among background  $u = F_X(Y)$")
+ax.set_ylabel("density  (capped)")
+ax.set_title(r"$U_\lambda \sim \mathrm{Beta}(1,\lambda)$: the slow early tail $\gg$ the fast late tail",
+             loc="left", fontsize=10, color=INK)
+ax.legend(loc="upper center", frameon=False, fontsize=8.5)
+fig.tight_layout()
+for ext in ("pdf", "png"):
+    fig.savefig(f"{FIGDIR}/tail_asymmetry.{ext}", bbox_inches="tight", dpi=150)
+fig
+```
+
+## Numerical sanity check
+
+A quick Monte-Carlo confirms $U_\lambda = F_X(Y) \sim \mathrm{Beta}(1,\lambda)$ and the mean
+identity $\mathbb{E}[\mathbb{P}(X>Y\mid Y)] = \lambda/(1+\lambda)$, independent of the
+absolute rates. We keep a non-unit background rate here on purpose: the result depends only
+on the ratio, which is exactly why fixing $\lambda_0 = 1$ above lost nothing.
+
+```{python}
+#| label: tbl-check
+#| code-summary: "Monte-Carlo vs analytic"
+rng = np.random.default_rng(0)
+N = 2_000_000
+LAM0 = 1.7   # arbitrary background rate; result should depend only on the ratio lambda
+
+print(f"{'lambda':>6} {'E[U] MC':>10} {'E[U] Beta':>10} {'P(X>Y) MC':>11} {'lam/(1+lam)':>12}")
+for lam in [0.25, 0.5, 1.0, 2.0, 4.0]:
+    lam1 = lam * LAM0
+    X = rng.exponential(1.0 / LAM0, N)
+    Y = rng.exponential(1.0 / lam1, N)
+    U = 1.0 - np.exp(-LAM0 * Y)              # = F_X(Y)
+    eu_mc, eu_beta = U.mean(), 1.0 / (1.0 + lam)
+    pxy_mc, pxy_an = (X > Y).mean(), lam / (1.0 + lam)
+    print(f"{lam:>6.2f} {eu_mc:>10.4f} {eu_beta:>10.4f} {pxy_mc:>11.4f} {pxy_an:>12.4f}")
+```
+
+## P-value distribution under a Gaussian mixture
+
+The arrival quantile $U_\lambda$ above is a probability-integral transform: uniform under the
+null, tilted toward one end under enrichment. The two-sided **p-value** of a z-score is the
+same kind of object. For $z \sim N(\mu, \sigma^2)$ the two-sided p-value is
+$p = 2\big(1 - \Phi(|z|)\big)$, uniform on $(0,1)$ when $z \sim N(0,1)$. Model a gene as a
+mixture with **null fraction $\pi_0$** (the convention used in the chisq PH notebook),
+
+$$
+z \sim \pi_0\, N(0,1) \;+\; (1-\pi_0)\, N(\mu, \sigma^2),
+$$
+
+so $\pi_0 = 1$ is pure null and $\pi_0 = 0$ is a pure alternative. Because the null component
+contributes a uniform density, the p-value density is a clean uniform-slab-plus-spike:
+
+$$
+f_p(p) \;=\; \pi_0\cdot 1 \;+\; (1-\pi_0)\, f_p^{\mathrm{alt}}(p),
+\qquad
+f_p^{\mathrm{alt}}(p) \;=\; \frac{\phi\!\big(\tfrac{z_p-\mu}{\sigma}\big)
+                                  + \phi\!\big(\tfrac{z_p+\mu}{\sigma}\big)}
+                                 {2\,\sigma\,\phi(z_p)},
+\qquad
+z_p = \Phi^{-1}\!\big(1 - \tfrac{p}{2}\big),
+$$
+
+obtained by pushing the folded density of $|z|$ through $p = 2(1-\Phi(|z|))$ (the $2\phi(z_p)$
+Jacobian is the null density, so $\mu=0,\sigma=1$ gives $f_p \equiv 1$). The null contributes a
+flat slab of height $\pi_0$; the alternative piles the remaining $(1-\pi_0)$ mass near $p = 0$ -
+exactly the two-groups picture.
+
+```{python}
+#| label: fig-pvalue-mixture
+#| fig-width: 6.2
+#| fig-height: 4.2
+#| fig-cap: "Two-sided p-value density under the two pure alternatives ($\\pi_0 = 0$): a location alternative $N(1,1)$ (blue) and a scale alternative $N(0,2)$ (vermillion), against the uniform null (dashed). Both pile mass near $p=0$; the scale alternative's spike is sharper. A null fraction $\\pi_0$ simply interpolates each curve toward the uniform slab, $f_p = \\pi_0 + (1-\\pi_0)f_p^{\\mathrm{alt}}$. Density capped for display."
+from scipy.stats import norm as ndist
+
+MIX = [("location  $N(1,1)$", 1.0, 1.0, "#0072B2"),
+       ("scale  $N(0,2)$",   0.0, np.sqrt(2.0), "#D55E00")]
+pgrid = np.linspace(1e-4, 1.0, 800)
+
+def pval_alt_density(p, mu, sigma):
+    """Density of the two-sided p = 2(1 - Phi(|z|)) for z ~ N(mu, sigma^2)."""
+    z = ndist.isf(p / 2.0)   # = Phi^{-1}(1 - p/2), the two-sided critical value
+    return (ndist.pdf((z - mu) / sigma) + ndist.pdf((z + mu) / sigma)) / (2 * sigma * ndist.pdf(z))
+
+fig, ax = plt.subplots(figsize=(6.2, 4.2))
+ax.axhline(1.0, color=INK, lw=1.2, ls="--", alpha=0.7, label="uniform null")
+for name, mu, sigma, col in MIX:
+    ax.plot(pgrid, pval_alt_density(pgrid, mu, sigma), color=col, lw=2.6, label=name)
+ax.set_xlim(0, 1)
+ax.set_ylim(0, 6)
+ax.set_xlabel(r"two-sided $p$-value")
+ax.set_ylabel("density  (capped)")
+ax.set_title(r"P-value density under a Gaussian alternative",
+             loc="left", fontsize=11, color=INK)
+ax.legend(frameon=False, fontsize=9)
+fig.tight_layout()
+for ext in ("pdf", "png"):
+    fig.savefig(f"{FIGDIR}/pvalue_mixture.{ext}", bbox_inches="tight", dpi=150)
+
+# sanity: each alternative p-value density integrates to 1
+for name, mu, sigma, _ in MIX:
+    area = float(np.trapezoid(pval_alt_density(pgrid, mu, sigma), pgrid))
+    assert abs(area - 1.0) < 5e-3, (name, area)   # trapz on the sharp p~0 spike
+fig
+```

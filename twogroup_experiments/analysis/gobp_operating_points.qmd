@@ -1,0 +1,373 @@
+---
+title: "GO:BP operating points: method performance across the detectability landscape"
+subtitle: "Two-group SER and rank/threshold competitors on 24 difficulty-matched GO:BP cells (011)"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    embed-resources: true
+    code-fold: true
+    fig-format: png
+engine: knitr
+---
+
+```{r}
+#| label: setup
+#| include: false
+# knitr engine so the doc is polyglot (R + Python). Analysis chunks are Python via
+# reticulate against the repo-root uv venv. This file lives in twogroup_experiments/
+# analysis/, so proj_root is the twogroup_experiments project root (results/, experiments/,
+# python modules resolve from there). The venv is one level up (shared repo venv).
+proj_root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+knitr::opts_knit$set(root.dir = proj_root)
+Sys.setenv(RETICULATE_PYTHON = file.path(proj_root, "..", ".venv", "bin", "python"))
+library(reticulate)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Overview
+
+The **011 GO:BP operating-points** experiment simulates enrichment on the GO:BP
+collection (`GOBP_*` sets of `c5.all`, filtered to size $\in [10, 500]$) at **24
+difficulty-matched cells**. Every cell sits on the same iso-detectability curve
+$\mathbb{E}[\mathrm{LRT}] \approx 25$ (derived in `detectability_level_curves.qmd`),
+so the cells are equally *hard* by construction. What varies is **how** that
+detectability is sourced. Each cell crosses three axes:
+
+- **scenario** - the per-gene signal is a **location** shift ($f_1 = \mathcal{N}(\mu, 0.01^2)$,
+  vary $\mu$) or a **scale** inflation ($f_1 = \mathcal{N}(0, \sigma^2)$, vary $\sigma$).
+  A location shift is directed; a scale inflation is sign-agnostic.
+- **set size** $m \in \{50, 100, 200, 400\}$. Larger sets reach $\mathbb{E}[\mathrm{LRT}]=25$
+  at weaker per-gene signal and weaker enrichment.
+- **regime** - where on the iso-detectability curve the cell sits: `enrich` (maximum
+  enrichment log-odds $b=4$, weak per-gene signal), `signal` (strong per-gene signal,
+  weak $b$), or `balanced` (the arc-length midpoint).
+
+The background membership log-odds is fixed at $b_0 = -2$ throughout, so the causal-set
+membership rate is $p^\ast = \sigma(b_0 + b)$ and the expected number of planted active
+genes is $\mathbb{E}[\text{active}] = m\,p^\ast$.
+
+**Methods.** Ten single-effect regressions, all $L=1$, sharing the Okabe-Ito palette:
+the `twogroup_oracle` information ceiling (true $f_1$), the estimated `twogroup` and its
+location-only / scale-only restrictions, the misspecified `linear_fixed` Gaussian SER on
+the z-scores, the rank-based `cox` censored at threshold $\tau \in \{1,2,3,4\}$ (line
+style encodes $\tau$), and `cox_reversed` (the full reversed ranking - the sign-flipped
+rank statistic).
+
+**Layout.** The `## Location` and `## Scale` sections are parallel and self-similar. Each
+question is shown at two altitudes: a condensed **1 x 3** view (cols = regime, pooled over
+the four set sizes) for the headline, and the full **4 x 3** grid (rows = set size $m$,
+cols = regime) for detail. Reading *down* a 4 x 3 column isolates the set-size effect;
+reading *across* a row isolates the enrichment-vs-signal trade-off at matched
+detectability. The four questions:
+
+1. **Power vs FDP** - are the PIPs *well ordered*? (rank sets by PIP, sweep the cutoff)
+2. **PIP calibration** - do the PIPs *mean what they say*? (one square panel per method,
+   colour-coded by regime or by size - overlaying all methods is unreadable)
+3. **logBF ROC** - are the SER log Bayes factors *well ordered* as a confidence signal?
+   (pooled panel + 4 x 3 detail)
+4. **Coverage vs CS size** - are the credible sets *honest* and *tight*?
+
+```{python}
+#| label: load
+#| code-summary: "Load pip + cs reductions and method metadata (analysis/op_common.py)"
+import sys
+sys.path.insert(0, ".")          # twogroup_experiments project root (root.dir)
+sys.path.insert(0, "analysis")   # op_common lives beside this notebook
+import polars as pl
+import op_common as OP
+
+method_meta = OP.method_metadata()
+pip = OP.load_reduction("pip")
+cs = OP.load_reduction("cs")
+
+
+def pl_to_markdown(df, floatfmt="{:.2f}"):
+    """Render a polars DataFrame as a GitHub markdown table (no pandas dependency)."""
+    def fmt(v):
+        s = floatfmt.format(v) if isinstance(v, float) else ("" if v is None else str(v))
+        return s.replace("|", "\\|")
+    cols = [fmt(c) for c in df.columns]
+    lines = ["| " + " | ".join(cols) + " |", "| " + " | ".join("---" for _ in cols) + " |"]
+    for row in df.iter_rows():
+        lines.append("| " + " | ".join(fmt(v) for v in row) + " |")
+    return "\n".join(lines)
+
+
+_have_cs = not cs.is_empty()
+print(f"pip cells: {pip['collection_name'].n_unique()} | "
+      f"cs cells: {cs['collection_name'].n_unique() if _have_cs else 0} | "
+      f"methods: {method_meta.height}")
+```
+
+The four figures share one convention: **method = colour**, and for the thresholded
+`cox` family, **censoring threshold $\tau$ = line style** (solid $\tau{=}1$, dashed
+$\tau{=}2$, dash-dot $\tau{=}3$, dotted $\tau{=}4$). Columns of each 4 x 3 grid are the
+regimes `enrich` / `balanced` / `signal`; rows are the set sizes $m$.
+
+**Column legend** (used by every figure and table below):
+
+| term | meaning |
+|------|---------|
+| power | fraction of true causal sets recovered at a given PIP / logBF cutoff |
+| FDP | false-discovery proportion: fraction of reported sets that are not the causal set |
+| PIP | posterior inclusion probability of a gene set in the single effect |
+| empirical coverage | fraction of replicates whose causal set falls inside the nominal $\beta$-CS = $\Pr(\text{mass above causal} < \beta)$ |
+| CS size | number of gene sets in the $\beta$-credible set (median over replicates; heavy-tailed) |
+| logBF | single-effect log Bayes factor for the fitted effect |
+| $p^\ast$ | causal-set membership rate $\sigma(b_0 + b)$, $b_0 = -2$ |
+| E[active] | expected planted active genes $m\,p^\ast$ |
+
+::: {.callout-note collapse="true"}
+## Reading the coverage vs CS-size operating curve
+Each method traces empirical coverage (x) against median CS size (y) as the nominal
+credible level $\beta$ is swept. **Lower at a given coverage = tighter** (more efficient
+localization). The marked point is the **nominal 95% CS**; the dashed vertical line is
+$x = 0.95$. If the marker sits **on** the line the 95% CS is calibrated; **left of** it
+the 95% CS is anti-conservative (covers less than 95%).
+:::
+
+```{python}
+#| label: roc-mode
+# Detection ROC (enriched vs paired null) once the null_b0 sims are on disk; until then
+# fall back to the null-free localization ROC. `cs_pn` carries both enriched + null rows.
+cs_pn = OP.load_reduction("cs", include_null=True) if _have_cs else cs
+_have_null = _have_cs and "is_null" in cs_pn.columns and bool(cs_pn["is_null"].any())
+```
+
+## Location
+
+```{python}
+#| label: tbl-design-loc
+#| output: asis
+print("Location design points (all at E[LRT] ~ 25; b0 = -2):\n")
+print(pl_to_markdown(OP.design_table("loc")))
+```
+
+### Power vs FDP
+
+Rank gene sets by PIP, sweep the cutoff, trace power against realized FDP (the non-causal
+sets in each replicate supply the false discoveries). Riding the top-left means the PIPs
+order the causal set above the decoys. The **1 x 3** pools the four set sizes within each
+regime; the **4 x 3** breaks it out by size.
+
+```{python}
+#| label: fig-loc-power-fdp-1x3
+#| fig-width: 17
+#| fig-height: 4.6
+#| fig-cap: "Location: power vs FDP, pooled over set size within each regime (1x3)."
+OP.figure_power_fdp_1x3("loc", pip, method_meta)
+```
+
+```{python}
+#| label: fig-loc-power-fdp
+#| fig-width: 12
+#| fig-height: 13
+#| fig-cap: "Location: power vs FDP, rows = set size m, cols = regime. Colour = method, line style = cox threshold."
+OP.figure_power_fdp("loc", pip, method_meta)
+```
+
+### PIP calibration
+
+Among sets assigned PIP near $x$, a fraction $\approx x$ should truly be causal (dotted
+diagonal). Overlaying all methods is unreadable, so calibration is a 2D facet grid: cols =
+method (curve coloured by method), rows = the aggregation axis. The first grid faceted by
+**regime** (aggregated over size), the second by **set size** (aggregated over regime).
+
+```{python}
+#| label: fig-loc-calibration-regime
+#| fig-width: 16.5
+#| fig-height: 5.6
+#| fig-cap: "Location: PIP calibration, regime (rows) x method (cols), aggregated over size."
+OP.figure_pip_calibration_grid("loc", pip, method_meta, facet_by="regime")
+```
+
+```{python}
+#| label: fig-loc-calibration-size
+#| fig-width: 16.5
+#| fig-height: 7.2
+#| fig-cap: "Location: PIP calibration, set size (rows) x method (cols), aggregated over regime."
+OP.figure_pip_calibration_grid("loc", pip, method_meta, facet_by="size")
+```
+
+### logBF ROC
+
+Does a higher SER log Bayes factor mean the method found real enrichment? With the paired
+`null_b0` sims, this is a **detection ROC**: positives = enriched replicates, negatives =
+their matched nulls, score = SER logBF; AUC = P(logBF ranks a random enriched replicate
+above a random null). Shown pooled and as a 4 x 3 per-cell breakdown. (Before the nulls
+land, a null-free localization ROC - positive = causal set in the 95% CS - is shown instead.)
+
+```{python}
+#| label: fig-loc-roc-pooled
+#| fig-width: 6.5
+#| fig-height: 6.5
+#| fig-cap: "Location: logBF ROC pooled over the 12 cells."
+if not _have_cs:
+    print("cs reductions not yet available")
+elif _have_null:
+    OP.figure_detection_roc("loc", cs_pn, method_meta)
+else:
+    OP.figure_logbf_roc("loc", cs, method_meta)
+```
+
+```{python}
+#| label: fig-loc-roc-4x3
+#| fig-width: 12
+#| fig-height: 13
+#| fig-cap: "Location: logBF ROC per cell (4x3)."
+if not _have_cs:
+    print("cs reductions not yet available")
+elif _have_null:
+    OP.figure_detection_roc_4x3("loc", cs_pn, method_meta)
+else:
+    OP.figure_logbf_roc_4x3("loc", cs, method_meta)
+```
+
+### Coverage vs CS size
+
+The operating curve of the credible sets: empirical coverage against median CS size, swept
+over the nominal level $\beta$ (see the callout above). Coverage is computed on the enriched
+sims only (nulls have no causal set). The **1 x 3** pools over size within each regime.
+
+```{python}
+#| label: fig-loc-coverage-size-1x3
+#| fig-width: 17
+#| fig-height: 4.6
+#| fig-cap: "Location: coverage vs median CS size, pooled over set size within each regime (1x3)."
+if _have_cs:
+    OP.figure_coverage_size_1x3("loc", cs, method_meta)
+else:
+    print("cs reductions not yet available")
+```
+
+```{python}
+#| label: fig-loc-coverage-size
+#| fig-width: 12
+#| fig-height: 13
+#| fig-cap: "Location: coverage vs median CS size (4x3). Marker = nominal 95% CS; dashed line = 0.95 coverage."
+if _have_cs:
+    OP.figure_coverage_size("loc", cs, method_meta)
+else:
+    print("cs reductions not yet available")
+```
+
+## Scale
+
+```{python}
+#| label: tbl-design-scale
+#| output: asis
+print("Scale design points (all at E[LRT] ~ 25; b0 = -2):\n")
+print(pl_to_markdown(OP.design_table("scale")))
+```
+
+### Power vs FDP
+
+```{python}
+#| label: fig-scale-power-fdp-1x3
+#| fig-width: 17
+#| fig-height: 4.6
+#| fig-cap: "Scale: power vs FDP, pooled over set size within each regime (1x3)."
+OP.figure_power_fdp_1x3("scale", pip, method_meta)
+```
+
+```{python}
+#| label: fig-scale-power-fdp
+#| fig-width: 12
+#| fig-height: 13
+#| fig-cap: "Scale: power vs FDP, rows = set size m, cols = regime."
+OP.figure_power_fdp("scale", pip, method_meta)
+```
+
+### PIP calibration
+
+```{python}
+#| label: fig-scale-calibration-regime
+#| fig-width: 16.5
+#| fig-height: 5.6
+#| fig-cap: "Scale: PIP calibration, regime (rows) x method (cols), aggregated over size."
+OP.figure_pip_calibration_grid("scale", pip, method_meta, facet_by="regime")
+```
+
+```{python}
+#| label: fig-scale-calibration-size
+#| fig-width: 16.5
+#| fig-height: 7.2
+#| fig-cap: "Scale: PIP calibration, set size (rows) x method (cols), aggregated over regime."
+OP.figure_pip_calibration_grid("scale", pip, method_meta, facet_by="size")
+```
+
+### logBF ROC
+
+```{python}
+#| label: fig-scale-roc-pooled
+#| fig-width: 6.5
+#| fig-height: 6.5
+#| fig-cap: "Scale: logBF ROC pooled over the 12 cells."
+if not _have_cs:
+    print("cs reductions not yet available")
+elif _have_null:
+    OP.figure_detection_roc("scale", cs_pn, method_meta)
+else:
+    OP.figure_logbf_roc("scale", cs, method_meta)
+```
+
+```{python}
+#| label: fig-scale-roc-4x3
+#| fig-width: 12
+#| fig-height: 13
+#| fig-cap: "Scale: logBF ROC per cell (4x3)."
+if not _have_cs:
+    print("cs reductions not yet available")
+elif _have_null:
+    OP.figure_detection_roc_4x3("scale", cs_pn, method_meta)
+else:
+    OP.figure_logbf_roc_4x3("scale", cs, method_meta)
+```
+
+### Coverage vs CS size
+
+```{python}
+#| label: fig-scale-coverage-size-1x3
+#| fig-width: 17
+#| fig-height: 4.6
+#| fig-cap: "Scale: coverage vs median CS size, pooled over set size within each regime (1x3)."
+if _have_cs:
+    OP.figure_coverage_size_1x3("scale", cs, method_meta)
+else:
+    print("cs reductions not yet available")
+```
+
+```{python}
+#| label: fig-scale-coverage-size
+#| fig-width: 12
+#| fig-height: 13
+#| fig-cap: "Scale: coverage vs median CS size (4x3). Marker = nominal 95% CS; dashed line = 0.95 coverage."
+if _have_cs:
+    OP.figure_coverage_size("scale", cs, method_meta)
+else:
+    print("cs reductions not yet available")
+```
+
+## Takeaways
+
+*Pending the full data refresh (paired nulls + `cox_reversed`, generating on the cluster).
+The load-bearing findings from the enriched-only run, to be re-confirmed and extended:*
+
+- **Detectable is not localizable.** Every cell sits at $\mathbb{E}[\mathrm{LRT}] \approx 25$,
+  so enrichment is always detectable, yet the credible sets are mostly diffuse: the `twogroup`
+  family and `cox` reach coverage $\approx 1.0$ only with a **median 95%-CS of ~4,000 of the
+  ~5,268 GO:BP sets** - they detect the enrichment without pinning down which set. The coverage
+  vs CS-size operating curve is the panel that exposes this.
+
+- **The scenario contrast is the headline.** `linear_fixed` (signed z) is the one tight method
+  in **location** (median 95%-CS size ~2, coverage ~0.86), but in **scale** it collapses to
+  coverage ~0.17 - confidently wrong - because a signed statistic is blind to a sign-agnostic
+  variance signal. `twogroup_loc` shows the same directional weakness (scale coverage ~0.55).
+  Only the $|z|$-aware methods retain ordering under scale signal. This is the C2 discretization
+  story mapped across the full detectability landscape.
+
+These figures rebuild inline from the `pip` and `cs` reductions under
+`results/by_batch/.../reductions/`, so the cuts can be re-drawn without re-running the
+pipeline. The design points and detectability rationale are in
+`detectability_level_curves.qmd`.

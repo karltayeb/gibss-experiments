@@ -1,0 +1,254 @@
+---
+title: "GO:BP operating points: method performance across the detectability landscape"
+subtitle: "Enrichment-SER methods over set size, localization-evidence strength, and enrichment-vs-signal regime"
+format:
+  html:
+    toc: true
+    toc-depth: 2
+    embed-resources: true
+    code-fold: true
+    fig-format: png
+engine: knitr
+---
+
+```{r}
+#| label: setup
+#| include: false
+# knitr engine so the doc is polyglot; analysis chunks are Python via reticulate against
+# the repo-root uv venv (one dir up from twogroup_experiments/). Same pattern as the
+# other analysis/*.qmd notebooks.
+proj_root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+knitr::opts_knit$set(root.dir = proj_root)
+Sys.setenv(RETICULATE_PYTHON = file.path(proj_root, "..", ".venv", "bin", "python"))
+library(reticulate)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE, dev = "png", dpi = 110)
+```
+
+## What this is
+
+The 011 GO:BP operating-points experiment (`analysis/feature_logbf_level_curves.qmd`)
+simulates enrichment on the GO:BP design (GOBP_ sets of `c5.all`, size in [10,500], fixed
+background log-odds `b0=-2`), placing each cell on an **iso-`E[feature_log_bf]` curve** - a
+matched *localization-evidence* target for the oracle two-group SER. The design cube, per
+signal-type (`loc`: shifted-mean $f_1=\mathcal N(\mu,\tau_0^2)$; `scale`: heavier
+$f_1=\mathcal N(0,\sigma^2)$):
+
+- **set size** $m \in \{50,100,200,400\}$;
+- **strength** (evidence tier) $\in$ {weak ($\approx 10$), intermediate ($\approx 15$),
+  strong ($\approx 20$)} - `ser_log_bf` $\approx$ `feature_log_bf` $- \log p$ ($\log p\approx 8.6$),
+  so weak barely detects, strong localizes;
+- **regime** (arc-length position on the iso-evidence curve) $\in$ {enrich (high enrichment
+  log-odds, weak per-gene signal), balanced, signal (strong per-gene signal, weak enrichment)}.
+
+**Layout.** There are too many axes to overlay at once, so each figure is a grid with
+**rows = strength, cols = regime**, one figure per **(set size $m$, signal-type)**; $m$ and
+signal-type are paged across figures. Methods are overlaid within each panel. The grid is
+sized to the tiers actually on disk, so this **pilot** run (only `loc`, $m=100$, weak+strong)
+renders as **2×3**, and the full sweep fills in to **3×3** with no change to the notebook -
+switch by editing the one `SC` line below.
+
+```{python}
+#| label: load
+#| code-summary: "Load the supercollection's cells, methods, and pip/cs reductions"
+import sys
+sys.path.insert(0, "analysis")
+import matplotlib.pyplot as plt
+import polars as pl
+import op_landscape as ol
+
+# >>> switch pilot <-> full here <<<
+SC = "011-gobp-operating-points"     # or "011-pilot"
+
+CELLS = ol.cells(SC)
+MM = ol.method_meta(SC)
+PIP = ol.load_reduction("pip", SC)
+CS = ol.load_reduction("cs", SC)
+CS_PN = ol.load_reduction("cs", SC, include_null=True)   # + paired nulls, for the detection ROC
+AVAIL = ol.available(SC).rows()   # [(scenario, m), ...] present on disk
+
+print(f"supercollection: {SC}")
+print(f"cells on disk:   {len(CELLS)}  ->  (scenario, m) figures: {AVAIL}")
+print(f"methods:         {ol.methods(SC)}")
+
+# Methods legend table (built here as a string; emitted from R below to dodge the
+# reticulate `asis` stdout dropout in figure-heavy renders).
+_mt = MM.select("method_display", "is_oracle", "is_thresholded", "threshold").sort(
+    ["is_oracle", "is_thresholded", "method_display"], descending=[True, False, False])
+_lines = ["| method | role | censoring threshold |", "| --- | --- | --- |"]
+for r in _mt.iter_rows(named=True):
+    role = "oracle" if r["is_oracle"] else ("thresholded" if r["is_thresholded"] else "model")
+    thr = "-" if r["threshold"] is None else f"{r['threshold']:.0f}"
+    _lines.append(f"| {r['method_display']} | {role} | {thr} |")
+METHODS_TABLE = "\n".join(_lines)
+```
+
+**Methods (display name, role).**
+
+```{r}
+#| label: methods-table
+#| echo: false
+#| output: asis
+# The table string is built in Python (chunk `load`); emit it from R, which is reliable
+# where the Python `asis` stdout stream drops silently in figure-heavy reticulate renders.
+cat(reticulate::py$METHODS_TABLE)
+```
+
+Colour encodes method family (twogroup Okabe-Ito palette); the cox censoring threshold is
+encoded as line style (`@1` solid, `@2` dashed, `@3` dash-dot, `@4` dotted).
+
+## Power vs FDP (PIP selection)
+
+Per cell, the parametric power-vs-FDP curve as the PIP inclusion threshold sweeps high→low.
+Top-left = an efficient ordering of PIPs. Rows = strength (weak→strong), cols = regime.
+
+```{python}
+#| label: fig-power-fdp
+#| fig-width: 11
+#| fig-height: 8
+for scen, m in AVAIL:
+    ol.figure_power_fdp(SC, scen, m, PIP, MM)
+    plt.show()
+```
+
+## Coverage vs credible-set size (localization)
+
+Empirical coverage of the causal set vs **median** CS size, swept over the CS β-grid (CS size
+is heavy-tailed over ~5k overlapping sets, so median not mean). Marked points are the CS at the
+**0.95 (circle), 0.80 (square), 0.50 (diamond)** nominal levels; each marker's horizontal
+position vs the dashed line at its nominal reads as calibration (on the line = calibrated, left
+= anti-conservative). Lower curve at a given coverage = tighter (more efficient) localization.
+
+```{python}
+#| label: fig-coverage-size
+#| fig-width: 11
+#| fig-height: 8
+for scen, m in AVAIL:
+    ol.figure_coverage_size(SC, scen, m, CS, MM)
+    plt.show()
+```
+
+**Credible-set size by nominal level.** One row per cell and method; a coverage and a
+size column for each of the 0.95 / 0.80 / 0.50 nominal levels (the marked points above).
+
+```{python}
+#| label: covsize-table-build
+#| include: false
+COVSIZE_TABLE = "\n\n".join(ol.coverage_size_table_md(SC, scen, m, CS, MM) for scen, m in AVAIL)
+```
+
+```{r}
+#| label: covsize-table
+#| echo: false
+#| output: asis
+cat(reticulate::py$COVSIZE_TABLE)
+```
+
+**Columns.** *strength / regime* - the cell (rows/cols of the figure); *method* - the SER
+method; *cov 95/80/50* - fraction of the 50 replicates whose causal set falls inside the
+β-CS at that nominal (calibrated ⇒ ≈ β); *size 95/80/50* - the β-CS size (number of gene-sets)
+as `median [q25, q75]` over the replicates.
+
+## Localization ROC (coverage vs CS footprint)
+
+The coverage-vs-size curve recast as an ROC with an absolute reference. Sweeping the CS level β:
+**y = coverage** of the causal set (`P(causal ∈ β-CS)`), **x = the CS footprint** = mean CS size
+as a fraction of all ~5k gene-sets. A random set of footprint `f` covers the causal set with
+probability `f`, so the dotted **y = x diagonal is exact chance** - a method whose credible set is
+no more informative than a random set that big rides the diagonal. Genuine localization bows to
+the **top-left** (high coverage at tiny footprint). The marked point is the nominal 95% CS. Rows =
+strength, cols = regime, all methods overlaid; one figure per (signal-type, set size).
+
+```{python}
+#| label: fig-localization-roc
+#| fig-width: 11
+#| fig-height: 9
+for scen, m in AVAIL:
+    ol.figure_localization_roc(SC, scen, m, CS, MM)
+    plt.show()
+```
+
+## PIP calibration
+
+Every calibration plot uses the same encoding and method ordering: rows = regime, one
+method per panel in its method colour, dots sized by #gene-sets in the PIP bin (the PIP
+saturates - almost every set at PIP≈0, a few at ≈1 - so the big extreme dots are where
+calibration lives), dotted diagonal = perfect calibration (below = overconfident). Two method
+subsets throughout: the **cross-method** comparison (twogroup oracle/loc/scale, linear,
+cox-reversed, cox@2, logistic@2) and the **threshold sweep** (cox/logistic at tau = 1..4).
+
+### Spotlight — cross-method (pooled over strength + set size)
+
+```{python}
+#| label: fig-cal-spotlight-cross
+#| fig-width: 13
+#| fig-height: 6
+for scen in sorted({s for s, _ in AVAIL}):
+    ol.figure_pip_calibration_spotlight(SC, scen, PIP, MM, methods=ol.CROSS_METHODS)
+    plt.show()
+```
+
+### Spotlight — threshold sweep (cox/logistic @ tau = 1..4, pooled)
+
+```{python}
+#| label: fig-cal-spotlight-thresh
+#| fig-width: 14
+#| fig-height: 6
+for scen in sorted({s for s, _ in AVAIL}):
+    ol.figure_pip_calibration_spotlight(SC, scen, PIP, MM, methods=ol.THRESHOLD_METHODS)
+    plt.show()
+```
+
+### Full facet — cross-method (per set size, aggregated over strength)
+
+```{python}
+#| label: fig-cal-facet-cross
+#| fig-width: 13
+#| fig-height: 6
+for scen, m in AVAIL:
+    ol.figure_pip_calibration(SC, scen, m, PIP, MM, methods=ol.CROSS_METHODS)
+    plt.show()
+```
+
+### Full facet — threshold sweep (per set size, aggregated over strength)
+
+```{python}
+#| label: fig-cal-facet-thresh
+#| fig-width: 14
+#| fig-height: 6
+for scen, m in AVAIL:
+    ol.figure_pip_calibration(SC, scen, m, PIP, MM, methods=ol.THRESHOLD_METHODS)
+    plt.show()
+```
+
+## Log-BF detection ROC (enriched vs null)
+
+Is the SER log Bayes factor a trustworthy **detection** statistic? Per cell, positive = an
+enriched replicate, negative = its paired `null_b0` replicate (same design + signal, enrichment
+$b=0$); score = `ser_log_bf`; methods overlaid. Broken out across the landscape (rows = strength,
+cols = regime) - the point being to see detection sharpen as strength grows and vary by regime.
+The diagonal is chance.
+
+```{python}
+#| label: fig-detection-roc
+#| fig-width: 11
+#| fig-height: 8
+for scen, m in AVAIL:
+    ol.figure_detection_roc(SC, scen, m, CS_PN, MM)
+    plt.show()
+```
+
+## Landscape summary
+
+Birds-eye view the per-cell grids bury: one small **m × strength** heatmap per method (pooled
+over regime) of the median 95%-CS size - the "method performance across the detectability
+landscape" the title names. Darker = tighter localization. (Pilot: one $m$ row, weak/strong;
+fills to the full 4×3 landscape with the full run.)
+
+```{python}
+#| label: fig-landscape
+#| fig-width: 12
+#| fig-height: 5
+for scen in sorted({s for s, _ in AVAIL}):
+    ol.figure_landscape_heatmap(SC, CS, MM, scenario=scen, stat="cs_size")
+    plt.show()
+```

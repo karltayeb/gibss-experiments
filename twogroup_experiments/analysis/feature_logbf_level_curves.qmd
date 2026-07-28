@@ -369,6 +369,48 @@ _leg = [plt.Line2D([], [], marker=REGIME_MARKER[r], color=REGIME_COLOR[r], mec="
         for r in REGIME_ORDER]
 _leg += [plt.Line2D([], [], color=LINE_C, lw=lw, ls=ls, label=lab) for _, ls, lw, lab in FLB_TARGET_STYLES]
 axes[0, 3].legend(handles=_leg, loc="upper right", fontsize=6.5, frameon=True, framealpha=0.9)
+
+# Stable, human-named export for the slide deck (vector PDF + raster PNG), matching the
+# convention in the other analysis notebooks. root.dir is the twogroup_experiments project root.
+import os
+_DESIGN_FIGDIR = "analysis/figures/011-gobp-operating-points"
+os.makedirs(_DESIGN_FIGDIR, exist_ok=True)
+for _ext in ("pdf", "png"):
+    fig.savefig(f"{_DESIGN_FIGDIR}/design_points_flb.{_ext}", bbox_inches="tight", dpi=150)
+fig
+```
+
+### Design in two panels (fixed set size)
+
+A condensed 1 x 2 view at a single representative set size, for communicating the design
+idea: three evidence tiers (the contours) x three enrichment-vs-signal regimes (points along
+each contour). The full set-size sweep is the 2 x 4 figure above.
+
+```{python}
+#| label: fig-design-2panel
+#| fig-width: 11
+#| fig-height: 5.4
+#| fig-cap: "Simulation design at a single set size (m = 100), one panel per scenario. Colour = E[feature_log_bf] field; crimson contours = the three evidence tiers (localize =20 solid, intermediate =15 dashed, detect =10 dotted). On each contour, three design points source that fixed evidence differently: enrichment-heavy (circle), balanced (diamond), signal-heavy (triangle). b0 = -2."
+_M2 = 100   # representative set size for the deck (matches the m=100 results slides)
+fig, axes2 = plt.subplots(1, 2, figsize=(11, 5.4))
+for ax, (scen, b_axis, sig_axis, ylabel, title) in zip(axes2, _SCEN):
+    B, Y = np.meshgrid(b_axis, sig_axis)
+    fld = e_flb_field(scen, b_axis, sig_axis, _M2)
+    cf2 = ax.contourf(B, Y, fld, levels=np.linspace(0, FLB_VMAX, 21), cmap="Blues", extend="max")
+    for tval, ls, lw, _ in FLB_TARGET_STYLES:
+        ax.contour(B, Y, fld, levels=[tval], colors=LINE_C, linewidths=lw, linestyles=ls)
+    for p in _design_by.get((scen, _M2), []):
+        ax.plot(p["b"], p["signal"], marker=REGIME_MARKER[p["regime"]], ms=9,
+                mfc=REGIME_COLOR[p["regime"]], mec="white", mew=0.8, ls="none", zorder=5)
+    ax.set(xlabel="enrichment log-odds  $b$", ylabel=ylabel, title=f"{title}  ($m = {_M2}$)")
+    ax.set_box_aspect(1)
+cb2 = fig.colorbar(cf2, ax=list(axes2), label="E[feature_log_bf]  (saturates at 40)", shrink=0.82, pad=0.02)
+_leg2 = [plt.Line2D([], [], marker=REGIME_MARKER[r], color=REGIME_COLOR[r], mec="white", ls="none", ms=9, label=r)
+         for r in REGIME_ORDER]
+_leg2 += [plt.Line2D([], [], color=LINE_C, lw=lw, ls=ls, label=lab) for _, ls, lw, lab in FLB_TARGET_STYLES]
+axes2[0].legend(handles=_leg2, loc="upper right", fontsize=7.5, frameon=True, framealpha=0.9)
+for _ext in ("pdf", "png"):
+    fig.savefig(f"{_DESIGN_FIGDIR}/design_points_2panel.{_ext}", bbox_inches="tight", dpi=150)
 fig
 ```
 

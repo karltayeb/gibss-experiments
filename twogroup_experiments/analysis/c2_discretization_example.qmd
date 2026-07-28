@@ -1,0 +1,637 @@
+---
+title: "The cost of discretizing z-scores on C2"
+subtitle: "Two-group SER on MSigDB C2, difficulty-matched across four gene-set x signal cells"
+format:
+  html:
+    toc: true
+    embed-resources: true
+    code-fold: true
+    fig-format: png
+engine: knitr
+---
+
+```{r}
+#| label: setup
+#| include: false
+# knitr engine so the doc is polyglot (R + Python). The analysis chunks are Python,
+# driven through reticulate against the repo-root uv venv. This file lives in
+# twogroup_experiments/analysis/, so `proj_root` is the twogroup_experiments project
+# root: results/, experiments/, and the python modules all resolve from there. The
+# venv is one level up (the repo root), shared across the whole gibss-experiments repo.
+proj_root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), ".."))
+knitr::opts_knit$set(root.dir = proj_root)
+Sys.setenv(RETICULATE_PYTHON = file.path(proj_root, "..", ".venv", "bin", "python"))
+library(reticulate)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Overview
+
+
+We simulate data from a twogroup model and perform variable selection using either the observed effects and standard deviations, the gene ranks, or a list of hits. We use **MSigDB C2** collection. We fit a single effect regressions with quantitative, rank, and binarized response.
+
+- **`twogroup_oracle`** - the continuous two-group model with the true prior
+  $f_1$. This is the information ceiling: it uses the z-scores directly and knows
+  the effect distribution.
+- **`linear`** - a Gaussian SER on the z-scores (`linear_z`) or their magnitude
+  (`linear_abs`). Continuous, but a misspecified (single-Gaussian) effect model.
+- **`cox`** - rank-based. `cox_full_binned` uses the full ranking;
+  `cox_reversed_binned` flips the sign; `cox_binned__threshold=τ` right-censors the
+  ranking at $z = \tau$ (only the order among the top genes survives).
+- **`logistic_threshold__threshold=τ`** - hard binary. Genes with $z > \tau$ are
+  hits, everything else a background; logistic regression on membership. This is
+  the ORA front-end.
+
+The thresholded methods (`cox_binned`, `logistic_threshold`) are swept over
+$\tau \in \{1, 2, 3, 4\}$ so we can watch the cost grow as the binary cut discards
+more of the continuous signal.
+
+## The four cells
+
+The four situations cross **gene-set size** (small / large) with **signal type**
+(a location shift `loc_2.0` -> $\mu = 2$, versus a scale/variance inflation
+`scale_2.0` -> $\sigma = 2$, matched at $\mathbb{E}[z^2] = 5$):
+
+| cell | enrichment | per-gene signal | what makes it hard |
+|------|-----------|-----------------|--------------------|
+| `small-loc`   | small set, mean shift        | $\mu = 2$        | few genes carry the effect |
+| `small-scale` | small set, variance inflation| $\sigma = 2$     | effect has no consistent sign |
+| `large-loc`   | large (sparse) set, mean shift| $\mu = 2$       | signal diluted over many genes |
+| `large-scale` | large (sparse) set, var. infl.| $\sigma = 2$    | diluted **and** sign-agnostic |
+
+Each cell is **difficulty-matched** via the oracle two-group causal-set log Bayes
+factor (calibrated to $\approx 10$; LRT $\approx 26$), so the enrichment effect $b$
+is calibrated per cell while the per-gene signal is held fixed by signal type.
+
+The exact parameters pulled from `results/manifest_cache.json`: the per-gene causal
+effect distribution $f_1$ (non-causal genes have $f_0 = \delta_0$, plus independent
+$\mathcal{N}(0,1)$ observation noise, so a causal gene's z has
+$\mathbb{E}[z^2] = \mu_{f_1}^2 + \sigma_{f_1}^2 + 1$), and the membership logit
+$\mathrm{logit}\,\Pr(\text{gene} \in \text{set}) = b_0 + b\,\mathbb{1}[\text{causal set}]$.
+
+
+We explore simulations under a twogroup model where $f_0(\cdot) = N(\cdot| \mu, \sigma^2)$. We consider four different simulation scenarios where the gene set is large (250-300 genes) or small (40-50 genes), and where the signal is driven my a shift in mean or scale. Across each design we fix the expected per gene $z$-score $\mathbb Ez^2 = \mu^2 + \sigma^2 + 1 \approx 5$. To choose the enrichment parameters we set $b_0 = -2$ and select $b$ so that the expected likelihood ratio is approximately $26$. This might seem like a very strong signal, but given the number of gene sets being tested (7,670 gene sets in `msigdb c2.all`) these parameters give moderate power to localize the enrichment signal.
+
+```{python}
+#| label: tbl-sim-params
+#| output: asis
+# Self-contained (runs before the `load` chunk): only json, and a local markdown builder.
+import json as _json
+
+_PARAM_CELLS = {
+    "small-loc":   "msigdb_c2_all__cod_small_loc__loc_2.0",
+    "small-scale": "msigdb_c2_all__cod_small_scale__scale_2.0",
+    "large-loc":   "msigdb_c2_all__cod_large_loc__loc_2.0",
+    "large-scale": "msigdb_c2_all__cod_large_scale__scale_2.0",
+}
+_man = _json.load(open("results/manifest_cache.json"))
+_coord = {}
+for _b in _man["batches"].values():
+    _k = _b["name"].rsplit("__batch", 1)[0]
+    if _k not in _coord:  # NB: not dict.setdefault - the reticulate knitr engine echoes its return value
+        _coord[_k] = _b["coordinate"]
+
+_hdr = ["cell", "f1 mean", "f1 var", "E[z^2] causal", "b0 (bg logit)", "b (causal logit)"]
+_lines = ["Per-cell simulation parameters:\n",  # blank line so Pandoc sees a table, not a line block
+          "| " + " | ".join(_hdr) + " |",
+          "| " + " | ".join("---" for _ in _hdr) + " |"]
+for _cell, _key in _PARAM_CELLS.items():
+    _n = _coord[_key]["signal"]["f1"]["Normal"]
+    _enr = _coord[_key]["enrichment"]
+    _mu, _var = _n["loc"], _n["scale"] ** 2
+    _vals = [_cell, f"{_mu:g}", f"{_var:g}", f"{_mu ** 2 + _var + 1.0:.2f}",
+             f"{_enr['intercept']:g}", f"{_enr['arguments']['causal_effect']:g}"]
+    _lines.append("| " + " | ".join(_vals) + " |")
+print("\n".join(_lines))
+```
+
+Any active gene - background or in the causal set - has $z \sim \mathcal{N}(\mu_{f_1},
+\sigma_{f_1}^2 + 1)$; an inactive gene has $z \sim \mathcal{N}(0, 1)$. The prior that
+a **random** gene is active is the **global** rate $\pi_{\text{g}} = \sigma(b_0)
+\approx 0.12$: with 22,445 genes and a causal set of only 40-300, the enrichment
+raises activation for a negligible slice, so $\pi_{\text{g}}$ is essentially the same
+$\sigma(b_0)$ in every cell (the causal-set-conditional $\sigma(b_0+b)$ is much higher,
+but that is a tiny fraction of the genome). Shaded is the **Bayes-optimal** per-gene
+"active" region at that global prior ($\pi_{\text{g}} f_1(z) > (1-\pi_{\text{g}})
+f_0(z)$); FPR is null mass inside it, FNR is causal mass outside it.
+
+So the per-gene error rates depend on $b_0$ and $f_1$ **only** - they are the same for
+the two cells of each signal type and largely hopeless (`loc`: FPR $\approx 0.02$,
+FNR $\approx 0.50$; `scale`: FPR $\approx 0.01$, FNR $\approx 0.76$, since the scale
+signal hides most active genes near $z=0$). What the scenario actually changes is the
+**expected number of active genes planted in the causal set**,
+$\mathbb{E}[\text{active}] = n\,\sigma(b_0+b)$ (roughly 24 / 37 / 80 / 99 across the
+cells) - a set-level quantity. Per gene you cannot localize the signal; the enrichment
+$b$ and set size only buy power once you aggregate, which is exactly why gene-set
+analysis exists and what the power/FDP and ROC plots below measure.
+
+```{python}
+#| label: fig-f1-distributions
+#| fig-width: 15
+#| fig-height: 3.3
+#| fig-cap: "Per-gene z density: inactive gene N(0,1) vs active gene N(mu, sigma^2+1). Shaded = Bayes-optimal 'active' region under the GLOBAL prior pi_g = sigmoid(b0) ~ 0.12; FPR/FNR are that rule's per-gene error rates (same within a signal type). Box also gives E[active] = n*sigmoid(b0+b), the scenario-varying set-level quantity."
+# Self-contained (runs before the `load` chunk): json + numpy + matplotlib only.
+import json as _json2
+import numpy as _np
+import matplotlib.pyplot as _plt
+
+_F1_CELLS = {
+    "small-loc":   "msigdb_c2_all__cod_small_loc__loc_2.0",
+    "small-scale": "msigdb_c2_all__cod_small_scale__scale_2.0",
+    "large-loc":   "msigdb_c2_all__cod_large_loc__loc_2.0",
+    "large-scale": "msigdb_c2_all__cod_large_scale__scale_2.0",
+}
+_mani = _json2.load(open("results/manifest_cache.json"))
+_cmap = {}
+for _b in _mani["batches"].values():
+    _k = _b["name"].rsplit("__batch", 1)[0]
+    if _k not in _cmap:
+        _cmap[_k] = _b["coordinate"]
+
+
+def _npdf(z, m, v):
+    return _np.exp(-(z - m) ** 2 / (2 * v)) / _np.sqrt(2 * _np.pi * v)
+
+
+_zg = _np.linspace(-8, 10, 6000)
+_dz = _zg[1] - _zg[0]
+_null = _npdf(_zg, 0.0, 1.0)
+
+_fig, _axes = _plt.subplots(1, 4, figsize=(15, 3.3), sharey=True)
+for _ax, (_cell, _key) in zip(_axes, _F1_CELLS.items()):
+    _co = _cmap[_key]
+    _n, _a = _co["signal"]["f1"]["Normal"], _co["enrichment"]["arguments"]
+    _mu, _s2 = _n["loc"], _n["scale"] ** 2
+    _b0, _b = _co["enrichment"]["intercept"], _a["causal_effect"]
+    _pi_g = 1.0 / (1.0 + _np.exp(-_b0))                # GLOBAL active fraction ~ sigmoid(b0)
+    _n_mid = 0.5 * (_a["size_lo"] + _a["size_hi"])
+    _e_active = _n_mid / (1.0 + _np.exp(-(_b0 + _b)))  # expected # active genes in the causal set
+    _caus = _npdf(_zg, _mu, _s2 + 1.0)
+    # Bayes-optimal call at the GLOBAL prior: pi_g f1(z) > (1-pi_g) f0(z)
+    _sig = _pi_g * _caus > (1.0 - _pi_g) * _null
+    _fpr = _null[_sig].sum() * _dz                     # P(call active | inactive)
+    _fnr = _caus[~_sig].sum() * _dz                    # P(call inactive | active)
+    _color = "#0072B2" if _cell.endswith("loc") else "#D55E00"
+    _ax.plot(_zg, _null, color="0.55", lw=1.3, label="null / inactive")
+    _ax.plot(_zg, _caus, color=_color, lw=1.7, label="causal (active)")
+    _ax.fill_between(_zg, 0, _np.maximum(_null, _caus), where=_sig, color=_color, alpha=0.12)
+    _ax.set_title(_cell, fontsize=10)
+    _ax.set_xlabel("z")
+    _ax.set_xlim(_zg[0], _zg[-1])
+    _ax.text(0.03, 0.97,
+             f"$f_1=N({_mu:g},\\,{_s2:g})$\nset size {_a['size_lo']}–{_a['size_hi']},  $b={_b:g}$\n"
+             f"$\\pi_g={_pi_g:.2f}$,  $E[\\mathrm{{active}}]\\approx{_e_active:.0f}$",
+             transform=_ax.transAxes, va="top", ha="left", fontsize=8,
+             bbox=dict(boxstyle="round", fc="white", ec="0.7", alpha=0.9))
+    _ax.text(0.97, 0.97, f"FPR {_fpr:.2f}\nFNR {_fnr:.2f}", transform=_ax.transAxes,
+             va="top", ha="right", fontsize=8, color=_color, fontweight="bold")
+_axes[0].set_ylabel("density")
+_axes[0].legend(fontsize=7, loc="center left", frameon=False)
+_fig.tight_layout()
+_fig
+```
+```{python}
+#| label: load
+#| code-summary: "Load reductions from results/ and reconstruct method metadata"
+import json
+import glob
+import sys
+
+import polars as pl
+
+sys.path.insert(0, ".")  # twogroup_experiments project root (set via root.dir)
+from experiments import loader as L
+from analyses import pip as pip_family
+import viz_utils
+
+# The C2 cost-of-discretizing supercollection (experiments/010_c2_cost_of_discretizing.yaml).
+# We read the precomputed `pip` reductions straight off disk and rebuild method_metadata
+# from results/manifest_cache.json. This deliberately bypasses loader.load_sc_bundle /
+# the live library.yaml: the method names baked into these fits (`linear_z`, `cox_binned`,
+# ...) predate a later library rename, so config-driven resolution no longer matches the
+# on-disk hashes. The reductions and the manifest are self-describing, so nothing is lost.
+COD_METHODS = [
+    "twogroup_oracle__L=1", "linear_z__L=1", "linear_abs__L=1",
+    "cox_reversed_binned__L=1", "cox_full_binned__L=1",
+    "cox_binned__threshold=1.00__L=1", "cox_binned__threshold=2.00__L=1",
+    "cox_binned__threshold=3.00__L=1", "cox_binned__threshold=4.00__L=1",
+    "logistic_threshold__threshold=1.00__L=1", "logistic_threshold__threshold=2.00__L=1",
+    "logistic_threshold__threshold=3.00__L=1", "logistic_threshold__threshold=4.00__L=1",
+]
+
+# alias -> batch-name prefixes: the enriched cell plus its paired null (shared across the
+# two size cells at a given signal). Names come from results/manifest_cache.json.
+COLLECTIONS = {
+    "small-loc":   ["msigdb_c2_all__cod_small_loc__loc_2.0",    "msigdb_c2_all__null_b0__loc_2.0"],
+    "small-scale": ["msigdb_c2_all__cod_small_scale__scale_2.0", "msigdb_c2_all__null_b0__scale_2.0"],
+    "large-loc":   ["msigdb_c2_all__cod_large_loc__loc_2.0",    "msigdb_c2_all__null_b0__loc_2.0"],
+    "large-scale": ["msigdb_c2_all__cod_large_scale__scale_2.0", "msigdb_c2_all__null_b0__scale_2.0"],
+}
+
+manifest = json.load(open("results/manifest_cache.json"))
+name_by_hash = {h: b["name"] for h, b in manifest["batches"].items()}
+
+# method_metadata (display labels, colours, ordering, thresholded/oracle flags) from the
+# manifest's method specs - loader.method_metadata only needs {name: {kwargs: {L, threshold}}}.
+method_specs = {m["name"]: m for m in manifest["methods"].values() if m["name"] in COD_METHODS}
+assert len(method_specs) == len(COD_METHODS), "some C2 methods missing from manifest"
+method_meta = L.method_metadata(method_specs)
+
+
+def load_collection(prefixes):
+    """Concat every C2 method's pip reduction across all batches of the named simulations."""
+    frames = []
+    for bh, name in name_by_hash.items():
+        if not any(name == p or name.startswith(p + "__batch") for p in prefixes):
+            continue
+        for path in glob.glob(f"results/by_batch/{bh}/fits/*/reductions/pip.parquet"):
+            df = pl.read_parquet(path).filter(pl.col("method").is_in(COD_METHODS))
+            if df.height:
+                frames.append(df)
+    return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
+
+
+pip_plot_data = pl.concat(
+    [load_collection(p).with_columns(pl.lit(alias).alias("collection_name"))
+     for alias, p in COLLECTIONS.items()],
+    how="diagonal_relaxed",
+)
+
+# The exact shape loader.load_sc_bundle hands the renderers, plus the pipeline's default args.
+bundle = {
+    "pip_plot_data": pip_plot_data,
+    "method_metadata": method_meta,
+    "collection_names": list(COLLECTIONS.keys()),
+}
+settings = {"min_log_bf": 2.0, "max_cs_size": 10000, "max_fdp": 0.5, "method_filter": COD_METHODS}
+
+
+from pathlib import Path as _Path
+
+_CACHE_DIR = _Path("analysis/.cache")
+
+
+def cached_parquet(key, dep_files, compute):
+    """Memoize a polars DataFrame to analysis/.cache/<key>.parquet.
+
+    Recompute only when the cache is missing or older than the newest dependency file
+    (so edits to unrelated chunks re-render instantly, but regenerated `results/` still
+    invalidate). `rm -rf analysis/.cache` forces a rebuild. This is the workable caching
+    layer for this doc: knitr's own `#| cache: true` does NOT restore the reticulate
+    Python session on a cache hit, so downstream chunks referencing the cached variable
+    would NameError.
+    """
+    _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    path = _CACHE_DIR / f"{key}.parquet"
+    dep_mtime = max((_Path(f).stat().st_mtime for f in dep_files), default=0.0)
+    if path.exists() and path.stat().st_mtime >= dep_mtime:
+        return pl.read_parquet(path)
+    df = compute()
+    df.write_parquet(path)
+    return df
+
+
+def pl_to_markdown(df, floatfmt="{:.2f}"):
+    """Render a polars DataFrame as a GitHub markdown table (no pandas dependency)."""
+    def cell(v):
+        s = floatfmt.format(v) if isinstance(v, float) else ("" if v is None else str(v))
+        return s.replace("|", "\\|")  # escape pipes (e.g. the "|z|" label) so they don't split cells
+    cols = [cell(c) for c in df.columns]
+    lines = ["| " + " | ".join(cols) + " |", "| " + " | ".join("---" for _ in cols) + " |"]
+    for row in df.iter_rows():
+        lines.append("| " + " | ".join(cell(v) for v in row) + " |")
+    return "\n".join(lines)
+
+
+n_reps = (
+    pip_plot_data.group_by("collection_name").agg(pl.col("method").len().alias("rows"))
+    .sort("collection_name")
+)
+print(n_reps)
+```
+
+## Results
+
+We build from the coarsest question to the finest. First, can a method even tell an
+enriched dataset from a null one (detection)? Then, for the discretizing methods,
+how does the cut $\tau$ trade against landing PIP on the true set? Finally the
+headline power/FDP and calibration plots.
+
+## Detecting enrichment: SER log-BF ROC
+
+Every cell has paired **null** replicates with no enriched set. Taking each
+replicate's single-effect **log Bayes factor** as a detection statistic, we sweep it
+as a threshold and trace the true-positive rate (enriched replicates flagged)
+against the false-positive rate (nulls flagged). The AUC is the probability the
+statistic ranks a random enriched replicate above a random null (0.5 = chance). This
+is enrichment *detection* - upstream of *which* set - so a method can score a high
+AUC here yet still mis-localize, which is what the power/FDP and calibration plots
+below expose.
+
+```{python}
+#| label: load-ser-logbf
+#| code-summary: "Per-replicate SER log Bayes factor from fits.parquet (not in the pip reductions)"
+import numpy as np
+
+# Reading ser_log_bf means reading the full fits.parquet (~2.4 GB; the big single_effects
+# arrays can't be projected away), ~5.6 s. The extracted result is tiny, so memoize it to
+# analysis/.cache/ - subsequent renders (editing prose or other chunks) skip the read.
+_prefixes = sorted({pfx for pair in COLLECTIONS.values() for pfx in pair})
+_fits_files = [
+    path
+    for bh, name in name_by_hash.items() if any(name == p or name.startswith(p + "__batch") for p in _prefixes)
+    for path in glob.glob(f"results/by_batch/{bh}/fits/*/fits.parquet")
+]
+
+
+def _load_ser_log_bf_all():
+    """One long frame [prefix, replicate, method, ser_log_bf] over all C2 sims."""
+    frames = []
+    for pfx in _prefixes:
+        for bh, name in name_by_hash.items():
+            if not (name == pfx or name.startswith(pfx + "__batch")):
+                continue
+            for path in glob.glob(f"results/by_batch/{bh}/fits/*/fits.parquet"):
+                df = pl.read_parquet(path, columns=["replicate", "method", "single_effects"]).filter(
+                    pl.col("method").is_in(COD_METHODS))
+                if df.height:
+                    frames.append(
+                        df.with_columns(
+                            pl.col("single_effects").list.first().struct.field("ser_log_bf").alias("ser_log_bf"),
+                            pl.lit(pfx).alias("prefix"),
+                        ).drop("single_effects")
+                    )
+    return pl.concat(frames, how="diagonal_relaxed")
+
+
+ser_lbf = cached_parquet("ser_log_bf", _fits_files, _load_ser_log_bf_all)
+
+
+def _scores(prefix, method):
+    return ser_lbf.filter((pl.col("prefix") == prefix) & (pl.col("method") == method))["ser_log_bf"].to_numpy()
+
+
+def roc_curve(pos, neg):
+    thr = np.unique(np.concatenate([pos, neg]))[::-1]
+    tpr = np.array([1.0] + [(pos >= t).mean() for t in thr] + [1.0])
+    fpr = np.array([0.0] + [(neg >= t).mean() for t in thr] + [1.0])
+    tpr = np.concatenate([[0.0], tpr[1:-1], [1.0]])
+    fpr = np.concatenate([[0.0], fpr[1:-1], [1.0]])
+    return fpr, tpr
+
+
+def auc(pos, neg):
+    if len(pos) == 0 or len(neg) == 0:
+        return float("nan")
+    allv = np.concatenate([pos, neg])
+    ranks = allv.argsort(kind="mergesort").argsort() + 1  # ordinal ranks (ties negligible: continuous)
+    return (ranks[:len(pos)].sum() - len(pos) * (len(pos) + 1) / 2) / (len(pos) * len(neg))
+```
+
+```{python}
+#| label: fig-logbf-roc
+#| fig-width: 20
+#| fig-height: 4.2
+#| fig-cap: "SER log-BF ROC per cell: enriched replicates (positives) vs. paired nulls (negatives). Dotted diagonal = chance. Thresholded families share a colour; line style encodes tau."
+import matplotlib.pyplot as plt
+
+_meta = {r["method"]: r for r in method_meta.iter_rows(named=True)}
+_TAU_LS = {None: "-", 1.0: "-", 2.0: "--", 3.0: "-.", 4.0: (0, (1, 1))}
+
+fig, axes = plt.subplots(1, len(COLLECTIONS), figsize=(20, 4.2), sharex=True, sharey=True)
+for ax, (cell, (enr_pfx, null_pfx)) in zip(axes, COLLECTIONS.items()):
+    for method in COD_METHODS:
+        fpr, tpr = roc_curve(_scores(enr_pfx, method), _scores(null_pfx, method))
+        ax.plot(fpr, tpr, color=viz_utils.method_color(method),
+                ls=_TAU_LS[_meta[method]["threshold"]], lw=1.4)
+    ax.plot([0, 1], [0, 1], ls=":", c="grey", lw=0.8)
+    ax.set(title=cell, xlim=(0, 1), ylim=(0, 1.02), xlabel="false-positive rate")
+axes[0].set_ylabel("true-positive rate")
+
+# one shared legend (family colour x tau line style)
+seen, handles = set(), []
+for method in COD_METHODS:
+    lbl = _meta[method]["method_display"]
+    if lbl in seen:
+        continue
+    seen.add(lbl)
+    handles.append(plt.Line2D([], [], color=viz_utils.method_color(method),
+                              ls=_TAU_LS[_meta[method]["threshold"]], lw=1.6, label=lbl))
+fig.tight_layout(rect=[0, 0, 0.9, 1])  # reserve right 10% so the figure legend stays on-canvas
+fig.legend(handles=handles, loc="center left", bbox_to_anchor=(0.9, 0.5), fontsize=8, frameon=False)
+fig
+```
+
+```{python}
+#| label: tbl-logbf-auc
+#| output: asis
+_auc_rows = []
+for method in COD_METHODS:
+    disp = _meta[method]["method_display"]
+    row = {"method": disp}
+    for cell, (enr_pfx, null_pfx) in COLLECTIONS.items():
+        row[cell] = auc(_scores(enr_pfx, method), _scores(null_pfx, method))
+    _auc_rows.append(row)
+
+_auc = pl.DataFrame(_auc_rows)
+_order = (method_meta.sort(["is_oracle", "is_thresholded", "method"],
+                           descending=[True, False, False]).get_column("method_display").to_list())
+_auc = (_auc.with_columns(pl.col("method").cast(pl.Enum(_order))).sort("method")
+        .with_columns(pl.col("method").cast(pl.Utf8)))
+print("Detection AUC (enriched vs. null), per cell - 0.5 = chance:\n")
+print(pl_to_markdown(_auc))
+```
+
+The oracle detects best everywhere. The split that matters: `linear_z` (signed z)
+detects the `loc` cells well but collapses to near-chance on the `scale` cells - a
+variance-inflation signal has no consistent sign, so a signed continuous statistic
+sees nothing - while the discretizing `logistic_threshold` recovers detection on the
+`scale` cells precisely because thresholding on $|z|$ is sign-agnostic. Detecting
+*that* there is enrichment is easier than localizing it.
+
+## Threshold vs. mean causal-set PIP
+
+For the discretizing methods we sweep the cut $\tau$ and plot the mean PIP that
+lands on the **true causal set** (enriched cells only). Horizontal lines are the
+threshold-free references (oracle, `linear`, full / reversed cox). The binary
+(`logistic_threshold`) and censored-rank (`cox_binned`) cuts have an interior sweet
+spot - too low a $\tau$ keeps noise genes, too high discards the causal genes - and
+never reach the continuous references.
+
+```{python}
+#| label: fig-threshold-causal-pip
+#| fig-width: 20
+#| fig-height: 4.2
+#| fig-cap: "Mean causal-set PIP vs. threshold tau for the discretizing methods (lines), with threshold-free methods as horizontal references."
+causal_pip = viz_utils.expand_causal_pip_from_compact(pip_plot_data, method_meta)
+causal_pip = causal_pip.join(
+    method_meta.select("method", "threshold", "method_family", "is_thresholded", "method_display_base"),
+    on=["method", "threshold"], how="left", nulls_equal=True,
+)
+cpip_summary = (
+    causal_pip.group_by("collection_name", "method_family", "method_display_base",
+                        "is_thresholded", "threshold")
+    .agg(pl.col("causal_pip").mean().alias("mean_causal_pip"))
+)
+
+# enriched cells only (nulls have no causal set -> no causal_pip rows)
+_cells = [c for c in COLLECTIONS if c in cpip_summary["collection_name"].unique().to_list()]
+_family_method = {  # a representative method per family for the colour lookup
+    r["method_family"]: r["method"] for r in method_meta.iter_rows(named=True)
+}
+
+fig, axes = plt.subplots(1, len(_cells), figsize=(20, 4.2), sharex=True, sharey=True)
+for ax, cell in zip(axes, _cells):
+    sub = cpip_summary.filter(pl.col("collection_name") == cell)
+    for fam in ["logistic_threshold", "cox_binned"]:  # swept discretizers
+        f = sub.filter(pl.col("method_family") == fam).sort("threshold")
+        if f.height:
+            ax.plot(f["threshold"], f["mean_causal_pip"], marker="o",
+                    color=viz_utils.method_color(_family_method[fam]),
+                    label=f["method_display_base"][0])
+    for row in sub.filter(~pl.col("is_thresholded")).iter_rows(named=True):  # continuous references
+        ax.axhline(row["mean_causal_pip"], ls="--", lw=1.0,
+                   color=viz_utils.method_color(_family_method[row["method_family"]]),
+                   label=row["method_display_base"])
+    ax.set(title=cell, xlabel="threshold tau", xticks=[1, 2, 3, 4], ylim=(0, None))
+axes[0].set_ylabel("mean causal-set PIP")
+_h, _l = axes[0].get_legend_handles_labels()
+_uniq = dict(zip(_l, _h))
+fig.tight_layout(rect=[0, 0, 0.88, 1])  # reserve right for the on-canvas legend
+fig.legend(_uniq.values(), _uniq.keys(), loc="center left", bbox_to_anchor=(0.88, 0.5),
+           fontsize=8, frameon=False)
+fig
+```
+
+## Power vs. FDP
+
+The primary "cost of discretizing" plot. We rank gene sets by PIP, sweep the PIP
+cutoff, and trace realized **power** (fraction of true causal sets recovered)
+against realized **false-discovery proportion** (fraction of calls that are false).
+The paired null replicates contribute the false discoveries. A method that used
+the z-scores efficiently rides the top-left; discretization pushes the curve down
+and to the right. Diamonds/squares mark the PIP = 0.5 / 0.9 operating points.
+
+The oracle (pink) is the ceiling in every cell. The gap from the oracle down to
+`logistic_threshold` (binary) and `cox_binned` (rank) is the cost of throwing away
+z-score magnitude - and it visibly widens in the `scale` cells, where a one-sided
+hit list mis-orients a sign-agnostic signal.
+
+```{python}
+#| label: fig-power-fdp
+#| fig-width: 22
+#| fig-height: 3.2
+#| fig-cap: "Power vs. FDP per cell (+ pooled 'All'), one trace per method. Oracle = ceiling; thresholded logistic/cox fall furthest."
+fig = pip_family.RENDERERS["power_fdp"](bundle, settings)
+fig
+```
+
+### Pooled across cells
+
+The same curves with the four cells' bins summed before computing power/FDP - a
+single-panel summary of the average cost.
+
+```{python}
+#| label: fig-agg-power-fdp
+#| fig-width: 7
+#| fig-height: 4.5
+#| fig-cap: "Power vs. FDP pooled over all four cells."
+fig = pip_family.RENDERERS["agg_power_fdp"](bundle, settings)
+fig
+```
+
+### Power at a fixed FDP
+
+To read the gap off as a single number, here is the **maximum power attained
+while holding FDP $\leq 0.1$** for each method in each cell. The oracle row is the
+ceiling; every other row's shortfall is the discretization cost in that cell.
+
+```{python}
+#| label: tbl-power-at-fdp
+#| output: asis
+import viz_utils
+
+TARGET_FDP = 0.1
+power_fdp = viz_utils.expand_power_fdp_from_compact(
+    pip_plot_data, method_meta, selected_methods=set(COD_METHODS),
+)
+
+# max power subject to fdp <= TARGET_FDP, per (cell, method)
+best = (
+    power_fdp.filter(pl.col("fdp") <= TARGET_FDP)
+    .group_by("simulation_name", "method_display")
+    .agg(pl.col("power").max().alias("power"))
+)
+
+order = (
+    method_meta.sort(["is_oracle", "is_thresholded", "method"], descending=[True, False, False])
+    .get_column("method_display").to_list()
+)
+cells = [c for c in COLLECTIONS if c in best["simulation_name"].unique().to_list()]
+# A blank pivot cell means the method never reached FDP <= TARGET_FDP, i.e. no usable
+# operating point at that FDP -> effectively zero power. Fill with 0.0 so it reads that way.
+wide = (
+    best.pivot(values="power", index="method_display", on="simulation_name")
+    .with_columns(pl.col("method_display").cast(pl.Enum(order)))
+    .sort("method_display")
+    .select(["method_display", *cells])
+    .with_columns(pl.col(cells).fill_null(0.0))
+)
+
+print(f"Max power at FDP $\\leq$ {TARGET_FDP:g}, per cell:\n")
+print(pl_to_markdown(wide))
+```
+
+## PIP calibration
+
+A method can only be trusted if its PIPs mean what they say: among sets assigned
+PIP near $x$, a fraction $\approx x$ should truly be causal. Each panel bins the
+PIPs and plots empirical causal frequency against the bin midpoint; the dotted
+diagonal is perfect calibration. Columns are methods, rows are cells, and the
+shaded bottom row pools all cells.
+
+Points **below** the diagonal are over-confident - the PIP overstates the evidence.
+Discretization tends to push points off the diagonal (especially the thresholded
+methods on the `scale` cells), which is the calibration face of the same
+information loss seen in the power/FDP curves.
+
+```{python}
+#| label: fig-pip-calibration
+#| fig-width: 26
+#| fig-height: 15
+#| fig-cap: "PIP calibration: empirical causal frequency vs. PIP bin midpoint. Columns = methods, rows = cells (+ pooled), dotted line = perfect calibration."
+fig = pip_family.RENDERERS["pip_calibration"](bundle, settings)
+fig
+```
+
+### Pooled across cells
+
+```{python}
+#| label: fig-agg-pip-calibration
+#| fig-width: 26
+#| fig-height: 2.6
+#| fig-cap: "PIP calibration pooled over all four cells, one panel per method."
+fig = pip_family.RENDERERS["agg_pip_calibration"](bundle, settings)
+fig
+```
+
+## Takeaways
+
+- **Continuous beats discrete.** The `twogroup_oracle` (continuous z-scores, true
+  prior) is the power ceiling in every cell, and the gap down to the hard-binary
+  `logistic_threshold` and rank-based `cox_binned` is the measurable cost of
+  discretizing.
+- **The threshold sweep shows a dose-response.** Raising $\tau$ from 1 to 4 keeps
+  more of the tail but discards more of the body of the z distribution; the
+  power/FDP curves move accordingly, so there is no single "safe" ORA cutoff.
+- **Discretization hurts most under scale signals.** A one-sided hit list and a
+  forward ranking both assume a direction the variance-inflation signal does not
+  have, so `logistic_threshold` and forward `cox_binned` lose the most in the
+  `*-scale` cells - visible as both a wider power/FDP gap and worse calibration.
+
+These figures are the analysis counterpart of the pipeline outputs under
+`results/supercollections/010-c2-cost-of-discretizing/` (`power_fdp`,
+`agg_power_fdp`, `pip_calibration`, `agg_pip_calibration`); this notebook rebuilds
+them inline from the `pip` reductions so the numbers can be inspected and re-cut
+without re-running the Snakemake pipeline.
+```
