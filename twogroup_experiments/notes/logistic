@@ -1,0 +1,6 @@
+I want to formalize the connection between logistic regression and plackett-luce on the partial rankings. Intuitively, the partial rankings are more informative than the list of hits.
+
+1 1 1 0 0 0
+1 2 3 - - -
+
+When we obtain a hit list by thresholding a score, we get $Y_i = \mathbb{1}(T_i \ge \tau)$ so that $Y_i = 1$ if the observed scores are above the threshold, and $0$ otherwise. Thinking of $1/T_i$ as an arrival time, we observe $1$ if $1/T < 1/\tau$ and $0$ otherwise. In the logistic likelihood, we 

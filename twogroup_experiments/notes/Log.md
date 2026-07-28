@@ -1,0 +1,5 @@
+2026-06-18
+- More accurate twogroup. A problem with the current implementation of twogroup ser is that it treats the latent group membership of each observation as a global parameter. $\mathbb{E}z$ is shared. However, we can also have $\mathbb{E}[z | \gamma]$. That should prove more accurate. I hope it will resolve the problem we see of twogroup oracle performing worse that some rank based methods.
+- We can add an experiment where cox-reversed is right censored. This means that past $\tau$ all we know is that $z^2 > \tau$. 
+
+- A well specified ranking model. We can draw observations from exponential and inverse exponential models which act as "well specified" simulation settings for the cox and reverse cox models. do we see the same drop off in performance with low thresholds as the twogroup simulations? It may be helpful to map these to Gaussian quantiles so that we get observations on a similar scale.
