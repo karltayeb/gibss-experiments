@@ -1,0 +1,50 @@
+# 011_pilot: a tiny local subset of 011 (analysis/feature_logbf_level_curves.qmd) for quick
+# turnaround. 1 batch x 50 replicates; 5 methods (twogroup_oracle, cox_reversed,
+# cox@tau=2, logistic@tau=2, linear); only the m=100 loc cells at the weak & strong tiers
+# (all 3 enrich/balanced/signal regimes). Each cell keeps its paired null_b0 (same
+# design+signal, b=0) so the cs_non_null / logbf analyses have negatives. All enrichments
+# and signals are already defined in library.yaml (shared with 011).
+_anchors:
+  pilot_methods: &pilot_methods
+    [twogroup_oracle__L=1, cox_reversed__L=1, cox__threshold=2.00__L=1,
+     logistic_threshold__threshold=2.00__L=1, linear_fixed__L=1, linear_abs__L=1]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+
+supercollections:
+  011-pilot:
+    n_batches: 1
+    collections:
+      - name: loc_m100_weak_enrich
+        alias: loc_m100_weak_enrich
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b4.00_s80_120, signal: op_loc_0.75, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_0.75, error: gaussian}
+      - name: loc_m100_weak_balanced
+        alias: loc_m100_weak_balanced
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b1.81_s80_120, signal: op_loc_1.65, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_1.65, error: gaussian}
+      - name: loc_m100_weak_signal
+        alias: loc_m100_weak_signal
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b1.23_s80_120, signal: op_loc_4.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_4.00, error: gaussian}
+      - name: loc_m100_strong_enrich
+        alias: loc_m100_strong_enrich
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b4.00_s80_120, signal: op_loc_1.01, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_1.01, error: gaussian}
+      - name: loc_m100_strong_balanced
+        alias: loc_m100_strong_balanced
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b2.13_s80_120, signal: op_loc_1.93, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_1.93, error: gaussian}
+      - name: loc_m100_strong_signal
+        alias: loc_m100_strong_signal
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b1.59_s80_120, signal: op_loc_4.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_4.00, error: gaussian}
+    methods: *pilot_methods
+    default_args: *default_args
+    outputs:
+      - {name: operating-points, method_filter: *pilot_methods, analyses: [pip, cs, cs_non_null, logbf]}

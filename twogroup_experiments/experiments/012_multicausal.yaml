@@ -1,0 +1,74 @@
+# 012_multicausal: SuSiE (L=10) under MULTIPLE causal gene sets.
+#
+# 011 studied a single causal set at a swept detectability. 012 keeps the same
+# GO:BP design and per-gene machinery but places 1, 3, or 5 causal sets in one
+# simulation, spread across the detectability spectrum, and fits an L=10 SuSiE
+# (plus the restricted GSEA method panel). The point is a realistic mixture:
+# within a single replicate some components are clearly enriched, some sit right
+# at the detection boundary, and some are invisible - i.e. not every component is
+# definitively null or non-null.
+#
+# Signal: one shared per-gene f1 = N(2, 1) (mc_sig_2.0) for every cell, so enriched
+# genes overlap the null at the gene level and twogroup-estimated has a single,
+# well-defined (loc, scale) target regardless of how many sets are causal.
+#
+# Enrichment betas are empirically calibrated against mc_sig_2.0 at set size ~100,
+# b0 = -2.0 (single-causal SER log-BF): b=1.0 ~0 (invisible), 1.5 ~1 (marginal),
+# 2.0 ~8 (moderate), 2.5 ~18 (strong), 3.0 ~32 (dominant). Verified L=10 marginal
+# PIP for the graded K=5 spectrum [3,2.5,2,1.5,1]: ~[.98,.98,.50,.50,.01].
+#
+# Cells (each paired with mc_null, the no-causal baseline on the same signal, for
+# false-CS / coverage negatives):
+#   mc_k1        [2.0]                    single moderate causal (anchor vs 011)
+#   mc_k3_graded [2.5, 2.0, 1.5]          strong / moderate / marginal
+#   mc_k5_graded [3.0, 2.5, 2.0, 1.5, 1.0] dominant -> invisible
+#   mc_k3_equal  [2.0, 2.0, 2.0]          equal moderate (component competition)
+#   mc_k5_equal  [2.0]*5                  equal moderate, denser
+#   mc_k3_mixed  [2.5, 2.0, -2.5]         two enriched + one depleted (direction)
+#
+# Restricted method panel at L=10: cox@tau=2, logistic@tau=2, cox-reversed,
+# twogroup-oracle (true f1), twogroup-estimated (fit loc+scale), linear.
+_anchors:
+  mc_methods: &mc_methods
+    [twogroup_oracle__L=10, twogroup__L=10, cox_reversed__L=10,
+     cox__threshold=2.00__L=10, logistic_threshold__threshold=2.00__L=10, linear_fixed__L=10]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+
+supercollections:
+  012-multicausal:
+    n_batches: 1
+    collections:
+      - name: mc_k1
+        alias: mc_k1
+        simulations:
+          - {design: gobp_10_500, enrichment: mc_k1, signal: mc_sig_2.0, error: gaussian}
+          - {design: gobp_10_500, enrichment: mc_null, signal: mc_sig_2.0, error: gaussian}
+      - name: mc_k3_graded
+        alias: mc_k3_graded
+        simulations:
+          - {design: gobp_10_500, enrichment: mc_k3_graded, signal: mc_sig_2.0, error: gaussian}
+          - {design: gobp_10_500, enrichment: mc_null, signal: mc_sig_2.0, error: gaussian}
+      - name: mc_k5_graded
+        alias: mc_k5_graded
+        simulations:
+          - {design: gobp_10_500, enrichment: mc_k5_graded, signal: mc_sig_2.0, error: gaussian}
+          - {design: gobp_10_500, enrichment: mc_null, signal: mc_sig_2.0, error: gaussian}
+      - name: mc_k3_equal
+        alias: mc_k3_equal
+        simulations:
+          - {design: gobp_10_500, enrichment: mc_k3_equal, signal: mc_sig_2.0, error: gaussian}
+          - {design: gobp_10_500, enrichment: mc_null, signal: mc_sig_2.0, error: gaussian}
+      - name: mc_k5_equal
+        alias: mc_k5_equal
+        simulations:
+          - {design: gobp_10_500, enrichment: mc_k5_equal, signal: mc_sig_2.0, error: gaussian}
+          - {design: gobp_10_500, enrichment: mc_null, signal: mc_sig_2.0, error: gaussian}
+      - name: mc_k3_mixed
+        alias: mc_k3_mixed
+        simulations:
+          - {design: gobp_10_500, enrichment: mc_k3_mixed, signal: mc_sig_2.0, error: gaussian}
+          - {design: gobp_10_500, enrichment: mc_null, signal: mc_sig_2.0, error: gaussian}
+    methods: *mc_methods
+    default_args: *default_args
+    outputs:
+      - {name: multicausal, method_filter: *mc_methods, analyses: [pip, cs]}

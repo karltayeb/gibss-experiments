@@ -1,0 +1,47 @@
+# 010 c2 cost-of-discretizing: four cells (small/large gene set x loc/scale signal) on the
+# c2 curated collection (msigdb_c2_all), difficulty-matched via the oracle two-group causal-set
+# log-BF (~10; LRT ~26) rather than PIP (competitor-diluted) or a per-gene z target. Enrichment
+# effect b is calibrated per cell (small sets denser / near-saturated, large sets sparse); the
+# per-gene signal is fixed realistic (loc_2.0 -> mu=2, scale_2.0 -> sigma=2, matched E[z^2]=5) so
+# discretization is meaningful. Each cell carries a paired null (cod_null). Shows the cost of
+# discretizing z-scores -> ranks -> binary, and cox vs cox-reversed vs logistic.
+_anchors:
+  # thresholded (swept over tau): logistic (binary) + cox (forward, right-censored).
+  # threshold-free refs: two-group oracle, linear, cox-reversed (all ranks, time_bins=1000).
+  cod_methods: &cod_methods
+    [twogroup_oracle__L=1, linear_z__L=1, linear_abs__L=1, cox_reversed_binned__L=1, cox_full_binned__L=1,
+     cox_binned__threshold=1.00__L=1, cox_binned__threshold=2.00__L=1, cox_binned__threshold=3.00__L=1, cox_binned__threshold=4.00__L=1,
+     logistic_threshold__threshold=1.00__L=1, logistic_threshold__threshold=2.00__L=1,
+     logistic_threshold__threshold=3.00__L=1, logistic_threshold__threshold=4.00__L=1]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+
+supercollections:
+  010-c2-cost-of-discretizing:
+    # 4 batches x 50 replicates_per_batch = 200 replicates per situation. Batch 0's hash equals the
+    # single-batch hash, so the original 50-replicate fits are reused; only batches 1-3 are new.
+    n_batches: 4
+    collections:
+      - name: small-loc
+        alias: small-loc
+        simulations:
+          - {design: msigdb_c2_all, enrichment: cod_small_loc, signal: loc_2.0, error: gaussian}
+          - {design: msigdb_c2_all, enrichment: cod_null, signal: loc_2.0, error: gaussian}
+      - name: small-scale
+        alias: small-scale
+        simulations:
+          - {design: msigdb_c2_all, enrichment: cod_small_scale, signal: scale_2.0, error: gaussian}
+          - {design: msigdb_c2_all, enrichment: cod_null, signal: scale_2.0, error: gaussian}
+      - name: large-loc
+        alias: large-loc
+        simulations:
+          - {design: msigdb_c2_all, enrichment: cod_large_loc, signal: loc_2.0, error: gaussian}
+          - {design: msigdb_c2_all, enrichment: cod_null, signal: loc_2.0, error: gaussian}
+      - name: large-scale
+        alias: large-scale
+        simulations:
+          - {design: msigdb_c2_all, enrichment: cod_large_scale, signal: scale_2.0, error: gaussian}
+          - {design: msigdb_c2_all, enrichment: cod_null, signal: scale_2.0, error: gaussian}
+    methods: *cod_methods
+    default_args: *default_args
+    outputs:
+      - {name: cost-of-discretizing, method_filter: *cod_methods, analyses: [pip]}

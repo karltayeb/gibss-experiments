@@ -672,7 +672,57 @@ enrichments:
       size_lo: 320
       size_hi: 480
     intercept: -2.0
+  # --- 012 multi-causal enrichments -------------------------------------------
+  # K distinct causal sets (size 80-120, b0=-2.0) placed across the detectability
+  # spectrum. Betas are calibrated against signal mc_sig_2.0 = N(2, 1): single-causal
+  # SER log-BF is ~0 at b=1.0 (undetectable), ~1 at 1.5 (marginal), ~8 at 2.0
+  # (moderate), ~18 at 2.5 (strong), ~32 at 3.0 (dominant). Graded lists therefore
+  # give each simulation a mix of clearly-enriched and near-boundary components; the
+  # weakest rungs are genuinely ambiguous, not definitively null or non-null.
+  mc_k1:
+    function: sized_multi_effect
+    arguments: {causal_effects: [2.0], size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  mc_k3_graded:
+    function: sized_multi_effect
+    arguments: {causal_effects: [2.5, 2.0, 1.5], size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  mc_k5_graded:
+    function: sized_multi_effect
+    arguments: {causal_effects: [3.0, 2.5, 2.0, 1.5, 1.0], size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  mc_k3_equal:
+    function: sized_multi_effect
+    arguments: {causal_effects: [2.0, 2.0, 2.0], size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  mc_k5_equal:
+    function: sized_multi_effect
+    arguments: {causal_effects: [2.0, 2.0, 2.0, 2.0, 2.0], size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  mc_k3_mixed:  # two enriched + one depleted; direction contrast for cox vs cox_reversed
+    function: sized_multi_effect
+    arguments: {causal_effects: [2.5, 2.0, -2.5], size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  mc_null:  # no causal set; false-CS / coverage baseline sharing mc_sig_2.0
+    function: sized_multi_effect
+    arguments: {causal_effects: [], size_lo: 80, size_hi: 120}
+    intercept: -2.0
 signals:
+  # 012 per-gene signal: one shared f1 with genuine spread (scale 1.0, not the ~0
+  # point-mass of the op_loc signals) so enriched genes overlap the null at the gene
+  # level and twogroup-estimated has a well-defined loc AND scale target. Every causal
+  # set's enriched genes are drawn from this same f1, regardless of which set they
+  # belong to, which keeps the estimation target single-valued under multiple causals.
+  mc_sig_2.0:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      Normal:
+        loc: 2.0
+        scale: 1.0
+        estimate_loc: false
+        estimate_scale: false
   loc_0.5:
     f0:
       PointMass:
@@ -1505,6 +1555,7 @@ methods:
     over:
       L:
       - 1
+      - 10
   twogroup_oracle_global:
     function: run_twogroup_method
     template:
@@ -1529,6 +1580,7 @@ methods:
     over:
       L:
       - 1
+      - 10
   twogroup_loc_fam:
     function: run_twogroup_method
     template:
@@ -1552,6 +1604,7 @@ methods:
     over:
       L:
       - 1
+      - 10
   cox_full:
     function: run_cox_method
     template:
@@ -1594,6 +1647,7 @@ methods:
       - 4.0
       L:
       - 1
+      - 10
   logistic_oracle:
     function: run_logistic_method
     template:
@@ -1614,6 +1668,7 @@ methods:
       - 4.0
       L:
       - 1
+      - 10
   linear_fixed:
     function: run_linear_method
     template:
@@ -1621,6 +1676,16 @@ methods:
     over:
       L:
       - 1
+      - 10
+  linear_abs:
+    function: run_linear_method
+    template:
+      estimate_residual_variance: false
+      abs_response: true
+    over:
+      L:
+      - 1
+      - 10
   twogroup_scale_fam:
     function: run_twogroup_method
     template:

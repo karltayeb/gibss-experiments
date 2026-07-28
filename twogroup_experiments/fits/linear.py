@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
 from gibss import engine, linear
 
 
@@ -10,9 +12,17 @@ def fit_linear_method(
     simulation,
     *,
     estimate_residual_variance: bool,
+    abs_response: bool = False,
     L: int = 1,
 ) -> dict[str, Any]:
-    data = linear.prep_data(simulation.X, simulation.thetahat, center=True)
+    if abs_response:
+        response = np.abs(
+            np.asarray(simulation.thetahat, dtype=float)
+            / np.asarray(simulation.se, dtype=float)
+        )
+    else:
+        response = simulation.thetahat
+    data = linear.prep_data(simulation.X, response, center=True)
     state = linear.initialize_state(
         data,
         L=L,
@@ -30,10 +40,11 @@ def summarize_linear_method(
     simulation,
     *,
     estimate_residual_variance: bool,
+    abs_response: bool = False,
     L: int = 1,
 ) -> dict[str, Any]:
     from core import _extract_ser_struct, _extract_family_state_struct, _make_cs_struct, _make_fit_summary_struct
-    del estimate_residual_variance, L
+    del estimate_residual_variance, abs_response, L
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {

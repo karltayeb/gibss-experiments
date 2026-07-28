@@ -28,6 +28,38 @@ def _column_sizes(X) -> np.ndarray:
     return np.asarray(X, dtype=float).sum(axis=0).ravel()
 
 
+def sized_multi_effect(
+    X: np.ndarray,
+    rng: np.random.Generator,
+    causal_effects: list[float],
+    size_lo: int,
+    size_hi: int,
+) -> tuple[list[int], list[float]]:
+    """K distinct causal sets in [size_lo, size_hi], one per entry of causal_effects.
+
+    Multi-causal generalization of ``sized_single_effect``: K = len(causal_effects)
+    distinct columns are drawn WITHOUT replacement from the size window, and the
+    i-th drawn set is assigned effect ``causal_effects[i]``. Passing a graded list of
+    effects (e.g. [2.5, 2.0, 1.5]) places the causals across the detectability
+    spectrum within a single simulation, so a fitted L>1 SuSiE faces a mix of
+    clearly-enriched and near-boundary components. Zero entries are dropped (their
+    set is not spent) so a partially-null list stays honest about the causal count.
+    """
+    effects = [float(b) for b in causal_effects if float(b) != 0.0]
+    if not effects:
+        return [], []
+    sizes = _column_sizes(X)
+    eligible = np.nonzero((sizes >= float(size_lo)) & (sizes <= float(size_hi)))[0]
+    if eligible.size < len(effects):
+        raise ValueError(
+            f"Need {len(effects)} gene sets with size in [{size_lo}, {size_hi}] "
+            f"but only {eligible.size} are eligible "
+            f"(design has {X.shape[1]} sets, sizes {sizes.min():.0f}-{sizes.max():.0f})."
+        )
+    chosen = rng.choice(eligible, size=len(effects), replace=False)
+    return [int(c) for c in chosen], effects
+
+
 def sized_single_effect(
     X: np.ndarray,
     rng: np.random.Generator,
