@@ -101,8 +101,16 @@ def _is_distribution_node(value: Any) -> bool:
 
 
 def resolve_distributions_in_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
-    return {k: (resolve_distribution(v) if _is_distribution_node(v) else v)
-            for k, v in kwargs.items()}
+    from fits.responses import build_response_transform
+    out: dict[str, Any] = {}
+    for k, v in kwargs.items():
+        if k == "response":
+            out[k] = build_response_transform(v)          # str | list -> simulation->Response
+        elif _is_distribution_node(v):
+            out[k] = resolve_distribution(v)
+        else:
+            out[k] = v
+    return out
 
 
 def expand_method(base_name: str, entry: dict[str, Any]) -> list[dict]:

@@ -298,6 +298,7 @@ from simulations.error.errors import noiseless_error_sampler, t_error_sampler
 # (keeps core.<name> working; inspect.getfile follows the real definition)
 # ---------------------------------------------------------------------------
 from fits.cox import fit_cox_method, summarize_cox_method, run_cox_method
+from fits.glm import fit_glm_method, summarize_glm_method, run_glm_method
 from fits.logistic import fit_logistic_method, summarize_logistic_method, run_logistic_method
 from fits.twogroup import fit_twogroup_method, summarize_twogroup_method, run_twogroup_method
 from fits.linear import fit_linear_method, summarize_linear_method, run_linear_method

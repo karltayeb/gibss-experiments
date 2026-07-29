@@ -26,6 +26,10 @@ def method_family_label_map() -> dict[str, str]:
         "cox_full_binned":       "Cox (full)",
         "cox_reversed_binned":   "Cox (reversed)",
         "linear_z":              "Linear (z)",
+        "linear_est_z":          "Linear (est. var, z)",
+        "logistic_z":            "Logistic (z)",
+        "logistic_score_z":      "Logistic score (z)",
+        "poisson_z":             "Poisson (z)",
         "linear_abs":            "Linear (|z|)",
         "twogroup_oracle_init":  "TG Oracle Init",
         "twogroup_scale_fam":    "Twogroup Scale",
@@ -55,6 +59,10 @@ def method_family_color_map() -> dict[str, str]:
         "cox_full_binned":       "#1B7837",  # full-ranking cox, darker green to distinguish
         "cox_reversed_binned":   "#E69F00",  # share cox_reversed orange
         "linear_z":              "#8B4513",  # saddle brown (signed z)
+        "linear_est_z":          "#A0522D",  # sienna (linear, est. residual var, on z)
+        "logistic_z":            "#0072B2",  # blue (well-specified on z)
+        "logistic_score_z":      "#56B4E9",  # sky blue (logistic score approx on z)
+        "poisson_z":             "#009E73",  # bluish green (poisson on z)
         "linear_abs":            "#A0522D",  # sienna (|z|)
         "twogroup":              "#D55E00",  # vermillion
         "twogroup_oracle":       "#CC79A7",  # rose/mauve

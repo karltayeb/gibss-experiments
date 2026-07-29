@@ -271,6 +271,28 @@ enrichments:
     arguments:
       causal_effect: 0.0
     intercept: -2.0
+  # Null logistic base-rate ladder (b=0, no causal set): P(z=1) = sigmoid(intercept).
+  # `neg{k}` = intercept -k (avoids a literal '-' in the name; `m` is taken by set size).
+  null_neg1:                         # sigmoid(-1) ~ 0.27
+    function: uniform_single_effect
+    arguments:
+      causal_effect: 0.0
+    intercept: -1.0
+  null_neg2:                         # sigmoid(-2) ~ 0.12
+    function: uniform_single_effect
+    arguments:
+      causal_effect: 0.0
+    intercept: -2.0
+  null_neg3:                         # sigmoid(-3) ~ 0.05
+    function: uniform_single_effect
+    arguments:
+      causal_effect: 0.0
+    intercept: -3.0
+  null_neg4:                         # sigmoid(-4) ~ 0.018
+    function: uniform_single_effect
+    arguments:
+      causal_effect: 0.0
+    intercept: -4.0
   ser_b2_det:
     function: uniform_single_effect
     arguments:
@@ -708,6 +730,18 @@ enrichments:
     arguments: {causal_effects: [], size_lo: 80, size_hi: 120}
     intercept: -2.0
 signals:
+  # Logistic / z-response simulations: point masses f0=delta_0, f1=delta_1 make the
+  # latent theta EXACTLY the binary membership z. Paired with error: noiseless this
+  # gives thetahat == z, so the (unused) two-group layer is an honest copy of z rather
+  # than a fictitious continuous signal. The fit reads z; this just keeps the
+  # coordinate self-documenting. See docs/superpowers/specs/2026-07-27-response-transform-design.md.
+  binary:
+    f0:
+      PointMass:
+        value: 0.0
+    f1:
+      PointMass:
+        value: 1.0
   # 012 per-gene signal: one shared f1 with genuine spread (scale 1.0, not the ~0
   # point-mass of the op_loc signals) so enriched genes overlap the null at the gene
   # level and twogroup-estimated has a well-defined loc AND scale target. Every causal
@@ -1555,6 +1589,7 @@ methods:
     over:
       L:
       - 1
+      - 5
       - 10
   twogroup_oracle_global:
     function: run_twogroup_method
@@ -1595,6 +1630,7 @@ methods:
     over:
       L:
       - 1
+      - 5
   cox_reversed:
     function: run_cox_method
     template:
@@ -1604,6 +1640,7 @@ methods:
     over:
       L:
       - 1
+      - 5
       - 10
   cox_full:
     function: run_cox_method
@@ -1614,6 +1651,7 @@ methods:
     over:
       L:
       - 1
+      - 5
   cox_uncensored:
     function: run_cox_method
     template:
@@ -1647,6 +1685,7 @@ methods:
       - 4.0
       L:
       - 1
+      - 5
       - 10
   logistic_oracle:
     function: run_logistic_method
@@ -1668,6 +1707,7 @@ methods:
       - 4.0
       L:
       - 1
+      - 5
       - 10
   linear_fixed:
     function: run_linear_method
@@ -1676,12 +1716,64 @@ methods:
     over:
       L:
       - 1
+      - 5
       - 10
   linear_abs:
     function: run_linear_method
     template:
       estimate_residual_variance: false
       abs_response: true
+    over:
+      L:
+      - 1
+      - 5
+      - 10
+  # --- GLM-SuSiE on the binary membership z (response-transform methods) ----------
+  # Logistic-only comparison: linear / logistic / poisson SuSiE all regress the same
+  # response (z) on the design, selected via the composable `response` transform (no
+  # per-method field-picking). See docs/superpowers/specs/2026-07-27-response-transform-design.md.
+  linear_z:
+    function: run_linear_method
+    template:
+      estimate_residual_variance: false
+      response: z
+    over:
+      L:
+      - 1
+      - 10
+  logistic_z:
+    function: run_glm_method
+    template:
+      family: logistic
+      response: z
+    over:
+      L:
+      - 1
+      - 10
+  linear_est_z:                      # linear SuSiE on z, residual variance estimated
+    function: run_linear_method
+    template:
+      estimate_residual_variance: true
+      response: z
+    over:
+      L:
+      - 1
+      - 10
+  logistic_score_z:                  # logistic score approx (Taylor-fixed at null) on z
+    function: run_glm_method
+    template:
+      family: logistic
+      method: score
+      response: z
+    over:
+      L:
+      - 1
+      - 10
+  poisson_z:
+    function: run_glm_method
+    template:
+      family: poisson
+      response: z
     over:
       L:
       - 1
@@ -1700,6 +1792,7 @@ methods:
     over:
       L:
       - 1
+      - 5
   twogroup_oracle_init:
     function: run_twogroup_method
     template:

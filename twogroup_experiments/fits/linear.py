@@ -13,16 +13,23 @@ def fit_linear_method(
     *,
     estimate_residual_variance: bool,
     abs_response: bool = False,
+    response=None,
     L: int = 1,
 ) -> dict[str, Any]:
-    if abs_response:
-        response = np.abs(
+    # `response` (a resolved response transform, simulation -> Response) is the
+    # preferred path; it subsumes `abs_response` (== response `[stat, standardize, abs]`)
+    # and lets linear regress any observation (e.g. `z`). The legacy thetahat/abs_response
+    # branch is kept for the existing 011/012 method entries.
+    if response is not None:
+        y = np.asarray(response(simulation).values, dtype=float)
+    elif abs_response:
+        y = np.abs(
             np.asarray(simulation.thetahat, dtype=float)
             / np.asarray(simulation.se, dtype=float)
         )
     else:
-        response = simulation.thetahat
-    data = linear.prep_data(simulation.X, response, center=True)
+        y = simulation.thetahat
+    data = linear.prep_data(simulation.X, y, center=True)
     state = linear.initialize_state(
         data,
         L=L,
@@ -41,10 +48,11 @@ def summarize_linear_method(
     *,
     estimate_residual_variance: bool,
     abs_response: bool = False,
+    response=None,
     L: int = 1,
 ) -> dict[str, Any]:
     from core import _extract_ser_struct, _extract_family_state_struct, _make_cs_struct, _make_fit_summary_struct
-    del estimate_residual_variance, abs_response, L
+    del estimate_residual_variance, abs_response, response, L
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {

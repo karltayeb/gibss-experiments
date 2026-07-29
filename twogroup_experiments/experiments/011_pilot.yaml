@@ -1,13 +1,34 @@
-# 011_pilot: a tiny local subset of 011 (analysis/feature_logbf_level_curves.qmd) for quick
-# turnaround. 1 batch x 50 replicates; 5 methods (twogroup_oracle, cox_reversed,
-# cox@tau=2, logistic@tau=2, linear); only the m=100 loc cells at the weak & strong tiers
-# (all 3 enrich/balanced/signal regimes). Each cell keeps its paired null_b0 (same
-# design+signal, b=0) so the cs_non_null / logbf analyses have negatives. All enrichments
-# and signals are already defined in library.yaml (shared with 011).
+# 011_pilot: a single-batch (n_batches=1) local slice of 011 restricted to the m=100 size
+# (s80_120), for quick turnaround. Same design/enrichment/signal coordinates and the same full
+# method panel as 011 (analysis/feature_logbf_level_curves.qmd), so batch-0 results are shared -
+# running the full 011 later reuses whatever the pilot produced. 2 scenarios (loc/scale) x 3 tiers
+# (weak/intermediate/strong) x 3 regimes (enrich/balanced/signal) = 18 cells; each keeps its paired
+# null_b0 (same design+signal, b=0) so the cs_non_null / logbf analyses have negatives. All
+# enrichments and signals are already defined in library.yaml (shared with 011).
 _anchors:
-  pilot_methods: &pilot_methods
-    [twogroup_oracle__L=1, cox_reversed__L=1, cox__threshold=2.00__L=1,
-     logistic_threshold__threshold=2.00__L=1, linear_fixed__L=1, linear_abs__L=1]
+  # Restricted panel: tg-oracle / tg-loc / tg-scale / linear / abs-linear / logistic@2 /
+  # cox@2 / cox-full / cox-reversed, each at L=1 and L=5.
+  op_methods: &op_methods
+     [
+       twogroup_oracle__L=1, 
+       twogroup_oracle__L=5,
+       twogroup_loc_fam__L=1, 
+       twogroup_loc_fam__L=5,
+       twogroup_scale_fam__L=1,
+       twogroup_scale_fam__L=5,
+       linear_fixed__L=1,
+       linear_fixed__L=5,
+       linear_abs__L=1,
+       linear_abs__L=5,
+       logistic_threshold__threshold=2.00__L=1,
+       logistic_threshold__threshold=2.00__L=5,
+       cox__threshold=2.00__L=1,
+       cox__threshold=2.00__L=5,
+       cox_full__L=1,
+       cox_full__L=5,
+       cox_reversed__L=1,
+       cox_reversed__L=5
+     ]
   default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
 
 supercollections:
@@ -29,6 +50,21 @@ supercollections:
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.23_s80_120, signal: op_loc_4.00, error: gaussian}
           - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_4.00, error: gaussian}
+      - name: loc_m100_intermediate_enrich
+        alias: loc_m100_intermediate_enrich
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b4.00_s80_120, signal: op_loc_0.89, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_0.89, error: gaussian}
+      - name: loc_m100_intermediate_balanced
+        alias: loc_m100_intermediate_balanced
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b1.98_s80_120, signal: op_loc_1.80, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_1.80, error: gaussian}
+      - name: loc_m100_intermediate_signal
+        alias: loc_m100_intermediate_signal
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b1.43_s80_120, signal: op_loc_4.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_4.00, error: gaussian}
       - name: loc_m100_strong_enrich
         alias: loc_m100_strong_enrich
         simulations:
@@ -44,7 +80,52 @@ supercollections:
         simulations:
           - {design: gobp_10_500, enrichment: op_b1.59_s80_120, signal: op_loc_4.00, error: gaussian}
           - {design: gobp_10_500, enrichment: null_b0, signal: op_loc_4.00, error: gaussian}
-    methods: *pilot_methods
+      - name: scale_m100_weak_enrich
+        alias: scale_m100_weak_enrich
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b4.00_s80_120, signal: op_scale_1.33, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_1.33, error: gaussian}
+      - name: scale_m100_weak_balanced
+        alias: scale_m100_weak_balanced
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b1.93_s80_120, signal: op_scale_2.60, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_2.60, error: gaussian}
+      - name: scale_m100_weak_signal
+        alias: scale_m100_weak_signal
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b1.46_s80_120, signal: op_scale_6.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_6.00, error: gaussian}
+      - name: scale_m100_intermediate_enrich
+        alias: scale_m100_intermediate_enrich
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b4.00_s80_120, signal: op_scale_1.55, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_1.55, error: gaussian}
+      - name: scale_m100_intermediate_balanced
+        alias: scale_m100_intermediate_balanced
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b2.15_s80_120, signal: op_scale_2.89, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_2.89, error: gaussian}
+      - name: scale_m100_intermediate_signal
+        alias: scale_m100_intermediate_signal
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b1.71_s80_120, signal: op_scale_6.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_6.00, error: gaussian}
+      - name: scale_m100_strong_enrich
+        alias: scale_m100_strong_enrich
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b4.00_s80_120, signal: op_scale_1.77, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_1.77, error: gaussian}
+      - name: scale_m100_strong_balanced
+        alias: scale_m100_strong_balanced
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b2.35_s80_120, signal: op_scale_3.14, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_3.14, error: gaussian}
+      - name: scale_m100_strong_signal
+        alias: scale_m100_strong_signal
+        simulations:
+          - {design: gobp_10_500, enrichment: op_b1.91_s80_120, signal: op_scale_6.00, error: gaussian}
+          - {design: gobp_10_500, enrichment: null_b0, signal: op_scale_6.00, error: gaussian}
+    methods: *op_methods
     default_args: *default_args
     outputs:
-      - {name: operating-points, method_filter: *pilot_methods, analyses: [pip, cs, cs_non_null, logbf]}
+      - {name: operating-points, method_filter: *op_methods, analyses: [pip, cs, cs_non_null, logbf]}
