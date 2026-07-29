@@ -1728,11 +1728,49 @@ methods:
       - 1
       - 5
       - 10
-  # --- GLM-SuSiE on the binary membership z (response-transform methods) ----------
-  # Logistic-only comparison: linear / logistic / poisson SuSiE all regress the same
-  # response (z) on the design, selected via the composable `response` transform (no
-  # per-method field-picking). See docs/superpowers/specs/2026-07-27-response-transform-design.md.
-  linear_z:
+  # Linear-SuSiE response grid. Three orthogonal axes selected by name:
+  #   variance:    fixed (sigma^2 = 1)     vs  est (estimate residual variance)
+  #   abs:         signed                  vs  abs (|.|)
+  #   standardize: raw effect (thetahat)   vs  _z (thetahat/se, a z-score)
+  # Standardization is the response transform [stat, standardize] (divides by se); it does
+  # NOT assume se==1. The min_residual_variance floor is only meaningful for the standardized
+  # (_z) responses, whose null variance is known: Var(z)=1 (signed), Var(|z|)=1-2/pi (abs).
+  # Raw-thetahat responses have arbitrary scale, so no floor. NOTE: legacy linear_fixed /
+  # linear_abs above are kept for the in-flight 011 pilot; they equal linear_fixed (raw) and
+  # linear_fixed_abs_z (|z-score|, since se==1) respectively.
+  linear_fixed_abs:                  # |thetahat|, fixed sigma^2 = 1
+    function: run_linear_method
+    template: {estimate_residual_variance: false, response: [stat, abs]}
+    over: {L: [1, 5, 10]}
+  linear_fixed_z:                    # z-score (thetahat/se), fixed sigma^2 = 1
+    function: run_linear_method
+    template: {estimate_residual_variance: false, response: [stat, standardize]}
+    over: {L: [1, 5, 10]}
+  linear_fixed_abs_z:                # |z-score|, fixed sigma^2 = 1
+    function: run_linear_method
+    template: {estimate_residual_variance: false, response: [stat, standardize, abs]}
+    over: {L: [1, 5, 10]}
+  linear_est:                        # thetahat, residual variance estimated (no floor: raw scale)
+    function: run_linear_method
+    template: {estimate_residual_variance: true, response: [stat]}
+    over: {L: [1, 5, 10]}
+  linear_est_abs:                    # |thetahat|, residual variance estimated (no floor)
+    function: run_linear_method
+    template: {estimate_residual_variance: true, response: [stat, abs]}
+    over: {L: [1, 5, 10]}
+  linear_est_z:                      # z-score, residual variance estimated, floored at Var(z) = 1
+    function: run_linear_method
+    template: {estimate_residual_variance: true, min_residual_variance: 1.0, response: [stat, standardize]}
+    over: {L: [1, 5, 10]}
+  linear_est_abs_z:                  # |z-score|, residual variance estimated, floored at Var(|z|) = 1 - 2/pi
+    function: run_linear_method
+    template: {estimate_residual_variance: true, min_residual_variance: 0.36338, response: [stat, standardize, abs]}
+    over: {L: [1, 5, 10]}
+  # --- GLM-SuSiE on the binary membership z (linear probability model + GLM links) -------
+  # Logistic-only comparison: linear / logistic / poisson SuSiE all regress the same latent
+  # binary membership `z` (simulation.z, NOT a z-score) via the `response: z` transform.
+  # Named _lpm (linear probability model) to keep the _z suffix for standardized z-scores.
+  linear_lpm:
     function: run_linear_method
     template:
       estimate_residual_variance: false
@@ -1750,7 +1788,7 @@ methods:
       L:
       - 1
       - 10
-  linear_est_z:                      # linear SuSiE on z, residual variance estimated
+  linear_est_lpm:                    # linear probability model on binary z, residual variance estimated
     function: run_linear_method
     template:
       estimate_residual_variance: true

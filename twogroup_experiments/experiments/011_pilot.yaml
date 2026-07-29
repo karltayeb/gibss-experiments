@@ -6,26 +6,27 @@
 # null_b0 (same design+signal, b=0) so the cs_non_null / logbf analyses have negatives. All
 # enrichments and signals are already defined in library.yaml (shared with 011).
 _anchors:
-  # Restricted panel: tg-oracle / tg-loc / tg-scale / linear / abs-linear / logistic@2 /
-  # cox@2 / cox-full / cox-reversed, each at L=1 and L=5.
+  # Restricted panel: tg-oracle / tg-loc / tg-scale / linear / abs-linear /
+  # est-z (z-score, residual var estimated, floor 1) / est-abs-z (|z-score|, floor 1-2/pi) /
+  # logistic@2 / cox@2 / cox-full / cox-reversed, each at L=1 and L=5.
   op_methods: &op_methods
      [
        twogroup_oracle__L=1, 
        twogroup_oracle__L=5,
-       twogroup_loc_fam__L=1, 
-       twogroup_loc_fam__L=5,
-       twogroup_scale_fam__L=1,
-       twogroup_scale_fam__L=5,
-       linear_fixed__L=1,
-       linear_fixed__L=5,
-       linear_abs__L=1,
-       linear_abs__L=5,
+       # twogroup_loc_fam__L=1, 
+       # twogroup_loc_fam__L=5,
+       # twogroup_scale_fam__L=1,
+       # twogroup_scale_fam__L=5,
+       linear_est_z__L=1,
+       linear_est_z__L=5,
+       linear_est_abs_z__L=1,
+       linear_est_abs_z__L=5,
        logistic_threshold__threshold=2.00__L=1,
        logistic_threshold__threshold=2.00__L=5,
-       cox__threshold=2.00__L=1,
-       cox__threshold=2.00__L=5,
-       cox_full__L=1,
-       cox_full__L=5,
+       # cox__threshold=2.00__L=1,
+       # cox__threshold=2.00__L=5,
+       # cox_full__L=1,
+       # cox_full__L=5,
        cox_reversed__L=1,
        cox_reversed__L=5
      ]

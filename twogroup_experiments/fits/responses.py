@@ -64,12 +64,15 @@ def step_standardize(simulation, r: Response) -> Response:
     _require_values(r, "standardize")
     if r.se is None:
         raise ValueError("standardize needs `se`; start from `stat`.")
-    return replace(r, values=r.values / r.se)
+    # dividing by se makes the observation a unit-noise z-score: se is now exactly 1.
+    return replace(r, values=r.values / r.se, se=np.ones_like(r.values))
 
 
 def step_abs(simulation, r: Response) -> Response:
     _require_values(r, "abs")
-    return replace(r, values=np.abs(r.values))
+    # |.| is nonlinear: Var(|y|) is a folded-normal variance (signal-dependent, not se^2),
+    # so se is no longer a valid observation-noise scale. Drop it (-> unweighted fit).
+    return replace(r, values=np.abs(r.values), se=None)
 
 
 def step_threshold(simulation, r: Response, *, t: float) -> Response:
