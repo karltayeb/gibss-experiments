@@ -3,6 +3,7 @@ from __future__ import annotations
 import importlib
 import inspect
 import itertools
+import warnings
 from functools import partial
 from pathlib import Path
 from typing import Any
@@ -511,6 +512,7 @@ def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
         mfilter_name = reduction_method_filter(library, reduction)
         method_pred = resolve_predicate(mfilter_name) if mfilter_name is not None else None
         frames = []
+        missing_methods: dict[str, int] = {}  # method name -> count of absent reduction files
         for info in cmp.values():
             sub = []
             for bh, mh, mname, mcoord, sim_coord in info["pairs"]:
@@ -519,12 +521,26 @@ def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
                 if sim_pred is not None and not sim_pred(sim_coord):
                     continue
                 path = f"{results_root}/{reduction_output(bh, mh, reduction).split('/', 1)[1]}"
+                # Tolerate an incomplete run: a fit that never produced this reduction
+                # (e.g. a batch/method still running or timed out) is skipped rather than
+                # aborting the whole load. Warn below so the gap is never silent.
+                if not Path(path).exists():
+                    missing_methods[mname] = missing_methods.get(mname, 0) + 1
+                    continue
                 df = pl.read_parquet(path)
                 sub.append(df)
             if sub:
                 merged = pl.concat(sub, how="diagonal_relaxed").with_columns(
                     pl.lit(info["alias"]).alias("collection_name"))
                 frames.append(merged)
+        if missing_methods:
+            total = sum(missing_methods.values())
+            by_method = ", ".join(f"{m} ({n})" for m, n in sorted(missing_methods.items()))
+            warnings.warn(
+                f"load_sc_bundle[{sc_name}/{reduction}]: skipped {total} missing reduction "
+                f"file(s) - results are incomplete for: {by_method}.",
+                stacklevel=2,
+            )
         bundle[f"{reduction}_plot_data"] = (
             pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame())
     bundle["method_metadata"] = method_metadata(
