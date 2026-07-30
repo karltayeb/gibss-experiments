@@ -34,7 +34,7 @@ _anchors:
 
 supercollections:
   011-pilot:
-    n_batches: 1
+    n_batches: 4
     collections:
       - name: loc_m100_weak_enrich
         alias: loc_m100_weak_enrich
