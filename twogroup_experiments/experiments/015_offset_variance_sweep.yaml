@@ -1,0 +1,38 @@
+# 015_offset_variance_sweep: when does a point estimate of a SER's random offset suffice?
+#
+# A single-effect logistic SER on the binary membership z, with a mean-zero Gaussian
+# random offset added to the logit before z is drawn:
+#   z_i ~ Bernoulli(sigmoid(intercept + (X b)_i + psi_i)),  psi_i ~ N(0, sigma^2)
+# The offset stands in for the leave-one-out offset a SER sees inside a SuSiE fit; we
+# ask when ignoring its uncertainty (a point estimate) is enough. Three fits regress the
+# SAME z and differ only in how they reduce the known offset law (see fits/logistic_offset.py):
+#   logistic_point   fixed-offset  (plug in the mean; ignores the spread)
+#   logistic_gaussq  Gauss-Hermite (integrate the moment-matched Gaussian)
+#   logistic_mixq    MixtureGH     (integrate the full mixture; = gaussq for a Gaussian law)
+#
+# The one axis is the offset sd sigma (gaussian_sX), swept from a degenerate 0 baseline up.
+# At sigma=0 all three coincide (calibration check); as sigma grows, point should drift
+# from the offset-integrated fits (inflated null log-BFs / mis-sized credible sets).
+#
+# Design is independent Gaussian (rho=0) so the offset - not feature correlation - is the
+# only confound; signal=binary + error=noiseless make thetahat==z, but the fit reads z
+# directly (the two-group layer is unused here).
+_anchors:
+  methods: &methods [logistic_point, logistic_gaussq, logistic_mixq]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+
+supercollections:
+  015-offset-variance-sweep:
+    n_batches: 1
+    collections:
+      template:
+        design: gaussian_rho0.00_n500_p100
+        enrichment: ser_b1_int0
+        signal: binary
+        error: noiseless
+      over:
+        offset: [gaussian_s0.0, gaussian_s0.25, gaussian_s0.5, gaussian_s1.0, gaussian_s2.0, gaussian_s3.0]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: offset_variance_sweep, method_filter: *methods, analyses: [pip, cs]}

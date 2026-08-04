@@ -1,0 +1,150 @@
+# 016_gobp_bimodal_offset: does the SHAPE (bimodality + skew) of a mean-zero random offset
+# matter, beyond its variance? A skew SERIES of BIMODAL (two-component Gaussian-mixture) offset
+# families on the realistic GO:BP design - ratios 1:1, 2:1, 3:1, 4:1 - sharing one experiment
+# file as four supercollections, each a variance-matched ladder.
+#
+# Same single-effect logistic SER over the GO:BP gene-set design (19,646 genes x 5,268 sets)
+# as the other 016 files: one causal set and a mean-zero random offset added to the logit
+# before z:
+#   z_i ~ Bernoulli(sigmoid(intercept + (X b)_i + psi_i)),  psi_i ~ two-component mixture
+# Every family draws psi from `multimodal_offset` - a two-component Gaussian mixture with
+# distinct component MEANS and small, shared component variance (scale 0.3), so the offset's
+# shape is driven by the mode LOCATIONS, not the within-mode spread.
+#
+# --- The skew series (the point of the file) -----------------------------------------------
+# A k:1 family has a majority mode (weight k/(k+1)) at a small negative displacement -a and a
+# minority mode (weight 1/(k+1)) at k.a on the positive side. The mean-zero constraint balances
+# the asymmetric weights against the asymmetric locations for ANY a:
+#   (k/(k+1)).(-a) + (1/(k+1)).(k.a) = 0
+# so "balance via the probabilities". The between-mode variance is k.a^2 and the shape skew is
+# (k-1)/sqrt(k) (0, ~0.71, ~1.15, ~1.50 for k=1,2,3,4), independent of a - so k sets the skew,
+# a sets the spread. k=1 is the symmetric (equal-weight) case.
+#
+# --- Variance pairing (matched rungs across all four ratios) -------------------------------
+# Each family is the SAME six-rung ladder, indexed by delta, and every rung holds the SAME
+# total variance across all four ratios: setting a = delta/sqrt(k) makes the between-mode
+# variance k.a^2 = delta^2, so the modes are at [-delta/sqrt(k), +sqrt(k).delta] and the total
+# (with the shared component variance 0.09) is delta^2 + 0.09 for every k. Thus bimodal_1to1_pm
+# {delta}, ..._2to1_pm{delta}, ..._3to1_pm{delta}, ..._4to1_pm{delta} are all the same variance
+# and differ only in SKEW. The "pm{delta}" tag is the shared rung index / pairing key, NOT a
+# literal +/- location (only k=1 is literally +/-delta). delta=0 collapses every family to the
+# same N(0, 0.09) baseline.
+#
+# variance rungs: delta in {0, 0.5, 1.0, 1.5, 2.0, 3.0} -> var {0.09, 0.34, 1.09, 2.34, 4.09, 9.09}
+#
+# --- Why this separates the fits -----------------------------------------------------------
+# Three fits regress the same z (see fits/logistic_offset.py):
+#   logistic_point  plug in the offset mean (0) - ignores the spread AND the shape
+#   logistic_gaussq moment-match to a single N(0, Var[psi]) and Gauss-Hermite integrate
+#   logistic_mixq   MixtureGH over the TRUE two-component mixture
+# gaussq only ever sees the first two moments, so at a fixed variance rung it fits the SAME
+# symmetric Gaussian to all four ratios - it is blind to bimodality and skew alike. mixq
+# integrates the actual mixture. So the k=1..4 series at a matched rung isolates the effect of
+# skew at constant spread: mixq should pull away from point/gaussq most where the skew (and the
+# separation) is largest. For a Gaussian law gaussq == mixq (cf. 016-variance); a genuine
+# bimodal/skewed law is what earns mixq its keep.
+#
+# Mechanics mirror the sibling 016 files: scenario and offset entries are inline YAML anchors
+# resolved directly by the loader (content-addressed; `label` is display-only, stripped from
+# the hash). signal=binary + error=noiseless make thetahat==z (the two-group layer is an
+# unused honest copy; the fit reads z). Anchor names cannot contain '.', so `rK_dNN` while the
+# legible `label` keeps the decimal. `multimodal_offset` renormalizes `weights`.
+_anchors:
+  # Scenarios: reuse the two 016 detectability points on the GO:BP design.
+  # One causal GO:BP set, medium size [80,120], base rate P(z=1)=sigmoid(-2)~0.12.
+  ser_b18_m: &ser_b18_m   # moderate effect (b=1.8 log-odds): degrades but survives the offset
+    label: ser_b1.8_m
+    function: sized_single_effect
+    arguments: {causal_effect: 1.8, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  ser_b10_m: &ser_b10_m   # weaker effect (b=1.0 log-odds)
+    label: ser_b1.0_m
+    function: sized_single_effect
+    arguments: {causal_effect: 1.0, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+
+  # --- k=1 (symmetric): weights [0.5, 0.5], modes at [-delta, +delta]. skew 0.
+  r1_d00: &r1_d00 {label: bimodal_1to1_pm0.0, function: multimodal_offset, arguments: {weights: [0.5, 0.5], locs: [ 0.0,  0.0], scales: [0.3, 0.3]}}
+  r1_d05: &r1_d05 {label: bimodal_1to1_pm0.5, function: multimodal_offset, arguments: {weights: [0.5, 0.5], locs: [-0.5,  0.5], scales: [0.3, 0.3]}}
+  r1_d10: &r1_d10 {label: bimodal_1to1_pm1.0, function: multimodal_offset, arguments: {weights: [0.5, 0.5], locs: [-1.0,  1.0], scales: [0.3, 0.3]}}
+  r1_d15: &r1_d15 {label: bimodal_1to1_pm1.5, function: multimodal_offset, arguments: {weights: [0.5, 0.5], locs: [-1.5,  1.5], scales: [0.3, 0.3]}}
+  r1_d20: &r1_d20 {label: bimodal_1to1_pm2.0, function: multimodal_offset, arguments: {weights: [0.5, 0.5], locs: [-2.0,  2.0], scales: [0.3, 0.3]}}
+  r1_d30: &r1_d30 {label: bimodal_1to1_pm3.0, function: multimodal_offset, arguments: {weights: [0.5, 0.5], locs: [-3.0,  3.0], scales: [0.3, 0.3]}}
+
+  # --- k=2 (2:1): weights [2/3, 1/3], modes at [-delta/sqrt2, +sqrt2.delta]. skew ~ +0.7.
+  r2_d00: &r2_d00 {label: bimodal_2to1_pm0.0, function: multimodal_offset, arguments: {weights: [0.6667, 0.3333], locs: [ 0.0,     0.0],    scales: [0.3, 0.3]}}
+  r2_d05: &r2_d05 {label: bimodal_2to1_pm0.5, function: multimodal_offset, arguments: {weights: [0.6667, 0.3333], locs: [-0.3536,  0.7071], scales: [0.3, 0.3]}}
+  r2_d10: &r2_d10 {label: bimodal_2to1_pm1.0, function: multimodal_offset, arguments: {weights: [0.6667, 0.3333], locs: [-0.7071,  1.4142], scales: [0.3, 0.3]}}
+  r2_d15: &r2_d15 {label: bimodal_2to1_pm1.5, function: multimodal_offset, arguments: {weights: [0.6667, 0.3333], locs: [-1.0607,  2.1213], scales: [0.3, 0.3]}}
+  r2_d20: &r2_d20 {label: bimodal_2to1_pm2.0, function: multimodal_offset, arguments: {weights: [0.6667, 0.3333], locs: [-1.4142,  2.8284], scales: [0.3, 0.3]}}
+  r2_d30: &r2_d30 {label: bimodal_2to1_pm3.0, function: multimodal_offset, arguments: {weights: [0.6667, 0.3333], locs: [-2.1213,  4.2426], scales: [0.3, 0.3]}}
+
+  # --- k=3 (3:1): weights [0.75, 0.25], modes at [-delta/sqrt3, +sqrt3.delta]. skew ~ +1.1.
+  r3_d00: &r3_d00 {label: bimodal_3to1_pm0.0, function: multimodal_offset, arguments: {weights: [0.75, 0.25], locs: [ 0.0,     0.0],    scales: [0.3, 0.3]}}
+  r3_d05: &r3_d05 {label: bimodal_3to1_pm0.5, function: multimodal_offset, arguments: {weights: [0.75, 0.25], locs: [-0.2887,  0.8660], scales: [0.3, 0.3]}}
+  r3_d10: &r3_d10 {label: bimodal_3to1_pm1.0, function: multimodal_offset, arguments: {weights: [0.75, 0.25], locs: [-0.5774,  1.7321], scales: [0.3, 0.3]}}
+  r3_d15: &r3_d15 {label: bimodal_3to1_pm1.5, function: multimodal_offset, arguments: {weights: [0.75, 0.25], locs: [-0.8660,  2.5981], scales: [0.3, 0.3]}}
+  r3_d20: &r3_d20 {label: bimodal_3to1_pm2.0, function: multimodal_offset, arguments: {weights: [0.75, 0.25], locs: [-1.1547,  3.4641], scales: [0.3, 0.3]}}
+  r3_d30: &r3_d30 {label: bimodal_3to1_pm3.0, function: multimodal_offset, arguments: {weights: [0.75, 0.25], locs: [-1.7321,  5.1962], scales: [0.3, 0.3]}}
+
+  # --- k=4 (4:1): weights [0.8, 0.2], modes at [-delta/2, +2.delta] (clean). skew ~ +1.5.
+  r4_d00: &r4_d00 {label: bimodal_4to1_pm0.0, function: multimodal_offset, arguments: {weights: [0.8, 0.2], locs: [ 0.0,  0.0], scales: [0.3, 0.3]}}
+  r4_d05: &r4_d05 {label: bimodal_4to1_pm0.5, function: multimodal_offset, arguments: {weights: [0.8, 0.2], locs: [-0.25, 1.0], scales: [0.3, 0.3]}}
+  r4_d10: &r4_d10 {label: bimodal_4to1_pm1.0, function: multimodal_offset, arguments: {weights: [0.8, 0.2], locs: [-0.5,  2.0], scales: [0.3, 0.3]}}
+  r4_d15: &r4_d15 {label: bimodal_4to1_pm1.5, function: multimodal_offset, arguments: {weights: [0.8, 0.2], locs: [-0.75, 3.0], scales: [0.3, 0.3]}}
+  r4_d20: &r4_d20 {label: bimodal_4to1_pm2.0, function: multimodal_offset, arguments: {weights: [0.8, 0.2], locs: [-1.0,  4.0], scales: [0.3, 0.3]}}
+  r4_d30: &r4_d30 {label: bimodal_4to1_pm3.0, function: multimodal_offset, arguments: {weights: [0.8, 0.2], locs: [-1.5,  6.0], scales: [0.3, 0.3]}}
+
+  # Full three-fit panel: mixq is the reason these collections exist (gaussq != mixq once the
+  # offset is a non-Gaussian mixture).
+  methods: &methods [logistic_point, logistic_gaussq, logistic_mixq]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+
+supercollections:
+  016-gobp-bimodal-1to1-offset:
+    n_batches: 2
+    collections:
+      template: {design: gobp_10_500, signal: binary, error: noiseless}
+      over:
+        enrichment: [*ser_b18_m, *ser_b10_m]
+        offset: [*r1_d00, *r1_d05, *r1_d10, *r1_d15, *r1_d20, *r1_d30]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: gobp_bimodal_1to1_offset, method_filter: *methods, analyses: [pip, cs]}
+
+  016-gobp-bimodal-2to1-offset:
+    n_batches: 2
+    collections:
+      template: {design: gobp_10_500, signal: binary, error: noiseless}
+      over:
+        enrichment: [*ser_b18_m, *ser_b10_m]
+        offset: [*r2_d00, *r2_d05, *r2_d10, *r2_d15, *r2_d20, *r2_d30]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: gobp_bimodal_2to1_offset, method_filter: *methods, analyses: [pip, cs]}
+
+  016-gobp-bimodal-3to1-offset:
+    n_batches: 2
+    collections:
+      template: {design: gobp_10_500, signal: binary, error: noiseless}
+      over:
+        enrichment: [*ser_b18_m, *ser_b10_m]
+        offset: [*r3_d00, *r3_d05, *r3_d10, *r3_d15, *r3_d20, *r3_d30]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: gobp_bimodal_3to1_offset, method_filter: *methods, analyses: [pip, cs]}
+
+  016-gobp-bimodal-4to1-offset:
+    n_batches: 2
+    collections:
+      template: {design: gobp_10_500, signal: binary, error: noiseless}
+      over:
+        enrichment: [*ser_b18_m, *ser_b10_m]
+        offset: [*r4_d00, *r4_d05, *r4_d10, *r4_d15, *r4_d20, *r4_d30]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: gobp_bimodal_4to1_offset, method_filter: *methods, analyses: [pip, cs]}

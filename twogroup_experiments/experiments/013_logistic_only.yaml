@@ -1,0 +1,44 @@
+# 013_logistic_only: fit linear / logistic / poisson SuSiE on the binary membership z.
+#
+# The object of interest is the logistic-SuSiE model itself: z ~ Bernoulli(sigmoid(
+# intercept + Xb)) on the GO:BP design. All three methods regress the SAME response
+# (z) on the design and differ only in the GLM link - selected via the composable
+# `response: z` transform, not a per-method field switch:
+#   linear_lpm    linear SuSiE (linear probability model on z)
+#   logistic_z  logistic SuSiE (well-specified)
+#   poisson_z   poisson SuSiE (log-link on z)
+#
+# The signal/error components still run (the simulation materializes theta/thetahat)
+# but are irrelevant here - the fit reads z, drawn before theta. We reuse the 012
+# per-gene signal + the calibrated mc_* enrichment ladder (single moderate causal, a
+# graded K=3/K=5 mixture, and a no-causal baseline) purely to span enrichment
+# strength. See docs/superpowers/specs/2026-07-27-response-transform-design.md.
+_anchors:
+  glm_methods: &glm_methods
+    [linear_lpm__L=1, logistic_z__L=1, poisson_z__L=1,
+     linear_lpm__L=10, logistic_z__L=10, poisson_z__L=10]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+
+supercollections:
+  013-logistic-only:
+    n_batches: 1
+    collections:
+      - name: k1
+        alias: k1
+        simulations:
+          - {design: gobp_10_500, enrichment: mc_k1, signal: mc_sig_2.0, error: gaussian}
+          - {design: gobp_10_500, enrichment: mc_null, signal: mc_sig_2.0, error: gaussian}
+      - name: k3_graded
+        alias: k3_graded
+        simulations:
+          - {design: gobp_10_500, enrichment: mc_k3_graded, signal: mc_sig_2.0, error: gaussian}
+          - {design: gobp_10_500, enrichment: mc_null, signal: mc_sig_2.0, error: gaussian}
+      - name: k5_graded
+        alias: k5_graded
+        simulations:
+          - {design: gobp_10_500, enrichment: mc_k5_graded, signal: mc_sig_2.0, error: gaussian}
+          - {design: gobp_10_500, enrichment: mc_null, signal: mc_sig_2.0, error: gaussian}
+    methods: *glm_methods
+    default_args: *default_args
+    outputs:
+      - {name: logistic_only, method_filter: *glm_methods, analyses: [pip, cs]}

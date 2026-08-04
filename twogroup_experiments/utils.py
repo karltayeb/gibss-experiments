@@ -129,6 +129,11 @@ def simulation_struct_without_x(simulation: TwoGroupSimulation) -> dict[str, Any
         "se": simulation.se.tolist(),
         "f0": _distribution_struct(simulation.f0),
         "f1": _distribution_struct(simulation.f1),
+        "offset": (
+            None
+            if getattr(simulation, "offset_law", None) is None
+            else simulation.offset_law.summary()
+        ),
     }
 
 

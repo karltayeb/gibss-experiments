@@ -594,7 +594,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "gibss-mono", git = "https://github.com/karltayeb/gibss-mono?rev=daf5a24" },
+    { name = "gibss-mono", git = "https://github.com/karltayeb/gibss-mono?rev=c7355bd" },
     { name = "ipython", specifier = ">=9.13.0" },
     { name = "jax", specifier = ">=0.10.0" },
     { name = "marimo", specifier = ">=0.23.5" },
@@ -613,7 +613,7 @@ dev = [{ name = "pytest", specifier = ">=9.0.3" }]
 [[package]]
 name = "gibss-mono"
 version = "0.1.0"
-source = { git = "https://github.com/karltayeb/gibss-mono?rev=daf5a24#daf5a24849cae7b56a89de94b8eeb814b99cf570" }
+source = { git = "https://github.com/karltayeb/gibss-mono?rev=c7355bd#c7355bd18b1165eba82698a80bb20b11e1a41183" }
 dependencies = [
     { name = "jax" },
     { name = "numpy" },

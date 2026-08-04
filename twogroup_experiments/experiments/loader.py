@@ -58,12 +58,60 @@ def _partial_from_entry(entry: dict[str, Any]):
     return partial(fn, **(entry.get("arguments") or {}))
 
 
-def resolve_simulation(library: dict[str, Any], design: str, enrichment: str,
-                       signal: str, error: str) -> core.SimulationSpec:
-    coord = simulation_coordinate(library, design, enrichment, signal, error)
+def _is_no_offset(offset) -> bool:
+    """The offset axis default: no random offset. Both YAML null and the string
+    "none" mean the same thing (kept out of the coordinate so existing sim hashes
+    are unchanged)."""
+    return offset is None or offset == "none"
+
+
+# An axis value is either a NAME (string -> looked up in the library) or an INLINE entry
+# (dict, e.g. from a YAML anchor -> used directly), so experiment-specific scenarios can
+# live in the experiment file instead of bloating the shared library.
+_DISPLAY_KEYS = frozenset({"label"})
+
+
+def _entry(library: dict[str, Any], section: str, value: Any) -> Any:
+    """Resolve an axis value to its entry: a dict is used as-is; a string is looked up."""
+    return value if isinstance(value, dict) else library[section][value]
+
+
+def _hashable_entry(entry: Any) -> Any:
+    """Strip display-only keys (``label``) so an inline entry hashes IDENTICALLY to a named
+    library entry with the same functional content - content-addressed, so inline scenarios
+    dedupe with named equivalents and existing (label-free) hashes never change."""
+    if isinstance(entry, dict):
+        return {k: v for k, v in entry.items() if k not in _DISPLAY_KEYS}
+    return entry
+
+
+def _synth_label(entry: dict[str, Any]) -> str:
+    fn = entry.get("function", "entry")
+    args = entry.get("arguments") or {}
+    argstr = "_".join(f"{k}{v}" for k, v in args.items())
+    return f"{fn}__{argstr}" if argstr else fn
+
+
+def _axis_display(value: Any) -> str:
+    """Display name for an axis value (sim/collection names ONLY - never hashed): the
+    string itself, or an inline dict's ``label`` (falling back to a synthesized param string)."""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        return value.get("label") or _synth_label(value)
+    return str(value)
+
+
+def resolve_simulation(library: dict[str, Any], design: Any, enrichment: Any,
+                       signal: Any, error: Any, offset: Any = "none") -> core.SimulationSpec:
+    coord = simulation_coordinate(library, design, enrichment, signal, error, offset)
     enrich = coord["enrichment"]
     sig = coord["signal"]
-    name = f"{design}__{enrichment}__{signal}" + ("" if error == "gaussian" else f"__{error}")
+    name = f"{_axis_display(design)}__{_axis_display(enrichment)}__{_axis_display(signal)}"
+    if not (isinstance(error, str) and error == "gaussian"):
+        name += f"__{_axis_display(error)}"
+    if not _is_no_offset(offset):
+        name += f"__{_axis_display(offset)}"
     return core.SimulationSpec(
         design_sampler=_partial_from_entry(coord["design"]),
         effect_sampler=_partial_from_entry(enrich),
@@ -75,6 +123,7 @@ def resolve_simulation(library: dict[str, Any], design: str, enrichment: str,
         base_seed=coord["base_seed"],
         hash=sim_hash(coord),
         name=name,
+        offset_sampler=_partial_from_entry(coord["offset"]) if "offset" in coord else None,
     )
 
 
@@ -143,7 +192,7 @@ def load_library(experiments_dir: Path | None = None) -> dict[str, Any]:
     base = Path(experiments_dir) if experiments_dir is not None else EXPERIMENTS_DIR
     data = yaml.safe_load((base / "library.yaml").read_text(encoding="utf-8")) or {}
     for section in ("defaults", "designs", "enrichments", "signals", "errors",
-                    "methods", "reductions", "analyses", "analysis_groups"):
+                    "offsets", "methods", "reductions", "analyses", "analysis_groups"):
         data.setdefault(section, {})
     return data
 
@@ -167,7 +216,8 @@ def library_methods(library: dict[str, Any]) -> dict[str, dict]:
     return out
 
 
-_SIM_FIELDS = ("design", "enrichment", "signal", "error")
+_SIM_FIELDS = ("design", "enrichment", "signal", "error", "offset")
+_SIM_FIELD_DEFAULTS = {"error": "gaussian", "offset": "none"}
 
 
 def _as_list(value: Any) -> list:
@@ -177,10 +227,11 @@ def _as_list(value: Any) -> list:
 def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) -> list[dict]:
     if "simulations" in block:  # explicit one-off
         sims = [resolve_simulation(library, s["design"], s["enrichment"],
-                                   s["signal"], s.get("error", "gaussian"))
+                                   s["signal"], s.get("error", "gaussian"), s.get("offset", "none"))
                 for s in block["simulations"]]
         coords = [{"coordinate": simulation_coordinate(library, s["design"], s["enrichment"],
-                                                       s["signal"], s.get("error", "gaussian")),
+                                                       s["signal"], s.get("error", "gaussian"),
+                                                       s.get("offset", "none")),
                    "name": spec.name}
                   for s, spec in zip(block["simulations"], sims)]
         return [{"name": block["name"], "alias": block.get("alias", block["name"]),
@@ -200,22 +251,24 @@ def _expand_block(library: dict[str, Any], sc_name: str, block: dict[str, Any]) 
         over_map = dict(zip(over_keys, combo))
         fields = {**template, **over_map}
         # within-collection product over any list-valued template field
-        member_lists = {f: _as_list(fields.get(f, "gaussian" if f == "error" else None))
+        member_lists = {f: _as_list(fields.get(f, _SIM_FIELD_DEFAULTS.get(f)))
                         for f in _SIM_FIELDS}
         sims = []
         coords = []
-        for d, e, s, err in itertools.product(member_lists["design"], member_lists["enrichment"],
-                                              member_lists["signal"], member_lists["error"]):
-            spec = resolve_simulation(library, d, e, s, err)
+        for d, e, s, err, off in itertools.product(
+            member_lists["design"], member_lists["enrichment"],
+            member_lists["signal"], member_lists["error"], member_lists["offset"],
+        ):
+            spec = resolve_simulation(library, d, e, s, err, off)
             sims.append(spec)
-            coords.append({"coordinate": simulation_coordinate(library, d, e, s, err),
+            coords.append({"coordinate": simulation_coordinate(library, d, e, s, err, off),
                            "name": spec.name})
-        suffix = "".join(f"__{k}={over_map[k]}" for k in over_keys)
+        suffix = "".join(f"__{k}={_axis_display(over_map[k])}" for k in over_keys)
         name = f"{sc_name}{suffix}" if over_keys else sc_name
         if aliases is not None:
             alias = aliases[idx]
         else:
-            alias = block.get("alias") or "__".join(str(over_map[k]) for k in over_keys) or sc_name
+            alias = block.get("alias") or "__".join(_axis_display(over_map[k]) for k in over_keys) or sc_name
         results.append({"name": name, "alias": alias, "simulations": sims, "coordinates": coords})
     return results
 
@@ -549,14 +602,22 @@ def load_sc_bundle(config: dict[str, Any], sc_name: str, requires: list[str],
     return bundle
 
 
-def simulation_coordinate(library, design, enrichment, signal, error) -> dict:
-    return {
-        "design": library["designs"][design],
-        "enrichment": library["enrichments"][enrichment],
-        "signal": library["signals"][signal],
-        "error": library["errors"][error],          # None for "gaussian"
+def simulation_coordinate(library, design, enrichment, signal, error, offset="none") -> dict:
+    # Each axis value is a name (library lookup) or an inline dict (used directly); the
+    # coordinate stores the functional content only (label stripped), so it is content-
+    # addressed - inline anchors dedupe with named entries and existing hashes are stable.
+    coord = {
+        "design": _hashable_entry(_entry(library, "designs", design)),
+        "enrichment": _hashable_entry(_entry(library, "enrichments", enrichment)),
+        "signal": _hashable_entry(_entry(library, "signals", signal)),
+        "error": _hashable_entry(_entry(library, "errors", error)),   # None for "gaussian"
         "base_seed": int(library["defaults"]["base_seed"]),
     }
+    # The offset axis is optional: absent unless a non-"none" offset is named, so every
+    # pre-offset coordinate hashes exactly as before (no rebuild of existing sims).
+    if not _is_no_offset(offset):
+        coord["offset"] = _hashable_entry(_entry(library, "offsets", offset))
+    return coord
 
 
 def method_coordinate(name, function, kwargs_raw) -> dict:
@@ -591,6 +652,7 @@ def resolve_simulation_from_coord(coord: dict[str, Any]) -> core.SimulationSpec:
         base_seed=coord["base_seed"],
         hash=sim_hash(coord),
         name="",
+        offset_sampler=_partial_from_entry(coord["offset"]) if "offset" in coord else None,
     )
 
 
@@ -600,6 +662,8 @@ def simulation_code_files(coord: dict[str, Any], library: dict[str, Any]) -> lis
     fns = [core.simulate, spec.design_sampler, spec.effect_sampler]
     if spec.error_sampler is not None:
         fns.append(spec.error_sampler)
+    if spec.offset_sampler is not None:
+        fns.append(spec.offset_sampler)
     return sorted({_file(f) for f in fns})
 
 

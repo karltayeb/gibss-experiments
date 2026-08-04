@@ -1,0 +1,65 @@
+# 016_gobp_offset_variance_sweep: the 015 offset scale sweep on the REALISTIC GO:BP design.
+#
+# A single-effect logistic SER over the GO:BP gene-set design (19,646 genes x 5,268 sets),
+# with one causal set and a mean-zero Gaussian random offset added to the logit before z:
+#   z_i ~ Bernoulli(sigmoid(intercept + (X b)_i + psi_i)),  psi_i ~ N(0, sigma^2)
+# The injected offset stands in for a SER's leave-one-out offset (the other gene sets'
+# contribution) in a real GSEA SuSiE fit, so the sigma sweep asks where - in the GSEA regime -
+# ignoring offset uncertainty (a point estimate) stops being enough. Three fits regress the
+# same z: logistic_point (plug in the mean), logistic_gaussq (integrate the moment-matched
+# Gaussian), logistic_mixq (full mixture; == gaussq for a Gaussian law).
+#
+# The simulation scenario is defined LOCALLY as a YAML anchor (not a named library entry) -
+# the enrichment is an inline `sized_single_effect` dict resolved directly by the loader. Its
+# `label` names it in plots/tooling only (it is stripped from the content hash, so an inline
+# scenario dedupes with any named library entry of the same content). To sweep detectability,
+# add more scenario anchors and make enrichment an `over:` axis:
+#     over: {enrichment: [*ser_b18_m, *ser_b12_m], offset: [...]}
+# (a list of anchors -> one collection per scenario, faceted). signal=binary + error=noiseless
+# make thetahat==z (the two-group layer is an unused honest copy; the fit reads z).
+# NB: YAML anchor names cannot contain '.', so the anchor is `ser_b18_m` while its human-
+# readable `label` (used only for display) keeps the decimal: `ser_b1.8_m`.
+_anchors:
+  # Scenario: one causal GO:BP set, moderate effect (b=1.8 log-odds), medium size [80,120],
+  # base rate P(z=1)=sigmoid(-2)~0.12. Moderately detectable, so the offset degrades but does
+  # not destroy detection - the point-vs-integrated logBF gap is the clean readout.
+  ser_b18_m: &ser_b18_m
+    label: ser_b1.8_m
+    function: sized_single_effect
+    arguments: {causal_effect: 1.8, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  # Weaker signal: same medium set + base rate, smaller effect (b=1.0 log-odds).
+  ser_b10_m: &ser_b10_m
+    label: ser_b1.0_m
+    function: sized_single_effect
+    arguments: {causal_effect: 1.0, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  # Gaussian random-offset scale ladder (mean-zero, sd = scale), defined locally as anchors.
+  # Anchor names can't contain '.', so `g_sN`; the legible `label` (gaussian_sX) is what shows
+  # in collection names/plots. Content-addressed, so these hash identically to any equivalent
+  # library entry.
+  g_s0:   &g_s0   {label: gaussian_s0.0, function: gaussian_offset, arguments: {scale: 0.0}}
+  g_s0p5: &g_s0p5 {label: gaussian_s0.5, function: gaussian_offset, arguments: {scale: 0.5}}
+  g_s1:   &g_s1   {label: gaussian_s1.0, function: gaussian_offset, arguments: {scale: 1.0}}
+  g_s2:   &g_s2   {label: gaussian_s2.0, function: gaussian_offset, arguments: {scale: 2.0}}
+  g_s3:   &g_s3   {label: gaussian_s3.0, function: gaussian_offset, arguments: {scale: 3.0}}
+  g_s3p5: &g_s3p5 {label: gaussian_s3.5, function: gaussian_offset, arguments: {scale: 3.5}}
+  g_s4:   &g_s4   {label: gaussian_s4.0, function: gaussian_offset, arguments: {scale: 4.0}}
+  methods: &methods [logistic_point, logistic_gaussq]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+
+supercollections:
+  016-gobp-offset-variance-sweep:
+    n_batches: 2
+    collections:
+      template:
+        design: gobp_10_500
+        signal: binary
+        error: noiseless
+      over:
+        enrichment: [*ser_b18_m, *ser_b10_m]
+        offset: [*g_s0, *g_s0p5, *g_s1, *g_s2, *g_s3, *g_s3p5, *g_s4]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: gobp_offset_variance_sweep, method_filter: *methods, analyses: [pip, cs]}

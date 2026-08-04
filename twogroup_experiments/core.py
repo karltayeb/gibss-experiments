@@ -21,6 +21,10 @@ class SimulationSpec:
     hash: str
     name: str = ""
     membership: str = "stochastic"
+    # offset axis: (rng, n) -> (psi, OffsetLaw); None = no random offset. A mean-zero-by-
+    # default per-row term added to the logit before z is drawn (a stand-in for the SER's
+    # leave-one-out offset). See simulations/offset/laws.py.
+    offset_sampler: Any = None
 
 
 @dataclass(frozen=True)
@@ -36,6 +40,9 @@ class TwoGroupSimulation:
     se: np.ndarray
     f0: Any
     f1: Any
+    # The offset LAW the fit reduces (mean / variance / mixture); None when no offset.
+    # The realized psi is NOT stored - a fit knows the offset distribution, not its draw.
+    offset_law: Any = None
 
 
 def _sigmoid(x: np.ndarray) -> np.ndarray:
@@ -114,6 +121,15 @@ def simulate(simulation_spec: SimulationSpec, replicate: int):
     b = np.zeros(X.shape[1], dtype=float)
     b[causal_indices] = causal_effects
     logits = float(simulation_spec.intercept) + np.asarray(X @ b, dtype=float)
+    # Random offset: an extra per-row term on the logit, drawn AFTER the effect so the
+    # no-offset path (offset_sampler is None) consumes zero RNG and reproduces existing
+    # simulations bit-for-bit. Only the LAW is kept; the realized psi is discarded.
+    offset_sampler = getattr(simulation_spec, "offset_sampler", None)
+    if offset_sampler is None:
+        offset_law = None
+    else:
+        psi, offset_law = offset_sampler(rng, X.shape[0])
+        logits = logits + np.asarray(psi, dtype=float)
     if simulation_spec.membership == "deterministic":
         z = (logits > 0).astype(int)
     else:
@@ -146,6 +162,7 @@ def simulate(simulation_spec: SimulationSpec, replicate: int):
         se=se,
         f0=simulation_spec.f0,
         f1=simulation_spec.f1,
+        offset_law=offset_law,
     )
 
 
@@ -292,6 +309,12 @@ from simulations.design.genesets import hallmark_gene_sets_X, c4_gene_sets_X, ms
 from simulations.design.degenerate import null_enrich_X
 from simulations.effect.effects import uniform_single_effect, sized_single_effect, sized_multi_effect
 from simulations.error.errors import noiseless_error_sampler, t_error_sampler
+from simulations.offset.laws import (
+    gaussian_offset,
+    heteroskedastic_gaussian_offset,
+    multimodal_offset,
+    t_offset,
+)
 
 # ---------------------------------------------------------------------------
 # Re-exports from fits/ sub-package
@@ -300,5 +323,10 @@ from simulations.error.errors import noiseless_error_sampler, t_error_sampler
 from fits.cox import fit_cox_method, summarize_cox_method, run_cox_method
 from fits.glm import fit_glm_method, summarize_glm_method, run_glm_method
 from fits.logistic import fit_logistic_method, summarize_logistic_method, run_logistic_method
+from fits.logistic_offset import (
+    fit_logistic_offset_method,
+    summarize_logistic_offset_method,
+    run_logistic_offset_method,
+)
 from fits.twogroup import fit_twogroup_method, summarize_twogroup_method, run_twogroup_method
 from fits.linear import fit_linear_method, summarize_linear_method, run_linear_method

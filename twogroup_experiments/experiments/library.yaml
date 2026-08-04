@@ -266,6 +266,12 @@ enrichments:
     arguments:
       causal_effect: 0.0
     intercept: 0.0
+  # Single moderate causal effect, balanced base rate (intercept 0) - the offset study base.
+  ser_b1_int0:
+    function: uniform_single_effect
+    arguments:
+      causal_effect: 1.0
+    intercept: 0.0
   null_enrich:
     function: uniform_single_effect
     arguments:
@@ -1579,6 +1585,21 @@ errors:
     function: t_error_sampler
     arguments:
       df: 30
+# Random-offset axis: a per-row term added to the logit before z is drawn (a stand-in
+# for a SER's leave-one-out offset). Each entry is an OffsetLaw sampler f(rng, n) ->
+# (psi, OffsetLaw); the fit reduces the law (mean / mean+variance / mixture). See
+# simulations/offset/laws.py. `sX` = Gaussian sd X (mean-zero); mean_scale defaults 0.
+offsets:
+  gaussian_s0.0:  {function: gaussian_offset, arguments: {scale: 0.0}}   # degenerate baseline (sigma^2=0)
+  gaussian_s0.25: {function: gaussian_offset, arguments: {scale: 0.25}}
+  gaussian_s0.5:  {function: gaussian_offset, arguments: {scale: 0.5}}
+  gaussian_s1.0:  {function: gaussian_offset, arguments: {scale: 1.0}}
+  gaussian_s2.0:  {function: gaussian_offset, arguments: {scale: 2.0}}
+  gaussian_s3.0:  {function: gaussian_offset, arguments: {scale: 3.0}}
+  # Forward-looking laws for the mixture / t follow-ups (not swept in 015):
+  contam_e0.1_s0.5_c3: {function: multimodal_offset, arguments: {weights: [0.9, 0.1], locs: [0.0, 0.0], scales: [0.5, 3.0]}}
+  bimodal_pm2_s0.5:    {function: multimodal_offset, arguments: {weights: [0.5, 0.5], locs: [-2.0, 2.0], scales: [0.5, 0.5]}}
+  t5_s1.0:             {function: t_offset, arguments: {scale: 1.0, df: 5}}
 methods:
   twogroup_oracle:
     function: run_twogroup_method
@@ -1816,6 +1837,20 @@ methods:
       L:
       - 1
       - 10
+  # --- Logistic SER under a known random offset (L=1), fit three ways -------------------
+  # All regress z; they differ only in how they reduce simulation.offset_law:
+  #   logistic_point  fixed-offset  (plug in the mean)
+  #   logistic_gaussq Gauss-Hermite (moment-matched Gaussian: mean + variance)
+  #   logistic_mixq   MixtureGH     (full per-row Gaussian mixture)
+  logistic_point:
+    function: run_logistic_offset_method
+    template: {quadrature: none}
+  logistic_gaussq:
+    function: run_logistic_offset_method
+    template: {quadrature: gaussian, offset_order: 15}
+  logistic_mixq:
+    function: run_logistic_offset_method
+    template: {quadrature: mixture, offset_order: 15}
   twogroup_scale_fam:
     function: run_twogroup_method
     template:

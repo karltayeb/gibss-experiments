@@ -1,0 +1,77 @@
+# 016_gobp_heteroskedastic_offset_variance: 016's offset sweep, but the offset VARIANCE
+# varies across observations - a clean/contaminated (spike-and-slab) offset law.
+#
+# Same single-effect logistic SER over the realistic GO:BP design (19,646 genes x 5,268
+# sets) as 016-gobp-offset-variance-sweep, with one causal set and a mean-zero random
+# offset added to the logit before z:
+#   z_i ~ Bernoulli(sigmoid(intercept + (X b)_i + psi_i))
+# but where 016 draws psi from a single homoskedastic Gaussian N(0, sigma^2), here each
+# observation is either CLEAN (psi_i = 0, a point mass) or CONTAMINATED (psi_i ~ N(0, 4)),
+# with a contamination fraction eps we sweep:
+#   psi_i ~ (1 - eps) . delta_0  +  eps . N(0, 4)
+# So the per-observation offset variance is heteroskedastic: 0 for a clean gene, 4 for a
+# contaminated one. The marginal offset has mean 0 and variance 4.eps, but its SHAPE is a
+# spike-plus-slab, not a Gaussian - which is exactly what separates the three fits here.
+#
+# Three fits regress the same z (see fits/logistic_offset.py):
+#   logistic_point  plug in the offset mean (0) - ignores the contamination entirely
+#   logistic_gaussq moment-match to a single N(0, 4.eps) and Gauss-Hermite integrate
+#   logistic_mixq   MixtureGH over the true spike-and-slab (delta_0, N(0,4)) mixture
+# Unlike the pure-Gaussian 016 - where gaussq == mixq because the law IS Gaussian - here
+# the offset is genuinely non-Gaussian, so mixq is the star: gaussq over-smooths the spike
+# into one broad Gaussian (inflating the log-BF), while mixq integrates the actual mixture.
+# At eps=0 every gene is clean, the offset is degenerate at 0, and all three coincide
+# (calibration check); as eps grows they fan apart.
+#
+# Mechanics mirror 016: the scenario and offset entries are inline YAML anchors resolved
+# directly by the loader (content-addressed; `label` is display-only, stripped from the
+# hash). signal=binary + error=noiseless make thetahat==z (the two-group layer is an
+# unused honest copy; the fit reads z). Anchor names cannot contain '.', so `c_eNN` while
+# the legible `label` (contam_eX) keeps the decimal.
+_anchors:
+  # Scenarios: reuse the two 016 detectability points on the GO:BP design.
+  # One causal GO:BP set, medium size [80,120], base rate P(z=1)=sigmoid(-2)~0.12.
+  ser_b18_m: &ser_b18_m   # moderate effect (b=1.8 log-odds): degrades but survives contamination
+    label: ser_b1.8_m
+    function: sized_single_effect
+    arguments: {causal_effect: 1.8, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  ser_b10_m: &ser_b10_m   # weaker effect (b=1.0 log-odds)
+    label: ser_b1.0_m
+    function: sized_single_effect
+    arguments: {causal_effect: 1.0, size_lo: 80, size_hi: 120}
+    intercept: -2.0
+  # Contamination ladder: clean = point mass at 0 (scale 0), contaminated = N(0, 4)
+  # (scale 2). Only the mixing weight eps changes; the slab is fixed at variance 4. eps=0
+  # is the degenerate all-clean baseline (all three fits coincide).
+  c_e00: &c_e00 {label: contam_e0.0,  function: multimodal_offset, arguments: {weights: [1.0,  0.0],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e05: &c_e05 {label: contam_e0.05, function: multimodal_offset, arguments: {weights: [0.95, 0.05], locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e10: &c_e10 {label: contam_e0.1,  function: multimodal_offset, arguments: {weights: [0.9,  0.1],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e20: &c_e20 {label: contam_e0.2,  function: multimodal_offset, arguments: {weights: [0.8,  0.2],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e30: &c_e30 {label: contam_e0.3,  function: multimodal_offset, arguments: {weights: [0.7,  0.3],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e40: &c_e40 {label: contam_e0.4,  function: multimodal_offset, arguments: {weights: [0.6,  0.4],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e50: &c_e50 {label: contam_e0.5,  function: multimodal_offset, arguments: {weights: [0.5,  0.5],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e60: &c_e60 {label: contam_e0.6,  function: multimodal_offset, arguments: {weights: [0.4,  0.6],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e70: &c_e70 {label: contam_e0.7,  function: multimodal_offset, arguments: {weights: [0.3,  0.7],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e80: &c_e80 {label: contam_e0.8,  function: multimodal_offset, arguments: {weights: [0.2,  0.8],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  c_e90: &c_e90 {label: contam_e0.9,  function: multimodal_offset, arguments: {weights: [0.1,  0.9],  locs: [0.0, 0.0], scales: [0.0, 2.0]}}
+  # Full three-fit panel: mixq is the reason this collection exists (gaussq != mixq once
+  # the offset is a non-Gaussian mixture).
+  methods: &methods [logistic_point, logistic_gaussq, logistic_mixq]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+
+supercollections:
+  016-gobp-heteroskedastic-offset-variance:
+    n_batches: 2
+    collections:
+      template:
+        design: gobp_10_500
+        signal: binary
+        error: noiseless
+      over:
+        enrichment: [*ser_b18_m, *ser_b10_m]
+        offset: [*c_e00, *c_e05, *c_e10, *c_e20, *c_e30, *c_e40, *c_e50, *c_e60, *c_e70, *c_e80, *c_e90]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: gobp_heteroskedastic_offset_variance, method_filter: *methods, analyses: [pip, cs]}
