@@ -41,6 +41,15 @@ _anchors:
     function: sized_single_effect
     arguments: {causal_effect: 1.0, size_lo: 80, size_hi: 120}
     intercept: -2.0
+  # Null companion: no causal set (causal_effect 0 -> empty), same base rate (intercept -2.0)
+  # and contamination law. Paired with every eps rung it is the false-positive baseline (does
+  # the spike-and-slab offset fabricate credible sets with no signal?). Content-identical to
+  # library null_b0, so it dedupes; `is_null` (0 causal) is picked up by analysis/false_cs.
+  ser_null: &ser_null
+    label: ser_null
+    function: uniform_single_effect
+    arguments: {causal_effect: 0.0}
+    intercept: -2.0
   # Contamination ladder: clean = point mass at 0 (scale 0), contaminated = N(0, 4)
   # (scale 2). Only the mixing weight eps changes; the slab is fixed at variance 4. eps=0
   # is the degenerate all-clean baseline (all three fits coincide).
@@ -69,7 +78,7 @@ supercollections:
         signal: binary
         error: noiseless
       over:
-        enrichment: [*ser_b18_m, *ser_b10_m]
+        enrichment: [*ser_null, *ser_b18_m, *ser_b10_m]
         offset: [*c_e00, *c_e05, *c_e10, *c_e20, *c_e30, *c_e40, *c_e50, *c_e60, *c_e70, *c_e80, *c_e90]
     methods: *methods
     default_args: *default_args

@@ -62,6 +62,15 @@ _anchors:
     function: sized_single_effect
     arguments: {causal_effect: 1.0, size_lo: 80, size_hi: 120}
     intercept: -2.0
+  # Null companion: no causal set (causal_effect 0 -> empty), same base rate (intercept -2.0)
+  # and offset law. Paired with every rung it isolates the offset's false-positive behaviour
+  # (does misspecification fabricate credible sets when there is no signal?). Content-identical
+  # to library null_b0, so it dedupes and `is_null` (0 causal) is detected by analysis/false_cs.
+  ser_null: &ser_null
+    label: ser_null
+    function: uniform_single_effect
+    arguments: {causal_effect: 0.0}
+    intercept: -2.0
 
   # --- k=1 (symmetric): weights [0.5, 0.5], modes at [-delta, +delta]. skew 0.
   r1_d00: &r1_d00 {label: bimodal_1to1_pm0.0, function: multimodal_offset, arguments: {weights: [0.5, 0.5], locs: [ 0.0,  0.0], scales: [0.3, 0.3]}}
@@ -106,7 +115,7 @@ supercollections:
     collections:
       template: {design: gobp_10_500, signal: binary, error: noiseless}
       over:
-        enrichment: [*ser_b18_m, *ser_b10_m]
+        enrichment: [*ser_null, *ser_b18_m, *ser_b10_m]
         offset: [*r1_d00, *r1_d05, *r1_d10, *r1_d15, *r1_d20, *r1_d30]
     methods: *methods
     default_args: *default_args
@@ -118,7 +127,7 @@ supercollections:
     collections:
       template: {design: gobp_10_500, signal: binary, error: noiseless}
       over:
-        enrichment: [*ser_b18_m, *ser_b10_m]
+        enrichment: [*ser_null, *ser_b18_m, *ser_b10_m]
         offset: [*r2_d00, *r2_d05, *r2_d10, *r2_d15, *r2_d20, *r2_d30]
     methods: *methods
     default_args: *default_args
@@ -130,7 +139,7 @@ supercollections:
     collections:
       template: {design: gobp_10_500, signal: binary, error: noiseless}
       over:
-        enrichment: [*ser_b18_m, *ser_b10_m]
+        enrichment: [*ser_null, *ser_b18_m, *ser_b10_m]
         offset: [*r3_d00, *r3_d05, *r3_d10, *r3_d15, *r3_d20, *r3_d30]
     methods: *methods
     default_args: *default_args
@@ -142,7 +151,7 @@ supercollections:
     collections:
       template: {design: gobp_10_500, signal: binary, error: noiseless}
       over:
-        enrichment: [*ser_b18_m, *ser_b10_m]
+        enrichment: [*ser_null, *ser_b18_m, *ser_b10_m]
         offset: [*r4_d00, *r4_d05, *r4_d10, *r4_d15, *r4_d20, *r4_d30]
     methods: *methods
     default_args: *default_args

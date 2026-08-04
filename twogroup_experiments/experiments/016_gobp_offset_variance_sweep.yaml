@@ -34,6 +34,15 @@ _anchors:
     function: sized_single_effect
     arguments: {causal_effect: 1.0, size_lo: 80, size_hi: 120}
     intercept: -2.0
+  # Null companion: no causal set (causal_effect 0 -> empty), same base rate (intercept -2.0)
+  # and offset law. Paired with every scale rung it is the false-positive baseline (does offset
+  # misspecification fabricate credible sets with no signal?). Content-identical to library
+  # null_b0, so it dedupes; `is_null` (0 causal) is picked up by analysis/false_cs.
+  ser_null: &ser_null
+    label: ser_null
+    function: uniform_single_effect
+    arguments: {causal_effect: 0.0}
+    intercept: -2.0
   # Gaussian random-offset scale ladder (mean-zero, sd = scale), defined locally as anchors.
   # Anchor names can't contain '.', so `g_sN`; the legible `label` (gaussian_sX) is what shows
   # in collection names/plots. Content-addressed, so these hash identically to any equivalent
@@ -57,7 +66,7 @@ supercollections:
         signal: binary
         error: noiseless
       over:
-        enrichment: [*ser_b18_m, *ser_b10_m]
+        enrichment: [*ser_null, *ser_b18_m, *ser_b10_m]
         offset: [*g_s0, *g_s0p5, *g_s1, *g_s2, *g_s3, *g_s3p5, *g_s4]
     methods: *methods
     default_args: *default_args
