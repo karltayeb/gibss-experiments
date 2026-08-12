@@ -12,16 +12,23 @@ dependencies = [
     "matplotlib>=3.10.9",
     "nicegui>=3.13.0",
     "numpy>=2.4.4",
+    "openai>=2.53.0",
     "polars>=1.40.1",
+    "pydantic-ai-slim>=2.24.0",
     "pypdfium2>=5.9.0",
     "snakemake>=9.20.0",
     "snakemake-executor-plugin-cluster-generic>=1.0.9",
 ]
 
 [tool.uv.sources]
-gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "c7355bd" }
+gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "47e963d" }
 
 [dependency-groups]
 dev = [
+    "mcp>=1",
+    "pydantic>=2",
     "pytest>=9.0.3",
+    "python-lsp-ruff>=2.3.1",
+    "python-lsp-server>=1.15.0",
+    "websockets>=16.0",
 ]
