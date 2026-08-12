@@ -1730,6 +1730,25 @@ methods:
       - 1
       - 5
       - 10
+  # --- L=2 logistic SuSiE, varying ONLY how the inter-component (leave-one-out) offset
+  # is integrated. Each component's offset is the other component's contribution - a
+  # data-driven SuSiE-posterior mixture, NOT fixed to a prior - so the fidelity of its
+  # integration can matter (unlike the injected q(o)=p(o) offset studies). Arms:
+  #   logistic_L2_point     offset_integration=none      1st moment (plug-in mean) = gIBSS
+  #   logistic_L2_quad      offset_integration=gh        1st+2nd moments (moment-matched)
+  #   logistic_L2_compress  offset_integration=compress  full mixture (exact sequential fold)
+  # center=false (uncentered, layout-consistent dense==sparse; the shared intercept
+  # decouples it) - REQUIRED for compress on a sparse (BCOO) design and used for all three
+  # arms so they share one model config and differ ONLY in offset_integration.
+  logistic_L2_point:
+    function: run_logistic_method
+    template: {response_source: z, L: 2, offset_integration: none, center: false}
+  logistic_L2_quad:
+    function: run_logistic_method
+    template: {response_source: z, L: 2, offset_integration: gh, offset_quadrature_points: 15, center: false}
+  logistic_L2_compress:
+    function: run_logistic_method
+    template: {response_source: z, L: 2, offset_integration: compress, offset_quadrature_points: 15, center: false}
   linear_fixed:
     function: run_linear_method
     template:
@@ -1837,11 +1856,14 @@ methods:
       L:
       - 1
       - 10
-  # --- Logistic SER under a known random offset (L=1), fit three ways -------------------
+  # --- Logistic SER under a known random offset (L=1), fit four ways --------------------
   # All regress z; they differ only in how they reduce simulation.offset_law:
-  #   logistic_point  fixed-offset  (plug in the mean)
-  #   logistic_gaussq Gauss-Hermite (moment-matched Gaussian: mean + variance)
-  #   logistic_mixq   MixtureGH     (full per-row Gaussian mixture)
+  #   logistic_point    fixed-offset  (plug in the mean)
+  #   logistic_gaussq   Gauss-Hermite (moment-matched Gaussian: mean + variance)
+  #   logistic_mixq     MixtureGH     (full per-row Gaussian mixture)
+  #   logistic_compress Compress      (amortized Chebyshev compression of the MixtureGH
+  #                     correction: matches mixq to interpolation accuracy at O(M) in-loop
+  #                     cost, aux built once out of the loop). Drop-in for mixq.
   logistic_point:
     function: run_logistic_offset_method
     template: {quadrature: none}
@@ -1851,6 +1873,9 @@ methods:
   logistic_mixq:
     function: run_logistic_offset_method
     template: {quadrature: mixture, offset_order: 15}
+  logistic_compress:
+    function: run_logistic_offset_method
+    template: {quadrature: compress, offset_order: 15, compress_M: 64, compress_T: 10.0}
   twogroup_scale_fam:
     function: run_twogroup_method
     template:

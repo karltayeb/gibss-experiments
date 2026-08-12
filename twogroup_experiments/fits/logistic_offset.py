@@ -7,6 +7,10 @@ only in how it treats that offset:
     quadrature="none"      point estimate: plug in the mean (fixed offset)
     quadrature="gaussian"  Gauss-Hermite over N(mean, variance) (moment-matched)
     quadrature="mixture"   MixtureGH over the full per-row Gaussian mixture
+    quadrature="compress"  Compress: amortized Chebyshev compression of the MixtureGH
+                           correction - matches "mixture" to interpolation accuracy but at
+                           O(M) in-loop cost independent of the mixture's component count
+                           (aux precomputed once, out of the SER loop)
 
 All three route through the SER kernel ``glm_profile_ser`` (profiles its own per-feature
 intercept, takes ``aux``/``offset`` directly), so no engine / front-door is involved.
@@ -20,13 +24,13 @@ from typing import Any
 import jax.numpy as jnp
 import numpy as np
 
-from gibss.response import Bernoulli, GH, MixtureGH, Smoothed
+from gibss.response import Bernoulli, Compress, GH, MixtureGH, Smoothed
 from gibss.operators import as_operator
 from gibss.linear import is_bcoo
 from gibss.response_ser import build_ser_state, glm_profile_ser, _profile_null
 
 
-def _reduce(law, y, quadrature: str, offset_order: int):
+def _reduce(law, y, quadrature: str, offset_order: int, compress_M: int, compress_T: float):
     """Return (response, offset, aux) for the requested quadrature, reducing the law."""
     y = jnp.asarray(y)
     if quadrature == "none":
@@ -41,8 +45,20 @@ def _reduce(law, y, quadrature: str, offset_order: int):
         weights, means, vars_ = law.mixture()
         aux = (y, jnp.asarray(means), jnp.asarray(vars_), jnp.log(jnp.asarray(weights)))
         return Smoothed(Bernoulli(), MixtureGH(offset_order)), jnp.zeros(y.shape[0]), aux
+    if quadrature == "compress":
+        # Same per-row Gaussian-mixture inputs as "mixture", but compress the MixtureGH
+        # correction into a per-row Chebyshev series ONCE here (build_aux, out of the SER
+        # loop), so the in-loop cost is O(compress_M) regardless of component count. The
+        # mean shift is folded into aux, so the plug-in offset is zero (as for "mixture").
+        weights, means, vars_ = law.mixture()
+        log_pi = jnp.log(jnp.asarray(weights))
+        base = Bernoulli()
+        comp = Compress(inner=MixtureGH(offset_order), M=compress_M, T=compress_T)
+        aux = comp.build_aux(base, y, jnp.asarray(means), jnp.asarray(vars_), log_pi)
+        return Smoothed(base, comp), jnp.zeros(y.shape[0]), aux
     raise ValueError(
-        f"unknown quadrature {quadrature!r}; options: 'none', 'gaussian', 'mixture'."
+        f"unknown quadrature {quadrature!r}; "
+        "options: 'none', 'gaussian', 'mixture', 'compress'."
     )
 
 
@@ -53,6 +69,8 @@ def fit_logistic_offset_method(
     effect_order: int = 15,
     offset_order: int = 15,
     prior_variance: float = 1.0,
+    compress_M: int = 64,
+    compress_T: float = 10.0,
 ) -> dict[str, Any]:
     if getattr(simulation, "offset_law", None) is None:
         raise ValueError(
@@ -66,7 +84,9 @@ def fit_logistic_offset_method(
     y = np.asarray(simulation.z, dtype=float)
     op = as_operator(X)
     background = "chebyshev" if is_bcoo(X) else "exact"
-    response, offset, aux = _reduce(simulation.offset_law, y, quadrature, offset_order)
+    response, offset, aux = _reduce(
+        simulation.offset_law, y, quadrature, offset_order, compress_M, compress_T
+    )
     mu, var, log_bf, coefficient_kl, _b0, _prec = glm_profile_ser(
         op, aux, offset, prior_variance, response=response, order=effect_order, background=background
     )

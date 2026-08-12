@@ -304,10 +304,10 @@ def spec_hash(spec_node: dict[str, Any]) -> str:
 # Re-exports from simulations/ sub-package
 # (keeps getattr(core, name) working; inspect.getfile follows the real definition)
 # ---------------------------------------------------------------------------
-from simulations.design.markov import gaussian_markov_X, uniform_markov_X
+from simulations.design.markov import gaussian_markov_X, uniform_markov_X, binary_markov_X
 from simulations.design.genesets import hallmark_gene_sets_X, c4_gene_sets_X, msigdb_gene_sets_X, gobp_gene_sets_X
 from simulations.design.degenerate import null_enrich_X
-from simulations.effect.effects import uniform_single_effect, sized_single_effect, sized_multi_effect
+from simulations.effect.effects import uniform_single_effect, sized_single_effect, sized_multi_effect, paired_index_effect
 from simulations.error.errors import noiseless_error_sampler, t_error_sampler
 from simulations.offset.laws import (
     gaussian_offset,

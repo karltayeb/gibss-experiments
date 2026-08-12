@@ -14,6 +14,35 @@ def uniform_single_effect(
     return [index], [float(causal_effect)]
 
 
+def paired_index_effect(
+    X: np.ndarray,
+    rng: np.random.Generator,
+    causal_effect: float,
+    gap: int,
+    base_index: int = 0,
+    sign_b: float = 1.0,
+) -> tuple[list[int], list[float]]:
+    """Two causal columns at FIXED indices ``base_index`` and ``base_index + gap``.
+
+    Deterministic placement (ignores ``rng``) so the two causal columns' overlap is set
+    purely by ``gap`` at the design's fixed ``rho`` (for a Markov design, latent
+    correlation ``rho ** gap``) and is identical across replicates. Symmetric magnitude
+    ``|causal_effect|``; the first effect is ``+causal_effect`` and the second is
+    ``sign_b * causal_effect`` -- ``sign_b=+1`` gives a ``(+,+)`` pair, ``-1`` a
+    ``(+,-)`` pair. ``causal_effect == 0`` yields the paired NULL (no causal sets).
+    """
+    if causal_effect == 0.0:
+        return [], []
+    i = int(base_index)
+    j = int(base_index) + int(gap)
+    if not (0 <= i < X.shape[1] and 0 <= j < X.shape[1]):
+        raise ValueError(
+            f"paired_index_effect indices ({i}, {j}) out of range for p={X.shape[1]} "
+            f"(base_index={base_index}, gap={gap})."
+        )
+    return [i, j], [float(causal_effect), float(sign_b) * float(causal_effect)]
+
+
 def _column_sizes(X) -> np.ndarray:
     """Per-column membership counts (set sizes), without densifying a sparse X.
 

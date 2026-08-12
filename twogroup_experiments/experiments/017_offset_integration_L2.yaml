@@ -1,0 +1,238 @@
+# 017_offset_integration_L2: does the FIDELITY of inter-component offset integration matter
+# in a multi-effect logistic SuSiE? Unlike the 016 offset studies - where a KNOWN offset is
+# injected and the fit uses q(o)=p(o) fixed to that prior, giving good coverage essentially by
+# construction - here the offset is ENDOGENOUS: fitting one component, the offset it sees is the
+# OTHER component's leave-one-out contribution, a data-driven SuSiE posterior mixture that is
+# NOT fixed to a prior. So how many of its moments you keep can actually change the answer.
+#
+# Two causal gene sets, symmetric magnitude |beta|, fit with L=2 logistic SuSiE. Three arms
+# differ ONLY in how the leave-one-out offset is integrated between the two components:
+#   logistic_L2_point     offset_integration=none      1st moment (plug-in mean)   = gIBSS
+#   logistic_L2_quad      offset_integration=gh        1st + 2nd moments (moment-match)
+#   logistic_L2_compress  offset_integration=compress  full mixture (exact sequential fold)
+#
+# --- Why a fine beta titration (the primary axis) ------------------------------------------
+# The offset enters the logistic cumulant as A(eta+o)=log(1+exp(eta+o)); the plug-in error is
+# the Jensen gap E[A(eta+o)] - A(eta+E[o]), driven by A'' over o's support. A is locally linear
+# everywhere except its knee near 0, so the gap is large ONLY when o has appreciable spread AND
+# sits on the knee. Strong signal -> the leave-one-out offset is tight (or pushed into the
+# linear tail) -> all three arms agree; weak signal -> nothing is detectable -> all three fail.
+# The arms can only separate in a NARROW intermediate band, so beta is titrated finely through
+# it (coarse weak/mid/strong rungs would step right over the effect).
+#
+# --- Overlap via the index gap (fixed adjacent corr) ---------------------------------------
+# Design is a BINARY Markov chain of gene sets (`binary_markov_X`): a stationary AR(1) Gaussian
+# copula thresholded to 0/1 membership at density d=0.01 (n=10000 genes, p=256 sets, ~100 genes
+# per set). It is parameterized by `corr=0.9`, the actual Pearson (phi) correlation between
+# ADJACENT binary columns (the observable overlap knob), which the sampler maps to the latent
+# Gaussian correlation (rho=0.9957) via the tetrachoric inverse. The AR(1) copula makes columns
+# i,j share LATENT correlation rho**|i-j|, so their binary correlation decays with the index gap
+# (though not as corr**|i-j| -- the latent power, not the phi, is what compounds). The two causals
+# sit at indices (0, gap), so at FIXED `corr` the GAP is the clean overlap knob. At corr=0.9 the
+# five rungs span the overlapping range with clean separation and no pile-up on either end -- the
+# expected conditional overlap P(in set gap | in set 0) is:
+#   gap    1: 0.90 (~90/100 genes shared, near-total -- broad, skewed leave-one-out offset on the
+#             softplus knee: the maximal plug-in-vs-exact divergence case)
+#   gap   10: 0.69 (~69 shared, heavy)
+#   gap   50: 0.38 (~38 shared, moderate -- the intermediate band where the Jensen gap peaks)
+#   gap  100: 0.22 (~22 shared, mild)
+#   gap  200: 0.09 (~9 shared, mild/near-independent low-overlap anchor where arms nearly agree)
+#
+# --- Sign ----------------------------------------------------------------------------------
+# sign_b = +1 gives a (+,+) pair, -1 a (+,-) pair (one enriched, one depleted). Sign flips which
+# side of the softplus knee the offset pushes onto and whether the effects reinforce or cancel
+# in the overlap, so it moves the Jensen gap directly.
+#
+# Mechanics mirror the sibling experiments: scenario/design entries are inline YAML anchors
+# resolved by the loader (content-addressed; `label` is display-only, stripped from the hash).
+# signal=binary + error=noiseless make z the regressed response (the two-group layer is an
+# unused honest copy). Anchor names can't contain '.', so beta 1.25 -> `b1p25`; the legible `label`
+# (pair_gGAP_{pp|pm}_bBETA) keeps the decimal and names the collection in plots.
+#
+# The `-pilot` supercollection is a strict 4-cell SUBSET of the full grid (same design, same
+# anchors, fewer batches) so every pilot cell is content-identical to a full cell and is REUSED,
+# not recomputed - a free down-payment. Run its `.done` first to time/locate the band, then the
+# full one.
+_anchors:
+  # Design: binary Markov gene-set chain, fixed adjacent-column binary corr, controllable density.
+  bmarkov: &bmarkov {function: binary_markov_X, arguments: {n: 10000, p: 256, corr: 0.9, density: 0.01}}
+
+  # --- paired-effect anchors: causals at indices (0, gap), symmetric |beta|,
+  #     sign pp=(+,+) / pm=(+,-). label pair_g{gap}_{sign}_b{beta}.
+  g1pp_b0p75: &g1pp_b0p75 {label: pair_g1_pp_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 1, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g1pp_b1p0: &g1pp_b1p0 {label: pair_g1_pp_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 1, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g1pp_b1p25: &g1pp_b1p25 {label: pair_g1_pp_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 1, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g1pp_b1p5: &g1pp_b1p5 {label: pair_g1_pp_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 1, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g1pp_b1p75: &g1pp_b1p75 {label: pair_g1_pp_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 1, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g1pp_b2p0: &g1pp_b2p0 {label: pair_g1_pp_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 1, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g1pm_b0p75: &g1pm_b0p75 {label: pair_g1_pm_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 1, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g1pm_b1p0: &g1pm_b1p0 {label: pair_g1_pm_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 1, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g1pm_b1p25: &g1pm_b1p25 {label: pair_g1_pm_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 1, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g1pm_b1p5: &g1pm_b1p5 {label: pair_g1_pm_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 1, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g1pm_b1p75: &g1pm_b1p75 {label: pair_g1_pm_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 1, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g1pm_b2p0: &g1pm_b2p0 {label: pair_g1_pm_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 1, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+
+  g10pp_b0p75: &g10pp_b0p75 {label: pair_g10_pp_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g10pp_b1p0: &g10pp_b1p0 {label: pair_g10_pp_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g10pp_b1p25: &g10pp_b1p25 {label: pair_g10_pp_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g10pp_b1p5: &g10pp_b1p5 {label: pair_g10_pp_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g10pp_b1p75: &g10pp_b1p75 {label: pair_g10_pp_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g10pp_b2p0: &g10pp_b2p0 {label: pair_g10_pp_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g10pm_b0p75: &g10pm_b0p75 {label: pair_g10_pm_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 10, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g10pm_b1p0: &g10pm_b1p0 {label: pair_g10_pm_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 10, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g10pm_b1p25: &g10pm_b1p25 {label: pair_g10_pm_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 10, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g10pm_b1p5: &g10pm_b1p5 {label: pair_g10_pm_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 10, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g10pm_b1p75: &g10pm_b1p75 {label: pair_g10_pm_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 10, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g10pm_b2p0: &g10pm_b2p0 {label: pair_g10_pm_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 10, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+
+  g50pp_b0p75: &g50pp_b0p75 {label: pair_g50_pp_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 50, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g50pp_b1p0: &g50pp_b1p0 {label: pair_g50_pp_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 50, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g50pp_b1p25: &g50pp_b1p25 {label: pair_g50_pp_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 50, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g50pp_b1p5: &g50pp_b1p5 {label: pair_g50_pp_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 50, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g50pp_b1p75: &g50pp_b1p75 {label: pair_g50_pp_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 50, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g50pp_b2p0: &g50pp_b2p0 {label: pair_g50_pp_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 50, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g50pm_b0p75: &g50pm_b0p75 {label: pair_g50_pm_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 50, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g50pm_b1p0: &g50pm_b1p0 {label: pair_g50_pm_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 50, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g50pm_b1p25: &g50pm_b1p25 {label: pair_g50_pm_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 50, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g50pm_b1p5: &g50pm_b1p5 {label: pair_g50_pm_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 50, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g50pm_b1p75: &g50pm_b1p75 {label: pair_g50_pm_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 50, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g50pm_b2p0: &g50pm_b2p0 {label: pair_g50_pm_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 50, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+
+  g100pp_b0p75: &g100pp_b0p75 {label: pair_g100_pp_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 100, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g100pp_b1p0: &g100pp_b1p0 {label: pair_g100_pp_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 100, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g100pp_b1p25: &g100pp_b1p25 {label: pair_g100_pp_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 100, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g100pp_b1p5: &g100pp_b1p5 {label: pair_g100_pp_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 100, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g100pp_b1p75: &g100pp_b1p75 {label: pair_g100_pp_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 100, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g100pp_b2p0: &g100pp_b2p0 {label: pair_g100_pp_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 100, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g100pm_b0p75: &g100pm_b0p75 {label: pair_g100_pm_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 100, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g100pm_b1p0: &g100pm_b1p0 {label: pair_g100_pm_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 100, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g100pm_b1p25: &g100pm_b1p25 {label: pair_g100_pm_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 100, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g100pm_b1p5: &g100pm_b1p5 {label: pair_g100_pm_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 100, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g100pm_b1p75: &g100pm_b1p75 {label: pair_g100_pm_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 100, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g100pm_b2p0: &g100pm_b2p0 {label: pair_g100_pm_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 100, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+
+  g200pp_b0p75: &g200pp_b0p75 {label: pair_g200_pp_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 200, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g200pp_b1p0: &g200pp_b1p0 {label: pair_g200_pp_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 200, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g200pp_b1p25: &g200pp_b1p25 {label: pair_g200_pp_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 200, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g200pp_b1p5: &g200pp_b1p5 {label: pair_g200_pp_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 200, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g200pp_b1p75: &g200pp_b1p75 {label: pair_g200_pp_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 200, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g200pp_b2p0: &g200pp_b2p0 {label: pair_g200_pp_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 200, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+  g200pm_b0p75: &g200pm_b0p75 {label: pair_g200_pm_b0.75, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 200, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g200pm_b1p0: &g200pm_b1p0 {label: pair_g200_pm_b1.0, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 200, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g200pm_b1p25: &g200pm_b1p25 {label: pair_g200_pm_b1.25, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 200, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g200pm_b1p5: &g200pm_b1p5 {label: pair_g200_pm_b1.5, function: paired_index_effect, arguments: {causal_effect: 1.5, gap: 200, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g200pm_b1p75: &g200pm_b1p75 {label: pair_g200_pm_b1.75, function: paired_index_effect, arguments: {causal_effect: 1.75, gap: 200, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+  g200pm_b2p0: &g200pm_b2p0 {label: pair_g200_pm_b2.0, function: paired_index_effect, arguments: {causal_effect: 2.0, gap: 200, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+
+  # Paired NULL: causal_effect=0 -> paired_index_effect returns no causal, so z ~ Bernoulli(
+  # sigma(-2)) is independent of the design and gap/sign are irrelevant (one unique content cell).
+  # Needed to calibrate the CS logBF declaration threshold (every declared CS here is false).
+  null_pair: &null_pair {label: pair_null, function: paired_index_effect, arguments: {causal_effect: 0.0, gap: 1, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+
+  methods: &methods [logistic_L2_point, logistic_L2_quad, logistic_L2_compress]
+  default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
+
+supercollections:
+  017-offset-integration-L2:
+    n_batches: 4
+    collections:
+      template: {design: *bmarkov, signal: binary, error: noiseless}
+      over:
+        enrichment: [*g1pp_b0p75, *g1pp_b1p0, *g1pp_b1p25, *g1pp_b1p5, *g1pp_b1p75, *g1pp_b2p0,
+                     *g1pm_b0p75, *g1pm_b1p0, *g1pm_b1p25, *g1pm_b1p5, *g1pm_b1p75, *g1pm_b2p0,
+                     *g10pp_b0p75, *g10pp_b1p0, *g10pp_b1p25, *g10pp_b1p5, *g10pp_b1p75, *g10pp_b2p0,
+                     *g10pm_b0p75, *g10pm_b1p0, *g10pm_b1p25, *g10pm_b1p5, *g10pm_b1p75, *g10pm_b2p0,
+                     *g50pp_b0p75, *g50pp_b1p0, *g50pp_b1p25, *g50pp_b1p5, *g50pp_b1p75, *g50pp_b2p0,
+                     *g50pm_b0p75, *g50pm_b1p0, *g50pm_b1p25, *g50pm_b1p5, *g50pm_b1p75, *g50pm_b2p0,
+                     *g100pp_b0p75, *g100pp_b1p0, *g100pp_b1p25, *g100pp_b1p5, *g100pp_b1p75, *g100pp_b2p0,
+                     *g100pm_b0p75, *g100pm_b1p0, *g100pm_b1p25, *g100pm_b1p5, *g100pm_b1p75, *g100pm_b2p0,
+                     *g200pp_b0p75, *g200pp_b1p0, *g200pp_b1p25, *g200pp_b1p5, *g200pp_b1p75, *g200pp_b2p0,
+                     *g200pm_b0p75, *g200pm_b1p0, *g200pm_b1p25, *g200pm_b1p5, *g200pm_b1p75, *g200pm_b2p0,
+                     *null_pair]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: offset_integration_l2, method_filter: *methods, analyses: [pip, cs]}
+
+  # beta=1.25 slice: all 5 gaps x both signs at the single mid-band beta, full 4 batches
+  # (200 reps). Every cell is content-identical to a full-grid cell -> reused when the full
+  # grid runs. A calibration slice through the detection transition across the overlap axis.
+  017-offset-integration-L2-b1p25:
+    n_batches: 4
+    collections:
+      template: {design: *bmarkov, signal: binary, error: noiseless}
+      over:
+        enrichment: [*g1pp_b1p25, *g1pm_b1p25, *g10pp_b1p25, *g10pm_b1p25, *g50pp_b1p25,
+                     *g50pm_b1p25, *g100pp_b1p25, *g100pm_b1p25, *g200pp_b1p25, *g200pm_b1p25,
+                     *null_pair]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: offset_integration_l2_b1p25, method_filter: *methods, analyses: [pip, cs]}
+
+  # Strict 4-cell subset of the full grid (gap in {1,200}, sign +, beta in {1.0,1.5}), 1 batch.
+  # Every cell is content-identical to a full-grid cell -> reused, not recomputed.
+  017-offset-integration-L2-pilot:
+    n_batches: 1
+    collections:
+      template: {design: *bmarkov, signal: binary, error: noiseless}
+      over:
+        enrichment: [*g1pp_b1p0, *g1pp_b1p5, *g200pp_b1p0, *g200pp_b1p5]
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: offset_integration_l2_pilot, method_filter: *methods, analyses: [pip, cs]}
+
+  # --- Locate-the-ridge pilot (2026-08-12) --------------------------------------------------
+  # The b1p25 slice showed all three arms converge in aggregate: the plug-in (point) error is a
+  # Jensen gap ~ 1/2 * A''(eta+E[o]) * Var(o), and beta=1.25 at the frozen intercept=-2 sits off
+  # the peak of that product. This pilot re-scopes to WHERE the gap should be largest and adds
+  # the two axes the full grid froze/missed, at 1 batch (~50 reps) to map the divergence ridge
+  # cheaply BEFORE committing the high-res sweep:
+  #   * intercept axis {-2, -1}  -- the softplus-knee (A'') knob, previously constant. Only the
+  #     (+,+) overlap gene sits near eta=0 (knee): eta = intercept + 2*beta. (+,-) overlap genes
+  #     cancel to eta = intercept regardless of beta -> always in the flat tail -> A'' ~ 0, so the
+  #     pm arm is a near-dead mechanism CONTROL, kept to 2 cells (not a full grid).
+  #   * gap {5,10,20,40} -- refined around the observed peak (divergence peaked at gap=10 in the
+  #     b1p25 data, dead by 50); the wide agree-everywhere gaps {50,100,200} are dropped.
+  #   * beta {0.75,1.0,1.25} -- shifted DOWN (weaker signal -> more diffuse leave-one-out offset
+  #     -> larger Var(o)); the guaranteed-agree high end {1.5,1.75,2.0} is dropped.
+  # 24 (+,+) cells + 2 (+,-) control cells + 1 null. The intercept=-2/beta=1.25/gap=10 pp cell and
+  # the null are content-identical to already-computed b1p25 cells -> reused for free.
+  017-offset-integration-L2-locate:
+    n_batches: 1
+    collections:
+      template: {design: *bmarkov, signal: binary, error: noiseless}
+      over:
+        enrichment:
+          - {label: pair_g5_pp_b0.75_i2, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 5, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g10_pp_b0.75_i2, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g20_pp_b0.75_i2, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 20, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g40_pp_b0.75_i2, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 40, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g5_pp_b1.0_i2, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 5, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g10_pp_b1.0_i2, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g20_pp_b1.0_i2, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 20, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g40_pp_b1.0_i2, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 40, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g5_pp_b1.25_i2, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 5, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g10_pp_b1.25_i2, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g20_pp_b1.25_i2, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 20, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g40_pp_b1.25_i2, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 40, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+          - {label: pair_g5_pp_b0.75_i1, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 5, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g10_pp_b0.75_i1, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g20_pp_b0.75_i1, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 20, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g40_pp_b0.75_i1, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 40, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g5_pp_b1.0_i1, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 5, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g10_pp_b1.0_i1, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g20_pp_b1.0_i1, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 20, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g40_pp_b1.0_i1, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 40, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g5_pp_b1.25_i1, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 5, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g10_pp_b1.25_i1, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g20_pp_b1.25_i1, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 20, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g40_pp_b1.25_i1, function: paired_index_effect, arguments: {causal_effect: 1.25, gap: 40, base_index: 0, sign_b: 1.0}, intercept: -1.0}
+          - {label: pair_g10_pm_b1.0_i2, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 10, base_index: 0, sign_b: -1.0}, intercept: -2.0}
+          - {label: pair_g10_pm_b1.0_i1, function: paired_index_effect, arguments: {causal_effect: 1.0, gap: 10, base_index: 0, sign_b: -1.0}, intercept: -1.0}
+          - {label: pair_null_locate, function: paired_index_effect, arguments: {causal_effect: 0.0, gap: 1, base_index: 0, sign_b: 1.0}, intercept: -2.0}
+    methods: *methods
+    default_args: *default_args
+    outputs:
+      - {name: offset_integration_l2_locate, method_filter: *methods, analyses: [pip, cs]}
