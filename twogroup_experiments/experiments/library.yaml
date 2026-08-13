@@ -1749,6 +1749,19 @@ methods:
   logistic_L2_compress:
     function: run_logistic_method
     template: {response_source: z, L: 2, offset_integration: compress, offset_quadrature_points: 15, center: false}
+  # --- L=5 counterparts (over-specified: only 2 causals, so 3 components chase noise with
+  # maximally diffuse posteriors -> the leave-one-out offset each component integrates is a
+  # high-variance multi-component mixture, the regime where a plug-in mean should be worst.
+  # Same three fidelity arms; identical config apart from L=5.
+  logistic_L5_point:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: none, center: false}
+  logistic_L5_quad:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: gh, offset_quadrature_points: 15, center: false}
+  logistic_L5_compress:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: compress, offset_quadrature_points: 15, center: false}
   linear_fixed:
     function: run_linear_method
     template:

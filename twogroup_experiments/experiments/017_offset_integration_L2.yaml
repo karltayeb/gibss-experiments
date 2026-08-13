@@ -204,7 +204,7 @@ supercollections:
     collections:
       template: {design: *bmarkov, signal: binary, error: noiseless}
       over:
-        enrichment:
+        enrichment: &locate_enrichments
           - {label: pair_g5_pp_b0.75_i2, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 5, base_index: 0, sign_b: 1.0}, intercept: -2.0}
           - {label: pair_g10_pp_b0.75_i2, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 10, base_index: 0, sign_b: 1.0}, intercept: -2.0}
           - {label: pair_g20_pp_b0.75_i2, function: paired_index_effect, arguments: {causal_effect: 0.75, gap: 20, base_index: 0, sign_b: 1.0}, intercept: -2.0}
@@ -236,3 +236,21 @@ supercollections:
     default_args: *default_args
     outputs:
       - {name: offset_integration_l2_locate, method_filter: *methods, analyses: [pip, cs]}
+
+  # --- L=5 over-specified companion (2026-08-13) --------------------------------------------
+  # Same 27 sims as the L2 locate grid (identical design/effect/signal/error -> identical batch
+  # hashes -> sims REUSED, only the L=5 fits are new). Only 2 causals are planted, so 3 of the 5
+  # fitted components chase noise: the leave-one-out offset each component integrates becomes a
+  # high-variance multi-component mixture, the regime where the plug-in mean (point/gIBSS) should
+  # diverge most from the exact fold (compress). Tests whether offset-integration fidelity, which
+  # was inert at L=2, starts to matter as L outstrips the true signal count.
+  017-offset-integration-L5-locate:
+    n_batches: 1
+    collections:
+      template: {design: *bmarkov, signal: binary, error: noiseless}
+      over:
+        enrichment: *locate_enrichments
+    methods: &methods_l5 [logistic_L5_point, logistic_L5_quad, logistic_L5_compress]
+    default_args: *default_args
+    outputs:
+      - {name: offset_integration_l5_locate, method_filter: *methods_l5, analyses: [pip, cs]}
