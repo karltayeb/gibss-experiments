@@ -5,11 +5,15 @@
 # OTHER component's leave-one-out contribution, a data-driven SuSiE posterior mixture that is
 # NOT fixed to a prior. So how many of its moments you keep can actually change the answer.
 #
-# Two causal gene sets, symmetric magnitude |beta|, fit with L=2 logistic SuSiE. Three arms
-# differ ONLY in how the leave-one-out offset is integrated between the two components:
-#   logistic_L2_point     offset_integration=none      1st moment (plug-in mean)   = gIBSS
-#   logistic_L2_quad      offset_integration=gh        1st + 2nd moments (moment-match)
-#   logistic_L2_compress  offset_integration=compress  full mixture (exact sequential fold)
+# Two causal gene sets, symmetric magnitude |beta|, fit with L=2 logistic SuSiE. The gIBSS-vs-
+# CAVI 2x2 - OFFSET (gIBSS = plug in the other component's posterior MEAN; CAVI = integrate its
+# full posterior exactly via the self-normalized quadrature fold) x EFFECT family (Q1 free-form
+# / Q2 Gaussian). GH moment-match is retired; self-normalized quadrature is the offset method.
+#   logistic_L2_gibss_q1  none              , unconstrained  gIBSS in Q1 (plug-in mean, free-form q)
+#   logistic_L2_gibss_q2  none              , gaussian       gIBSS in Q2 (plug-in mean, Gaussian q)
+#   logistic_L2_cavi_q1   compress_selfnorm , unconstrained  CAVI  in Q1 (exact fold,  free-form q)
+#   logistic_L2_cavi_q2   compress          , gaussian       CAVI  in Q2 (exact fold,  Gaussian q)
+# The CAVI arms are the exact reference; the gIBSS arms are the cheap plug-in whose fidelity we test.
 #
 # --- Why a fine beta titration (the primary axis) ------------------------------------------
 # The offset enters the logistic cumulant as A(eta+o)=log(1+exp(eta+o)); the plug-in error is
@@ -129,7 +133,7 @@ _anchors:
   # Needed to calibrate the CS logBF declaration threshold (every declared CS here is false).
   null_pair: &null_pair {label: pair_null, function: paired_index_effect, arguments: {causal_effect: 0.0, gap: 1, base_index: 0, sign_b: 1.0}, intercept: -2.0}
 
-  methods: &methods [logistic_L2_point, logistic_L2_quad, logistic_L2_compress]
+  methods: &methods [logistic_L2_gibss_q1, logistic_L2_gibss_q2, logistic_L2_cavi_q1, logistic_L2_cavi_q2]
   default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
 
 supercollections:
@@ -184,7 +188,7 @@ supercollections:
       - {name: offset_integration_l2_pilot, method_filter: *methods, analyses: [pip, cs]}
 
   # --- Locate-the-ridge pilot (2026-08-12) --------------------------------------------------
-  # The b1p25 slice showed all three arms converge in aggregate: the plug-in (point) error is a
+  # The b1p25 slice showed the arms converge in aggregate: the plug-in (gIBSS) error is a
   # Jensen gap ~ 1/2 * A''(eta+E[o]) * Var(o), and beta=1.25 at the frozen intercept=-2 sits off
   # the peak of that product. This pilot re-scopes to WHERE the gap should be largest and adds
   # the two axes the full grid froze/missed, at 1 batch (~50 reps) to map the divergence ridge
@@ -241,8 +245,8 @@ supercollections:
   # Same 27 sims as the L2 locate grid (identical design/effect/signal/error -> identical batch
   # hashes -> sims REUSED, only the L=5 fits are new). Only 2 causals are planted, so 3 of the 5
   # fitted components chase noise: the leave-one-out offset each component integrates becomes a
-  # high-variance multi-component mixture, the regime where the plug-in mean (point/gIBSS) should
-  # diverge most from the exact fold (compress). Tests whether offset-integration fidelity, which
+  # high-variance multi-component mixture, the regime where the plug-in mean (gIBSS) should
+  # diverge most from the exact fold (CAVI). Tests whether offset-integration fidelity, which
   # was inert at L=2, starts to matter as L outstrips the true signal count.
   017-offset-integration-L5-locate:
     n_batches: 1
@@ -250,7 +254,7 @@ supercollections:
       template: {design: *bmarkov, signal: binary, error: noiseless}
       over:
         enrichment: *locate_enrichments
-    methods: &methods_l5 [logistic_L5_point, logistic_L5_quad, logistic_L5_compress]
+    methods: &methods_l5 [logistic_L5_gibss_q1, logistic_L5_gibss_q2, logistic_L5_cavi_q1, logistic_L5_cavi_q2]
     default_args: *default_args
     outputs:
       - {name: offset_integration_l5_locate, method_filter: *methods_l5, analyses: [pip, cs]}

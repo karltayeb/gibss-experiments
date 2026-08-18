@@ -1730,38 +1730,48 @@ methods:
       - 1
       - 5
       - 10
-  # --- L=2 logistic SuSiE, varying ONLY how the inter-component (leave-one-out) offset
-  # is integrated. Each component's offset is the other component's contribution - a
-  # data-driven SuSiE-posterior mixture, NOT fixed to a prior - so the fidelity of its
-  # integration can matter (unlike the injected q(o)=p(o) offset studies). Arms:
-  #   logistic_L2_point     offset_integration=none      1st moment (plug-in mean) = gIBSS
-  #   logistic_L2_quad      offset_integration=gh        1st+2nd moments (moment-matched)
-  #   logistic_L2_compress  offset_integration=compress  full mixture (exact sequential fold)
+  # --- L=2 logistic SuSiE: the gIBSS-vs-CAVI 2x2. Each component's inter-component
+  # (leave-one-out) offset is the OTHER component's contribution - a data-driven
+  # SuSiE-posterior mixture, NOT fixed to a prior - so how it is handled can matter. Two
+  # axes: the OFFSET (gIBSS = plug in the other effects' posterior MEAN; CAVI = integrate
+  # their full posterior exactly, via the self-normalized quadrature fold) x the EFFECT
+  # variational family (Q1 = free-form/unconstrained; Q2 = Gaussian). The GH moment-match
+  # ("quad") is retired - self-normalized quadrature is the offset method throughout.
+  #   logistic_L2_gibss_q1  none              , unconstrained  gIBSS in Q1 (plug-in mean, free-form q)
+  #   logistic_L2_gibss_q2  none              , gaussian       gIBSS in Q2 (plug-in mean, Gaussian q)
+  #   logistic_L2_cavi_q1   compress_selfnorm , unconstrained  CAVI  in Q1 (exact fold,  free-form q)
+  #   logistic_L2_cavi_q2   compress          , gaussian       CAVI  in Q2 (exact fold,  Gaussian q)
   # center=false (uncentered, layout-consistent dense==sparse; the shared intercept
-  # decouples it) - REQUIRED for compress on a sparse (BCOO) design and used for all three
-  # arms so they share one model config and differ ONLY in offset_integration.
-  logistic_L2_point:
+  # decouples it) - REQUIRED for the sparse (BCOO) design and used for all arms so they
+  # share one model config and differ ONLY in offset handling / variational family.
+  logistic_L2_gibss_q1:
     function: run_logistic_method
     template: {response_source: z, L: 2, offset_integration: none, center: false}
-  logistic_L2_quad:
+  logistic_L2_gibss_q2:
     function: run_logistic_method
-    template: {response_source: z, L: 2, offset_integration: gh, offset_quadrature_points: 15, center: false}
-  logistic_L2_compress:
+    template: {response_source: z, L: 2, offset_integration: none, variational_family: gaussian, center: false}
+  logistic_L2_cavi_q1:
     function: run_logistic_method
-    template: {response_source: z, L: 2, offset_integration: compress, offset_quadrature_points: 15, center: false}
+    template: {response_source: z, L: 2, offset_integration: compress_selfnorm, offset_quadrature_points: 15, center: false}
+  logistic_L2_cavi_q2:
+    function: run_logistic_method
+    template: {response_source: z, L: 2, offset_integration: compress, variational_family: gaussian, offset_quadrature_points: 15, center: false}
   # --- L=5 counterparts (over-specified: only 2 causals, so 3 components chase noise with
   # maximally diffuse posteriors -> the leave-one-out offset each component integrates is a
   # high-variance multi-component mixture, the regime where a plug-in mean should be worst.
-  # Same three fidelity arms; identical config apart from L=5.
-  logistic_L5_point:
+  # Same 2x2; identical config apart from L=5.
+  logistic_L5_gibss_q1:
     function: run_logistic_method
     template: {response_source: z, L: 5, offset_integration: none, center: false}
-  logistic_L5_quad:
+  logistic_L5_gibss_q2:
     function: run_logistic_method
-    template: {response_source: z, L: 5, offset_integration: gh, offset_quadrature_points: 15, center: false}
-  logistic_L5_compress:
+    template: {response_source: z, L: 5, offset_integration: none, variational_family: gaussian, center: false}
+  logistic_L5_cavi_q1:
     function: run_logistic_method
-    template: {response_source: z, L: 5, offset_integration: compress, offset_quadrature_points: 15, center: false}
+    template: {response_source: z, L: 5, offset_integration: compress_selfnorm, offset_quadrature_points: 15, center: false}
+  logistic_L5_cavi_q2:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: compress, variational_family: gaussian, offset_quadrature_points: 15, center: false}
   linear_fixed:
     function: run_linear_method
     template:

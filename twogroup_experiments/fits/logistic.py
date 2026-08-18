@@ -15,7 +15,7 @@ OFFSET_QUADRATURE_POINTS = 5
 def fit_logistic_method(
     simulation, *, response_source, threshold=None, L=1,
     offset_integration=None, offset_quadrature_points=None,
-    center=True, intercept=None,
+    variational_family=None, center=True, intercept=None,
 ):
     from core import _score
     if response_source == "z":
@@ -30,7 +30,9 @@ def fit_logistic_method(
     # How the leave-one-out (inter-component) offset is integrated once L > 1. Default
     # keeps the historical behaviour (no offset at L=1; Gauss-Hermite otherwise); an
     # explicit value pins the fidelity for a study: "none" (plug-in mean), "gh"
-    # (moment-matched), "compress" (full mixture, exact sequential fold over components).
+    # (moment-matched), "compress_selfnorm" (exact free-form CAVI in Q1), or "compress"
+    # with variational_family="gaussian" (exact CAVI in Q2). The old moment-projected
+    # "compress" + unconstrained path was dropped upstream as dominated.
     integ = offset_integration if offset_integration is not None else ("none" if L == 1 else "gh")
     kwargs = dict(
         L=L,
@@ -43,6 +45,11 @@ def fit_logistic_method(
             else int(offset_quadrature_points)
         ),
     )
+    # The variational family over each effect: the default "unconstrained" (free-form q,
+    # exact CAVI in Q1) or "gaussian" (Gaussian q, exact CAVI in Q2). Only set when pinned
+    # by the method so the engine default is otherwise preserved.
+    if variational_family is not None:
+        kwargs["variational_family"] = variational_family
     if intercept is not None:
         kwargs["intercept"] = intercept
     # NB: the Compress Chebyshev degree M (offset_integration="compress") is not exposed
@@ -65,11 +72,12 @@ def summarize_logistic_method(
     L=1,
     offset_integration=None,
     offset_quadrature_points=None,
+    variational_family=None,
     center=True,
     intercept=None,
 ):
     from core import _extract_ser_struct, _extract_family_state_struct, _extract_twogroup_state_struct, _make_cs_struct, _make_fit_summary_struct
-    del response_source, threshold, L, offset_integration, offset_quadrature_points, center, intercept
+    del response_source, threshold, L, offset_integration, offset_quadrature_points, variational_family, center, intercept
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {

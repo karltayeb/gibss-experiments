@@ -21,7 +21,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "47e963d" }
+gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "c657b6b" }
 
 [dependency-groups]
 dev = [
