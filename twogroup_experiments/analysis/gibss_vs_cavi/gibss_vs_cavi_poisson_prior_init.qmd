@@ -1,0 +1,308 @@
+---
+title: "gIBSS vs CAVI - Poisson, prior initialization"
+subtitle: "Poisson SuSiE (Gaussian family) on correlated Markov designs, seeded with all L effects at the prior at once: gIBSS reproduces the empty-init fit exactly, exact CAVI does not."
+engine: jupyter
+jupyter: python3
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os, sys
+_root = os.getcwd()
+while not os.path.isdir(os.path.join(_root, "analysis", "gibss_vs_cavi")) and _root != "/":
+    _root = os.path.dirname(_root)
+os.chdir(_root)
+sys.path.insert(0, "analysis/gibss_vs_cavi")
+from dataclasses import replace
+import numpy as np
+import matplotlib.pyplot as plt
+
+from gibss import glm
+from gibss.methods import fit_glm_susie
+from gibss.engine import Message, fit_ibss
+from gibss.history import History
+from gibss.response import Poisson, Smoothed
+from gibss.poisson_offset import PoissonLogNormalOffset
+from gibss.elbo import compute_elbo
+from gibss.plotting import plot_pip
+
+import gvc                     # shared Markov sim definitions + palette
+from simcache import cached    # explicit content-addressed cache (see simcache.py)
+
+plt.rcParams.update({"figure.dpi": 110, "axes.grid": True, "grid.alpha": 0.3,
+                     "axes.spines.top": False, "axes.spines.right": False})
+
+SIM_ORDER = ["gaussian-poisson", "binary-poisson"]
+SEED = 1
+CAUSAL = list(gvc.DEFAULT_MARKOV_CAUSAL)
+DESIGN = gvc.MARKOV_DESIGN_CFG
+CACHE = "analysis/gibss_vs_cavi/data/cache"
+ELBO_ORDER, ELBO_M = 16, 64            # exact-ELBO quadrature (gibss.elbo.compute_elbo)
+ROBUST_SEEDS = tuple(range(1, 9))
+
+# colour = update rule (gIBSS orange / CAVI blue)
+C = {"gibss": gvc.C_GIBSS, "cavi": gvc.C_CAVI}
+LABEL = gvc.ALGO_LABEL                  # {"gibss": "gIBSS", "cavi": "CAVI"}
+
+
+def recovered(pip, thr=0.5):
+    return int(sum(np.asarray(pip)[c] > thr for c in CAUSAL))
+```
+
+Two SuSiE arms - the cheap gIBSS plug-in (offset = the other effects' posterior mean) and
+exact CAVI (offset = the other effects' full posterior) - are each fit two ways: from the
+**empty init** (effects inactive, switched on one at a time over the first sweep) and from the
+**prior init** (all $L$ effects seeded at the prior, $q(b\mid\gamma=j)=\mathcal N(0,\sigma_0^2)$,
+$\alpha$ uniform, simultaneously). The family is Gaussian $\mathcal Q_2$; the base is Poisson
+(log-link), whose exact CAVI offset fold is closed form (`PoissonLogNormalOffset`).
+
+|  | gIBSS - plug in the other effects' mean | CAVI - integrate their full posterior |
+|---|---|---|
+| $\mathcal Q_2$ (Gaussian $q$, `vi_gh`) | `offset_integration="none"` | `"cf"` (`PoissonLogNormalOffset`) |
+
+## Simulate and fit
+
+The empty init is the front door, `fit_glm_susie`. The prior init seeds every SER factor at
+its prior with `var = prior_variance` on a `glm.initialize_state` scaffold, then runs the same
+engine (`fit_ibss`, `glm.default_schedule`). Both inits use the same settings: centered design,
+a shared **estimated** intercept, prior variance held fixed. Each fit is cached per
+`(sim, arm, init)`.
+
+```{python}
+#| label: pipeline
+#| code-fold: false
+COMMON = dict(family="poisson", L=5, prior_variance=1.0, estimate_prior_variance=False,
+              estimate_intercept=True, intercept="shared", center=True, max_iter=50)
+ARM_AXES = {  # the front-door axes that make an arm gIBSS or CAVI (Q2)
+    "gibss": dict(variational_family="gaussian", offset_integration="none"),
+    "cavi":  dict(variational_family="gaussian", offset_integration="cf"),
+}
+RESP = {  # the response object those axes resolve to, for the low-level prior-init fit
+    "gibss": Poisson(),
+    "cavi":  Smoothed(Poisson(), PoissonLogNormalOffset()),
+}
+
+
+def simulate(name):
+    """Deterministic sim + centered design (cheap; recomputed each render, not cached)."""
+    X, y, meta = gvc.simulate_markov_sim(name, seed=SEED)
+    meta["label"] = gvc.MARKOV_LABEL[name]
+    return dict(X=X, y=y, meta=meta, data=glm.prep_data(X, y, center=True))
+
+
+def prior_state(data, response, L=5, pv=1.0):
+    """A GIBSSState with all L SER factors AT their prior: alpha uniform (from
+    glm.initialize_state) and q(b|gamma=j)=N(0, pv) per feature (var set to pv; the default
+    scaffold leaves var=0). Shared estimated intercept; dense-exact row background. The total
+    message is rebuilt from these prior factors."""
+    st = glm.initialize_state(
+        data, L=L, response=response, prior_variance=pv,
+        family_state_kwargs=dict(kernel="vi_gh", intercept="shared", background="exact",
+                                 estimate_intercept=True, estimate_prior_variance=False))
+    p, n = data.X.shape[1], data.X.shape[0]
+    effects = [replace(e, var=np.full(p, pv)) for e in st.single_effects]
+    tm = Message(np.zeros(n), np.zeros(n))
+    for e in effects:
+        tm = tm.add(e.message(data))
+    return replace(st, single_effects=effects, total_message=tm)
+
+
+def fit(name, arm, init):
+    """Fit one arm from one init, recording the history; return its final state. Cached per
+    (sim, arm, init) on the fit config alone."""
+    def _compute():
+        sim = SIM[name]
+        hist = History()
+        if init == "empty":
+            fit_glm_susie(sim["X"], sim["y"], record=hist, **COMMON, **ARM_AXES[arm])
+        else:
+            st = prior_state(sim["data"], RESP[arm], L=COMMON["L"], pv=COMMON["prior_variance"])
+            fit_ibss(sim["data"], st, glm.default_schedule(),
+                     max_iter=COMMON["max_iter"], recorder=hist)
+        return hist.states[-1]
+    return cached(dict(sim=name, seed=SEED, arm=arm, init=init, **COMMON), _compute,
+                  f"{CACHE}/priorinit_{name}_{arm}_{init}.pkl")
+
+
+SIM = {name: simulate(name) for name in SIM_ORDER}
+STATE = {name: {init: {arm: fit(name, arm, init) for arm in ARM_AXES}
+                for init in ("empty", "prior")} for name in SIM_ORDER}
+
+for name in SIM_ORDER:
+    m = SIM[name]["meta"]
+    print(f"{name:18s}  beta={m['beta']:.2f}  b0={m['b0']:+.1f}  sum(y)={m['y_sum']:.0f}  "
+          f"| recovered/3: " + "  ".join(
+              f"{LABEL[a]} {init}={recovered(STATE[name][init][a].pip)}"
+              for a in ("gibss", "cavi") for init in ("empty", "prior")))
+```
+
+- Design: $p=`{python} DESIGN['p']`$ columns, first-order Markov chain,
+  $\mathrm{corr}(x_j,x_k)=\rho^{|j-k|}$, $\rho=`{python} DESIGN['rho']`$; causal columns
+  `{python} CAUSAL`, $y\sim\mathrm{Poisson}(e^{\eta})$.
+
+## gIBSS is unchanged by the prior init
+
+At the prior every effect's posterior mean is $0$, so the gIBSS plug-in offset when updating
+effect $l$ is the sum of the already-updated effects' means - the same offset it sees under the
+empty init. The two gIBSS fits agree to machine precision; the CAVI fits do not.
+
+```{python}
+#| label: tbl-init-gap
+#| echo: false
+#| output: asis
+lines = ["| Sim | Rule | max&#124;ΔPIP&#124; (prior − empty) | ΔELBO (prior − empty) |",
+         "|---|---|---:|---:|"]
+for name in SIM_ORDER:
+    data = SIM[name]["data"]
+    for arm in ("gibss", "cavi"):
+        se, sp = STATE[name]["empty"][arm], STATE[name]["prior"][arm]
+        dpip = np.abs(np.asarray(sp.pip) - np.asarray(se.pip)).max()
+        de = (compute_elbo(data, sp, order=ELBO_ORDER, M=ELBO_M)
+              - compute_elbo(data, se, order=ELBO_ORDER, M=ELBO_M))
+        lines.append(f"| {name} | {LABEL[arm]} | {dpip:.2e} | {de:+.2f} |")
+print("\n".join(lines))
+```
+
+*max&#124;ΔPIP&#124;* = largest per-column PIP difference between the prior-init and empty-init
+fits. *ΔELBO* = prior-init minus empty-init exact ELBO (`gibss.elbo.compute_elbo`, nats).
+
+## Credible sets from the prior init
+
+Converged 95% credible sets from the prior init, gIBSS vs CAVI (`gibss.plotting.plot_pip`; grey
+= all variables, colour = one credible set per single effect, ring = causal; sets covering more
+than 10 variables are not drawn).
+
+```{python}
+#| label: fig-cs-gaussian
+#| fig-cap: "Gaussian AR(1), prior init: converged credible sets, gIBSS (left) vs CAVI (right)."
+def cs_panels(name):
+    fig, axes = plt.subplots(1, 2, figsize=(6.5, 2.7), sharey=True)
+    for ax, arm in zip(axes, ("gibss", "cavi")):
+        plot_pip(STATE[name]["prior"][arm], causal_idx=CAUSAL, coverage=0.95, ax=ax,
+                 max_cs_size=10, show_legend=(arm == "cavi"))
+        ax.set_title(LABEL[arm], fontsize=10)
+    fig.suptitle(SIM[name]["meta"]["label"], fontsize=10, y=1.02)
+    fig.tight_layout()
+    plt.show()
+
+cs_panels("gaussian-poisson")
+```
+
+```{python}
+#| label: fig-cs-binary
+#| fig-cap: "Binary Markov, prior init: converged credible sets, gIBSS (left) vs CAVI (right)."
+cs_panels("binary-poisson")
+```
+
+## Final ELBO
+
+Exact ELBO at convergence for each arm and init.
+
+```{python}
+#| label: tbl-elbo
+#| echo: false
+#| output: asis
+lines = ["| Sim | Rule | ELBO (empty) | ELBO (prior) | prior − empty | recovered (prior) |",
+         "|---|---|---:|---:|---:|---:|"]
+for name in SIM_ORDER:
+    data = SIM[name]["data"]
+    for arm in ("gibss", "cavi"):
+        ee = compute_elbo(data, STATE[name]["empty"][arm], order=ELBO_ORDER, M=ELBO_M)
+        ep = compute_elbo(data, STATE[name]["prior"][arm], order=ELBO_ORDER, M=ELBO_M)
+        lines.append(f"| {name} | {LABEL[arm]} | {ee:.2f} | {ep:.2f} | {ep - ee:+.2f} | "
+                     f"{recovered(STATE[name]['prior'][arm].pip)} |")
+print("\n".join(lines))
+```
+
+*ELBO (empty)* / *ELBO (prior)* = exact ELBO at convergence from each init.
+*prior − empty* = their difference. *recovered (prior)* = causal columns (of 3) with prior-init
+PIP $>0.5$.
+
+## Offset seen at the prior init
+
+When a single effect is updated at the prior init, the offset imposed by the other $L-1$ prior
+factors has mean $0$ (what gIBSS plugs in) and a nonzero per-row variance (what CAVI integrates
+over). Below is that per-row offset SD, read from the prior-init `total_message`.
+
+```{python}
+#| label: fig-offset
+#| fig-cap: "Per-row prior-init offset SD (sqrt of the total-message variance the CAVI fold integrates over), one histogram per design. gIBSS plugs in the offset mean (SD 0, dashed line)."
+fig, axes = plt.subplots(1, len(SIM_ORDER), figsize=(6.5, 2.6), sharey=True)
+for ax, name in zip(np.atleast_1d(axes), SIM_ORDER):
+    tm = prior_state(SIM[name]["data"], RESP["cavi"],
+                     L=COMMON["L"], pv=COMMON["prior_variance"]).total_message
+    sd = np.sqrt(np.asarray(tm.var))
+    ax.hist(sd, bins=40, color=C["cavi"], alpha=0.8)
+    ax.axvline(0.0, color=C["gibss"], ls="--", lw=1.2)
+    ax.set_title(SIM[name]["meta"]["label"], fontsize=9)
+    ax.set_xlabel("offset SD (nats)")
+np.atleast_1d(axes)[0].set_ylabel("rows")
+fig.tight_layout()
+plt.show()
+```
+
+## Multi-seed
+
+Recovery and final ELBO of the two prior-init arms across `{python} len(ROBUST_SEEDS)` seeds.
+
+```{python}
+#| label: robust
+#| include: false
+def robust(name):
+    """Per-seed prior-init recovery + final ELBO for both arms. One cached unit per sim."""
+    def _compute():
+        rows = {arm: dict(recovered=[], elbo=[]) for arm in ARM_AXES}
+        for seed in ROBUST_SEEDS:
+            X, y, _ = gvc.simulate_markov_sim(name, seed=seed)
+            data = glm.prep_data(X, y, center=True)
+            for arm in ARM_AXES:
+                st = prior_state(data, RESP[arm], L=COMMON["L"], pv=COMMON["prior_variance"])
+                hist = History()
+                fit_ibss(data, st, glm.default_schedule(),
+                         max_iter=COMMON["max_iter"], recorder=hist)
+                s = hist.states[-1]
+                rows[arm]["recovered"].append(recovered(s.pip))
+                rows[arm]["elbo"].append(compute_elbo(data, s, order=ELBO_ORDER, M=ELBO_M))
+        return rows
+    return cached(dict(sim=name, seeds=ROBUST_SEEDS, init="prior", **COMMON),
+                  _compute, f"{CACHE}/priorinit_robust_{name}.pkl")
+
+ROB = {name: robust(name) for name in SIM_ORDER}
+```
+
+```{python}
+#| label: tbl-robust
+#| echo: false
+#| output: asis
+lines = [f"| Sim | Rule | recovered (of 3, mean) | seeds gIBSS − CAVI ELBO > 1 (of {len(ROBUST_SEEDS)}) |",
+         "|---|---|---:|---:|"]
+for name in SIM_ORDER:
+    g = np.asarray(ROB[name]["gibss"]["elbo"])
+    c = np.asarray(ROB[name]["cavi"]["elbo"])
+    n_gap = int((g - c > 1.0).sum())
+    for arm in ("gibss", "cavi"):
+        mean_rec = float(np.mean(ROB[name][arm]["recovered"]))
+        cell = f"{n_gap}" if arm == "cavi" else "-"
+        lines.append(f"| {name} | {LABEL[arm]} | {mean_rec:.2f} | {cell} |")
+print("\n".join(lines))
+```
+
+*recovered* = mean over seeds of the causal columns (of 3) with prior-init PIP $>0.5$. *seeds
+gIBSS − CAVI ELBO > 1* = seeds whose prior-init gIBSS final ELBO exceeds CAVI's by more than 1
+nat (CAVI row).
+
+```{python}
+#| label: fig-gap
+#| fig-cap: "Per-seed prior-init final-ELBO gap (gIBSS − CAVI), one point per seed, per design."
+fig, ax = plt.subplots(figsize=(6.5, 2.6))
+for k, name in enumerate(SIM_ORDER):
+    gap = np.asarray(ROB[name]["gibss"]["elbo"]) - np.asarray(ROB[name]["cavi"]["elbo"])
+    ax.scatter(np.full(len(gap), k), gap, s=28, color="0.3", zorder=3)
+ax.axhline(0.0, color="0.6", lw=0.8)
+ax.set_xticks(range(len(SIM_ORDER)))
+ax.set_xticklabels([gvc.MARKOV_LABEL[n] for n in SIM_ORDER], fontsize=9)
+ax.set_ylabel("gIBSS − CAVI\nfinal ELBO (nats)")
+fig.tight_layout()
+plt.show()
+```
