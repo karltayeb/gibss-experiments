@@ -21,11 +21,14 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "c657b6b" }
+gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "6657979" }
 
 [dependency-groups]
 dev = [
+    "ipykernel>=7.3.0",
+    "jupyter-client>=8.9.1",
     "mcp>=1",
+    "nbclient>=0.11.0",
     "pydantic>=2",
     "pytest>=9.0.3",
     "python-lsp-ruff>=2.3.1",
