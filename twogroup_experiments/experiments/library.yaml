@@ -1840,22 +1840,32 @@ methods:
   # entries therefore use the flat default intercept prior (pending a gibss-mono knob).
   logistic_q2_ser_gibss:
     function: run_logistic_method
-    template: {response_source: z, L: 1, offset_integration: none, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0}
+    template: {response_source: z, L: 1, offset_integration: none, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   logistic_q2_ser_cavi:
     function: run_logistic_method
-    template: {response_source: z, L: 1, offset_integration: cf, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, max_iter: 50}
+    template: {response_source: z, L: 1, offset_integration: cf, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, max_iter: 50, freeze_prior_variance: 0.01}
   logistic_q2_ser_globaljj:
     function: run_logistic_method
-    template: {response_source: z, L: 1, offset_integration: jj_fixed, center: true, estimate_prior_variance: true, max_prior_variance: 100.0}
+    template: {response_source: z, L: 1, offset_integration: jj_fixed, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   logistic_q2_L10_gibss:
     function: run_logistic_method
-    template: {response_source: z, L: 10, offset_integration: none, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0}
+    template: {response_source: z, L: 10, offset_integration: none, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   logistic_q2_L10_cavi:
     function: run_logistic_method
-    template: {response_source: z, L: 10, offset_integration: cf, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, max_iter: 50}
+    template: {response_source: z, L: 10, offset_integration: cf, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, max_iter: 50, freeze_prior_variance: 0.01}
   logistic_q2_L10_globaljj:
     function: run_logistic_method
-    template: {response_source: z, L: 10, offset_integration: jj_fixed, center: true, estimate_prior_variance: true, max_prior_variance: 100.0}
+    template: {response_source: z, L: 10, offset_integration: jj_fixed, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  # local-JJ: per-observation JJ tilt (conjugate `jj` kernel). Since gibss-mono d9c37ae the
+  # kernel pre-centers a sparse (BCOO) design via a 2-D Chebyshev background, so center=true is
+  # supported WITHOUT densify (bit-exact vs the dense-centered fit, ~27x faster on C2). A cheap
+  # bound like global-JJ, so it joins the 50-rep cheap tier; completes the 4-way JJ comparison.
+  logistic_q2_ser_localjj:
+    function: run_logistic_method
+    template: {response_source: z, L: 1, offset_integration: jj, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  logistic_q2_L10_localjj:
+    function: run_logistic_method
+    template: {response_source: z, L: 10, offset_integration: jj, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   linear_fixed:
     function: run_linear_method
     template:

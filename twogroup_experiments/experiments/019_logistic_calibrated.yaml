@@ -12,7 +12,7 @@
 # Both carry the L=1 and L=10 method variants; multi-effect cells also receive the (cheap)
 # L=1 fits, which the analysis simply does not feature.
 _anchors:
-  cheap_methods: &cheap [logistic_q2_ser_gibss, logistic_q2_ser_globaljj, logistic_q2_L10_gibss, logistic_q2_L10_globaljj]
+  cheap_methods: &cheap [logistic_q2_ser_gibss, logistic_q2_ser_globaljj, logistic_q2_ser_localjj, logistic_q2_L10_gibss, logistic_q2_L10_globaljj, logistic_q2_L10_localjj]
   cavi_methods: &cavi [logistic_q2_ser_cavi, logistic_q2_L10_cavi]
   default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
 

@@ -18,6 +18,7 @@ def fit_logistic_method(
     offset_integration=None, offset_quadrature_points=None,
     variational_family=None, center=True, intercept=None, densify=False,
     estimate_prior_variance=False, max_prior_variance=None, max_iter=None,
+    freeze_prior_variance=None,
 ):
     from core import _score
     if response_source == "z":
@@ -57,6 +58,12 @@ def fit_logistic_method(
     # arm so a slow-to-converge fit is bounded; unset methods keep the engine default.
     if max_iter is not None:
         kwargs["max_iter"] = int(max_iter)
+    # Freeze (stop updating) an effect once its EB prior variance shrinks below this, after a
+    # warmup sweep. In over-specified L=10 the 7-9 null components floor ~5e-3, cleanly below
+    # real effects (>=0.07), so freezing them skips their per-sweep SER build (the CAVI cost)
+    # while their ~0 message leaves survivors' offset/PIP unchanged. None = off (default).
+    if freeze_prior_variance is not None:
+        kwargs["freeze_prior_variance"] = float(freeze_prior_variance)
     # The variational family over each effect: the default "unconstrained" (free-form q,
     # exact CAVI in Q1) or "gaussian" (Gaussian q, exact CAVI in Q2). Only set when pinned
     # by the method so the engine default is otherwise preserved.
@@ -124,10 +131,11 @@ def summarize_logistic_method(
     estimate_prior_variance=False,
     max_prior_variance=None,
     max_iter=None,
+    freeze_prior_variance=None,
 ):
     from core import _extract_ser_struct, _extract_family_state_struct, _extract_twogroup_state_struct, _make_cs_struct, _make_fit_summary_struct
     del response_source, threshold, L, offset_integration, offset_quadrature_points, variational_family, center, intercept, densify
-    del estimate_prior_variance, max_prior_variance, max_iter
+    del estimate_prior_variance, max_prior_variance, max_iter, freeze_prior_variance
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {
