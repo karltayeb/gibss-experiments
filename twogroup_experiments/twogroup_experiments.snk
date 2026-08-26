@@ -135,6 +135,9 @@ def _make_reduce_rule(r):
             sample_md=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/sample_metadata.parquet",
         params:
             coordinate=lambda wc, _r=r: MANIFEST["batches"][wc.batch_hash]["coordinate"],
+        resources:
+            runtime=10,      # tiny: read a fits parquet + compute; keeps grouped walltime sane
+            mem_mb=4000,
         script:
             f"reductions/{r}.py"
 
@@ -162,6 +165,9 @@ def _make_analyze_rule(a):
             ),
         params:
             analysis=a,
+        resources:
+            runtime=20,      # aggregates reductions across batches + renders a pdf; still small
+            mem_mb=8000,
         script:
             f"analyses/{_family}.py"
 
