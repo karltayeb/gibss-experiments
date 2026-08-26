@@ -14,6 +14,33 @@ def uniform_single_effect(
     return [index], [float(causal_effect)]
 
 
+def uniform_multi_effect(
+    X: np.ndarray,
+    rng: np.random.Generator,
+    causal_effects: list[float],
+) -> tuple[list[int], list[float]]:
+    """K causal columns drawn uniformly WITHOUT replacement, one effect each.
+
+    The multi-causal counterpart of ``uniform_single_effect`` (columns placed by plain
+    random draw, no set-size window) for designs whose columns have no meaningful "size" --
+    e.g. a continuous or dense-binary design where ``sized_multi_effect`` cannot key off
+    column sums. ``K = len(causal_effects)`` distinct columns are chosen and the i-th drawn
+    column is assigned ``causal_effects[i]``; a graded list spreads the causals across the
+    detectability spectrum within one replicate. Zero entries are dropped (their column is
+    not spent) so a partially-null list stays honest about the causal count.
+    """
+    effects = [float(b) for b in causal_effects if float(b) != 0.0]
+    if not effects:
+        return [], []
+    p = int(X.shape[1])
+    if p < len(effects):
+        raise ValueError(
+            f"uniform_multi_effect needs {len(effects)} columns but the design has p={p}."
+        )
+    chosen = rng.choice(p, size=len(effects), replace=False)
+    return [int(c) for c in chosen], effects
+
+
 def paired_index_effect(
     X: np.ndarray,
     rng: np.random.Generator,
@@ -41,6 +68,35 @@ def paired_index_effect(
             f"(base_index={base_index}, gap={gap})."
         )
     return [i, j], [float(causal_effect), float(sign_b) * float(causal_effect)]
+
+
+def spaced_index_effect(
+    X: np.ndarray,
+    rng: np.random.Generator,
+    causal_effects: list[float],
+    gap: int,
+    base_index: int = 0,
+) -> tuple[list[int], list[float]]:
+    """K causal columns at EVENLY SPACED indices ``base_index + gap * (1..K)``.
+
+    The multi-causal generalization of ``paired_index_effect``: ``K = len(causal_effects)``
+    causals are placed deterministically (ignores ``rng``) at ``gap, 2*gap, ..., K*gap``
+    (offset by ``base_index``), and the i-th column is assigned ``causal_effects[i]``. For a
+    Markov design this fixes the correlation between adjacent causals purely by ``gap`` (latent
+    ``rho ** gap``), so sweeping ``gap`` sweeps the causal-to-causal correlation at fixed effect
+    sizes. Example: ``gap=10, K=3`` -> columns ``[10, 20, 30]``. Zero entries are dropped (their
+    column is not spent) so a partially-null list stays honest about the causal count.
+    """
+    effects = [float(b) for b in causal_effects if float(b) != 0.0]
+    if not effects:
+        return [], []
+    idx = [int(base_index) + int(gap) * (k + 1) for k in range(len(effects))]
+    if max(idx) >= X.shape[1]:
+        raise ValueError(
+            f"spaced_index_effect max index {max(idx)} out of range for p={X.shape[1]} "
+            f"(gap={gap}, K={len(effects)}, base_index={base_index})."
+        )
+    return idx, effects
 
 
 def _column_sizes(X) -> np.ndarray:

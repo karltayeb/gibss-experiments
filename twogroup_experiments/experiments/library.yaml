@@ -1772,6 +1772,90 @@ methods:
   logistic_L5_cavi_q2:
     function: run_logistic_method
     template: {response_source: z, L: 5, offset_integration: compress, variational_family: gaussian, offset_quadrature_points: 15, center: false}
+  # --- 018: the four logistic-SuSiE SER approximations ---------------------------------------
+  # CAVI / gIBSS / global-JJ / local-JJ, four ways to handle the intractable logistic SER
+  # marginal. gIBSS and CAVI use the EXACT marginal (free-form Q1) and differ ONLY in how the
+  # leave-one-out offset is reduced: gIBSS plugs in its posterior MEAN, CAVI folds the full
+  # posterior (self-normalized quadrature). At L=1 the only "other effect" is the intercept, so
+  # the sole gIBSS-vs-CAVI difference is whether the intercept is plugged in or integrated -- a
+  # subtle gap. global-JJ / local-JJ instead replace the logistic likelihood with the Jaakkola-
+  # Jordan quadratic bound (Gaussian q by construction): global-JJ a single shared tilt from the
+  # full predictor (offset_integration=jj_fixed), local-JJ a per-observation tilt (the conjugate
+  # jj kernel, variational_family=gaussian + offset_integration=jj). center=true throughout (the
+  # dense-design default; the design is binary-membership BCOO, centered via the Chebyshev
+  # background). The conjugate local-JJ kernel rejects a centered BCOO design, so ONLY that arm
+  # sets densify=true (materializes X to dense -- same model, different layout); the other three
+  # stay on the sparse fast path. prior variance fixed at 1 for all (estimate_prior_variance=false
+  # via run_logistic_method) so the comparison isolates the SER approximation.
+  #   name                   offset_integration    q family       X layout
+  #   logistic_ser_gibss     none                  unconstrained  BCOO
+  #   logistic_ser_cavi      compress_selfnorm     unconstrained  BCOO
+  #   logistic_ser_globaljj  jj_fixed              (quad kernel)  BCOO
+  #   logistic_ser_localjj   jj                    gaussian       dense (densify=true)
+  logistic_ser_gibss:
+    function: run_logistic_method
+    template: {response_source: z, L: 1, offset_integration: none, center: true}
+  logistic_ser_cavi:
+    function: run_logistic_method
+    template: {response_source: z, L: 1, offset_integration: compress_selfnorm, offset_quadrature_points: 15, center: true}
+  logistic_ser_globaljj:
+    function: run_logistic_method
+    template: {response_source: z, L: 1, offset_integration: jj_fixed, center: true}
+  logistic_ser_localjj:
+    function: run_logistic_method
+    template: {response_source: z, L: 1, variational_family: gaussian, offset_integration: jj, center: true, densify: true}
+  # --- 018: the same four methods as an L=10 SuSiE (over-specified for L*=2,3,5) -------------
+  # Identical offset/family/layout choices to the SER quartet, but L=10: every true-causal count
+  # is over-specified, so each component's leave-one-out offset is a high-variance multi-component
+  # posterior mixture -- the regime where the gIBSS plug-in mean diverges most from the CAVI fold
+  # (Jensen gap ~ Var(offset)) and where global-JJ winner-take-all / false-CS fabrication surface.
+  logistic_L10_gibss:
+    function: run_logistic_method
+    template: {response_source: z, L: 10, offset_integration: none, center: true}
+  logistic_L10_cavi:
+    function: run_logistic_method
+    template: {response_source: z, L: 10, offset_integration: compress_selfnorm, offset_quadrature_points: 15, center: true}
+  logistic_L10_globaljj:
+    function: run_logistic_method
+    template: {response_source: z, L: 10, offset_integration: jj_fixed, center: true}
+  logistic_L10_localjj:
+    function: run_logistic_method
+    template: {response_source: z, L: 10, variational_family: gaussian, offset_integration: jj, center: true, densify: true}
+  # --- Q2 (Gaussian q) SuSiE with EB per-effect prior variance -------------------------------
+  # CAVI / gIBSS / global-JJ, all in Q2 (a Gaussian effect posterior), at L=1 and L=10. Unlike
+  # the 018 quartet above (fixed prior variance 1, exact free-form Q1 marginal), these ESTIMATE
+  # the per-effect prior variance by empirical Bayes (estimate_prior_variance=true), capped at
+  # max_prior_variance=100 to damp a runaway estimate. center=true (the shared intercept is
+  # decoupled from the effects, so the mean-field q(b0) prod q(b_l) is accurate; the binary-
+  # membership BCOO design is centered via the Chebyshev background). All three stay on the
+  # sparse BCOO fast path (no densify) -- global-JJ here is jj_fixed (a single shared tilt on the
+  # quad kernel), NOT the conjugate local-JJ that would reject a centered sparse design.
+  #   gIBSS     offset_integration=none      + variational_family=gaussian (plug-in mean, Q2)
+  #   CAVI      offset_integration=compress  + variational_family=gaussian (exact fold,  Q2)
+  #   global-JJ offset_integration=jj_fixed  (automatically Q2 via the JJ quadratic bound)
+  # The shared intercept is estimated with a Gaussian q(b0) (Q2 intercept integration -- always
+  # on for the shared intercept, independent of variational_family). NOTE: the target N(0,100)
+  # prior on the shared intercept is NOT reachable through fit_glm_susie -- its prior variance is
+  # hardwired to the diffuse dataclass default N(0, 1e6). See fits/logistic.py findings; these
+  # entries therefore use the flat default intercept prior (pending a gibss-mono knob).
+  logistic_q2_ser_gibss:
+    function: run_logistic_method
+    template: {response_source: z, L: 1, offset_integration: none, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0}
+  logistic_q2_ser_cavi:
+    function: run_logistic_method
+    template: {response_source: z, L: 1, offset_integration: cf, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, max_iter: 50}
+  logistic_q2_ser_globaljj:
+    function: run_logistic_method
+    template: {response_source: z, L: 1, offset_integration: jj_fixed, center: true, estimate_prior_variance: true, max_prior_variance: 100.0}
+  logistic_q2_L10_gibss:
+    function: run_logistic_method
+    template: {response_source: z, L: 10, offset_integration: none, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0}
+  logistic_q2_L10_cavi:
+    function: run_logistic_method
+    template: {response_source: z, L: 10, offset_integration: cf, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, max_iter: 50}
+  logistic_q2_L10_globaljj:
+    function: run_logistic_method
+    template: {response_source: z, L: 10, offset_integration: jj_fixed, center: true, estimate_prior_variance: true, max_prior_variance: 100.0}
   linear_fixed:
     function: run_linear_method
     template:

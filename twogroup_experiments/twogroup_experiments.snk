@@ -68,6 +68,33 @@ rule simulate:
 # Generic fit rule
 # ---------------------------------------------------------------------------
 
+# CONSERVATIVE per-method SLURM walltime. A fit job runs ONE method over ALL reps in
+# its batch, so runtime scales with the batch's replicate count. Per-rep minutes are
+# biased high (worst design at its iteration cap, plus cluster-CPU + JIT margin) from
+# the measured single-fit times: gIBSS/global-JJ L=10 ~2-23s, CAVI-cf L=10 2-9 min
+# (up to ~23 min at max_iter=50 on the n=10000 binary design). The CAVI-cf L=10 arm is
+# the only expensive one; everything else is minutes. Keyed on the method's
+# offset_integration + L, so 018/017 (rpb=50) and 019 (rpb=10) both get right-sized jobs.
+def _fit_resources(batch_hash, method_hash):
+    kw = MANIFEST["methods"][method_hash].get("kwargs", {}) or {}
+    nreps = len(MANIFEST["batches"][batch_hash]["replicates"])
+    oi = kw.get("offset_integration")
+    L = int(kw.get("L", 1) or 1)
+    # per-rep minutes carry a ~2x margin over the measured single-fit times, so a
+    # slower cluster CPU (or a fit that runs to its iteration cap) still finishes: a
+    # killed job wastes all its work, an over-provisioned one just backfills.
+    if oi == "cf" and L >= 10:
+        per_rep, mem = 60, 16000     # CAVI-cf over-specified: the pole (~23 min/rep measured)
+    elif L >= 10:
+        per_rep, mem = 6, 8000       # gIBSS / global-JJ / local-JJ at L=10
+    elif oi == "cf":
+        per_rep, mem = 4, 8000       # CAVI-cf SER (no offset fold)
+    else:
+        per_rep, mem = 2, 6000       # L=1 exact / bound, cheap arms
+    runtime = min(2100, int(per_rep * nreps) + 15)   # minutes; capped under caslake 36h
+    return {"runtime": runtime, "mem_mb": mem}
+
+
 rule fit:
     output:
         fits=f"{RESULTS_ROOT}/by_batch/{{batch_hash}}/fits/{{method_hash}}/fits.parquet",
@@ -79,6 +106,9 @@ rule fit:
                 MANIFEST["batches"][wc.batch_hash]["coordinate"], LIBRARY
             )
         ),
+    resources:
+        runtime=lambda wc: _fit_resources(wc.batch_hash, wc.method_hash)["runtime"],
+        mem_mb=lambda wc: _fit_resources(wc.batch_hash, wc.method_hash)["mem_mb"],
     run:
         b = MANIFEST["batches"][wildcards.batch_hash]
         spec = loader.resolve_simulation_from_coord(b["coordinate"])

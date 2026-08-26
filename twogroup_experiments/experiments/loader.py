@@ -369,11 +369,21 @@ def _all_sim_coordinates(config: dict[str, Any]) -> list[dict]:
     batch files (each holding ``replicates_per_batch`` replicates). When a
     coordinate is shared across supercollections with different overrides, the
     largest override wins (the superset of batches covers every consumer).
+
+    A supercollection may also set ``replicates_per_batch`` to override the global
+    batch SIZE for its coordinates (e.g. a slow method fit on fewer replicates:
+    ``replicates_per_batch: 10`` + ``n_batches: 1`` = 10 reps, while a cheap
+    companion supercollection uses ``n_batches: 5`` = 50 reps of the SAME batch
+    size, so batch 0 is content-identical and shared). Unlike ``n_batches``, the
+    batch size is part of a batch's replicate RANGE, so a coordinate shared across
+    supercollections must use ONE batch size -- differing values are an error, not
+    a merge (they would give the same batch hash two different rep ranges).
     """
     library = config["library"]
     seen: dict[str, dict] = {}  # hash -> {"coordinate": ..., "name": ..., maybe "n_batches"}
     for sc_name, sc in config["supercollections"].items():
         sc_nb = sc.get("n_batches")
+        sc_rpb = sc.get("replicates_per_batch")
         for coll in supercollection_collections(library, sc_name, sc):
             for member in coll["coordinates"]:
                 h = sim_hash(member["coordinate"])
@@ -385,6 +395,16 @@ def _all_sim_coordinates(config: dict[str, Any]) -> list[dict]:
                     existing["n_batches"] = max(
                         int(sc_nb), int(existing.get("n_batches", 0))
                     )
+                if sc_rpb is not None:
+                    prior = existing.get("replicates_per_batch")
+                    if prior is not None and int(prior) != int(sc_rpb):
+                        raise ValueError(
+                            f"coordinate {member['name']!r} is shared across "
+                            f"supercollections with conflicting replicates_per_batch "
+                            f"({prior} vs {sc_rpb}); a shared coordinate must use one "
+                            f"batch size."
+                        )
+                    existing["replicates_per_batch"] = int(sc_rpb)
     return list(seen.values())
 
 
@@ -411,13 +431,14 @@ def manifest_dict(library: dict[str, Any], config: dict[str, Any]) -> dict[str, 
     ``range(i*rpb, (i+1)*rpb)``; batch 0's hash equals ``sim_hash(coord)`` so
     existing single-batch results remain valid.
     """
-    rpb = int(library["defaults"]["replicates_per_batch"])
+    default_rpb = int(library["defaults"]["replicates_per_batch"])
     default_nb = int(library["defaults"]["n_batches"])
     batches: dict[str, Any] = {}
     for member in _all_sim_coordinates(config):
         coord = member["coordinate"]
         sh = sim_hash(coord)
         nb = int(member.get("n_batches", default_nb))
+        rpb = int(member.get("replicates_per_batch", default_rpb))
         for i in range(nb):
             bh = _batch_hash(sh, i)
             batches[bh] = {

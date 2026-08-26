@@ -1,0 +1,223 @@
+---
+title: "Logistic-SuSiE simulation design"
+subtitle: "Effect-size calibration and the full simulation grid for experiment 019"
+engine: knitr
+---
+
+```{r}
+#| label: setup
+#| include: false
+# knitr + reticulate against the repo-root uv venv (TWO dirs up from this notebook:
+# analysis/logistic_susie_simulations/ -> twogroup_experiments/ -> repo root/.venv).
+proj_root <- normalizePath(file.path(dirname(knitr::current_input(dir = TRUE)), "..", ".."))
+knitr::opts_knit$set(root.dir = proj_root)
+Sys.setenv(RETICULATE_PYTHON = file.path(proj_root, "..", ".venv", "bin", "python"))
+Sys.setenv(TG_ROOT = proj_root)
+library(reticulate)
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{python}
+#| label: imports
+#| include: false
+import os, sys, json
+import numpy as np
+import matplotlib.pyplot as plt
+CALDIR = os.path.join(os.environ["TG_ROOT"], "analysis", "logistic_susie_simulations")
+sys.path.insert(0, os.path.join(os.environ["TG_ROOT"], "simulations", "design"))
+sys.path.insert(0, CALDIR)
+import calibration as cal
+from markov import latent_from_binary_corr, binary_corr_from_latent
+
+BETAS = json.load(open(os.path.join(CALDIR, "betas.json")))
+TARGETS = [4, 8, 16, 32]          # E[LRT] rungs
+INTERCEPTS = [-3, -2, -1]
+LSTARS = [2, 3, 5]
+GAPS = [2, 5, 10, 20]
+# (short label, betas-profile key, human design name)
+DESIGNS = [
+    ("gaussian", "gaussian_n500", "AR1 Gaussian (n=500)"),
+    ("bin1000", "binary_n1000_q50", "Bin-AR (n=1000, q=0.5)"),
+    ("bin10000", "binary_n10000_q05", "Bin-AR (n=10000, q=0.05)"),
+]
+OKABE = {"gaussian": "#0072B2", "bin1000": "#E69F00", "bin10000": "#009E73"}
+N_REP = 600  # MC reps for the Gaussian curves (figure only; betas.json used 3000)
+
+# Static captions/legends, defined up front so inline `r py$...` resolves in document order.
+FIG_NOTE = ("Curves computed from `calibration.py`: binary designs exact (2×2 G-test / "
+            "GH quadrature over the prior), the AR1 design by Monte-Carlo. Solid = E[LRT], "
+            "dashed = E[log BF].")
+TAB_LEGEND_BETA = ("**Table 1. Calibrated causal coefficients β.** Each β is the coefficient "
+                   "whose expected univariate LRT equals the column target T (intercept "
+                   "profiled). Columns T = 4/8/16/32 ≈ log BF 2/4/8/16 nats.")
+TAB_LEGEND_SER = ("**Table 2. Single-effect grid.** 3 designs × 3 intercepts × 4 rungs = 36 "
+                  "cells, plus one matched null (β=0) per (design, b0) = 9. Each fit at L=1 "
+                  "(SER) and L=10 (over-specified). base rate = σ(b0); E[set size] = n·density "
+                  "for the binary designs.")
+TAB_LEGEND_MULTI = ("**Table 3. Multi-effect grid.** 3 designs × L*∈{2,3,5} × T∈{4,8,16,32} × "
+                    "gap∈{2,5,10,20} = 144 cells, fit at L=10 only, all at b0=-2. Each of the "
+                    "L* causals takes the SAME β (the b0=-2 value from Table 1) and is placed "
+                    "at column g·k. 'causal corr' is the resulting adjacent-causal correlation "
+                    "on that design (Gaussian: 0.9^g; Bin-AR: tetrachoric of the latent 0.8^g), "
+                    "so a given gap means a weaker correlation on the Gaussian design.")
+```
+
+## The model
+
+Each simulation regresses a binary response onto one design column,
+
+$$ z_i \mid x_i \;\sim\; \mathrm{Bernoulli}\big(\sigma(b_0 + \beta\, x_i)\big), \qquad \sigma(t) = \frac{1}{1+e^{-t}}, $$
+
+with $z$ the regressed response (signal = binary, error = noiseless). Three design
+distributions supply the column $x$: an AR(1) Gaussian chain and two binary set-membership
+Markov chains (sparse 0/1 indicators). The intercept $b_0$ sets the base rate.
+
+## Signal strength: $T = \mathbb{E}[\mathrm{LRT}]$
+
+We label each causal by the **expected likelihood-ratio statistic** for testing $\beta = 0$
+in the univariate regression, with the intercept **estimated** under both hypotheses (a real
+marginal $z \sim 1 + x$ fit):
+
+$$ T \;=\; \mathbb{E}\big[\,\mathrm{LRT}\,\big], \qquad
+   \mathrm{LRT} = 2\big[\ell(\hat b_0, \hat\beta) - \ell(\hat b_0^{\,0}, 0)\big]. $$
+
+LRT is monotone in $\beta$ and, near the diffuse-prior regime, $\mathrm{LRT} \approx 2\,\log
+\mathrm{BF}$ (Wakefield), so the ladder $T \in \{4, 8, 16, 32\}$ targets Bayesian evidence
+$\log\mathrm{BF} \approx \{2, 4, 8, 16\}$ nats. We calibrate on LRT rather than the Bayes
+factor because it is exact and cheap on the binary designs (a $2\times2$ $G$-test) and dodges
+the Hauck-Donner turnover of the logistic Wald statistic. The **profiled** intercept matters:
+fixing $b_0$ at its true value instead would read the dense $q=0.5$ design at roughly twice
+the LRT, because a free intercept otherwise absorbs the average elevation.
+
+## Calibration landscape
+
+`r py$FIG_NOTE`
+
+```{python}
+#| label: fig-calibration
+#| fig-cap: "Expected LRT (solid) and log BF (dashed, right axis) versus the causal coefficient, by design (rows) and intercept (columns). Horizontal guides mark the target rungs T ∈ {4,8,16,32}; dots mark the calibrated β that hits each rung. The dense q=0.5 design needs the largest β for the same detectability."
+#| fig-width: 8.5
+#| fig-height: 7.5
+fig, axes = plt.subplots(len(DESIGNS), len(INTERCEPTS), figsize=(8.5, 7.5), sharex="row")
+for i, (short, prof, name) in enumerate(DESIGNS):
+    beta_hi = max(BETAS[prof][str(b0)][-1] for b0 in INTERCEPTS) * 1.25
+    grid = np.linspace(0.01, beta_hi, 16)
+    for j, b0 in enumerate(INTERCEPTS):
+        ax = axes[i][j]
+        lrt = cal.lrt_curve(prof, b0, grid, n_rep=N_REP)
+        ax.plot(grid, lrt, color=OKABE[short], lw=2)
+        axr = ax.twinx()
+        lbf = cal.logbf_curve(prof, b0, grid, n_rep=N_REP)
+        axr.plot(grid, lbf, color=OKABE[short], lw=1.2, ls="--", alpha=0.7)
+        cal_betas = BETAS[prof][str(b0)]
+        for t, b in zip(TARGETS, cal_betas):
+            ax.axhline(t, color="0.8", lw=0.7, zorder=0)
+            ax.plot([b], [t], "o", color=OKABE[short], ms=5)
+        ax.set_ylim(0, 40); ax.set_yticks(TARGETS)
+        if j == 0: ax.set_ylabel(f"{name}\nE[LRT]", fontsize=8)
+        if j == len(INTERCEPTS) - 1: axr.set_ylabel("E[log BF]", fontsize=8, color="0.4")
+        else: axr.set_yticklabels([])
+        if i == 0: ax.set_title(f"b0 = {b0}", fontsize=10)
+        if i == len(DESIGNS) - 1: ax.set_xlabel("causal coefficient β", fontsize=8)
+        ax.tick_params(labelsize=7); axr.tick_params(labelsize=7)
+fig.tight_layout()
+plt.show()
+```
+
+## Effect sizes
+
+`r py$TAB_LEGEND_BETA`
+
+```{python}
+#| label: mk-beta-table
+#| include: false
+def md_table(header, rows):
+    line = "| " + " | ".join(header) + " |"
+    sep = "| " + " | ".join("---" for _ in header) + " |"
+    body = "\n".join("| " + " | ".join(r) + " |" for r in rows)
+    return "\n".join([line, sep, body])
+
+rows = []
+for short, prof, name in DESIGNS:
+    for b0 in INTERCEPTS:
+        bs = BETAS[prof][str(b0)]
+        rows.append([name, f"{b0}"] + [f"{b:.3f}" for b in bs])
+TAB_BETA = md_table(["design", "b0"] + [f"T={t}" for t in TARGETS], rows)
+```
+
+```{r}
+#| label: show-beta-table
+#| echo: false
+#| results: asis
+cat(py$TAB_BETA)
+```
+
+## Simulation settings
+
+### Single-effect cells ($L^\*=1$)
+
+`r py$TAB_LEGEND_SER`
+
+```{python}
+#| label: mk-ser-table
+#| include: false
+# design x intercept x T, with base rate and expected set size
+def sig(t): return 1/(1+np.exp(-t))
+rows = []
+for short, prof, name in DESIGNS:
+    p = cal.PROFILES[prof]
+    size = "-" if p["kind"] != "binary" else f"{int(round(p['n']*p['density']))}"
+    for b0 in INTERCEPTS:
+        bs = BETAS[prof][str(b0)]
+        for t, b in zip(TARGETS, bs):
+            rows.append([name, f"{b0}", f"{sig(b0):.3f}", size, f"{t}", f"{b:.3f}"])
+TAB_SER = md_table(["design", "b0", "base rate σ(b0)", "E[set size]", "T=E[LRT]", "β"], rows)
+```
+
+```{r}
+#| label: show-ser-table
+#| echo: false
+#| results: asis
+cat(py$TAB_SER)
+```
+
+### Multi-effect cells ($L^\* \in \{2,3,5\}$, $b_0=-2$)
+
+`r py$TAB_LEGEND_MULTI`
+
+```{python}
+#| label: mk-multi-table
+#| include: false
+# Effective causal-to-causal correlation at each gap, per design.
+def causal_corr(short, prof, g):
+    if short == "gaussian":
+        return 0.9 ** g                      # observed = latent for a Gaussian column
+    density = cal.PROFILES[prof]["density"]
+    rho = latent_from_binary_corr(0.8, density)
+    return binary_corr_from_latent(rho ** g, density)
+
+rows = []
+for short, prof, name in DESIGNS:
+    for g in GAPS:
+        rows.append([name, f"{g}", f"{causal_corr(short, prof, g):.2f}",
+                     ", ".join(str(g*k) for k in range(1, max(LSTARS)+1))])
+TAB_MULTI = md_table(["design", "gap g", "causal corr", "causal columns (L*=5)"], rows)
+```
+
+```{r}
+#| label: show-multi-table
+#| echo: false
+#| results: asis
+cat(py$TAB_MULTI)
+```
+
+## Methods and fitting
+
+All arms are Q2 (Gaussian $q$ over each effect), centered, with a shared Gaussian intercept
+factor $q(b_0)$ (flat $N(0, 10^6)$ prior) and an EB-estimated per-effect prior variance capped
+at 100. Three approximations to the intractable logistic marginal: **gIBSS** (plug-in
+posterior mean, `offset_integration=none`), **CAVI-cf** (exact fold via the characteristic-
+function integrator, `offset_integration=cf`), and **global-JJ** (Jaakkola-Jordan bound,
+`offset_integration=jj_fixed`). Experiment `019_logistic_calibrated.yaml` runs gIBSS and
+global-JJ at 50 replicates and CAVI-cf at 10 (its exact fold is ~30-500× slower per fit); each
+saved fit records `fit_seconds` and the common Q2 ELBO `q2_elbo` for cross-method comparison.
