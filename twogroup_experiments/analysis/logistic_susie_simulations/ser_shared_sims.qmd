@@ -26,17 +26,19 @@ elbo = R.elbo_frame()
 METHODS = ["gibss", "cavi"]                           # the two of interest
 SER = {"Lstar": 1, "fit_L": 1}                        # single causal, correctly-specified SER
 
-# Restrict pip/cs to the SER datasets fit by BOTH methods. CAVI-cf runs 10 reps/cell,
-# gIBSS 50, on the SAME content-addressed cells; pooling each method over its own reps
-# makes CAVI's binned curves 5x noisier and reads as a method difference where there is
-# none. Intersecting sample_ids puts every panel on identical data. (elbo_scenario_tables
-# already pairs on the sim, so it is inherently on shared sims.)
+# Restrict pip/cs to the single-effect datasets fit by BOTH methods. CAVI-cf runs 10
+# reps/cell, gIBSS 50, on the SAME content-addressed cells; pooling each method over its
+# own reps makes CAVI's binned curves 5x noisier and reads as a method difference where
+# there is none. Intersecting sample_ids puts every panel on identical data.
+# NB: intersect over ALL single-effect fits (fit_L==1), NOT filt=SER (Lstar==1) -- the
+# null cells are Lstar==0 (is_null), so a SER-filtered intersection would drop them and
+# leave logbf_roc with no negatives. (elbo_scenario_tables already pairs on the sim.)
 def _shared_ids(df, methods, filt):
     d = R.apply_filter(df, filt)
     sets = [set(d.filter(pl.col("method") == m)["sample_id"].to_list()) for m in methods]
     return list(set.intersection(*sets))
 
-_ids = _shared_ids(pip, METHODS, SER)
+_ids = _shared_ids(pip, METHODS, {"fit_L": 1, "Lstar": [0, 1]})   # enriched SER (Lstar=1) + nulls (Lstar=0)
 pip = pip.filter(pl.col("sample_id").is_in(_ids))
 cs = cs.filter(pl.col("sample_id").is_in(_ids))
 ```
