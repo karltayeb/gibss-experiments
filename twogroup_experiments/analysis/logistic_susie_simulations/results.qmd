@@ -1,0 +1,442 @@
+---
+title: "Logistic-SuSiE simulation results"
+subtitle: "Calibration + credible-set quality for gIBSS / global-JJ / local-JJ (experiment 019); CAVI-cf enters only as the paired ELBO reference in §6."
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))          # analysis/logistic_susie_simulations -> package root is TWO up
+os.chdir("..")                                       # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/logistic_susie_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import resultslib as R
+
+pip, cs = R.load_both()                              # cheap arms + CAVI (when it lands)
+elbo = R.elbo_frame()                                # per-fit common-Q2 ELBO (paired)
+EXCLUDE = {"gibss_profiled", "cavi"}                  # gibss_profiled parked; CAVI-cf pooled-plot
+                                                     # comparisons dropped (10 reps vs 50 -> noisy;
+                                                     # gIBSS stands in). CAVI-cf kept for the paired
+                                                     # §6 ELBO reference (methods=METHODS + ["cavi"]).
+METHODS = [m for m in R.methods_present(pip) if m not in EXCLUDE]
+```
+
+Experiment **019** calibrates a binary response onto one design column at a target
+expected LRT (see the [design notebook](design.qmd)) and fits it with four
+approximations to the intractable logistic marginal: **gIBSS** (plug-in mean),
+**CAVI-cf** (exact characteristic-function fold), **global-JJ** and **local-JJ**
+(Jaakkola-Jordan bounds). Every figure below is a method comparison; the design
+axes ($T$, intercept $b_0$, design, $L^\*$, gap, fit $L$) are things we **slice or
+facet over**.
+
+**CAVI-cf is left out of the pooled comparisons here.** It is expensive, so it
+runs 10 reps/cell against the cheap methods' 50, and pooling each method over its
+own reps makes its curves ~$\sqrt5\times$ noisier - a sampling artifact, not a
+method difference. gIBSS is the plug-in stand-in for CAVI-cf and carries the full
+rep count, so it represents the exact fold in every panel. The two agree per
+dataset to mean $|\Delta\text{PIP}|\approx0.003$; the head-to-head on the shared
+datasets is in [SER: gIBSS vs CAVI-cf](ser_shared_sims.qmd). CAVI-cf returns in
+§6 only, where the ELBO is **paired** on the sim (so the rep-count gap is immaterial).
+
+```{python}
+#| label: status
+#| echo: false
+#| output: asis
+have = ", ".join(R.METHOD_LABEL.get(m, m) for m in METHODS)
+pend = [R.METHOD_LABEL.get(m, m) for m in R.METHOD_ORDER if m not in METHODS and m not in EXCLUDE]
+line = f"**Methods landed:** {have}."
+if pend:
+    line += f" **Pending:** {', '.join(pend)} (figures pick these up automatically on reload)."
+n_reps = pip.group_by(["design_n", "b0", "T", "Lstar", "gap", "fit_L", "method"]).len()["len"]
+print(line + f"\n\n**Cells x method:** {n_reps.len()} groups, "
+      f"{int(n_reps.median())} replicates each (median).")
+```
+
+## How to re-slice {#sec-knobs}
+
+Every figure takes the same two knobs, so a layout is re-cut without touching plot
+code:
+
+- **`filt`** - a dict `{coord: value | [values]}` applied before anything is
+  computed. E.g. `filt={"Lstar": 1, "fit_L": 1}` keeps single-effect SER fits;
+  `filt={"design_n": 500}` keeps the Gaussian design; `filt={"b0": -2.0}` keeps
+  one intercept.
+- **`facet`** - a list of coordinate columns that become panels; **everything else
+  is aggregated over**. `facet=["design"]` pools the $T$ ladder within a design;
+  `facet=["T"]` pools designs within a $T$ rung; `facet=["T","b0"]` is a 2-D grid.
+
+Coordinate columns: `design`, `design_n`, `b0`, `T`, `Lstar`, `gap`, `fit_L`,
+`is_null`. The notebook is in two parts: **[Part A](#sec-partA)** - single-effect
+cells with SER (`Lstar=1, fit_L=1`) fits, where the credible set adds nothing and
+the story is calibration + enrichment detection by logBFSER; **[Part B](#sec-partB)**
+- multi-effect cells ($L^\* \in \{2,3,5\}$, fit $L=10$), where several credible
+sets must be found and localized per dataset.
+
+```{python}
+#| label: slices
+#| echo: false
+SER = {"Lstar": 1, "fit_L": 1}          # single causal, correctly-specified SER
+MULTI = {"Lstar": [2, 3, 5], "fit_L": 10}  # multiple causals, over-specified L=10
+```
+
+## Results 
+
+# Part A - single-effect, SER fits {#sec-partA}
+
+One causal, one fitted effect. The 95% credible set is uninformative here (on
+$p=256$ it is large and covers the causal ~98% of the time regardless of
+localization), so Part A is just **PIP calibration** and **enrichment detection**:
+does logBFSER order enriched datasets above null ones?
+
+## 1. PIP calibration {#sec-pip-cal}
+
+One method per panel (rows = design), empirical causal frequency vs PIP-bin
+midpoint; dot area $\propto$ number of features in the bin. On the diagonal =
+calibrated; **below** = the PIP overstates the evidence.
+
+```{python}
+#| label: fig-pip-cal
+#| column: page
+#| fig-cap: "PIP calibration on single-effect SER fits, pooled over the T ladder and intercepts within each design. Dot area scales with feature count in the bin. gIBSS / local-JJ track the diagonal; global-JJ sits below it (over-confident PIPs)."
+R.pip_calibration(pip, facet=["design"], filt=SER, methods=METHODS)
+plt.show()
+```
+
+## 2. FDP vs power {#sec-fdp-power}
+
+Sweep a PIP threshold and trace realized FDP (x) against power / causal recall (y).
+Up-and-left is a better ordering of PIPs. Methods overlaid. The dot on each curve
+marks the most stringent PIP threshold (highest cutoff that still declares a
+feature): its x is the FDP you pay even at a method's most confident declarations,
+which flags high-false-positive methods like global-JJ.
+
+```{python}
+#| label: fig-fdp-power
+#| fig-cap: "FDP vs power as the PIP selection threshold is swept, single-effect SER, faceted by design (T ladder + intercepts pooled). A method whose curve rides higher recovers more causals at the same false-discovery proportion."
+R.power_fdp(pip, facet=["design"], filt=SER, methods=METHODS, panel=(3.2, 3.0))
+plt.show()
+```
+
+## 3. PIP average precision - birds-eye {#sec-ap-ser}
+
+A single scalar per simulation setting summarizing the PIP power-vs-FDP curve:
+**average precision** (AUPRC) of the PIP vector ranking the causal variable above
+the $p-1$ decoys. AP is the base-rate-aware summary - the PIP AUROC saturates near 1
+because the causal is rare (1 in 256), whereas AP keeps a wide dynamic range and
+exposes the strong-signal differences. One table per design; rows = ($b_0$, $T$)
+scenario, columns = method, **best per row in bold**.
+
+```{python}
+#| label: tbl-ap-ser
+#| output: asis
+print(R.ap_setting_tables(pip, setting=["design", "b0", "T"], filt=SER, methods=METHODS))
+```
+
+## 4. Enrichment detection by logBFSER {#sec-logbf-roc}
+
+Rank datasets by their SER log Bayes factor and ask whether the ordering separates
+**enriched** ($\beta \neq 0$) from **null** ($\beta = 0$) simulations - no credible
+set, no threshold (swept from $-\infty$). Positive = enriched dataset, negative =
+matched null (same design, $b_0$); AUC = P(an enriched SER out-ranks a null one).
+
+```{python}
+#| label: fig-detect-roc
+#| fig-cap: "Enrichment-detection ROC for single-effect SER fits: enriched vs matched null datasets ordered by logBFSER, faceted by design (pooled over the T ladder + intercepts). gIBSS separates best; global-JJ's bounded logBF is the weakest detector."
+R.logbf_roc(cs, facet=["design"], filt=SER, methods=METHODS, label_kind="detect", panel=(3.4, 3.4))
+plt.show()
+```
+
+## 5. Credible sets - declared (logBF>2) {#sec-cs-ser}
+
+A single-effect fit yields exactly **one** credible set per dataset, so there are no
+spurious components to prune. Ungated, that makes the panel uninformative: coverage and
+power coincide (one causal, one CS) and both sit near 0.99 whatever the signal, because
+the 95% CS spans almost the whole $p=256$ space (median size ~190) and covers the causal
+for free. Gating at `logBFSER > 2` - the rule from [Part B](#sec-cs-operating) - makes it
+read. Coverage stays calibrated among declared sets, but power becomes the **detection**
+rate (a causal counts only if its dataset clears the gate) and the resolved size drops to
+a handful. Power is now signal-limited, ~0.01 at $T=4$ rising to ~0.94 at $T=32$.
+
+```{python}
+#| label: fig-cs-operating-ser
+#| column: page
+#| fig-cap: "Declared (logBF>2) SER 95%-CS coverage / power / median resolved size, per design; dot = median over cells, bar = IQR. Coverage rides near the nominal 0.95 (global-JJ falls below - overconfident); power is the detection rate (~0.35 pooled over the T ladder, vs ~0.99 ungated), and resolved size drops to 2-3. Mirrors Part B §5."
+R.cs_operating_dotplot(cs, facet=["design"], filt=SER, methods=METHODS)
+plt.show()
+```
+
+The pooled dotplot averages power over the T ladder, which hides that power is
+detection-limited and climbs with the signal. The same declared-CS metrics per scenario
+($b_0$, $T$) - one table per design, rows = ($b_0$, $T$), columns = coverage / power /
+median size for each method. Best method per metric is **bold** (power highest, size
+smallest); coverage cells are shaded by severity of under-coverage (light red < 0.95,
+deeper toward darkest < 0.70). This is the SER counterpart of the
+[multi-effect table](#sec-cs-table).
+
+```{python}
+#| label: tbl-cs-scenario-ser
+#| output: asis
+print(R.cs_scenario_tables(cs, scenario=["design", "b0", "T"], filt=SER,
+                           methods=METHODS, min_log_bf=2.0, group="metric"))
+```
+
+Reliability of the SER credible sets - nominal level $\beta$ vs empirical coverage - shown
+two ways. First **ungated** (every dataset's one CS, the cleanest testbed since there is no
+reference class to choose):
+
+```{python}
+#| label: fig-cs-calibration-ser
+#| fig-cap: "SER credible-set reliability (ungated): nominal level beta vs empirical coverage, per design. On the diagonal = calibrated; below = overconfident. global-JJ's confident sets fall below the diagonal at high beta; the others ride at/above it."
+R.cs_calibration_curve(cs, facet=["design"], filt=SER, methods=METHODS, min_log_bf=float("-inf"),
+                       title="SER credible-set calibration (ungated) - below diagonal = overconfident")
+plt.show()
+```
+
+Then restricted to the **declared** (logBF>2) sets, matching the gate used elsewhere in §5:
+
+```{python}
+#| label: fig-cs-calibration-ser-declared
+#| fig-cap: "SER credible-set reliability at logBFSER>=2: nominal level beta vs empirical coverage, per design. On the diagonal = calibrated; below = overconfident. Gating barely shifts the well-calibrated methods; global-JJ still falls below the diagonal at high beta."
+R.cs_calibration_curve(cs, facet=["design"], filt=SER, methods=METHODS, min_log_bf=2.0,
+                       title="SER credible-set calibration (logBF>2) - below diagonal = overconfident")
+plt.show()
+```
+
+Distribution of the declared (logBF>2) SER 95%-CS sizes, one square panel per method:
+
+```{python}
+#| label: fig-cs-size-hist-ser
+#| column: screen-inset
+#| fig-cap: "Distribution of declared (logBF>2) SER 95%-CS sizes, one square panel per method, pooled over designs and cells; log-spaced bins, dashed grey = median. Each bin fills credible sets that cover the causal (TP) at the base with those that miss it stacked on top as a hollow cap (FP), so the hollow cap reads the false-positive count by size. FP here is mislocalization (nulls excluded). global-JJ carries a visible hollow cap on its singleton bin; the others are near-fully filled."
+R.cs_size_histogram(cs, filt=SER, methods=METHODS, min_log_bf=2.0)
+plt.show()
+```
+
+How confident are the false positives? Among the **declared** (logBFSER $\ge 2$)
+credible sets that miss the causal, the cumulative fraction at or below each size -
+a method whose FPs pile up at size $\le 1$ makes confident-but-wrong singleton calls;
+one whose FPs stay large is at least honestly diffuse. **`n_FP`** = number of declared
+CS that miss (the denominator); each **`size<=t`** column is the fraction of those with
+95%-CS size $\le t$ (cumulative, so non-decreasing left to right).
+
+```{python}
+#| label: tbl-fp-size-ser
+#| output: asis
+print(R.fp_size_table(cs, filt=SER, methods=METHODS, min_log_bf=2.0))
+```
+
+## 6. Variational fit: common-Q2 ELBO {#sec-elbo-ser}
+
+The three approximations optimize different surrogates but all record the **common Q2
+ELBO**, so we can ask which reaches the best variational fit. The ELBO is only
+comparable within a dataset, so we **pair** on the sim and report the median
+$\Delta\text{ELBO}$ (nats) vs the reference (**CAVI-cf**)
+and the **win rate** - the fraction of paired fits where the method attains the highest
+ELBO. CAVI-cf is 0 by construction. One table per design; best per block bolded.
+
+```{python}
+#| label: tbl-elbo-ser
+#| output: asis
+print(R.elbo_scenario_tables(elbo, scenario=["design", "b0", "T"], filt=SER,
+                             methods=METHODS + ["cavi"]))   # cavi = paired reference (0 by construction)
+```
+
+# Part B - multi-effect credible sets {#sec-partB}
+
+With $L^\* \in \{2,3,5\}$ true effects and $L=10$ fitted components, each dataset
+yields up to 10 credible sets. This part mirrors [Part A](#sec-partA) - the same PIP
+and logBF diagnostics (§1-4) - and adds the credible-set analyses (§5-6) that the
+single-effect SER section omits, now that several sets must be found and localized
+per dataset. Declared credible sets use a provisional `logBF > 2` gate at the nominal
+95% level (see the [note](#sec-partB-note)).
+
+## 1. PIP calibration {#sec-pip-cal-multi}
+
+As in Part A but pooling the multi-effect cells: one method per panel (rows = design),
+empirical causal frequency vs PIP-bin midpoint, dot area $\propto$ feature count.
+
+```{python}
+#| label: fig-pip-cal-multi
+#| column: page
+#| fig-cap: "PIP calibration on multi-effect fits (L*=2,3,5; fit L=10), pooled over T / gap / L* within each design. On the diagonal = calibrated; below = PIP overstates the evidence."
+R.pip_calibration(pip, facet=["design"], filt=MULTI, methods=METHODS)
+plt.show()
+```
+
+## 2. FDP vs power {#sec-fdp-power-multi}
+
+Sweep a PIP threshold; realized FDP (x) vs recall of the $L^\*$ causals (y).
+
+```{python}
+#| label: fig-fdp-power-multi
+#| fig-cap: "FDP vs power as the PIP threshold is swept, multi-effect fits, faceted by design (T / gap / L* pooled). Higher curve = more causals recovered at the same false-discovery proportion."
+R.power_fdp(pip, facet=["design"], filt=MULTI, methods=METHODS, panel=(3.2, 3.0))
+plt.show()
+```
+
+## 3. PIP average precision - birds-eye {#sec-ap-multi}
+
+The multi-effect analogue of the [SER AUPRC tables](#sec-ap-ser): average precision
+of the PIP vector ranking the $L^\*$ causal variables above the decoys. One table per
+design; rows = (gap, $T$) scenario (all at $b_0=-2$, **pooled over** $L^\*$), columns =
+method, **best per row in bold**. Gap - the column spacing between adjacent causals -
+is a real axis: at small gap the causals are highly correlated and hard to tell apart
+(AUPRC caps even at strong $T$), while at large gap they are near-independent (weak
+signal is near-hopeless, strong signal localizes cleanly).
+
+```{python}
+#| label: tbl-ap-multi
+#| output: asis
+print(R.ap_setting_tables(pip, setting=["design", "gap", "T"], filt=MULTI, methods=METHODS))
+```
+
+## 4. logBF discovery precision-recall {#sec-logbf-roc-multi}
+
+Part A ranks datasets by logBFSER for *enrichment detection*; with several components
+per dataset that label does not port (most components are spurious), so the
+multi-effect analogue scores **localized discovery**: a true positive is a component
+whose 95% CS covers a causal **and** is not dispersed (size $< 50$); negatives are
+null, dispersed, or mis-localized components. Matched nulls are pooled in as before.
+
+The ROC of this ranking saturates - with L=10 over-specified fits the negatives vastly
+outnumber the positives, and logBF ranks the handful of real localized sets above the
+junk so cleanly that every method sits at AUC $\approx 1$. **Precision-recall** is the
+base-rate-aware view: it does not degenerate under that imbalance, so it exposes where
+the methods actually differ. The grey dashed line is the positive prevalence (a
+no-skill classifier); the legend reports average precision (AP).
+
+```{python}
+#| label: fig-logbf-roc-multi
+#| fig-cap: "logBFSER discovery precision-recall on multi-effect fits: TP = component covers a causal with 95%-CS size < 50, faceted by design. Legend = average precision; grey dashed = positive prevalence. global-JJ's bounded logBF costs it precision at high recall relative to gIBSS."
+R.logbf_pr(cs, facet=["design"], filt=MULTI, methods=METHODS, label_kind="discovery", panel=(3.4, 3.4))
+plt.show()
+```
+
+## 5. Credible-set coverage / power / resolution {#sec-cs-operating}
+
+Declared credible sets (`ser_log_bf > 2`) at the 95% level. Per simulation cell we
+pool replicates into each rate; the dot is the median across the panel's cells, the
+bar the IQR.
+
+- **coverage** = fraction of declared CS that capture a causal (dashed = 0.95),
+- **power** = fraction of (replicate $\times$ causal) captured by a declared CS,
+- **median size** = median 95%-CS size among the resolved ($<50$) CS.
+
+```{python}
+#| label: fig-cs-operating
+#| column: page
+#| fig-cap: "Declared (logBF>2) 95%-CS coverage / power / median resolved size on multi-effect cells (L*=2,3,5; fit L=10), per design; dot = median over cells, bar = IQR."
+R.cs_operating_dotplot(cs, facet=["design"], filt=MULTI, methods=METHODS)
+plt.show()
+```
+
+The median above hides the shape of the size distribution. Per method, the histogram
+of declared 95%-CS sizes (log-spaced bins, dashed = median):
+
+```{python}
+#| label: fig-cs-size-hist
+#| column: screen-inset
+#| fig-cap: "Distribution of declared (logBF>2) 95%-CS sizes on multi-effect cells, one square panel per method, pooled over designs and cells; log-spaced bins, dashed grey = median. Each bin fills credible sets that cover a causal (TP) at the base with those that miss stacked on top as a hollow cap (FP), so the hollow cap reads the false-positive count by size. global-JJ's mass sits at small sizes (tight but overconfident), and its singleton bins carry the largest hollow FP cap; gIBSS carries a heavier resolved-size tail."
+R.cs_size_histogram(cs, filt=MULTI, methods=METHODS)
+plt.show()
+```
+
+How confident are the false positives? Among the **declared** (logBFSER $\ge 2$)
+credible sets that cover no causal, the cumulative fraction at or below each size -
+FPs that pile up at size $\le 1$ are confident-but-wrong singleton components; large
+ones are at least honestly diffuse. **`n_FP`** = number of declared CS covering no
+causal (the denominator); each **`size<=t`** column is the fraction of those with
+95%-CS size $\le t$ (cumulative, so non-decreasing left to right).
+
+```{python}
+#| label: tbl-fp-size-multi
+#| output: asis
+print(R.fp_size_table(cs, filt=MULTI, methods=METHODS, min_log_bf=2.0))
+```
+
+## 6. Per-scenario 95%-CS results {#sec-cs-table}
+
+The same declared-CS metrics as §5, reported per scenario rather than aggregated:
+one table per design, rows = ($L^\*$, $T$) scenario (pooled over gap), columns =
+coverage / power / median size for each method. Within each metric the best method is
+**bold** - power highest, size smallest (so a method that is tight but under-covers,
+e.g. global-JJ, shows a bolded size next to a badly-shaded coverage). Coverage cells are
+shaded by severity of under-coverage (light red < 0.95, deeper toward darkest < 0.70).
+Method codes: gJJ = global-JJ, lJJ = local-JJ, gIB = gIBSS.
+
+```{python}
+#| label: tbl-cs-scenario
+#| output: asis
+print(R.cs_scenario_tables(cs, scenario=["design", "Lstar", "T"], filt=MULTI,
+                           methods=METHODS, min_log_bf=2.0, group="metric"))
+```
+
+## 7. Credible-set calibration & overconfidence {#sec-cs-calibration}
+
+A level-$\beta$ credible set claims to contain the causal with probability $\beta$;
+**overconfident** ⟺ it covers the truth *less* often than $\beta$. Coverage of the
+$\beta$-CS is $P(\text{best\_mass} < \beta)$, so its ECDF is the calibration curve -
+below the diagonal is anti-conservative. (`best_mass` is the level at which a
+component's CS first covers a causal, so this needs no size or $\alpha$; the swept
+$\beta$ makes it threshold-free on the credible-set axis.)
+
+Reliability shown two ways, as in [Part A](#sec-cs-ser). First **ungated** - every one of
+the L=10 components' CS, so the spurious components (which never cover a causal) drag the
+curve well below the diagonal:
+
+```{python}
+#| label: fig-cs-calibration-all
+#| fig-cap: "Credible-set reliability (ungated): nominal level beta vs empirical coverage, per design, methods overlaid. All L=10 components included, so the many spurious ones pull every method below the diagonal - the gate below is what makes calibration meaningful."
+R.cs_calibration_curve(cs, facet=["design"], filt=MULTI, methods=METHODS, min_log_bf=float("-inf"))
+plt.show()
+```
+
+Then restricted to the **declared** (`logBFSER` $\geq 2$) sets:
+
+```{python}
+#| label: fig-cs-calibration
+#| fig-cap: "Credible-set reliability at logBFSER>=2: nominal level beta vs empirical coverage, per design, methods overlaid. On the diagonal = calibrated; below = overconfident. global-JJ's confident sets fall below; the others ride at/above the diagonal."
+R.cs_calibration_curve(cs, facet=["design"], filt=MULTI, methods=METHODS, min_log_bf=2.0)
+plt.show()
+```
+
+The declaration threshold is method-specific (the JJ bound understates `logBFSER`), so
+we also sweep it: coverage of the $\beta$-CS as the `logBFSER` gate rises, at four
+$\beta$ levels. A curve goes **dotted where it drops below its nominal $\beta$** (red
+line) - i.e. where the method is overconfident. Raising the gate never lifts global-JJ
+back to nominal at high $\beta$.
+
+```{python}
+#| label: fig-coverage-vs-logbf
+#| column: page
+#| fig-cap: "Coverage of the beta-CS vs the logBFSER declaration threshold (x capped at 10), rows = nominal beta, cols = design. Red line = nominal; dotted segments = below nominal (overconfident). global-JJ is anti-conservative across the 80/95/99% rows on AR1-Gaussian regardless of the threshold; the others only dip at the stringent 99% level."
+R.coverage_vs_logbf(cs, filt=MULTI, methods=METHODS)
+plt.show()
+```
+
+## 8. Variational fit: common-Q2 ELBO {#sec-elbo-multi}
+
+As [§5 in Part A](#sec-elbo-ser), for the multi-effect fits: median $\Delta\text{ELBO}$
+(nats) vs CAVI-cf and win rate, paired per sim, one table per design.
+
+```{python}
+#| label: tbl-elbo-multi
+#| output: asis
+print(R.elbo_scenario_tables(elbo, scenario=["design", "Lstar", "T"], filt=MULTI,
+                             methods=METHODS + ["cavi"]))   # cavi = paired reference
+```
+
+## Declaring informative effects {#sec-partB-note}
+
+The provisional gate above (`logBF > 2` and, elsewhere, `max_size < 100`) hard-codes
+two arbitrary thresholds. The intended replacement - a `logBF`-swept FDR / power /
+size operating curve with a size-free correctness label - is being finalized; this
+section will host it.
