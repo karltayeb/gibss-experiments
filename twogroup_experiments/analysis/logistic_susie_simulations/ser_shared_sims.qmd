@@ -1,0 +1,142 @@
+---
+title: "SER: gIBSS vs CAVI-cf on shared simulations"
+subtitle: "Part A figures restricted to the datasets fit by BOTH methods (CAVI-cf runs 10 reps/cell vs gIBSS 50, on the same cells), so the comparison is on identical data."
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))          # analysis/logistic_susie_simulations -> two up
+os.chdir("..")                                       # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/logistic_susie_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import resultslib as R
+
+pip, cs = R.load_both()
+elbo = R.elbo_frame()
+
+METHODS = ["gibss", "cavi"]                           # the two of interest
+SER = {"Lstar": 1, "fit_L": 1}                        # single causal, correctly-specified SER
+
+# Restrict pip/cs to the SER datasets fit by BOTH methods. CAVI-cf runs 10 reps/cell,
+# gIBSS 50, on the SAME content-addressed cells; pooling each method over its own reps
+# makes CAVI's binned curves 5x noisier and reads as a method difference where there is
+# none. Intersecting sample_ids puts every panel on identical data. (elbo_scenario_tables
+# already pairs on the sim, so it is inherently on shared sims.)
+def _shared_ids(df, methods, filt):
+    d = R.apply_filter(df, filt)
+    sets = [set(d.filter(pl.col("method") == m)["sample_id"].to_list()) for m in methods]
+    return list(set.intersection(*sets))
+
+_ids = _shared_ids(pip, METHODS, SER)
+pip = pip.filter(pl.col("sample_id").is_in(_ids))
+cs = cs.filter(pl.col("sample_id").is_in(_ids))
+```
+
+```{python}
+#| label: status
+#| echo: false
+#| output: asis
+n = pip.filter((pl.col("method") == "cavi") & (pl.col("Lstar") == 1) & (pl.col("fit_L") == 1)).height
+print(f"gIBSS vs CAVI-cf, single-effect SER, **{n} shared datasets** (36 cells x 10 reps). "
+      "Every figure below is on identical data.")
+```
+
+## 1. PIP calibration {#sec-pip-cal}
+
+```{python}
+#| label: fig-pip-cal
+#| column: page
+#| fig-cap: "PIP calibration, shared datasets. gIBSS and CAVI-cf coincide."
+R.pip_calibration(pip, facet=["design"], filt=SER, methods=METHODS)
+plt.show()
+```
+
+## 2. FDP vs power {#sec-fdp-power}
+
+```{python}
+#| label: fig-fdp-power
+#| fig-cap: "FDP vs power as the PIP threshold is swept, shared datasets."
+R.power_fdp(pip, facet=["design"], filt=SER, methods=METHODS, panel=(3.2, 3.0))
+plt.show()
+```
+
+## 3. PIP average precision {#sec-ap-ser}
+
+```{python}
+#| label: tbl-ap-ser
+#| output: asis
+print(R.ap_setting_tables(pip, setting=["design", "b0", "T"], filt=SER, methods=METHODS))
+```
+
+## 4. Enrichment detection by logBFSER {#sec-logbf-roc}
+
+```{python}
+#| label: fig-detect-roc
+#| fig-cap: "Enrichment-detection ROC (enriched vs matched null, ordered by logBFSER), shared datasets."
+R.logbf_roc(cs, facet=["design"], filt=SER, methods=METHODS, label_kind="detect", panel=(3.4, 3.4))
+plt.show()
+```
+
+## 5. Credible sets - declared (logBF>2) {#sec-cs-ser}
+
+```{python}
+#| label: fig-cs-operating-ser
+#| column: page
+#| fig-cap: "Declared (logBF>2) SER 95%-CS coverage / power / median resolved size, shared datasets."
+R.cs_operating_dotplot(cs, facet=["design"], filt=SER, methods=METHODS)
+plt.show()
+```
+
+```{python}
+#| label: tbl-cs-scenario-ser
+#| output: asis
+print(R.cs_scenario_tables(cs, scenario=["design", "b0", "T"], filt=SER,
+                           methods=METHODS, min_log_bf=2.0, group="metric"))
+```
+
+```{python}
+#| label: fig-cs-calibration-ser
+#| fig-cap: "SER credible-set reliability (ungated): nominal beta vs empirical coverage, shared datasets."
+R.cs_calibration_curve(cs, facet=["design"], filt=SER, methods=METHODS, min_log_bf=float("-inf"),
+                       title="SER credible-set calibration (ungated)")
+plt.show()
+```
+
+```{python}
+#| label: fig-cs-calibration-ser-declared
+#| fig-cap: "SER credible-set reliability at logBFSER>=2, shared datasets."
+R.cs_calibration_curve(cs, facet=["design"], filt=SER, methods=METHODS, min_log_bf=2.0,
+                       title="SER credible-set calibration (logBF>2)")
+plt.show()
+```
+
+```{python}
+#| label: fig-cs-size-hist-ser
+#| column: screen-inset
+#| fig-cap: "Declared (logBF>2) SER 95%-CS size distribution, one panel per method, shared datasets."
+R.cs_size_histogram(cs, filt=SER, methods=METHODS, min_log_bf=2.0)
+plt.show()
+```
+
+```{python}
+#| label: tbl-fp-size-ser
+#| output: asis
+print(R.fp_size_table(cs, filt=SER, methods=METHODS, min_log_bf=2.0))
+```
+
+## 6. Variational fit: common-Q2 ELBO {#sec-elbo-ser}
+
+```{python}
+#| label: tbl-elbo-ser
+#| output: asis
+print(R.elbo_scenario_tables(elbo, scenario=["design", "b0", "T"], filt=SER, methods=METHODS))
+```
