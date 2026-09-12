@@ -1,0 +1,340 @@
+---
+title: "Poisson-SuSiE simulation results"
+subtitle: "Calibration, detection, and credible-set quality for gIBSS / CAVI-cf / CAVI-selfnorm / score across the baseline-rate axis (experiment 021)."
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))   # analysis/poisson_susie_simulations -> analysis
+os.chdir("..")                                # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/poisson_susie_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import resultslib as R
+
+pip, cs = R.load_both()                       # all 20 arms, one supercollection
+elbo = R.elbo_frame()                          # per-fit common-Q2 ELBO (Q2 arms only)
+
+# Primary comparison: the EB arms (headline). The fixed unit-prior (_pv1) twins get their
+# own short section. gIBSS/CAVI x Q1/Q2 + score.
+EB = ["q2_gibss", "q1_gibss", "q2_cavi", "q1_cavi", "q2_score"]
+PV1 = [m + "_pv1" for m in EB]
+EB = [m for m in EB if m in R.methods_present(pip)]
+PV1 = [m for m in PV1 if m in R.methods_present(pip)]
+
+SER = {"Lstar": 1, "fit_L": 1}                 # single causal, correctly-specified SER
+MULTI = {"Lstar": [2, 3, 5], "fit_L": 10}      # multiple causals, over-specified L=10
+```
+
+Experiment **021** fits well-specified Poisson counts $y_i \sim \text{Poisson}(e^{b_0 + x_i\beta})$
+with four approximations to the intractable Poisson-SuSiE marginal - **gIBSS** (plug-in mean
+offset), **CAVI-cf** (exact closed-form offset, Gaussian effect), **CAVI-selfnorm** (exact
+offset, free-form effect), **score** (null-anchored linearization) - each in a **Q1** (free-form)
+and **Q2** (Gaussian) effect posterior where applicable, at fixed EB prior (this page) and a
+fixed unit prior (§C). The baseline rate is $\lambda_0 = e^{b_0} \in \{0.1, 1, 10\}$; $\beta$ is
+calibrated per (design, $\lambda_0$) to a target $T = \mathbb{E}[\text{LRT}] \in \{4,8,16,32\}$,
+so detectability is matched and $\lambda_0$ varies only the count discreteness.
+
+```{python}
+#| label: status
+#| echo: false
+#| output: asis
+have = ", ".join(R.METHOD_LABEL.get(m, m) for m in R.methods_present(pip))
+n_reps = pip.group_by(["design_n", "lambda0", "T", "Lstar", "gap", "fit_L", "method"]).len()["len"]
+print(f"**Arms present:** {have}.\n\n**Cells x method:** {n_reps.len()} groups, "
+      f"{int(n_reps.median())} replicates each (median).")
+```
+
+# Part A - single-effect, SER fits {#sec-partA}
+
+One causal, one fitted effect (`Lstar=1, fit_L=1`).
+
+## PIP calibration {#sec-pip-cal}
+
+Empirical causal frequency vs PIP-bin midpoint; one method per panel, rows = design, dot area
+$\propto$ features in the bin. Diagonal = calibrated.
+
+```{python}
+#| label: fig-pip-cal
+#| column: page
+#| fig-cap: "PIP calibration, single-effect SER, pooled over the rate ladder and T within each design."
+R.pip_calibration(pip, facet=["design"], filt=SER, methods=EB)
+plt.show()
+```
+
+Resolved by baseline rate $\lambda_0$ (rows = design, columns within = method; one method-grid
+per rate is pooled here into the rate facet):
+
+```{python}
+#| label: fig-pip-cal-rate
+#| column: screen-inset
+#| fig-cap: "PIP calibration, single-effect SER, faceted by design x baseline rate lambda0 (rows), method per column."
+R.pip_calibration(pip, facet=["design_n", "lambda0"], filt=SER, methods=EB, panel=1.7)
+plt.show()
+```
+
+## FDP vs power {#sec-fdp-power}
+
+PIP threshold swept; realized FDP (x) vs causal recall (y), methods overlaid, per design.
+
+```{python}
+#| label: fig-fdp-power
+#| fig-cap: "FDP vs power (PIP sweep), single-effect SER, faceted by design (rate ladder + T pooled)."
+R.power_fdp(pip, facet=["design"], filt=SER, methods=EB, panel=(3.2, 3.0))
+plt.show()
+```
+
+Faceted by baseline rate (design pooled) to read the rate axis directly:
+
+```{python}
+#| label: fig-fdp-power-rate
+#| column: page
+#| fig-cap: "FDP vs power (PIP sweep), single-effect SER, faceted by design_n x lambda0."
+R.power_fdp(pip, facet=["design_n", "lambda0"], filt=SER, methods=EB, panel=(2.6, 2.5))
+plt.show()
+```
+
+## Enrichment detection by logBF {#sec-detect-roc}
+
+Rank datasets by SER log Bayes factor; ROC separating enriched ($\beta\neq0$) from matched
+null ($\beta=0$) simulations, per design.
+
+```{python}
+#| label: fig-detect-roc
+#| fig-cap: "Enrichment-detection ROC (enriched vs matched null, ordered by logBF_SER), single-effect SER, per design. Legend = AUC."
+R.logbf_roc(cs, facet=["design"], filt=SER, methods=EB, label_kind="detect", panel=(3.4, 3.4))
+plt.show()
+```
+
+## PIP average precision (AUPRC) {#sec-ap-ser}
+
+AUPRC of the PIP vector ranking the causal above the decoys; one table per design, rows =
+($\lambda_0$, $T$), best per row bold.
+
+```{python}
+#| label: tbl-ap-ser
+#| output: asis
+print(R.ap_setting_tables(pip, setting=["design", "lambda0", "T"], filt=SER, methods=EB))
+```
+
+## Declared 95%-CS metrics {#sec-cs-table-ser}
+
+Declared (logBF>2) 95%-CS coverage / power / median size, per (design, $\lambda_0$, $T$).
+Coverage shaded by under-coverage severity; power bold-max, size bold-min.
+
+```{python}
+#| label: tbl-cs-ser
+#| output: asis
+print(R.cs_scenario_tables(cs, scenario=["design", "lambda0", "T"], filt=SER,
+                           methods=EB, min_log_bf=2.0, group="metric"))
+```
+
+# Part B - multi-effect credible sets {#sec-partB}
+
+$L^\* \in \{2,3,5\}$ true effects, $L=10$ fitted components. Declared credible sets use a
+`ser_log_bf > 2` gate at the 95% level.
+
+## PIP calibration {#sec-pip-cal-multi}
+
+```{python}
+#| label: fig-pip-cal-multi
+#| column: page
+#| fig-cap: "PIP calibration, multi-effect (L*=2,3,5; fit L=10), pooled over T / gap / L* within each design."
+R.pip_calibration(pip, facet=["design"], filt=MULTI, methods=EB)
+plt.show()
+```
+
+## FDP vs power {#sec-fdp-power-multi}
+
+```{python}
+#| label: fig-fdp-power-multi
+#| fig-cap: "FDP vs power (PIP sweep), multi-effect, faceted by design (T / gap / L* pooled)."
+R.power_fdp(pip, facet=["design"], filt=MULTI, methods=EB, panel=(3.2, 3.0))
+plt.show()
+```
+
+## logBF discovery precision-recall {#sec-logbf-pr-multi}
+
+TP = a component whose 95% CS covers a causal with size $< 50$; ranked by `ser_log_bf`.
+
+```{python}
+#| label: fig-logbf-pr-multi
+#| fig-cap: "logBF_SER discovery precision-recall, multi-effect, per design. Legend = average precision; grey dashed = positive prevalence."
+R.logbf_pr(cs, facet=["design"], filt=MULTI, methods=EB, label_kind="discovery", panel=(3.4, 3.4))
+plt.show()
+```
+
+## PIP average precision (AUPRC) {#sec-ap-multi}
+
+AUPRC ranking the $L^\*$ causals above the decoys; one table per design, rows = (gap, $T$)
+(pooled over $L^\*$), best per row bold.
+
+```{python}
+#| label: tbl-ap-multi
+#| output: asis
+print(R.ap_setting_tables(pip, setting=["design", "gap", "T"], filt=MULTI, methods=EB))
+```
+
+## Credible-set coverage / power / resolution {#sec-cs-operating}
+
+Declared (logBF>2) 95%-CS: coverage (dashed = 0.95), power, median resolved size; dot = median
+over the panel's cells, bar = IQR.
+
+```{python}
+#| label: fig-cs-operating
+#| column: page
+#| fig-cap: "Declared (logBF>2) 95%-CS coverage / power / median resolved size, multi-effect, per design."
+R.cs_operating_dotplot(cs, facet=["design"], filt=MULTI, methods=EB)
+plt.show()
+```
+
+Same three metrics, faceted by baseline rate:
+
+```{python}
+#| label: fig-cs-operating-rate
+#| column: page
+#| fig-cap: "Declared (logBF>2) 95%-CS coverage / power / median size, multi-effect, faceted by lambda0 (design pooled)."
+R.cs_operating_dotplot(cs, facet=["lambda0"], filt=MULTI, methods=EB)
+plt.show()
+```
+
+## Credible-set calibration {#sec-cs-calibration}
+
+Nominal level $\beta$ vs empirical coverage of the $\beta$-CS; below the diagonal = overconfident.
+
+```{python}
+#| label: fig-cs-calibration
+#| fig-cap: "Declared (logBF>2) credible-set reliability: nominal beta vs empirical coverage, multi-effect, per design."
+R.cs_calibration_curve(cs, facet=["design"], filt=MULTI, methods=EB, min_log_bf=2.0)
+plt.show()
+```
+
+Coverage of the $\beta$-CS as the `logBF` declaration gate rises (dotted where below nominal):
+
+```{python}
+#| label: fig-coverage-vs-logbf
+#| column: page
+#| fig-cap: "Coverage of the beta-CS vs the logBF declaration threshold, multi-effect; rows = nominal beta, cols = design. Red line = nominal; dotted = below nominal."
+R.coverage_vs_logbf(cs, filt=MULTI, methods=EB)
+plt.show()
+```
+
+## Credible-set size distribution {#sec-cs-size}
+
+Declared (logBF>2) 95%-CS sizes, one panel per method; filled = covers a causal, hollow cap = miss.
+
+```{python}
+#| label: fig-cs-size-hist
+#| column: screen-inset
+#| fig-cap: "Declared (logBF>2) 95%-CS size distribution, multi-effect, one panel per method; log-spaced bins, dashed = median."
+R.cs_size_histogram(cs, filt=MULTI, methods=EB)
+plt.show()
+```
+
+## Declared 95%-CS metrics {#sec-cs-table-multi}
+
+Declared (logBF>2) 95%-CS coverage / power / median size, per (design, $L^\*$, $T$)
+(pooled over gap).
+
+```{python}
+#| label: tbl-cs-multi
+#| output: asis
+print(R.cs_scenario_tables(cs, scenario=["design", "Lstar", "T"], filt=MULTI,
+                           methods=EB, min_log_bf=2.0, group="metric"))
+```
+
+False-positive resolution: among declared CS covering no causal, cumulative fraction at or
+below each 95%-CS size (`n_FP` = the count of such CS).
+
+```{python}
+#| label: tbl-fp-size-multi
+#| output: asis
+print(R.fp_size_table(cs, filt=MULTI, methods=EB, min_log_bf=2.0))
+```
+
+# Part C - fixed unit prior (pv=1) {#sec-partC}
+
+The `_pv1` twins (no EB prior-variance estimation). Same diagnostics, fixed-prior arms only.
+
+```{python}
+#| label: fig-pip-cal-pv1
+#| column: page
+#| fig-cap: "PIP calibration on the fixed unit-prior (pv=1) arms: single-effect SER (top block) and the CS operating metrics below."
+R.pip_calibration(pip, facet=["design"], filt=SER, methods=PV1)
+plt.show()
+```
+
+```{python}
+#| label: fig-cs-operating-pv1
+#| column: page
+#| fig-cap: "Declared (logBF>2) 95%-CS coverage / power / median size on the fixed unit-prior (pv=1) arms, multi-effect, per design."
+R.cs_operating_dotplot(cs, facet=["design"], filt=MULTI, methods=PV1)
+plt.show()
+```
+
+# Part D - variational fit (common Q2 ELBO) {#sec-elbo}
+
+Per-fit common-Q2 ELBO, paired on the sim; median $\Delta$ELBO of each Q2 arm vs **CAVI-cf·Q2**
+(nats), per (design, $\lambda_0$). Q2 arms only (a free-form Q1 state has no Q2 ELBO).
+
+```{python}
+#| label: fig-elbo
+#| column: page
+#| fig-cap: "Median paired dELBO vs CAVI-cf Q2 (nats), Q2 arms, faceted by design; x = baseline rate lambda0. Points above 0 = higher ELBO than the exact CAVI-cf fold."
+import numpy as np
+Q2 = [m for m in ["q2_gibss", "q2_cavi", "q2_score"] if m in R.methods_present(elbo)] if not elbo.is_empty() else []
+if elbo.is_empty() or not Q2:
+    R._placeholder("ELBO pending (needs fits.parquet)")
+else:
+    d = elbo.filter(pl.col("method").is_in(Q2) & pl.col("q2_elbo").is_not_null())
+    key = ["batch_hash", "rep", "fit_L"]
+    ref = d.filter(pl.col("method") == "q2_cavi").select(key + ["q2_elbo"]).rename({"q2_elbo": "ref"})
+    j = d.join(ref, on=key, how="inner").with_columns((pl.col("q2_elbo") - pl.col("ref")).alias("dE"))
+    g = (j.group_by(["design", "design_n", "lambda0", "fit_L", "method"])
+           .agg(pl.col("dE").median().alias("med")))
+    designs = sorted(g["design_n"].unique().to_list())
+    fig, axes = plt.subplots(1, len(designs), figsize=(3.4 * len(designs), 3.2), squeeze=False, sharey=True)
+    lams = sorted([x for x in g["lambda0"].unique().to_list() if x is not None])
+    for ax, dn in zip(axes[0], designs):
+        gg = g.filter(pl.col("design_n") == dn)
+        for m in Q2:
+            for L, mk in [(1, "o"), (10, "s")]:
+                s = gg.filter((pl.col("method") == m) & (pl.col("fit_L") == L)).sort("lambda0")
+                if s.height:
+                    ax.plot(s["lambda0"], s["med"], mk + "-", color=R.method_color(m), ms=5,
+                            label=f"{R.METHOD_LABEL[m]} L{L}")
+        ax.axhline(0, ls="--", c="grey", lw=0.8); ax.set_xscale("log"); ax.set_xticks(lams)
+        ax.set_xticklabels([f"{x:g}" for x in lams]); ax.set_title(R.DESIGN_LABEL.get(dn, dn), fontsize=9)
+        ax.set_xlabel(r"$\lambda_0$"); ax.grid(True, alpha=0.3)
+    axes[0][0].set_ylabel(r"median $\Delta$ELBO vs CAVI-cf (nats)", fontsize=9)
+    axes[0][-1].legend(fontsize=7, frameon=False, loc="best")
+    fig.tight_layout()
+plt.show()
+```
+
+Median $\Delta$ELBO vs CAVI-cf·Q2 (nats) and win rate, paired per sim; Q2 arms only. SER:
+
+```{python}
+#| label: tbl-elbo-ser
+#| output: asis
+Q2E = [m for m in ["q2_gibss", "q2_cavi", "q2_score"] if not elbo.is_empty() and m in R.methods_present(elbo)]
+print(R.elbo_scenario_tables(elbo, scenario=["design", "lambda0", "T"], filt=SER,
+                             methods=Q2E, ref="q2_cavi") if Q2E else "_(ELBO pending)_")
+```
+
+Multi-effect:
+
+```{python}
+#| label: tbl-elbo-multi
+#| output: asis
+print(R.elbo_scenario_tables(elbo, scenario=["design", "Lstar", "T"], filt=MULTI,
+                             methods=Q2E, ref="q2_cavi") if Q2E else "_(ELBO pending)_")
+```
