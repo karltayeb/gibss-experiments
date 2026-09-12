@@ -10,7 +10,7 @@
 # generate_experiment.py -- edit that, not this.
 #
 # ONE supercollection (Poisson CAVI folds are closed-form/cheap): all 20 arms at
-# 10 reps (rpb=10 x n_batches=1) over 189 content-addressed simulation cells per
+# 50 reps (rpb=10 x n_batches=5) over 189 content-addressed simulation cells per
 # design x3 designs. Bump n_batches (in generate_experiment.py) to scale reps; batch 0 is reused.
 _anchors:
   methods: &methods [poisson_q2_ser_gibss, poisson_q1_ser_gibss, poisson_q2_ser_cavi, poisson_q1_ser_cavi, poisson_q2_ser_score, poisson_q2_L10_gibss, poisson_q1_L10_gibss, poisson_q2_L10_cavi, poisson_q1_L10_cavi, poisson_q2_L10_score, poisson_q2_ser_gibss_pv1, poisson_q1_ser_gibss_pv1, poisson_q2_ser_cavi_pv1, poisson_q1_ser_cavi_pv1, poisson_q2_ser_score_pv1, poisson_q2_L10_gibss_pv1, poisson_q1_L10_gibss_pv1, poisson_q2_L10_cavi_pv1, poisson_q1_L10_cavi_pv1, poisson_q2_L10_score_pv1]
@@ -19,7 +19,7 @@ _anchors:
 supercollections:
   021-poisson:
     replicates_per_batch: 10
-    n_batches: 1
+    n_batches: 5
     collections:
       - template: {design: {function: gaussian_markov_X, arguments: {n: 500, p: 256, rho: 0.9}}, signal: binary, error: noiseless}
         over:

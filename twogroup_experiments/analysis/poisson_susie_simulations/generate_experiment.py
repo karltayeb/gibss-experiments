@@ -23,7 +23,7 @@ OUT = HERE.parent.parent / "experiments" / "021_poisson_calibrated.yaml"
 # Batches of `replicates_per_batch` (10) reps for the full `021-poisson` SC. Start at 1 (10 reps)
 # to shake out the SLURM path; bump to 5 (50 reps) later -- the loader takes the max n_batches
 # across sharing SCs, so scaling up only ADDS batches 1..N-1 and reuses batch 0 (bare sim_hash).
-N_BATCHES = 1
+N_BATCHES = 5
 
 TARGETS = [4, 8, 16, 32]          # E[LRT] rungs (~ logBF {2,4,8,16})
 LAMBDA0 = [0.1, 1.0, 10.0]        # baseline mean count; b0 = log(lambda0) = {-2.30, 0, +2.30}
