@@ -18,7 +18,7 @@ def fit_logistic_method(
     offset_integration=None, offset_quadrature_points=None,
     variational_family=None, center=True, intercept=None, densify=False,
     estimate_prior_variance=False, max_prior_variance=None, max_iter=None,
-    freeze_prior_variance=None,
+    freeze_prior_variance=None, method=None,
 ):
     from core import _score
     if response_source == "z":
@@ -36,22 +36,36 @@ def fit_logistic_method(
     # (moment-matched), "compress_selfnorm" (exact free-form CAVI in Q1), or "compress"
     # with variational_family="gaussian" (exact CAVI in Q2). The old moment-projected
     # "compress" + unconstrained path was dropped upstream as dominated.
-    integ = offset_integration if offset_integration is not None else ("none" if L == 1 else "gh")
-    # estimate_prior_variance defaults False (historical behaviour: the effect prior
-    # variance is fixed at 1, so a method comparison isolates the SER approximation).
-    # A method may opt into EB estimation of the per-effect prior variance; the estimate
-    # can be capped with max_prior_variance (a hard ceiling, applied only when set).
-    kwargs = dict(
-        L=L,
-        family="logistic",
-        center=center,
-        estimate_prior_variance=bool(estimate_prior_variance),
-        offset_integration=integ,
-        offset_quadrature_points=(
-            OFFSET_QUADRATURE_POINTS if offset_quadrature_points is None
-            else int(offset_quadrature_points)
-        ),
-    )
+    # A `method=` (a fit_glm_susie PRESET name, e.g. "score") drives offset_integration /
+    # intercept / _anchor from the preset instead of the hand-built axes below -- required
+    # for the null-expansion "score" method, whose `_anchor="null"` is NOT an exposed axis
+    # (only reachable via the preset). In that mode we do NOT inject offset_integration
+    # (it would override the preset) and leave intercept to the preset unless pinned.
+    if method is not None:
+        kwargs = dict(
+            L=L,
+            family="logistic",
+            center=center,
+            estimate_prior_variance=bool(estimate_prior_variance),
+            method=method,
+        )
+    else:
+        integ = offset_integration if offset_integration is not None else ("none" if L == 1 else "gh")
+        # estimate_prior_variance defaults False (historical behaviour: the effect prior
+        # variance is fixed at 1, so a method comparison isolates the SER approximation).
+        # A method may opt into EB estimation of the per-effect prior variance; the estimate
+        # can be capped with max_prior_variance (a hard ceiling, applied only when set).
+        kwargs = dict(
+            L=L,
+            family="logistic",
+            center=center,
+            estimate_prior_variance=bool(estimate_prior_variance),
+            offset_integration=integ,
+            offset_quadrature_points=(
+                OFFSET_QUADRATURE_POINTS if offset_quadrature_points is None
+                else int(offset_quadrature_points)
+            ),
+        )
     if max_prior_variance is not None:
         kwargs["max_prior_variance"] = float(max_prior_variance)
     # Cap the IBSS sweep count (fit_glm_susie default 100). Set for the expensive CAVI
@@ -105,12 +119,19 @@ def _q2_elbo(X, y, fitted, center):
     bound). Returns ``None`` for a state it cannot score -- a free-form Q1 effect
     (``b_nodes`` set) is rejected, so the legacy Q1 methods get ``None`` rather than a
     crash. The offset fold auto-sizes to the offset support (M=64 residual degree).
+
+    ``score_intercept="shared"`` forces the intercept to be scored as a Gaussian factor
+    N(m0, v0) with its KL recomputed from (mean, var, prior) -- so the null-intercept
+    ``score`` fit (which fixes b0 at logit(ybar) and would otherwise pay 0 intercept KL)
+    is put on the SAME full-Q2 footing as the shared-intercept methods, and its ELBO is
+    comparable. For a genuine shared-intercept fit this is exact (recomputed KL == stored),
+    so it leaves those ELBOs unchanged. (Needs gibss-mono >= e5fb2aa.)
     """
     try:
         from gibss import glm
         from gibss.elbo import compute_elbo_gaussian
         data = glm.prep_data(X, y, center=center)
-        return float(compute_elbo_gaussian(data, fitted))
+        return float(compute_elbo_gaussian(data, fitted, score_intercept="shared"))
     except Exception:
         return None
 
@@ -132,10 +153,11 @@ def summarize_logistic_method(
     max_prior_variance=None,
     max_iter=None,
     freeze_prior_variance=None,
+    method=None,
 ):
     from core import _extract_ser_struct, _extract_family_state_struct, _extract_twogroup_state_struct, _make_cs_struct, _make_fit_summary_struct
     del response_source, threshold, L, offset_integration, offset_quadrature_points, variational_family, center, intercept, densify
-    del estimate_prior_variance, max_prior_variance, max_iter, freeze_prior_variance
+    del estimate_prior_variance, max_prior_variance, max_iter, freeze_prior_variance, method
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {

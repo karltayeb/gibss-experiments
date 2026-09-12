@@ -76,17 +76,29 @@ rule simulate:
 # the only expensive one; everything else is minutes. Keyed on the method's
 # offset_integration + L, so 018/017 (rpb=50) and 019 (rpb=10) both get right-sized jobs.
 def _fit_resources(batch_hash, method_hash):
+    batch = MANIFEST["batches"][batch_hash]
     kw = MANIFEST["methods"][method_hash].get("kwargs", {}) or {}
-    nreps = len(MANIFEST["batches"][batch_hash]["replicates"])
+    nreps = len(batch["replicates"])
+    n = int(((batch["coordinate"].get("design") or {}).get("arguments") or {}).get("n", 0) or 0)
     oi = kw.get("offset_integration")
     L = int(kw.get("L", 1) or 1)
     # per-rep minutes carry a ~2x margin over the measured single-fit times, so a
     # slower cluster CPU (or a fit that runs to its iteration cap) still finishes: a
     # killed job wastes all its work, an over-provisioned one just backfills.
     if oi == "cf" and L >= 10:
-        per_rep, mem = 60, 16000     # CAVI-cf over-specified: the pole (~23 min/rep measured)
+        # CAVI-cf L=10. The mass OOMs were an XLA-recompile leak (compile count grew every
+        # CAVI iteration until the LLVM arena exhausted memory); fixed in gibss 8e7d318
+        # (flat compiles, bounded RSS). Measured on the fixed code at max_iter=50: peak RSS
+        # ~1.5 GB and ~22-28 min/rep at BOTH n=1000 and n=10000 -- working set and runtime
+        # are set by the CF grid + iteration count, NOT by n (verified 2026-09-10). One tier:
+        # 16 GB is ~10x the flat 1.5 GB peak, 60 min/rep is ~2x the measured single-rep time
+        # (reps 2-10 reuse the in-process compile cache and run faster). 10 reps/batch =>
+        # ~10h cell budget, well under the 36h caslake wall.
+        per_rep, mem = 60, 16000
+    elif L >= 10 and n >= 10000:
+        per_rep, mem = 45, 12000     # gIBSS / JJ L=10 on the n=10000 design: measured >8.5 min/rep, wall-killed at 6
     elif L >= 10:
-        per_rep, mem = 6, 8000       # gIBSS / global-JJ / local-JJ at L=10
+        per_rep, mem = 6, 8000       # gIBSS / global-JJ / local-JJ at L=10 (small n)
     elif oi == "cf":
         per_rep, mem = 4, 8000       # CAVI-cf SER (no offset fold)
     else:

@@ -28,6 +28,48 @@ def gaussian_markov_X(
     return X
 
 
+def gaussian_equicorrelated(
+    rng: np.random.Generator, *, n: int, p: int, rho: float
+) -> np.ndarray:
+    """Single-factor Gaussian design built around one central (causal) column.
+
+    Column 0 is the causal factor ``x1 ~ N(0, I_n)``; every other column is a noisy
+    copy of it,
+
+    ``x_j = rho * x1 + sqrt(1 - rho**2) * eps_j``,  ``eps_j ~ N(0, I_n)`` independent,
+
+    so all columns are marginally ``N(0, 1)``, ``corr(x1, x_j) = rho``, and
+    ``corr(x_j, x_k) = rho**2`` for two decoys ``j, k != 0``. The causal column is thus
+    the hub every decoy loads on. (This is the single-factor construction requested for
+    the JJ-overconfidence study, not a fully exchangeable equicorrelated matrix -- the
+    decoys are slightly less correlated with each other than with the causal.)
+
+    With ``p - 1`` decoys each correlated ``rho`` with the causal, in any finite sample
+    some decoy will, by chance, be MORE correlated with a binary response than the causal
+    itself. An exact-marginal fit (gIBSS/CAVI) hedges its credible set across the block;
+    the JJ variational bound over-rewards whichever decoy wins the sample correlation,
+    producing an overconfident, sometimes-miscovering single-effect credible set. Pair the
+    causal at column 0 with ``spaced_index_effect(causal_effects=[beta], gap=0)`` (which
+    places the sole effect at index ``0``).
+
+    Returned DENSE (the local-JJ conjugate kernel needs a dense centered design, and this
+    design is not sparse). Deterministic given ``rng``.
+    """
+    if n < 0 or p < 0:
+        raise ValueError("n and p must be non-negative.")
+    if abs(rho) > 1:
+        raise ValueError("gaussian_equicorrelated requires |rho| <= 1.")
+    X = np.empty((n, p), dtype=float)
+    if n == 0 or p == 0:
+        return X
+    x1 = rng.normal(size=n)
+    X[:, 0] = x1
+    innovation_scale = float(np.sqrt(max(0.0, 1.0 - rho**2)))
+    for j in range(1, p):
+        X[:, j] = rho * x1 + innovation_scale * rng.normal(size=n)
+    return X
+
+
 def uniform_markov_X(
     rng: np.random.Generator, *, n: int, p: int, rho: float
 ) -> np.ndarray:

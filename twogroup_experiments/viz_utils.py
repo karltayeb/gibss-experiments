@@ -59,17 +59,19 @@ def method_family_color_map() -> dict[str, str]:
         "cox_full_binned":       "#1B7837",  # full-ranking cox, darker green to distinguish
         "cox_reversed_binned":   "#E69F00",  # share cox_reversed orange
         "linear_z":              "#8B4513",  # saddle brown (signed z)
-        "linear_est_z":          "#A0522D",  # sienna (linear, est. residual var, on z)
+        "linear_est_z":          "#5E3C99",  # deep violet (linear, est. residual var, on z)
+        "linear_est_abs_z":      "#9E86C9",  # light violet (same hue, on |z|) - a related pair, well off the TG reds
+        "cox_full":              "#1B7837",  # dark green (full-ranking cox; matches cox_full_binned)
         "logistic_z":            "#0072B2",  # blue (well-specified on z)
         "logistic_score_z":      "#56B4E9",  # sky blue (logistic score approx on z)
         "poisson_z":             "#009E73",  # bluish green (poisson on z)
         "linear_abs":            "#A0522D",  # sienna (|z|)
         "twogroup":              "#D55E00",  # vermillion
-        "twogroup_oracle":       "#CC79A7",  # rose/mauve
+        "twogroup_oracle":       "#A50F15",  # dark red (the TG ceiling) - a related red family
         "twogroup_oracle_global": "#AA4499",  # purple
         "twogroup_oracle_init":  "#994F00",  # dark burnt orange
-        "twogroup_scale_fam":    "#FF6347",  # tomato
-        "twogroup_loc_fam":      "#C0392B",  # crimson
+        "twogroup_scale_fam":    "#FC9272",  # light salmon-red (same hue as oracle/loc)
+        "twogroup_loc_fam":      "#EF3B2C",  # medium red (same hue as oracle/scale)
         "linear_fixed":          "#8B4513",  # saddle brown
         "linear_estimated":      "#A0522D",  # sienna
         "depletion":             "#0072B2",

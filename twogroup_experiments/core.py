@@ -43,6 +43,12 @@ class TwoGroupSimulation:
     # The offset LAW the fit reduces (mean / variance / mixture); None when no offset.
     # The realized psi is NOT stored - a fit knows the offset distribution, not its draw.
     offset_law: Any = None
+    # Poisson count response: y ~ Poisson(exp(eta)), eta = intercept + X @ b (+ offset),
+    # the SAME linear predictor the logistic membership z is drawn from. Drawn LAST in
+    # `simulate` (after thetahat), so an existing logistic/two-group simulation reproduces its
+    # z / theta / thetahat bit-for-bit and its cached fits stay valid. Consumed by the Poisson
+    # SuSiE methods (`fits/poisson.py`); ignored by every other family.
+    y_count: np.ndarray = None
 
 
 def _sigmoid(x: np.ndarray) -> np.ndarray:
@@ -150,6 +156,13 @@ def simulate(simulation_spec: SimulationSpec, replicate: int):
         noise = simulation_spec.error_sampler(rng, se)
     thetahat = theta + noise
 
+    # Poisson counts from the SAME linear predictor `logits` = eta. Drawn LAST so this
+    # consumes RNG only after every existing draw (z / theta / thetahat), leaving those
+    # streams - and therefore all cached non-Poisson fits - bit-for-bit unchanged. The log-rate
+    # is clipped before exp to avoid overflow on strong-effect rows (harmless for the small
+    # log-rates the Poisson experiments actually use).
+    y_count = rng.poisson(np.exp(np.clip(logits, -50.0, 30.0))).astype(float)
+
     return TwoGroupSimulation(
         X=X,
         intercept=float(simulation_spec.intercept),
@@ -163,6 +176,7 @@ def simulate(simulation_spec: SimulationSpec, replicate: int):
         f0=simulation_spec.f0,
         f1=simulation_spec.f1,
         offset_law=offset_law,
+        y_count=y_count,
     )
 
 
@@ -304,7 +318,7 @@ def spec_hash(spec_node: dict[str, Any]) -> str:
 # Re-exports from simulations/ sub-package
 # (keeps getattr(core, name) working; inspect.getfile follows the real definition)
 # ---------------------------------------------------------------------------
-from simulations.design.markov import gaussian_markov_X, uniform_markov_X, binary_markov_X
+from simulations.design.markov import gaussian_markov_X, uniform_markov_X, binary_markov_X, gaussian_equicorrelated
 from simulations.design.genesets import hallmark_gene_sets_X, c4_gene_sets_X, msigdb_gene_sets_X, gobp_gene_sets_X
 from simulations.design.degenerate import null_enrich_X
 from simulations.effect.effects import uniform_single_effect, uniform_multi_effect, sized_single_effect, sized_multi_effect, paired_index_effect, spaced_index_effect
@@ -330,3 +344,4 @@ from fits.logistic_offset import (
 )
 from fits.twogroup import fit_twogroup_method, summarize_twogroup_method, run_twogroup_method
 from fits.linear import fit_linear_method, summarize_linear_method, run_linear_method
+from fits.poisson import fit_poisson_method, summarize_poisson_method, run_poisson_method
