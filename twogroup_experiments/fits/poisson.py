@@ -92,17 +92,26 @@ def fit_poisson_method(
 
 
 def _q2_elbo(X, y, fitted, center):
-    """Exact Q2 ELBO of the fitted state via the characteristic-function integrator
-    (``compute_elbo_gaussian``), a common yardstick across the Q2 approximations. Returns
-    ``None`` for a state it cannot score (a free-form Q1 effect) rather than crashing, so the
-    Q1 arms simply get ``None``. Mirrors ``fits/logistic.py``'s helper on the Poisson base."""
-    try:
-        from gibss import glm
-        from gibss.elbo import compute_elbo_gaussian
-        data = glm.prep_data(X, y, center=center)
-        return float(compute_elbo_gaussian(data, fitted, score_intercept="shared"))
-    except Exception:
-        return None
+    """The fitted state's mean-field ELBO F(q) = E_q[log p(y|eta)] - KL, a common yardstick
+    across arms. Same functional for every arm; the integrator is chosen EXPLICITLY by state
+    type (the same signal compute_elbo dispatches on: a free-form Q1 effect carries quadrature
+    nodes ``b_nodes``, a Gaussian Q2 effect does not):
+      * Q2 (Gaussian effect): the characteristic-function integrator ``compute_elbo_gaussian``
+        (exact, analytic, quadrature-free -- fast and stable).
+      * Q1 (free-form effect): the general self-normalized fold ``compute_elbo``, the only
+        integrator that handles the free-form nodes. Same functional, on the same scale, so the
+        ELBO table can reference the exact free-form CAVI arm (Q1 >= Q2 by nesting).
+    Each state is scored by ITS OWN integrator only -- no cross-fallback (never re-score a
+    Gaussian state with the free-form fold; a failure of the matching integrator propagates as
+    an error rather than silently switching methods). The field is named ``q2_elbo`` for schema
+    continuity, but for Q1 arms it holds the free-form F(q)."""
+    from gibss import glm
+    from gibss.elbo import compute_elbo, compute_elbo_gaussian
+    data = glm.prep_data(X, y, center=center)
+    free_form = any(getattr(e, "b_nodes", None) is not None for e in fitted.single_effects)
+    if free_form:
+        return float(compute_elbo(data, fitted, order=16, M=64))
+    return float(compute_elbo_gaussian(data, fitted, score_intercept="shared"))
 
 
 def summarize_poisson_method(
