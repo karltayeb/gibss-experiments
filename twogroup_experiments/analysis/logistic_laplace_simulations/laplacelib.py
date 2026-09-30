@@ -129,7 +129,7 @@ def causal_frame(ff: pl.DataFrame) -> pl.DataFrame:
                 "z": (mu - r["beta"]) / sd, "covered": abs(mu - r["beta"]) <= 1.959964 * sd,
                 "feature_log_bf": float(e["feature_log_bf"][j]),
             })
-    return pl.DataFrame(out) if out else pl.DataFrame()
+    return pl.DataFrame(out, infer_schema_length=None) if out else pl.DataFrame()
 
 
 _KEY = ["m", "T", "beta", "Lstar", "gap", "fit_L", "batch_hash", "rep"]
@@ -151,7 +151,7 @@ def pip_long(ff: pl.DataFrame) -> pl.DataFrame:
         cz = set(r["causal"])
         for j, p in enumerate(r["pip"]):
             rows.append({k: r[k] for k in _KEY + ["method"]} | {"j": j, "pip": p, "is_causal": j in cz})
-    return pl.DataFrame(rows)
+    return pl.DataFrame(rows, infer_schema_length=None)
 
 
 def average_precision(score: np.ndarray, label: np.ndarray) -> float:
@@ -202,39 +202,66 @@ def mean_se(df: pl.DataFrame, value: str, by: list[str]) -> pl.DataFrame:
 
 
 # ------------------------------------------------------------------------------ figures
+# Multiplicative x-dodge on the log-m axis so coincident arms (gIBSS-Q2 ~ CAVI-Q2 at L=1) stay
+# visible side by side instead of stacking.
+_DODGE = {"laplace": 0.93, "gibss": 1.0, "cavi": 1.075}
+
+
+def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks):
+    for mth in methods:
+        s = tab.filter(pl.col("method") == mth).sort("m")
+        if s.height == 0:
+            continue
+        x = s["m"].to_numpy() * _DODGE[mth]
+        ax.errorbar(x, s["mean"].to_numpy(), yerr=s["se"].fill_null(0).to_numpy(),
+                    color=METHOD_COLOR[mth], marker=METHOD_MARKER[mth], ms=5, lw=1.6,
+                    capsize=0, label=METHOD_LABEL[mth])
+    if ref is not None:
+        ax.axhline(ref, color="0.6", lw=0.8, ls="--", zorder=0)
+    ax.set_xscale("log")
+    ax.set_xticks(m_ticks)
+    ax.set_xticklabels([str(v) for v in m_ticks])
+    ax.minorticks_off()
+    ax.set_xlabel("expected set size m")
+    ax.spines[["top", "right"]].set_visible(False)
+    ax.grid(axis="y", color="0.9", lw=0.6)
+
+
+def _legend_on_top(fig, ax):
+    handles, labels = ax.get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", ncol=len(labels), frameon=False,
+               bbox_to_anchor=(0.5, 1.08), fontsize=8)
+
+
 def line_vs_m(tab: pl.DataFrame, *, ylabel: str, facet: str | None = None, ref: float | None = None,
-              methods=METHODS, title_fmt="{}={}", ax_w=2.6, ax_h=2.3, logy=False):
+              methods=METHODS, title_fmt="{}={}", ax_w=2.6, ax_h=2.3):
     """mean +- 1 se vs set size m (log x), one line per method, optional facet columns.
     `tab` is a `mean_se` frame keyed by m (+ facet) + method."""
     import matplotlib.pyplot as plt
     fvals = [None] if facet is None else sorted(v for v in tab[facet].unique().to_list() if v is not None)
-    fig, axes = plt.subplots(1, len(fvals), figsize=(ax_w * len(fvals) + 0.4, ax_h),
-                             sharey=True, squeeze=False)
+    m_ticks = sorted(tab["m"].unique().to_list())
+    width = ax_w * len(fvals) + 0.4 if facet is not None else 3.9   # room for a 3-arm legend
+    fig, axes = plt.subplots(1, len(fvals), figsize=(width, ax_h), sharey=True, squeeze=False)
     for ax, fv in zip(axes[0], fvals):
         g = tab if facet is None else tab.filter(pl.col(facet) == fv)
-        for mth in methods:
-            s = g.filter(pl.col("method") == mth).sort("m")
-            if s.height == 0:
-                continue
-            x, y, e = s["m"].to_numpy(), s["mean"].to_numpy(), s["se"].fill_null(0).to_numpy()
-            ax.errorbar(x, y, yerr=e, color=METHOD_COLOR[mth], marker=METHOD_MARKER[mth],
-                        ms=5, lw=1.6, capsize=0, label=METHOD_LABEL[mth])
-        if ref is not None:
-            ax.axhline(ref, color="0.6", lw=0.8, ls="--", zorder=0)
-        ax.set_xscale("log")
-        if logy:
-            ax.set_yscale("log")
-        ax.set_xticks(sorted(tab["m"].unique().to_list()))
-        ax.set_xticklabels([str(v) for v in sorted(tab["m"].unique().to_list())])
-        ax.minorticks_off()
-        ax.set_xlabel("expected set size m")
+        _draw_vs_m(ax, g, methods=methods, ref=ref, m_ticks=m_ticks)
         if fv is not None:
             ax.set_title(title_fmt.format(facet, fv), fontsize=9)
-        ax.spines[["top", "right"]].set_visible(False)
-        ax.grid(axis="y", color="0.9", lw=0.6)
     axes[0][0].set_ylabel(ylabel)
-    handles, labels = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=len(labels), frameon=False,
-               bbox_to_anchor=(0.5, 1.08), fontsize=8)
+    _legend_on_top(fig, axes[0][0])
+    fig.tight_layout()
+    return fig
+
+
+def panels_vs_m(panels: list[tuple[pl.DataFrame, str, float | None]], *, methods=METHODS,
+                ax_w=3.1, ax_h=2.3):
+    """Side-by-side panels with their own y-axis: each is (mean_se frame, ylabel, ref line)."""
+    import matplotlib.pyplot as plt
+    m_ticks = sorted({v for tab, _, _ in panels for v in tab["m"].unique().to_list()})
+    fig, axes = plt.subplots(1, len(panels), figsize=(ax_w * len(panels) + 0.3, ax_h), squeeze=False)
+    for ax, (tab, ylabel, ref) in zip(axes[0], panels):
+        _draw_vs_m(ax, tab, methods=methods, ref=ref, m_ticks=m_ticks)
+        ax.set_ylabel(ylabel)
+    _legend_on_top(fig, axes[0][0])
     fig.tight_layout()
     return fig
