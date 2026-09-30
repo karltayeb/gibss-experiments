@@ -1,5 +1,5 @@
 ---
-title: "gIBSS-Laplace vs gIBSS-Q2 vs CAVI-Q2"
+title: "gIBSS-Laplace vs gIBSS-Q2 vs global-JJ vs CAVI-Q2"
 subtitle: "Logistic SuSiE along the expected-set-size axis at matched detectability (experiment 022, pilot)."
 engine: jupyter
 jupyter: python3
@@ -29,12 +29,13 @@ SER = (pl.col("Lstar") == 1) & (pl.col("fit_L") == 1)     # single causal, L=1
 MULTI = (pl.col("Lstar") >= 2) & (pl.col("fit_L") == 10)  # several causals, L=10
 ```
 
-Three logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$:
+Four logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$:
 
 | arm | own SER update | other effects enter as |
 |---|---|---|
 | gIBSS-Laplace | Laplace: $N(\hat b, H^{-1})$, Laplace evidence | posterior mean (plug-in) |
 | gIBSS-Q2 | Gaussian VI (GH over $b$) | posterior mean (plug-in) |
+| global-JJ | Jaakkola-Jordan quadratic bound, one shared tilt | closed form under the bound |
 | CAVI-Q2 | Gaussian VI (GH over $b$) | exact offset fold (cf) |
 
 Design: sparse 0/1 columns ($n=10^4$, $p=256$, adjacent-column $\phi=0.8$), $b_0=-2$.
@@ -46,7 +47,7 @@ is matched and only the shape of each feature's likelihood changes with $m$.
 #| echo: false
 #| output: asis
 n_fit = ff.select("batch_hash", "method", "fit_L").unique().height
-print(f"{SC}: {ff.height} fits ({n_fit} cell x arm jobs of 96), "
+print(f"{SC}: {ff.height} fits ({n_fit} cell x arm jobs of 128), "
       f"{ff['batch_hash'].n_unique()} cells, reps/cell = {ff.group_by('batch_hash','method','fit_L').len()['len'].max()}.")
 ```
 
@@ -59,7 +60,7 @@ print(f"{SC}: {ff.height} fits ({n_fit} cell x arm jobs of 96), "
 #| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), mean +- 1 se over reps."
 d = R.paired(ff.filter(SER), "q2_elbo")
 R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "T", "method"]), facet="T",
-            ylabel="ELBO - ELBO(CAVI)", ref=0.0, methods=["laplace", "gibss"]);
+            ylabel="ELBO - ELBO(CAVI)", ref=0.0, methods=["laplace", "gibss", "globaljj"]);
 ```
 
 ## Causal effect posterior {#sec-effect-ser}
@@ -80,7 +81,7 @@ R.panels_vs_m([
      "sd / sd(CAVI)", 1.0),
     (R.mean_se(R.paired(c, "feature_log_bf", extra_key=("j",)), "feature_log_bf_vs_cavi", ["m", "method"]),
      "logBF - logBF(CAVI)", 0.0),
-], methods=["laplace", "gibss"]);
+], methods=["laplace", "gibss", "globaljj"]);
 ```
 
 ## PIP and credible sets {#sec-pip-cs-ser}
@@ -141,7 +142,7 @@ for v, f, what in [("b0_err", "{:+.3f}", "mean fitted intercept minus the true b
 #| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), L*=3 causals (gap 10), fit L=10."
 d = R.paired(ff.filter(MULTI), "q2_elbo")
 R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "method"]), ylabel="ELBO - ELBO(CAVI)",
-            ref=0.0, methods=["laplace", "gibss"]);
+            ref=0.0, methods=["laplace", "gibss", "globaljj"]);
 ```
 
 ## Causal effect posterior {#sec-effect-multi}

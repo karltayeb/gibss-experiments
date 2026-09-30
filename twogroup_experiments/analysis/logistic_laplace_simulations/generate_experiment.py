@@ -1,10 +1,11 @@
 """Generate experiments/022_logistic_laplace.yaml from betas.json.
 
 022 asks when gIBSS-Laplace (the simplest logistic SuSiE: Laplace SER + plug-in offset) is
-good enough. Three Q2 arms, each at L=1 and L=10, all scored on the same exact Q2 ELBO:
+good enough. Four Q2 arms, each at L=1 and L=10, all scored on the same exact Q2 ELBO:
 
   gIBSS-Laplace  order-1 quad SER (Laplace evidence), plug-in mean offset, reduced to Q2
   gIBSS-Q2       Gaussian-VI SER (GH over b), plug-in mean offset
+  global-JJ      Jaakkola-Jordan quadratic bound, one shared tilt (jj_fixed)
   CAVI-Q2        Gaussian-VI SER, exact offset fold (cf)
 
 Axis: expected set size m in {5, 10, 30, 100} of a sparse 0/1 design (n=10000, p=256,
@@ -38,8 +39,10 @@ PILOT_TARGETS = [8, 16]
 PILOT_MULTI = (3, 10)             # (L*, gap) at T=MULTI_T
 
 METHODS = [
-    "logistic_q2_ser_gibss_laplace", "logistic_q2_ser_gibss", "logistic_q2_ser_cavi",
-    "logistic_q2_L10_gibss_laplace", "logistic_q2_L10_gibss", "logistic_q2_L10_cavi",
+    "logistic_q2_ser_gibss_laplace", "logistic_q2_ser_gibss", "logistic_q2_ser_globaljj",
+    "logistic_q2_ser_cavi",
+    "logistic_q2_L10_gibss_laplace", "logistic_q2_L10_gibss", "logistic_q2_L10_globaljj",
+    "logistic_q2_L10_cavi",
 ]
 
 
@@ -92,10 +95,10 @@ def main() -> None:
     n_pilot = len(SET_SIZES) * (len(PILOT_TARGETS) + 1 + 1)
     methods_yaml = "[" + ", ".join(METHODS) + "]"
     text = f"""\
-# 022_logistic_laplace: when is gIBSS-Laplace good enough? Three Q2 logistic-SuSiE arms at
+# 022_logistic_laplace: when is gIBSS-Laplace good enough? Four Q2 logistic-SuSiE arms at
 # L=1 and L=10 -- gIBSS-Laplace (order-1 SER, plug-in offset, reduced to Q2), gIBSS-Q2
-# (Gaussian-VI SER, plug-in offset), CAVI-Q2 (Gaussian-VI SER, exact cf offset fold) -- all
-# scored on the exact Q2 ELBO. Centered, shared Gaussian intercept, EB prior variance (cap 100).
+# (Gaussian-VI SER, plug-in offset), global-JJ (jj_fixed bound), CAVI-Q2 (Gaussian-VI SER,
+# exact cf offset fold) -- all scored on the exact Q2 ELBO. Centered, shared Gaussian intercept, EB prior variance (cap 100).
 #
 # Axis: expected set size m in {{{", ".join(map(str, SET_SIZES))}}} of a sparse 0/1 design (n={N}, p={P},
 # corr={CORR}, b0={B0:g}); beta calibrated per m to E[LRT] = T in {{{", ".join(map(str, TARGETS))}}}

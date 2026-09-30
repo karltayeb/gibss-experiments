@@ -1,4 +1,4 @@
-"""Load + summarize experiment 022 (gIBSS-Laplace vs gIBSS-Q2 vs CAVI-Q2, logistic SuSiE).
+"""Load + summarize experiment 022 (gIBSS-Laplace / gIBSS-Q2 / global-JJ / CAVI-Q2, logistic SuSiE).
 
 Reads each fit's `fits.parquet` directly (the shared pip/cs reductions are binned and carry
 no effect-size posterior, intercept, or runtime) and returns tidy frames:
@@ -11,7 +11,7 @@ no effect-size posterior, intercept, or runtime) and returns tidy frames:
                          most (argmax_l alpha_lj), its log BF, and the truth.
   * ``paired(ff, col)``  a column differenced against CAVI-Q2 on the SAME simulated data.
 
-Method keys: laplace = gIBSS-Laplace, gibss = gIBSS-Q2, cavi = CAVI-Q2.
+Method keys: laplace = gIBSS-Laplace, gibss = gIBSS-Q2, globaljj = global-JJ, cavi = CAVI-Q2.
 """
 from __future__ import annotations
 
@@ -34,15 +34,20 @@ N_ROWS = int(_BETAS_JSON["_meta"]["n"])
 B0_TRUE = float(_BETAS_JSON["_meta"]["b0"])
 MIN_LOG_BF = 2.0          # declared-CS threshold (the experiment's default_args min_log_bf)
 
-METHODS = ["laplace", "gibss", "cavi"]
-METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "cavi": "CAVI-Q2"}
-# Okabe-Ito, validated (dataviz validate_palette.js, light): CAVI blue / gIBSS orange as in the
-# gibss_vs_cavi notebooks; Laplace vermillion (a gIBSS variant, warm, CVD-separated from orange).
-METHOD_COLOR = {"laplace": "#D55E00", "gibss": "#E69F00", "cavi": "#0072B2"}
-METHOD_MARKER = {"laplace": "v", "gibss": "s", "cavi": "o"}
+METHODS = ["laplace", "gibss", "globaljj", "cavi"]
+METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "globaljj": "global-JJ",
+                "cavi": "CAVI-Q2"}
+# The 019 logistic palette (resultslib.METHOD_COLOR): gIBSS blue, CAVI vermillion, global-JJ
+# green; gIBSS-Laplace sky blue (a gIBSS variant, as gibss_profiled in 019). Validated with the
+# dataviz validate_palette.js, light mode, all pairs.
+METHOD_COLOR = {"laplace": "#56B4E9", "gibss": "#0072B2", "globaljj": "#009E73",
+                "cavi": "#D55E00"}
+METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "cavi": "o"}
 
 
 def _method_key(mname: str) -> str:
+    if mname.endswith("_globaljj"):
+        return "globaljj"
     if mname.endswith("_gibss_laplace"):
         return "laplace"
     if mname.endswith("_gibss"):
@@ -204,7 +209,7 @@ def mean_se(df: pl.DataFrame, value: str, by: list[str]) -> pl.DataFrame:
 # ------------------------------------------------------------------------------ figures
 # Multiplicative x-dodge on the log-m axis so coincident arms (gIBSS-Q2 ~ CAVI-Q2 at L=1) stay
 # visible side by side instead of stacking.
-_DODGE = {"laplace": 0.93, "gibss": 1.0, "cavi": 1.075}
+_DODGE = {"laplace": 0.91, "gibss": 0.97, "globaljj": 1.03, "cavi": 1.095}
 
 
 def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks):
