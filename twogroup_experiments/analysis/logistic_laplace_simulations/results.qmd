@@ -1,0 +1,198 @@
+---
+title: "gIBSS-Laplace vs gIBSS-Q2 vs CAVI-Q2"
+subtitle: "Logistic SuSiE along the expected-set-size axis at matched detectability (experiment 022, pilot)."
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))   # analysis/logistic_laplace_simulations -> analysis
+os.chdir("..")                                # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/logistic_laplace_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import laplacelib as R
+
+SC = "022-laplace-pilot"
+ff = R.fit_frame(SC)
+cf = R.causal_frame(ff)
+pl_long = R.pip_long(ff)
+
+SER = (pl.col("Lstar") == 1) & (pl.col("fit_L") == 1)     # single causal, L=1
+MULTI = (pl.col("Lstar") >= 2) & (pl.col("fit_L") == 10)  # several causals, L=10
+```
+
+Three logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$:
+
+| arm | own SER update | other effects enter as |
+|---|---|---|
+| gIBSS-Laplace | Laplace: $N(\hat b, H^{-1})$, Laplace evidence | posterior mean (plug-in) |
+| gIBSS-Q2 | Gaussian VI (GH over $b$) | posterior mean (plug-in) |
+| CAVI-Q2 | Gaussian VI (GH over $b$) | exact offset fold (cf) |
+
+Design: sparse 0/1 columns ($n=10^4$, $p=256$, adjacent-column $\phi=0.8$), $b_0=-2$.
+Axis: expected set size $m$. $\beta$ is calibrated per $m$ to $E[\text{LRT}]=T$, so detectability
+is matched and only the shape of each feature's likelihood changes with $m$.
+
+```{python}
+#| label: status
+#| echo: false
+#| output: asis
+n_fit = ff.select("batch_hash", "method", "fit_L").unique().height
+print(f"{SC}: {ff.height} fits ({n_fit} cell x arm jobs of 96), "
+      f"{ff['batch_hash'].n_unique()} cells, reps/cell = {ff.group_by('batch_hash','method','fit_L').len()['len'].max()}.")
+```
+
+# Part A - single effect, L=1 {#sec-ser}
+
+## ELBO gap to CAVI {#sec-elbo-ser}
+
+```{python}
+#| label: fig-elbo-ser
+#| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), mean +- 1 se over reps."
+d = R.paired(ff.filter(SER), "q2_elbo")
+R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "T", "method"]), facet="T",
+            ylabel="ELBO - ELBO(CAVI)", ref=0.0, methods=["laplace", "gibss"]);
+```
+
+## Causal effect posterior {#sec-effect-ser}
+
+```{python}
+#| label: fig-effect-ser
+#| fig-cap: "Causal feature's conditional posterior N(mu, sd^2). Top: standardized error (mu - beta)/sd. Bottom: 95% interval coverage of the true beta (dashed = 0.95)."
+c = cf.filter(SER)
+R.line_vs_m(R.mean_se(c, "z", ["m", "T", "method"]), facet="T", ylabel="(mu - beta) / sd", ref=0.0)
+R.line_vs_m(R.mean_se(c, "covered", ["m", "T", "method"]), facet="T", ylabel="95% coverage", ref=0.95);
+```
+
+```{python}
+#| label: fig-effect-vs-cavi-ser
+#| fig-cap: "Paired against CAVI-Q2 on the same data: posterior sd ratio (left) and causal-feature log BF difference (right), pooled over T."
+import numpy as np
+fig, axes = plt.subplots(1, 2, figsize=(6.4, 2.4))
+for ax, (col, ylab, ref, ratio) in zip(axes, [("sd", "sd / sd(CAVI)", 1.0, True),
+                                               ("feature_log_bf", "logBF - logBF(CAVI)", 0.0, False)]):
+    t = R.mean_se(R.paired(c, col, extra_key=("j",), ratio=ratio), f"{col}_vs_cavi", ["m", "method"])
+    for mth in ["laplace", "gibss"]:
+        s = t.filter(pl.col("method") == mth).sort("m")
+        ax.errorbar(s["m"], s["mean"], yerr=s["se"].fill_null(0), color=R.METHOD_COLOR[mth],
+                    marker=R.METHOD_MARKER[mth], ms=5, lw=1.6, label=R.METHOD_LABEL[mth])
+    ax.axhline(ref, color="0.6", lw=0.8, ls="--", zorder=0)
+    ax.set_xscale("log"); ax.set_xticks(sorted(c["m"].unique())); ax.set_xticklabels(sorted(c["m"].unique()))
+    ax.minorticks_off(); ax.set_xlabel("expected set size m"); ax.set_ylabel(ylab)
+    ax.spines[["top", "right"]].set_visible(False); ax.grid(axis="y", color="0.9", lw=0.6)
+axes[0].legend(frameon=False, fontsize=8)
+fig.tight_layout();
+```
+
+## PIP and credible sets {#sec-pip-cs-ser}
+
+```{python}
+#| label: tbl-ser
+#| echo: false
+#| output: asis
+auc = R.auprc(pl_long.filter(pl.col("Lstar") == 1, pl.col("fit_L") == 1), by=("m", "method"))
+print(R.md_table(auc, rows=["m"], value="auprc", legend=(
+    "*AUPRC*: average precision of the PIP ranking (causal vs non-causal features), pooled over "
+    "reps and T within each m.")))
+```
+
+```{python}
+#| label: tbl-cs-ser
+#| echo: false
+#| output: asis
+cs = (ff.filter(SER).explode(["cs_sizes", "cs_covers"])
+        .group_by("m", "method")
+        .agg(pl.col("cs_covers").drop_nulls().mean().alias("coverage"),
+             pl.col("cs_sizes").drop_nulls().median().alias("median_size"),
+             (pl.col("cs_sizes").is_not_null().sum() / pl.col("rep").n_unique()
+              / pl.col("T").n_unique()).alias("cs_per_fit")))
+legend = ("Declared CSs only (component log BF >= 2), pooled over T. *coverage*: fraction of "
+          "declared 95% CSs containing the causal feature. *median size*: median declared-CS "
+          "size (features). *CS per fit*: declared CSs per fit.")
+for v, f in [("coverage", "{:.2f}"), ("median_size", "{:.0f}"), ("cs_per_fit", "{:.2f}")]:
+    print(f"**{v.replace('_', ' ')}**\n")
+    print(R.md_table(cs, rows=["m"], value=v, fmt=f), "\n")
+print(legend)
+```
+
+## Intercept, prior variance, runtime {#sec-misc-ser}
+
+```{python}
+#| label: tbl-misc-ser
+#| echo: false
+#| output: asis
+misc = (ff.filter(SER).with_columns((pl.col("intercept") - R.B0_TRUE).alias("b0_err"))
+          .group_by("m", "method")
+          .agg(pl.col("b0_err").mean(), pl.col("lead_prior_variance").median(),
+               pl.col("fit_seconds").median(), pl.col("n_iter").median()))
+for v, f, what in [("b0_err", "{:+.3f}", "mean fitted intercept minus the true b0 = -2"),
+                   ("lead_prior_variance", "{:.2f}", "median EB prior variance of the leading component"),
+                   ("fit_seconds", "{:.2f}", "median wall-clock seconds per fit"),
+                   ("n_iter", "{:.0f}", "median IBSS sweeps to convergence")]:
+    print(f"**{v}**: {what}.\n")
+    print(R.md_table(misc, rows=["m"], value=v, fmt=f), "\n")
+```
+
+# Part B - several effects, L=10 {#sec-multi}
+
+## ELBO gap to CAVI {#sec-elbo-multi}
+
+```{python}
+#| label: fig-elbo-multi
+#| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), L*=3 causals (gap 10), fit L=10."
+d = R.paired(ff.filter(MULTI), "q2_elbo")
+R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "method"]), ylabel="ELBO - ELBO(CAVI)",
+            ref=0.0, methods=["laplace", "gibss"]);
+```
+
+## Causal effect posterior {#sec-effect-multi}
+
+```{python}
+#| label: fig-effect-multi
+#| fig-cap: "Causal features' conditional posteriors, L*=3, fit L=10. Left: (mu - beta)/sd. Right: 95% interval coverage."
+c = cf.filter(MULTI)
+fig1 = R.line_vs_m(R.mean_se(c, "z", ["m", "method"]), ylabel="(mu - beta) / sd", ref=0.0)
+fig2 = R.line_vs_m(R.mean_se(c, "covered", ["m", "method"]), ylabel="95% coverage", ref=0.95);
+```
+
+## PIP and credible sets {#sec-pip-cs-multi}
+
+```{python}
+#| label: tbl-multi
+#| echo: false
+#| output: asis
+auc = R.auprc(pl_long.filter(pl.col("Lstar") >= 2, pl.col("fit_L") == 10), by=("m", "method"))
+print(R.md_table(auc, rows=["m"], value="auprc", legend=(
+    "*AUPRC*: average precision of the PIP ranking, pooled over reps within each m.")))
+cs = (ff.filter(MULTI).explode(["cs_sizes", "cs_covers"])
+        .group_by("m", "method")
+        .agg(pl.col("cs_covers").drop_nulls().mean().alias("coverage"),
+             pl.col("cs_sizes").drop_nulls().median().alias("median_size"),
+             (pl.col("cs_sizes").is_not_null().sum() / pl.col("rep").n_unique()).alias("cs_per_fit")))
+for v, f in [("coverage", "{:.2f}"), ("median_size", "{:.0f}"), ("cs_per_fit", "{:.2f}")]:
+    print(f"\n**{v.replace('_', ' ')}**\n")
+    print(R.md_table(cs, rows=["m"], value=v, fmt=f))
+print("\nDeclared CSs (component log BF >= 2); 3 causals per fit, so a perfect fit declares 3.")
+```
+
+## Null cells: false credible sets {#sec-null}
+
+```{python}
+#| label: tbl-null
+#| echo: false
+#| output: asis
+nul = (ff.filter(pl.col("null"))
+         .with_columns(pl.col("cs_sizes").list.len().alias("n_declared"))
+         .group_by("m", "fit_L", "method").agg(pl.col("n_declared").mean()))
+print(R.md_table(nul, rows=["fit_L", "m"], value="n_declared", fmt="{:.2f}", legend=(
+    "*n_declared*: mean declared CSs (component log BF >= 2) per fit on null data "
+    "(beta = 0); every one is false.")))
+```

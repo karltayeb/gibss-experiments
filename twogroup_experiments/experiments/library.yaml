@@ -1864,6 +1864,17 @@ methods:
   logistic_q2_L10_globaljj:
     function: run_logistic_method
     template: {response_source: z, L: 10, offset_integration: jj_fixed, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  # gIBSS-Laplace: the simplest logistic SuSiE. Each SER is the order-1 quad kernel (one GH
+  # node at the mode = the Laplace evidence drives alpha and the EB prior variance), the other
+  # effects enter at their posterior mean (plug-in), and the fitted state is moment-reduced to
+  # Q2, N(mode, 1/H) per feature (gaussian_reduce -> glm.to_gaussian_family), so q2_elbo
+  # scores it on the same exact Q2 ELBO as gIBSS-Q2 / CAVI-Q2. Needs gibss-mono >= 2079de2.
+  logistic_q2_ser_gibss_laplace:
+    function: run_logistic_method
+    template: {response_source: z, L: 1, offset_integration: none, variational_family: unconstrained, effect_quadrature_points: 1, gaussian_reduce: true, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  logistic_q2_L10_gibss_laplace:
+    function: run_logistic_method
+    template: {response_source: z, L: 10, offset_integration: none, variational_family: unconstrained, effect_quadrature_points: 1, gaussian_reduce: true, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   # No-freeze control for the freeze_prior_variance sanity check: identical to
   # logistic_q2_L10_globaljj but the prior-variance freeze is disabled, so every
   # component keeps updating (slower ~2-3x). Used to confirm the 0.01 freeze does

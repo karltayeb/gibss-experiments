@@ -18,7 +18,8 @@ def fit_logistic_method(
     offset_integration=None, offset_quadrature_points=None,
     variational_family=None, center=True, intercept=None, densify=False,
     estimate_prior_variance=False, max_prior_variance=None, max_iter=None,
-    freeze_prior_variance=None, method=None,
+    freeze_prior_variance=None, method=None, effect_quadrature_points=None,
+    gaussian_reduce=False,
 ):
     from core import _score
     if response_source == "z":
@@ -85,6 +86,11 @@ def fit_logistic_method(
         kwargs["variational_family"] = variational_family
     if intercept is not None:
         kwargs["intercept"] = intercept
+    # GH order over each effect's own b (unconstrained q only). 1 = the Laplace
+    # approximation: one node at the mode, var = 1/H (gibss-mono >= 2079de2). Unset keeps
+    # the engine default (15).
+    if effect_quadrature_points is not None:
+        kwargs["effect_quadrature_points"] = int(effect_quadrature_points)
     # NB: the Compress Chebyshev degree M (offset_integration="compress") is not exposed
     # by fit_glm_susie; it uses the engine default (M=48), which is past the interpolation
     # floor for this offset (the residual vs full MixtureGH is ~1e-4 on the log-BF).
@@ -101,6 +107,13 @@ def fit_logistic_method(
     t0 = time.perf_counter()
     fitted = fit_glm_susie(X, y, **kwargs)
     fit_seconds = time.perf_counter() - t0
+    # `gaussian_reduce`: moment-reduce a free-form (Q1) fit to the Gaussian family
+    # (`glm.to_gaussian_family`), so the stored mu/var and the q2_elbo describe the Q2 state
+    # N(mu, var). For the order-1 (Laplace) fit this IS gIBSS-Laplace in Q2: N(mode, 1/H).
+    # alpha and the fitted trajectory are unchanged (the reduction happens after the fit).
+    if gaussian_reduce:
+        from gibss.glm import to_gaussian_family
+        fitted = to_gaussian_family(fitted)
     return {
         "state": fitted,
         "threshold": threshold,
@@ -154,15 +167,18 @@ def summarize_logistic_method(
     max_iter=None,
     freeze_prior_variance=None,
     method=None,
+    effect_quadrature_points=None,
+    gaussian_reduce=False,
 ):
     from core import _extract_ser_struct, _extract_family_state_struct, _extract_twogroup_state_struct, _make_cs_struct, _make_fit_summary_struct
     del response_source, threshold, L, offset_integration, offset_quadrature_points, variational_family, center, intercept, densify
     del estimate_prior_variance, max_prior_variance, max_iter, freeze_prior_variance, method
+    del effect_quadrature_points, gaussian_reduce
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {
         "threshold": fit_obj["threshold"],
-        "single_effects": [_extract_ser_struct(state, l) for l in range(n_effects)],
+        "single_effects": [_ser_struct_with_feature_bf(state, l) for l in range(n_effects)],
         "credible_sets": [_make_cs_struct(state, simulation, l) for l in range(n_effects)],
         "family_state": _extract_family_state_struct(state),
         "two_group_state": _extract_twogroup_state_struct(state),
@@ -170,6 +186,19 @@ def summarize_logistic_method(
         "fit_seconds": fit_obj.get("fit_seconds"),
         "q2_elbo": fit_obj.get("q2_elbo"),
     }
+
+
+def _ser_struct_with_feature_bf(state, l):
+    """`core._extract_ser_struct` plus the per-feature log BF of effect l
+    (`feature_log_marginal - null_log_marginal`), so an analysis can compare logBFs across
+    approximations directly (alpha saturates; the logBF does not)."""
+    from core import _extract_ser_struct, _to_python
+    e = state.single_effects[l]
+    out = _extract_ser_struct(state, l)
+    out["feature_log_bf"] = _to_python(
+        np.asarray(e.feature_log_marginal) - float(e.null_log_marginal)
+    )
+    return out
 
 
 def run_logistic_method(simulation, **kwargs) -> dict[str, Any]:
