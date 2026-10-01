@@ -35,7 +35,7 @@ SIGNAL_LABEL = {8: "moderate signal", 16: "strong signal"}
 # binary phi between causals at the design's adjacent-column rho = 0.8 (laplacelib / brief.typ)
 GAP_LABEL = {8: "correlated\ncausals (r = 0.47)", 64: "weakly correlated\ncausals (r = 0.05)",
              None: "single causal"}
-X_LABEL = r"proportion at risk, $\theta = P(X = 1)$"
+X_LABEL = r"design density, $\theta = P(X = 1)$"
 
 
 def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, seed: int = 0) -> pl.DataFrame:
