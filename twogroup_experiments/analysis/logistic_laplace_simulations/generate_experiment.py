@@ -17,7 +17,7 @@ overshoot), large m is near-Gaussian.
 
 Supercollections (cells are content-addressed; labels are display-only):
   * 022-laplace              FULL GRID. n=1000, L=5, L*=3 causals at gap in {8, 64} (binary
-                             phi between causals ~0.47 / ~0.05), T=16, m in {5,10,50,100,200},
+                             phi between causals ~0.47 / ~0.05), T=16, m in {5,10,50,100,200,400},
                              + one null per m. gIBSS-Laplace / gIBSS-Q2 / global-JJ / score, 50 reps.
   * 022-laplace-pilot        n=10000 pilot: T in {8,16} single-effect + null + L*=3 gap-10 T=8,
                              m in {5,10,30,100}; all five arms at L=1 and L=10; 10 reps.
@@ -37,7 +37,7 @@ P, CORR, B0 = 256, 0.8, -2.0
 # ---- full grid (n=1000) -------------------------------------------------------------------
 FULL_N = 1000
 FULL_BATCHES = 5                      # 50 reps
-FULL_SET_SIZES = [5, 10, 50, 100, 200]
+FULL_SET_SIZES = [5, 10, 50, 100, 200, 400]
 FULL_T = 16
 FULL_LSTAR = 3
 FULL_GAPS = [8, 64]                   # binary phi between causals ~0.47 / ~0.05
