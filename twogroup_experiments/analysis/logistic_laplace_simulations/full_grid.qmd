@@ -108,6 +108,10 @@ print("Exact $\\mathcal{Q}_2$ ELBO of each arm minus CAVI-Q2's on the same repli
       "a negative value is how far the arm's posterior sits below CAVI's in the variational "
       "objective CAVI maximises. Rows: signal strength $T$, causal gap, design density "
       "$\\theta$. Signal cells only.\n")
+print("**Pooled over $T$ and gap** (main-text candidate: gap does not move the ELBO gap, and $T$ "
+      "only at the two smallest $\\theta$):\n")
+print(C.elbo_table(d, ref="cavi", rows=("m",), digits=2), "\n")
+print("**Per cell:**\n")
 print(C.elbo_table(d, ref="cavi"))
 ```
 

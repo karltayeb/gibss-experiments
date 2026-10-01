@@ -69,9 +69,11 @@ def declared(df: pl.DataFrame) -> pl.DataFrame:
     return pl.concat([df.drop("lbf", "sizes", "covers", "css"), pl.DataFrame(rows)], how="horizontal")
 
 
-def elbo_table(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int = 0) -> str:
+def elbo_table(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int = 0,
+               rows: tuple[str, ...] = ("T", "gap", "m"), digits: int = 3) -> str:
     """Exact Q2 ELBO of each arm minus the reference's on the SAME replicate (nats), mean with a
-    rep-resampled 95% CI. Rows (T, gap, theta); columns arms. Signal cells only."""
+    rep-resampled 95% CI. One row per combination of `rows` (m is shown as theta = m/n), pooled
+    over the other cell axes; columns arms. Signal cells only."""
     rng = np.random.default_rng(seed)
     sig = d.filter(~pl.col("null"))
     arms = [m for m in R.METHODS if m != ref and m in sig["method"].unique().to_list()]
@@ -79,18 +81,25 @@ def elbo_table(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
     refd = sig.filter(pl.col("method") == ref).select(*key, pl.col("q2_elbo").alias("ref_elbo"))
     j = (sig.filter(pl.col("method") != ref).join(refd, on=key, how="inner")
             .with_columns((pl.col("q2_elbo") - pl.col("ref_elbo")).alias("d")))
-    hdr = ["T", "gap", "theta"] + [f"{R.METHOD_LABEL[a]} - {R.METHOD_LABEL[ref]}" for a in arms]
+    rows = list(rows)
+    n = float(sig["n"][0])
+    hdr = ["theta" if r == "m" else r for r in rows] + [f"{R.METHOD_LABEL[a]} - {R.METHOD_LABEL[ref]}" for a in arms]
     lines = ["| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)]
-    for T, gap, m, n in sig.select("T", "gap", "m", "n").unique().sort(["T", "gap", "m"]).iter_rows():
+    fmt = f"{{:+.{digits}f}}"
+    for combo in sig.select(rows).unique().sort(rows).iter_rows():
+        g = j
+        for c, v in zip(rows, combo):
+            g = g.filter(pl.col(c) == v)
         cells = []
         for a in arms:
-            x = j.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m, pl.col("method") == a)["d"].to_numpy()
+            x = g.filter(pl.col("method") == a)["d"].to_numpy()
             if len(x) == 0:
                 cells.append("-"); continue
             b = x[rng.integers(0, len(x), (n_boot, len(x)))].mean(1)
             lo, hi = np.percentile(b, [2.5, 97.5])
-            cells.append(f"{x.mean():+.3f} [{lo:+.3f}, {hi:+.3f}]")
-        lines.append(f"| {T} | {gap} | {m / n:g} | " + " | ".join(cells) + " |")
+            cells.append(f"{fmt.format(x.mean())} [{fmt.format(lo)}, {fmt.format(hi)}]")
+        label = [f"{v / n:g}" if c == "m" else str(v) for c, v in zip(rows, combo)]
+        lines.append("| " + " | ".join(label + cells) + " |")
     return "\n".join(lines)
 
 
