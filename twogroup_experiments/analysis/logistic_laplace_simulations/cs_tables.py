@@ -175,6 +175,26 @@ def delta_by_m(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
     return "\n".join(out)
 
 
+def compact_vs_m(d: pl.DataFrame, arm: str, ref: str = "cavi", metric: str = "coverage") -> str:
+    """One row per T x gap, m across columns: `arm` minus `ref` point estimates (no CIs)."""
+    sig = d.filter(~pl.col("null"))
+    ms = sorted(sig["m"].unique().to_list())
+    lines = [f"| T | gap | " + " | ".join(f"m={m}" for m in ms) + " |", "|---|---|" + "---|" * len(ms)]
+    for T, gap in sig.select("T", "gap").unique().sort(["T", "gap"]).iter_rows():
+        cells = []
+        for m in ms:
+            v = {}
+            for mth in (arm, ref):
+                h = sig.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m, pl.col("method") == mth)
+                if metric == "coverage":
+                    v[mth] = h.explode("covers")["covers"].drop_nulls().mean()
+                else:
+                    v[mth] = (h["n_detected"] / h["Lstar"]).mean()
+            cells.append(f"{v[arm] - v[ref]:+.2f}")
+        lines.append(f"| {T} | {gap} | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
+
+
 def main(sc: str = "022-laplace") -> None:
     d = declared(load(sc))
     print(f"## Pooled over m within T x gap\n")
@@ -184,6 +204,10 @@ def main(sc: str = "022-laplace") -> None:
           "*CS/fit* = declared CSs per fit. CAVI-Q2 in absolute terms; other arms as arm minus CAVI-Q2 "
           "on the same replicates. 95% CIs resample replicates.\n")
     print(pooled_summary(d, ref="cavi"), "\n")
+    print("## global-JJ minus CAVI-Q2 across m\n")
+    for metric in ("coverage", "power"):
+        print(f"**{metric}**\n")
+        print(compact_vs_m(d, "globaljj", "cavi", metric), "\n")
     print("## Per cell, delta to CAVI-Q2\n")
     print(delta_by_m(d, ref="cavi"), "\n")
     print("## Per cell, absolute\n")
