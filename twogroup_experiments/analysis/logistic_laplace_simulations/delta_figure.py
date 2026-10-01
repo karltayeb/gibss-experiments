@@ -76,7 +76,7 @@ def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, s
     return pl.DataFrame(rows)
 
 
-def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float = 1.75, ax_h: float = 1.9):
+def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float = 1.5, ax_h: float = 1.75):
     labels, refs = (METRIC_LABEL, METRIC_REF) if ref else (ABS_LABEL, ABS_REF)
     panels = df.select("T", "gap").unique().sort(["T", "gap"]).rows()
     metrics = ["coverage", "power", "size"]

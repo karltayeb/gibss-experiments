@@ -1,0 +1,109 @@
+---
+title: "Logistic-SuSiE approximations along the set-size axis: full grid"
+subtitle: "CAVI-Q2 vs gIBSS-Q2 vs gIBSS-Laplace vs global-JJ vs score (experiment 022, n=1000, L=5, 200 reps)"
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))   # analysis/logistic_laplace_simulations -> analysis
+os.chdir("..")                                # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/logistic_laplace_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import cs_tables as C
+import delta_figure as F
+import laplacelib as R
+
+SC = "022-laplace"
+d = C.declared(C.load(SC))
+sig = d.filter(~pl.col("null"))
+```
+
+Five logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$ (see the
+[pilot](results.qmd) for the arm definitions). Design: sparse 0/1 columns ($n = 1000$,
+$p = 256$, adjacent-column $\phi = 0.8$), $b_0 = -2$, $L^* = 3$ causals at gap 8 (binary
+$\phi \approx 0.47$ between causals) or 64 ($\phi \approx 0.05$), fit with $L = 5$. Axis:
+expected set size $m$, with $\beta$ calibrated per $m$ to $E[\text{LRT}] = T$ so detectability
+is matched and only the shape of each feature's likelihood changes with $m$.
+
+All CS metrics are over **declared** CSs (component $\log \text{BF} \ge 2$). An undeclared
+component has $\alpha$ near uniform and a 95% set of ~240 of 256 features, so its coverage is
+1 by construction; pooling it in would erase every difference. The ranking of the arms is the
+same at every $\log \text{BF}$ cut from 0 to 10.
+
+```{python}
+#| label: status
+#| echo: false
+#| output: asis
+n_cells = sig.select("T", "gap", "m").unique().height
+reps = sig.group_by("T", "gap", "m", "method").len()["len"]
+print(f"{SC}: {n_cells} signal cells x {sig['method'].n_unique()} arms, "
+      f"{reps.min()}-{reps.max()} reps per cell; {d.filter(pl.col('null')).select('m').unique().height} null cells.")
+```
+
+# Headline: pooled over m {#sec-pooled}
+
+```{python}
+#| label: tab-pooled
+#| echo: false
+#| output: asis
+print("CAVI-Q2 in absolute terms; every other arm as **arm minus CAVI-Q2** on the same "
+      "replicates. *coverage*: fraction of declared CSs containing a causal. *size*: median "
+      "declared-CS size with its interquartile range. *power*: mean over reps of the fraction "
+      "of the 3 causals captured by a declared CS. *CS/fit*: declared CSs per fit. 95% CIs "
+      "resample replicates (the independent unit; CSs within a fit are not), jointly for both "
+      "arms of a difference.\n")
+print(C.pooled_summary(d, ref="cavi"))
+```
+
+# Along m {#sec-along-m}
+
+## Relative to CAVI-Q2 {#sec-delta}
+
+```{python}
+#| label: fig-delta
+#| echo: false
+#| fig-cap: "Each arm minus CAVI-Q2 against expected set size m. Rows: coverage of declared CSs, power, and CS size as the ratio of geometric-mean declared-CS size (log axis; 1 = same size). Bands: 95% CI from resampling replicates jointly for both arms. Dashed line: identical to CAVI-Q2."
+delta = F.delta_frame(d, ref="cavi")
+F.draw(delta, ref="cavi");
+```
+
+## Absolute {#sec-absolute}
+
+```{python}
+#| label: fig-absolute
+#| echo: false
+#| fig-cap: "Every arm's own coverage (dashed line: nominal 0.95), power, and geometric-mean declared-CS size against m, with per-arm 95% CIs from resampling replicates."
+absf = F.delta_frame(d, ref=None)
+F.draw(absf, ref=None);
+```
+
+## Per-cell tables {#sec-per-cell}
+
+```{python}
+#| label: tab-per-cell
+#| echo: false
+#| output: asis
+print("Arm minus CAVI-Q2 per cell, 95% CI resamples replicates jointly.\n")
+print(C.delta_by_m(d, ref="cavi"))
+```
+
+# Null cells {#sec-null}
+
+```{python}
+#| label: tab-null
+#| echo: false
+#| output: asis
+nul = (d.filter(pl.col("null")).group_by(["m", "method"])
+         .agg(pl.col("n_declared").mean().alias("false_cs"), pl.len().alias("reps")))
+print("Declared CSs per fit on null data ($\\beta = 0$); every one is false. Reps in parentheses.\n")
+print(C.table(nul, ["m"], "false_cs", lambda r: f"{r['false_cs']:.2f} ({int(r['reps'])})"))
+```
