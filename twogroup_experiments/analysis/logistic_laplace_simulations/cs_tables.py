@@ -175,22 +175,36 @@ def delta_by_m(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
     return "\n".join(out)
 
 
-def compact_vs_m(d: pl.DataFrame, arm: str, ref: str = "cavi", metric: str = "coverage") -> str:
-    """One row per T x gap, m across columns: `arm` minus `ref` point estimates (no CIs)."""
+def compact_vs_m(d: pl.DataFrame, arm: str, ref: str = "cavi", metric: str = "coverage",
+                 n_boot: int = 2000, seed: int = 0) -> str:
+    """One row per T x gap, m across columns: `arm` minus `ref` with a joint rep-resampled
+    95% CI (both arms recomputed on the same resampled replicates)."""
+    rng = np.random.default_rng(seed)
     sig = d.filter(~pl.col("null"))
     ms = sorted(sig["m"].unique().to_list())
-    lines = [f"| T | gap | " + " | ".join(f"m={m}" for m in ms) + " |", "|---|---|" + "---|" * len(ms)]
+    lines = ["| T | gap | " + " | ".join(f"m={m}" for m in ms) + " |", "|---|---|" + "---|" * len(ms)]
     for T, gap in sig.select("T", "gap").unique().sort(["T", "gap"]).iter_rows():
         cells = []
         for m in ms:
-            v = {}
+            st = {}
             for mth in (arm, ref):
-                h = sig.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m, pl.col("method") == mth)
+                h = (sig.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m, pl.col("method") == mth)
+                        .sort(["batch_hash", "replicate"]))
                 if metric == "coverage":
-                    v[mth] = h.explode("covers")["covers"].drop_nulls().mean()
+                    st[mth] = (h.select(pl.col("covers").list.sum())["covers"].to_numpy().astype(float),
+                               h.select(pl.col("sizes").list.len())["sizes"].to_numpy().astype(float))
                 else:
-                    v[mth] = (h["n_detected"] / h["Lstar"]).mean()
-            cells.append(f"{v[arm] - v[ref]:+.2f}")
+                    st[mth] = ((h["n_detected"] / h["Lstar"]).to_numpy(), None)
+            n_rep = len(st[ref][0])
+            idx = rng.integers(0, n_rep, (n_boot, n_rep))
+            def est(a, i=None):
+                x, n = a
+                if n is None:
+                    return x.mean() if i is None else x[i].mean(1)
+                return x.sum() / n.sum() if i is None else x[i].sum(1) / np.maximum(n[i].sum(1), 1)
+            dlt = est(st[arm]) - est(st[ref])
+            lo, hi = np.percentile(est(st[arm], idx) - est(st[ref], idx), [2.5, 97.5])
+            cells.append(f"{dlt:+.2f} [{lo:+.2f}, {hi:+.2f}]")
         lines.append(f"| {T} | {gap} | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
@@ -204,7 +218,7 @@ def main(sc: str = "022-laplace") -> None:
           "*CS/fit* = declared CSs per fit. CAVI-Q2 in absolute terms; other arms as arm minus CAVI-Q2 "
           "on the same replicates. 95% CIs resample replicates.\n")
     print(pooled_summary(d, ref="cavi"), "\n")
-    print("## global-JJ minus CAVI-Q2 across m\n")
+    print("## global-JJ minus CAVI-Q2 across m (95% CI resamples replicates)\n")
     for metric in ("coverage", "power"):
         print(f"**{metric}**\n")
         print(compact_vs_m(d, "globaljj", "cavi", metric), "\n")
