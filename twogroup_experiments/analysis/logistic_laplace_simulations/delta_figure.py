@@ -1,6 +1,9 @@
 """Figure: each approximation arm minus CAVI-Q2, against expected set size m.
 
-Rows = coverage of declared CSs, power (fraction of causals captured by a declared CS).
+Rows = coverage of declared CSs, power (fraction of causals captured by a declared CS), and
+CS size as the ratio of geometric-mean declared-CS size (arm over reference, log axis, 1 =
+same size; the geometric mean is used because the arithmetic mean is pulled by the few very
+wide sets at weak signal and the median is integer-valued).
 Columns = T x gap panels. Bands = 95% CI from resampling replicates jointly for both arms,
 so the interval is on the difference. Zero line = identical to CAVI-Q2.
 
@@ -21,7 +24,8 @@ sys.path.insert(0, _HERE)
 import cs_tables as C  # noqa: E402
 import laplacelib as R  # noqa: E402
 
-METRIC_LABEL = {"coverage": "coverage", "power": "power"}
+METRIC_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size ratio"}
+METRIC_REF = {"coverage": 0.0, "power": 0.0, "size": 1.0}   # "same as reference" line
 
 
 def delta_frame(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int = 0) -> pl.DataFrame:
@@ -35,10 +39,13 @@ def delta_frame(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: in
         per = {}
         for mth in arms + [ref]:
             h = g.filter(pl.col("method") == mth)
+            n_decl = h.select(pl.col("sizes").list.len())["sizes"].to_numpy().astype(float)
             per[mth] = {
-                "coverage": (h.select(pl.col("covers").list.sum())["covers"].to_numpy().astype(float),
-                             h.select(pl.col("sizes").list.len())["sizes"].to_numpy().astype(float)),
+                "coverage": (h.select(pl.col("covers").list.sum())["covers"].to_numpy().astype(float), n_decl),
                 "power": ((h["n_detected"] / h["Lstar"]).to_numpy(), None),
+                # per-rep sum of log sizes / count -> mean log size; ratio of exp'd means below
+                "size": (h.select(pl.col("sizes").list.eval(pl.element().cast(pl.Float64).log()).list.sum())
+                          ["sizes"].fill_null(0.0).to_numpy().astype(float), n_decl),
             }
         n_rep = len(per[ref]["power"][0])
         idx = rng.integers(0, n_rep, (n_boot, n_rep))
@@ -49,10 +56,12 @@ def delta_frame(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: in
                 return x.mean() if i is None else x[i].mean(1)
             return x.sum() / n.sum() if i is None else x[i].sum(1) / np.maximum(n[i].sum(1), 1)
 
-        for metric in ("coverage", "power"):
+        for metric in ("coverage", "power", "size"):
             for mth in arms:
                 dlt = est(per[mth][metric]) - est(per[ref][metric])
                 b = est(per[mth][metric], idx) - est(per[ref][metric], idx)
+                if metric == "size":   # difference of mean log sizes -> ratio of geometric means
+                    dlt, b = np.exp(dlt), np.exp(b)
                 lo, hi = np.percentile(b, [2.5, 97.5])
                 rows.append({"metric": metric, "T": T, "gap": gap, "m": m, "method": mth,
                              "delta": float(dlt), "lo": float(lo), "hi": float(hi)})
@@ -61,7 +70,7 @@ def delta_frame(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: in
 
 def draw(df: pl.DataFrame, *, ref: str = "cavi", ax_w: float = 1.75, ax_h: float = 1.9):
     panels = df.select("T", "gap").unique().sort(["T", "gap"]).rows()
-    metrics = ["coverage", "power"]
+    metrics = ["coverage", "power", "size"]
     arms = [m for m in R.METHODS if m in df["method"].unique().to_list()]
     m_ticks = sorted(df["m"].unique().to_list())
     fig, axes = plt.subplots(len(metrics), len(panels), figsize=(ax_w * len(panels) + 0.5, ax_h * len(metrics) + 0.5),
@@ -70,7 +79,7 @@ def draw(df: pl.DataFrame, *, ref: str = "cavi", ax_w: float = 1.75, ax_h: float
         for j, (T, gap) in enumerate(panels):
             ax = axes[i][j]
             g = df.filter(pl.col("metric") == metric, pl.col("T") == T, pl.col("gap") == gap)
-            ax.axhline(0, color="0.55", lw=0.8, ls="--", zorder=0)
+            ax.axhline(METRIC_REF[metric], color="0.55", lw=0.8, ls="--", zorder=0)
             for mth in arms:
                 s = g.filter(pl.col("method") == mth).sort("m")
                 x = s["m"].to_numpy() * R._DODGE[mth]
@@ -78,6 +87,10 @@ def draw(df: pl.DataFrame, *, ref: str = "cavi", ax_w: float = 1.75, ax_h: float
                                 alpha=0.16, lw=0, zorder=1)
                 ax.plot(x, s["delta"].to_numpy(), color=R.METHOD_COLOR[mth], marker=R.METHOD_MARKER[mth],
                         ms=4, lw=1.4, mec="white", mew=0.6, label=R.METHOD_LABEL[mth], zorder=2)
+            if metric == "size":
+                ax.set_yscale("log", base=2)
+                ax.set_yticks([0.35, 0.5, 0.71, 1, 1.41, 2])
+                ax.set_yticklabels(["0.35", "0.5", "0.71", "1", "1.41", "2"])
             ax.set_xscale("log")
             ax.set_xticks(m_ticks)
             ax.set_xticklabels([str(v) for v in m_ticks], fontsize=7)
@@ -93,7 +106,7 @@ def draw(df: pl.DataFrame, *, ref: str = "cavi", ax_w: float = 1.75, ax_h: float
     fig.legend(handles, labels, loc="upper center", ncol=len(labels), frameon=False,
                bbox_to_anchor=(0.5, 1.0), fontsize=8)
     fig.supxlabel("expected set size m", fontsize=8.5, y=0.035)
-    fig.supylabel(f"arm minus {R.METHOD_LABEL[ref]}", fontsize=8.5)
+    fig.supylabel(f"arm relative to {R.METHOD_LABEL[ref]} (difference; size as ratio)", fontsize=8.5)
     fig.tight_layout(rect=(0.01, 0.0, 1, 0.95))
     return fig
 
