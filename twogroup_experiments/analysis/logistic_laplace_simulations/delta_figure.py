@@ -30,6 +30,12 @@ METRIC_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size ratio
 METRIC_REF = {"coverage": 0.0, "power": 0.0, "size": 1.0}   # "same as reference" line
 ABS_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size (geometric mean)"}
 ABS_REF = {"coverage": 0.95, "power": None, "size": None}   # nominal line
+# column headers: signal strength (T = expected LRT of the causal vs null) over causal correlation
+SIGNAL_LABEL = {8: "moderate signal", 16: "strong signal"}
+# binary phi between causals at the design's adjacent-column rho = 0.8 (laplacelib / brief.typ)
+GAP_LABEL = {8: "strongly correlated\ncausals (r = 0.47)", 64: "weakly correlated\ncausals (r = 0.05)",
+             None: "single causal"}
+X_LABEL = r"proportion at risk, $\theta = P(X = 1)$"
 
 
 def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, seed: int = 0) -> pl.DataFrame:
@@ -71,8 +77,8 @@ def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, s
                 if metric == "size":   # mean log size -> geometric mean (ratio of them with ref)
                     dlt, b = np.exp(dlt), np.exp(b)
                 lo, hi = np.percentile(b, [2.5, 97.5])
-                rows.append({"metric": metric, "T": T, "gap": gap, "m": m, "method": mth,
-                             "delta": float(dlt), "lo": float(lo), "hi": float(hi)})
+                rows.append({"metric": metric, "T": T, "gap": gap, "m": m, "theta": m / float(g["n"][0]),
+                             "method": mth, "delta": float(dlt), "lo": float(lo), "hi": float(hi)})
     return pl.DataFrame(rows)
 
 
@@ -81,18 +87,19 @@ def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float = 1.5, ax_h:
     panels = df.select("T", "gap").unique().sort(["T", "gap"]).rows()
     metrics = ["coverage", "power", "size"]
     arms = [m for m in R.METHODS if m in df["method"].unique().to_list()]
-    m_ticks = sorted(df["m"].unique().to_list())
-    fig, axes = plt.subplots(len(metrics), len(panels), figsize=(ax_w * len(panels) + 0.5, ax_h * len(metrics) + 0.5),
+    x_ticks = sorted(df["theta"].unique().to_list())
+    fig, axes = plt.subplots(len(metrics), len(panels), figsize=(ax_w * len(panels) + 0.6, ax_h * len(metrics) + 0.9),
                              sharex=True, sharey="row", squeeze=False)
     for i, metric in enumerate(metrics):
         for j, (T, gap) in enumerate(panels):
             ax = axes[i][j]
-            g = df.filter(pl.col("metric") == metric, pl.col("T") == T, pl.col("gap") == gap)
+            g = df.filter(pl.col("metric") == metric, pl.col("T") == T,
+                          pl.col("gap").is_null() if gap is None else pl.col("gap") == gap)
             if refs[metric] is not None:
                 ax.axhline(refs[metric], color="0.55", lw=0.8, ls="--", zorder=0)
             for mth in arms:
-                s = g.filter(pl.col("method") == mth).sort("m")
-                x = s["m"].to_numpy() * R._DODGE[mth]
+                s = g.filter(pl.col("method") == mth).sort("theta")
+                x = s["theta"].to_numpy() * R._DODGE[mth]
                 ax.fill_between(x, s["lo"].to_numpy(), s["hi"].to_numpy(), color=R.METHOD_COLOR[mth],
                                 alpha=0.16, lw=0, zorder=1)
                 ax.plot(x, s["delta"].to_numpy(), color=R.METHOD_COLOR[mth], marker=R.METHOD_MARKER[mth],
@@ -103,23 +110,34 @@ def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float = 1.5, ax_h:
                 ax.set_yticks(ticks)
                 ax.set_yticklabels([f"{t:g}" for t in ticks])
             ax.set_xscale("log")
-            ax.set_xticks(m_ticks)
-            ax.set_xticklabels([str(v) for v in m_ticks], fontsize=6)
+            ax.set_xticks(x_ticks)
+            ax.set_xticklabels([f"{v:g}" for v in x_ticks], fontsize=6.5, rotation=45, ha="right",
+                               rotation_mode="anchor")
             ax.minorticks_off()
             ax.tick_params(axis="y", labelsize=7)
             ax.spines[["top", "right"]].set_visible(False)
             ax.grid(axis="y", color="0.92", lw=0.6)
             if i == 0:
-                ax.set_title(f"T = {T}, gap = {gap}", fontsize=8.5)
+                ax.set_title(GAP_LABEL.get(gap, f"gap = {gap}"), fontsize=7, pad=4)
             if j == 0:
                 ax.set_ylabel(labels[metric], fontsize=8)
-    handles, labels = axes[0][0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="upper center", ncol=len(labels), frameon=False,
+    handles, labels_ = axes[0][0].get_legend_handles_labels()
+    fig.legend(handles, labels_, loc="upper center", ncol=len(labels_), frameon=False,
                bbox_to_anchor=(0.5, 1.0), fontsize=8)
-    fig.supxlabel("expected set size m", fontsize=8.5, y=0.035)
-    if ref:
-        fig.supylabel(f"arm relative to {R.METHOD_LABEL[ref]} (difference; size as ratio)", fontsize=8.5)
-    fig.tight_layout(rect=(0.01, 0.0, 1, 0.95))
+    fig.supxlabel(X_LABEL, fontsize=8.5, y=0.02)
+    fig.supylabel(f"metrics, relative to {R.METHOD_LABEL[ref]}" if ref else "metrics", fontsize=8.5)
+    fig.tight_layout(rect=(0.01, 0.0, 1, 0.9))
+    # super headers: one per signal strength, spanning that T's columns, with a rule beneath
+    fig.canvas.draw()
+    from matplotlib.lines import Line2D
+    for T in sorted({t for t, _ in panels}):
+        cols = [j for j, (t, _) in enumerate(panels) if t == T]
+        left = axes[0][cols[0]].get_position().x0
+        right = axes[0][cols[-1]].get_position().x1
+        top = axes[0][cols[0]].get_position().y1
+        fig.text((left + right) / 2, top + 0.075, f"{SIGNAL_LABEL.get(T, f'T = {T}')} (T = {T})",
+                 ha="center", va="bottom", fontsize=8.5)
+        fig.add_artist(Line2D([left, right], [top + 0.07, top + 0.07], color="0.3", lw=0.8))
     return fig
 
 
