@@ -134,6 +134,47 @@ def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000
     return "\n".join(lines)
 
 
+def delta_by_m(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int = 0) -> str:
+    """Per cell (T, gap, m): reference arm absolute, other arms as arm minus reference, for
+    coverage and power, joint rep-resampled 95% CIs. Wide: one row per cell, one column per arm."""
+    rng = np.random.default_rng(seed)
+    sig = d.filter(~pl.col("null"))
+    present = [m for m in R.METHODS if m in sig["method"].unique().to_list()]
+    others = [m for m in present if m != ref]
+    out = []
+    for metric in ("coverage", "power"):
+        hdr = ["T", "gap", "m", R.METHOD_LABEL[ref]] + [f"{R.METHOD_LABEL[m]} - {R.METHOD_LABEL[ref]}" for m in others]
+        lines = [f"\n**{metric}** (arm minus {R.METHOD_LABEL[ref]}, 95% CI resamples replicates)\n",
+                 "| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)]
+        for T, gap, m in sig.select("T", "gap", "m").unique().sort(["T", "gap", "m"]).iter_rows():
+            g = sig.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m).sort(["batch_hash", "replicate"])
+            st = {}
+            for mth in present:
+                h = g.filter(pl.col("method") == mth)
+                if metric == "coverage":
+                    x = h.select(pl.col("covers").list.sum())["covers"].to_numpy().astype(float)
+                    n = h.select(pl.col("sizes").list.len())["sizes"].to_numpy().astype(float)
+                    st[mth] = (x, n)
+                else:
+                    st[mth] = ((h["n_detected"] / h["Lstar"]).to_numpy(), None)
+            n_rep = len(st[ref][0])
+            idx = rng.integers(0, n_rep, (n_boot, n_rep))
+            def est(a, i=None):
+                x, n = a
+                if n is None:
+                    return x.mean() if i is None else x[i].mean(1)
+                return x.sum() / n.sum() if i is None else x[i].sum(1) / np.maximum(n[i].sum(1), 1)
+            cells = [f"{est(st[ref]):.2f}"]
+            for mth in others:
+                dlt = est(st[mth]) - est(st[ref])
+                b = est(st[mth], idx) - est(st[ref], idx)
+                lo, hi = np.percentile(b, [2.5, 97.5])
+                cells.append(f"{dlt:+.2f} [{lo:+.2f}, {hi:+.2f}]")
+            lines.append(f"| {T} | {gap} | {m} | " + " | ".join(cells) + " |")
+        out.append("\n".join(lines))
+    return "\n".join(out)
+
+
 def main(sc: str = "022-laplace") -> None:
     d = declared(load(sc))
     print(f"## Pooled over m within T x gap\n")
@@ -143,7 +184,9 @@ def main(sc: str = "022-laplace") -> None:
           "*CS/fit* = declared CSs per fit. CAVI-Q2 in absolute terms; other arms as arm minus CAVI-Q2 "
           "on the same replicates. 95% CIs resample replicates.\n")
     print(pooled_summary(d, ref="cavi"), "\n")
-    print("## Per cell\n")
+    print("## Per cell, delta to CAVI-Q2\n")
+    print(delta_by_m(d, ref="cavi"), "\n")
+    print("## Per cell, absolute\n")
     key = ["T", "gap", "m", "method"]
     sig = d.filter(~pl.col("null"))
     cs = (sig.explode(["sizes", "covers"])
