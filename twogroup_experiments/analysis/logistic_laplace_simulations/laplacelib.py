@@ -29,10 +29,12 @@ if _TG_ROOT not in sys.path:
     sys.path.insert(0, _TG_ROOT)
 import experiments.loader as loader  # noqa: E402
 
-_BETAS_JSON = json.load(open(os.path.join(_HERE, "betas.json")))
-_BETAS = _BETAS_JSON["betas"]
-N_ROWS = int(_BETAS_JSON["_meta"]["n"])
-B0_TRUE = float(_BETAS_JSON["_meta"]["b0"])
+# calibrated beta tables, keyed by design n: betas.json (n=10000 pilot), betas_n1000.json (full grid)
+_BETAS = {}
+for _f in ("betas.json", "betas_n1000.json"):
+    _j = json.load(open(os.path.join(_HERE, _f)))
+    _BETAS[int(_j["_meta"]["n"])] = _j["betas"]
+B0_TRUE = -2.0
 MIN_LOG_BF = 2.0          # declared-CS threshold (the experiment's default_args min_log_bf)
 
 METHODS = ["cavi", "gibss", "laplace", "globaljj", "score"]   # most to least accurate
@@ -74,10 +76,10 @@ def cell_meta(scoord: dict) -> dict:
         lstar = 0 if beta == 0.0 else 1
     T = None
     if beta != 0.0:
-        row = _BETAS[str(m)]
+        row = _BETAS[int(dargs["n"])][str(m)]
         T = int(min(row, key=lambda t: abs(beta - row[t])))
-    return {"m": m, "T": T, "beta": beta, "Lstar": lstar, "gap": gap, "null": lstar == 0,
-            "corr": float(dargs.get("corr"))}
+    return {"n": int(dargs["n"]), "m": m, "T": T, "beta": beta, "Lstar": lstar, "gap": gap,
+            "null": lstar == 0, "corr": float(dargs.get("corr"))}
 
 
 def _pip(alphas: np.ndarray) -> np.ndarray:

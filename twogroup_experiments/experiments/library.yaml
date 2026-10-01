@@ -1875,6 +1875,20 @@ methods:
   logistic_q2_L10_gibss_laplace:
     function: run_logistic_method
     template: {response_source: z, L: 10, offset_integration: none, variational_family: unconstrained, effect_quadrature_points: 1, gaussian_reduce: true, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  # L=5 twins of the L=10 gIBSS-Laplace / gIBSS-Q2 / global-JJ / score arms (022 full grid: L*=3,
+  # so L=5 stays over-specified at ~half the per-sweep cost). Identical templates except L.
+  logistic_q2_L5_gibss_laplace:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: none, variational_family: unconstrained, effect_quadrature_points: 1, gaussian_reduce: true, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  logistic_q2_L5_gibss:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: none, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  logistic_q2_L5_globaljj:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: jj_fixed, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  logistic_q2_L5_score:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, method: score, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   # No-freeze control for the freeze_prior_variance sanity check: identical to
   # logistic_q2_L10_globaljj but the prior-variance freeze is disabled, so every
   # component keeps updating (slower ~2-3x). Used to confirm the 0.01 freeze does
