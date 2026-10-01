@@ -71,7 +71,7 @@ print(C.pooled_summary(d, ref="cavi"))
 ```{python}
 #| label: fig-delta
 #| echo: false
-#| fig-cap: "Credible set metrics, relative to CAVI. Logistic SuSiE approximations are compared with CAVI-Q2 in the binary design experiment ($n = 1000$, $p = 256$, $\\rho = 0.8$, $L^* = 3$, fit $L = 5$, 200 replicates per cell). The x axis is the design density, the expected fraction of 1s in a column of $X$, $\\theta = P(X = 1)$; effect sizes are tuned per $\\theta$ so the expected log likelihood ratio of the causal variable against the null is $T$. Columns: signal strength ($T = 8, 16$) over the correlation between causal variables (gap 8 or 64 columns apart). Rows: coverage of declared 95% credible sets, power (fraction of causal variables captured by a declared set), and credible set size as the ratio of geometric means (log axis). Each arm is shown as its difference from CAVI-Q2 on the same replicates; the dashed line is no difference. Bands are 95% intervals from resampling replicates."
+#| fig-cap: "Credible set metrics, relative to CAVI. Logistic SuSiE approximations are compared with CAVI-Q2 in the binary design experiment ($n = 1000$, $p = 256$, $\\rho = 0.8$, $L^* = 3$, fit $L = 5$, 200 replicates per cell). The x axis is the design density, the expected fraction of 1s in a column of $X$, $\\theta = P(X = 1)$; effect sizes are tuned per $\\theta$ so the expected log likelihood ratio of the causal variable against the null is $T$. Columns: signal strength ($T = 8, 16$) over the correlation between causal variables (gap 8 or 64 columns apart). Rows: coverage of declared 95% credible sets, power (fraction of causal variables captured by a declared set), and mean credible set size as a ratio (log axis). Each arm is shown as its difference from CAVI-Q2 on the same replicates; the dashed line is no difference. Bands are 95% intervals from resampling replicates."
 delta = F.delta_frame(d, ref="cavi")
 F.draw(delta, ref="cavi");
 ```
@@ -81,7 +81,7 @@ F.draw(delta, ref="cavi");
 ```{python}
 #| label: fig-absolute
 #| echo: false
-#| fig-cap: "Credible set metrics, absolute. The same experiment and layout as above, with each arm's own coverage of declared 95% credible sets (dashed line: nominal 0.95), power, and geometric-mean credible set size (log axis). Bands are per-arm 95% intervals from resampling replicates."
+#| fig-cap: "Credible set metrics, absolute. The same experiment and layout as above, with each arm's own coverage of declared 95% credible sets (dashed line: nominal 0.95), power, and mean credible set size (log axis). Bands are per-arm 95% intervals from resampling replicates."
 absf = F.delta_frame(d, ref=None)
 F.draw(absf, ref=None);
 ```

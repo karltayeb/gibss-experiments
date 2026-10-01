@@ -1,15 +1,13 @@
 """Figure: each approximation arm minus CAVI-Q2, against expected set size m.
 
 Rows = coverage of declared CSs, power (fraction of causals captured by a declared CS), and
-CS size as the ratio of geometric-mean declared-CS size (arm over reference, log axis, 1 =
-same size; the geometric mean is used because the arithmetic mean is pulled by the few very
-wide sets at weak signal and the median is integer-valued).
+CS size as the ratio of mean declared-CS size (arm over reference, log axis, 1 = same size).
 Columns = T x gap panels. Bands = 95% CI from resampling replicates jointly for both arms,
 so the interval is on the difference. Zero line = identical to CAVI-Q2.
 
     uv run python analysis/logistic_laplace_simulations/delta_figure.py [SC] [REF]
 writes figures/delta_vs_<REF>.{pdf,png} next to this file. REF=none gives the absolute
-version: every arm's own coverage (0.95 nominal line), power and geometric-mean CS size,
+version: every arm's own coverage (0.95 nominal line), power and mean CS size,
 each with its own rep-resampled 95% CI, written to figures/absolute_vs_m.{pdf,png}.
 """
 from __future__ import annotations
@@ -28,7 +26,7 @@ import laplacelib as R  # noqa: E402
 
 METRIC_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size ratio"}
 METRIC_REF = {"coverage": 0.0, "power": 0.0, "size": 1.0}   # "same as reference" line
-ABS_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size (geometric mean)"}
+ABS_LABEL = {"coverage": "coverage", "power": "power", "size": "mean CS size"}
 ABS_REF = {"coverage": 0.95, "power": None, "size": None}   # nominal line
 # column headers: signal strength (T = expected LRT of the causal vs null) over causal correlation
 SIGNAL_LABEL = {8: "moderate signal", 16: "strong signal"}
@@ -40,7 +38,7 @@ X_LABEL = r"design density, $\theta = P(X = 1)$"
 
 def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, seed: int = 0) -> pl.DataFrame:
     """Per (metric, T, gap, m, arm): arm minus ref with joint rep-resampled 95% CI; with
-    ref=None, each arm's own value with its own rep-resampled CI (size = geometric mean)."""
+    ref=None, each arm's own value with its own rep-resampled CI (size = mean declared-CS size)."""
     rng = np.random.default_rng(seed)
     sig = d.filter(~pl.col("null"))
     arms = [m for m in R.METHODS if m != ref and m in sig["method"].unique().to_list()]
@@ -54,9 +52,8 @@ def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, s
             per[mth] = {
                 "coverage": (h.select(pl.col("covers").list.sum())["covers"].to_numpy().astype(float), n_decl),
                 "power": ((h["n_detected"] / h["Lstar"]).to_numpy(), None),
-                # per-rep sum of log sizes / count -> mean log size; ratio of exp'd means below
-                "size": (h.select(pl.col("sizes").list.eval(pl.element().cast(pl.Float64).log()).list.sum())
-                          ["sizes"].fill_null(0.0).to_numpy().astype(float), n_decl),
+                # per-rep sum of sizes / count -> mean declared-CS size; ratio of means with ref
+                "size": (h.select(pl.col("sizes").list.sum())["sizes"].fill_null(0).to_numpy().astype(float), n_decl),
             }
         n_rep = len(per[arms[0]]["power"][0])
         idx = rng.integers(0, n_rep, (n_boot, n_rep))
@@ -69,13 +66,14 @@ def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, s
 
         for metric in ("coverage", "power", "size"):
             for mth in arms:
-                if ref:
+                if ref and metric == "size":     # ratio of mean sizes
+                    dlt = est(per[mth][metric]) / est(per[ref][metric])
+                    b = est(per[mth][metric], idx) / est(per[ref][metric], idx)
+                elif ref:
                     dlt = est(per[mth][metric]) - est(per[ref][metric])
                     b = est(per[mth][metric], idx) - est(per[ref][metric], idx)
                 else:
                     dlt, b = est(per[mth][metric]), est(per[mth][metric], idx)
-                if metric == "size":   # mean log size -> geometric mean (ratio of them with ref)
-                    dlt, b = np.exp(dlt), np.exp(b)
                 lo, hi = np.percentile(b, [2.5, 97.5])
                 rows.append({"metric": metric, "T": T, "gap": gap, "m": m, "theta": m / float(g["n"][0]),
                              "method": mth, "delta": float(dlt), "lo": float(lo), "hi": float(hi)})
