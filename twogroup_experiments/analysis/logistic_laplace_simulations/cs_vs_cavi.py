@@ -1,110 +1,174 @@
-"""Is an arm's CS coverage worse than CAVI-Q2's? A direct, paired check.
+"""Is an arm's CS coverage worse than the reference's (CAVI-Q2)? A direct, paired check.
 
-On each replicate every arm sees the same data. Match each declared CS of the arm to the
-CAVI-Q2 CS on that replicate with the largest Jaccard overlap (greedy one-to-one, overlap
-required). Then:
+Every arm sees the same data, and every arm fits L components. On each replicate, assign the
+arm's L components to the reference's L components one-to-one (Hungarian) maximising the
+Bhattacharyya coefficient BC = sum_j sqrt(alpha_a[j] alpha_r[j]) between their inclusion
+vectors, which matches components that are "about the same signal" whether or not their 95%
+sets agree. No leftovers: declaration (component log BF >= 2) is then part of the
+classification, not a reason to drop a set.
 
-  * matched pairs: a 2x2 of (arm covers, CAVI covers). The discordant counts
-    `arm miss / CAVI cover` vs `arm cover / CAVI miss` feed an exact McNemar test
-    (two-sided binomial). Excess of the first = the arm's matched CSs are too narrow.
-  * unmatched: CSs only the arm declares (and only CAVI declares), with their false rate.
-    Excess false arm-only CSs = over-declaration.
-  * paired coverage difference: per-rep (covered, declared) counts, rep-cluster bootstrap
-    CI on arm coverage minus CAVI coverage.
+Per matched pair we record: declared in arm / ref, covers a causal in arm / ref, BC, and the
+arm's alpha on the causal the reference CS contains (the "excluded but still has evidence"
+diagnostic for arm-miss pairs).
+
+Tables, pooled over m within T x gap:
+  1. both declared: both / arm miss / ref miss / neither, exact McNemar on the discordant
+     counts; paired coverage difference with a rep-cluster bootstrap CI.
+  2. declaration disagreement: arm-only declared (false/total), ref-only declared (covering/total).
+  3. arm-miss diagnostic: the arm's alpha on the causal that the reference CS covers.
 
     uv run python analysis/logistic_laplace_simulations/cs_vs_cavi.py [SC] [REF]
 """
 from __future__ import annotations
 
+import os
 import sys
 
 import numpy as np
 import polars as pl
+from scipy.optimize import linear_sum_assignment
 from scipy.stats import binomtest
 
-sys.path.insert(0, __file__.rsplit("/", 1)[0])
-import cs_paired as P  # noqa: E402
-import cs_tables as C  # noqa: E402
+_HERE = os.path.dirname(os.path.abspath(__file__))
+_TG_ROOT = os.path.dirname(os.path.dirname(_HERE))
+sys.path.insert(0, _TG_ROOT)
+sys.path.insert(0, _HERE)
+import experiments.loader as loader  # noqa: E402
 import laplacelib as R  # noqa: E402
 
 
-def declared_sets(df: pl.DataFrame) -> pl.DataFrame:
-    rows = []
+def _reps(path: str) -> dict[int, dict]:
+    """replicate -> {alpha (L x p), lbf (L), cov (L bool), causal (list), cs (list of lists)}."""
+    out = {}
+    df = pl.read_parquet(path, columns=["replicate", "credible_sets", "single_effects"])
     for r in df.iter_rows(named=True):
-        keep = [i for i, b in enumerate(r["lbf"]) if b >= R.MIN_LOG_BF]
-        rows.append({**{k: r[k] for k in P.KEY + ["method", "null"]},
-                     "sets": [sorted(r["css"][i]) for i in keep],
-                     "covers": [bool(r["covers"][i]) for i in keep]})
+        se, cs = r["single_effects"], r["credible_sets"]
+        out[int(r["replicate"])] = {
+            "alpha": np.array([e["alpha"] for e in se]),
+            "lbf": np.array([e["ser_log_bf"] for e in se]),
+            "cov": np.array([bool(c["causal_in_cs"]) for c in cs]),
+            "cs": [list(c["cs"]) for c in cs],
+            "causal": list(cs[0]["causal_indices"]),
+        }
+    return out
+
+
+def pairs_frame(sc: str, ref: str) -> pl.DataFrame:
+    cfg = loader.load_config()
+    cells: dict[str, dict] = {}
+    for coll in loader.collection_method_pairs(cfg, sc).values():
+        for bh, mh, mname, mcoord, scoord in coll["pairs"]:
+            c = cells.setdefault(bh, {"meta": R.cell_meta(scoord), "paths": {}})
+            c["paths"][R._method_key(mname)] = f"{_TG_ROOT}/results/by_batch/{bh}/fits/{mh}/fits.parquet"
+    rows = []
+    for bh, c in cells.items():
+        if c["meta"]["null"] or not os.path.exists(c["paths"].get(ref, "")):
+            continue
+        refr = _reps(c["paths"][ref])
+        for arm, path in c["paths"].items():
+            if arm == ref or not os.path.exists(path):
+                continue
+            for rep, a in _reps(path).items():
+                if rep not in refr:
+                    continue
+                b = refr[rep]
+                causal = b["causal"]
+                bc = np.sqrt(a["alpha"]) @ np.sqrt(b["alpha"]).T          # L x L affinity
+                ia, ib = linear_sum_assignment(-bc)
+                for la, lb in zip(ia, ib):
+                    # the causal the reference component's CS contains (if any)
+                    ref_hit = [j for j in causal if j in b["cs"][lb]]
+                    j_ref = ref_hit[0] if ref_hit else None
+                    rows.append({
+                        "T": c["meta"]["T"], "gap": c["meta"]["gap"], "m": c["meta"]["m"],
+                        "batch_hash": bh, "rep": rep, "arm": arm, "bc": float(bc[la, lb]),
+                        "a_decl": bool(a["lbf"][la] >= R.MIN_LOG_BF),
+                        "r_decl": bool(b["lbf"][lb] >= R.MIN_LOG_BF),
+                        "a_cov": bool(a["cov"][la]), "r_cov": bool(b["cov"][lb]),
+                        "a_lbf": float(a["lbf"][la]), "r_lbf": float(b["lbf"][lb]),
+                        "a_size": len(a["cs"][la]), "r_size": len(b["cs"][lb]),
+                        # arm's alpha on the causal the ref CS covers; ref's own for scale
+                        "a_alpha_j": float(a["alpha"][la, j_ref]) if j_ref is not None else None,
+                        "r_alpha_j": float(b["alpha"][lb, j_ref]) if j_ref is not None else None,
+                        "a_rank_j": int((a["alpha"][la] > a["alpha"][la, j_ref]).sum()) + 1
+                                    if j_ref is not None else None,
+                    })
     return pl.DataFrame(rows, infer_schema_length=None)
 
 
-def match(a_sets, a_cov, b_sets, b_cov):
-    """Greedy one-to-one Jaccard matching. Returns matched (a_cov, b_cov) pairs and leftovers."""
-    pairs = []
-    a_sets = [set(s) for s in a_sets]
-    b_sets = [set(t) for t in b_sets]
-    for i, s in enumerate(a_sets):
-        for j, t in enumerate(b_sets):
-            inter = len(s & t)
-            if inter:
-                pairs.append((inter / len(s | t), i, j))
-    pairs.sort(reverse=True)
-    used_a, used_b, out = set(), set(), []
-    for _, i, j in pairs:
-        if i in used_a or j in used_b:
-            continue
-        used_a.add(i); used_b.add(j)
-        out.append((a_cov[i], b_cov[j]))
-    a_only = [a_cov[i] for i in range(len(a_sets)) if i not in used_a]
-    b_only = [b_cov[j] for j in range(len(b_sets)) if j not in used_b]
-    return out, a_only, b_only
+def _hdr(cols):
+    return "| " + " | ".join(cols) + " |\n|" + "---|" * len(cols)
 
 
-def main(sc="022-laplace", ref="cavi"):
-    d = declared_sets(C.load(sc)).filter(~pl.col("null"))
-    refd = (d.filter(pl.col("method") == ref)
-              .select(*P.KEY, pl.col("sets").alias("r_sets"), pl.col("covers").alias("r_cov")))
-    j = d.filter(pl.col("method") != ref).join(refd, on=P.KEY, how="inner")
-    arms = [m for m in R.METHODS if m != ref and m in j["method"].unique().to_list()]
+def main(sc: str = "022-laplace", ref: str = "cavi") -> None:
+    P = pairs_frame(sc, ref)
+    arms = [m for m in R.METHODS if m in P["arm"].unique().to_list()]
+    panels = P.select("T", "gap").unique().sort(["T", "gap"]).rows()
     rng = np.random.default_rng(0)
-    print(f"**{sc}**, reference = {R.METHOD_LABEL[ref]}; only reps where the reference is fit. "
-          f"Pooled over m within T x gap.\n")
-    print("Columns: *matched* = one-to-one Jaccard-matched CS pairs; *both* = both cover; "
-          "*arm miss* = arm's CS misses the causal while the reference's matched CS covers it; "
-          "*ref miss* = the reverse; *p* = exact McNemar (two-sided binomial on the two discordant "
-          "counts); *arm-only false* = CSs only the arm declared, shown as false/total; *ref-only "
-          "false* likewise; *dcov* = arm coverage minus reference coverage with a rep-cluster "
-          "bootstrap 95% CI.\n")
-    hdr = ["T", "gap", "arm", "matched", "both", "arm miss", "ref miss", "p", "arm-only false",
-           "ref-only false", "dcov [95% CI]"]
-    print("| " + " | ".join(hdr) + " |\n|" + "---|" * len(hdr))
-    for T, gap in j.select("T", "gap").unique().sort(["T", "gap"]).iter_rows():
+    RL = R.METHOD_LABEL[ref]
+    n_reps = P.select("batch_hash", "rep").unique().height
+    print(f"**{sc}**, reference = {RL}, {n_reps} signal reps where the reference is fit. "
+          f"Components matched one-to-one per rep by Bhattacharyya affinity of alpha; pooled over m "
+          f"within T x gap.\n")
+
+    print("**1. Both declared.** *both* = both CSs contain a causal; *arm miss* = arm's misses while "
+          f"{RL}'s covers; *ref miss* = reverse; *neither*; *p* = exact McNemar on the two discordant "
+          "counts; *BC* = median affinity of these pairs; *dcov* = arm minus reference coverage over "
+          "declared CSs, rep-cluster bootstrap 95% CI.\n")
+    print(_hdr(["T", "gap", "arm", "both", "arm miss", "ref miss", "neither", "p", "BC", "dcov [95% CI]"]))
+    for T, gap in panels:
         for arm in arms:
-            g = j.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("method") == arm)
-            both = am = rm = neither = 0
-            ao, ro = [], []
-            rep_x, rep_n, rep_x0, rep_n0 = [], [], [], []
-            for r in g.iter_rows(named=True):
-                pairs, a_only, r_only = match(r["sets"], r["covers"], r["r_sets"], r["r_cov"])
-                for a, b in pairs:
-                    if a and b: both += 1
-                    elif b: am += 1
-                    elif a: rm += 1
-                    else: neither += 1
-                ao += a_only; ro += r_only
-                rep_x.append(sum(r["covers"])); rep_n.append(len(r["covers"]))
-                rep_x0.append(sum(r["r_cov"])); rep_n0.append(len(r["r_cov"]))
+            g = P.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("arm") == arm)
+            bd = g.filter(pl.col("a_decl"), pl.col("r_decl"))
+            both = bd.filter(pl.col("a_cov"), pl.col("r_cov")).height
+            am = bd.filter(~pl.col("a_cov"), pl.col("r_cov")).height
+            rm = bd.filter(pl.col("a_cov"), ~pl.col("r_cov")).height
+            nei = bd.filter(~pl.col("a_cov"), ~pl.col("r_cov")).height
             p = binomtest(am, am + rm).pvalue if am + rm else 1.0
-            x, n, x0, n0 = map(np.array, (rep_x, rep_n, rep_x0, rep_n0))
+            per = (g.group_by("batch_hash", "rep")
+                     .agg((pl.col("a_decl") & pl.col("a_cov")).sum().alias("x"), pl.col("a_decl").sum().alias("n"),
+                          (pl.col("r_decl") & pl.col("r_cov")).sum().alias("x0"), pl.col("r_decl").sum().alias("n0")))
+            x, n, x0, n0 = (per[k].to_numpy() for k in ("x", "n", "x0", "n0"))
             diff = x.sum() / n.sum() - x0.sum() / n0.sum()
             boots = []
             for _ in range(2000):
                 i = rng.integers(0, len(x), len(x))
                 boots.append(x[i].sum() / max(n[i].sum(), 1) - x0[i].sum() / max(n0[i].sum(), 1))
             lo, hi = np.percentile(boots, [2.5, 97.5])
-            print(f"| {T} | {gap} | {R.METHOD_LABEL[arm]} | {both+am+rm+neither} | {both} | {am} | {rm} | "
-                  f"{p:.3g} | {sum(1 for c in ao if not c)}/{len(ao)} | {sum(1 for c in ro if not c)}/{len(ro)} | "
-                  f"{diff:+.3f} [{lo:+.3f}, {hi:+.3f}] |")
+            print(f"| {T} | {gap} | {R.METHOD_LABEL[arm]} | {both} | {am} | {rm} | {nei} | {p:.2g} | "
+                  f"{bd['bc'].median():.2f} | {diff:+.3f} [{lo:+.3f}, {hi:+.3f}] |")
+
+    print(f"\n**2. Declaration disagreement.** *arm only* = arm declares, {RL} does not (false/total: "
+          f"these are the arm's extra CSs); *ref only* = {RL} declares, arm does not (covering/total: "
+          "signals the arm missed); *BC* = median affinity of the ref-only pairs.\n")
+    print(_hdr(["T", "gap", "arm", "arm only false/total", "ref only covering/total", "BC (ref only)"]))
+    for T, gap in panels:
+        for arm in arms:
+            g = P.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("arm") == arm)
+            ao = g.filter(pl.col("a_decl"), ~pl.col("r_decl"))
+            ro = g.filter(~pl.col("a_decl"), pl.col("r_decl"))
+            print(f"| {T} | {gap} | {R.METHOD_LABEL[arm]} | {ao.filter(~pl.col('a_cov')).height}/{ao.height} | "
+                  f"{ro.filter(pl.col('r_cov')).height}/{ro.height} | "
+                  f"{'-' if ro.height == 0 else f'{ro['bc'].median():.2f}'} |")
+
+    print(f"\n**3. Arm-miss diagnostic** (both declared, {RL} covers, arm misses): the arm's alpha on "
+          f"the causal that {RL}'s CS contains. *median alpha*; *>0.05* = fraction with alpha above "
+          "0.05 (excluded from the 95% set but still carrying evidence); *rank* = median rank of that "
+          "causal within the arm's component; *size a/r* = median CS sizes; *lbf a/r* = median "
+          "component log BF.\n")
+    print(_hdr(["T", "gap", "arm", "n", "median alpha", ">0.05", ">0.01", "rank", "size a/r", "lbf a/r"]))
+    for T, gap in panels:
+        for arm in arms:
+            g = P.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("arm") == arm,
+                         pl.col("a_decl"), pl.col("r_decl"), ~pl.col("a_cov"), pl.col("r_cov"))
+            if g.height == 0:
+                print(f"| {T} | {gap} | {R.METHOD_LABEL[arm]} | 0 | - | - | - | - | - | - |")
+                continue
+            a = g["a_alpha_j"].to_numpy()
+            print(f"| {T} | {gap} | {R.METHOD_LABEL[arm]} | {g.height} | {np.median(a):.3f} | "
+                  f"{(a > 0.05).mean():.2f} | {(a > 0.01).mean():.2f} | {g['a_rank_j'].median():.0f} | "
+                  f"{g['a_size'].median():.0f}/{g['r_size'].median():.0f} | "
+                  f"{g['a_lbf'].median():.1f}/{g['r_lbf'].median():.1f} |")
 
 
 if __name__ == "__main__":
