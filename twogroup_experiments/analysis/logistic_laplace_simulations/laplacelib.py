@@ -76,7 +76,8 @@ def cell_meta(scoord: dict) -> dict:
     if beta != 0.0:
         row = _BETAS[str(m)]
         T = int(min(row, key=lambda t: abs(beta - row[t])))
-    return {"m": m, "T": T, "beta": beta, "Lstar": lstar, "gap": gap, "null": lstar == 0}
+    return {"m": m, "T": T, "beta": beta, "Lstar": lstar, "gap": gap, "null": lstar == 0,
+            "corr": float(dargs.get("corr"))}
 
 
 def _pip(alphas: np.ndarray) -> np.ndarray:
@@ -137,7 +138,7 @@ def causal_frame(ff: pl.DataFrame) -> pl.DataFrame:
             mu, var = float(e["mu"][j]), float(e["var"][j])
             sd = float(np.sqrt(max(var, 1e-300)))
             out.append({
-                k: r[k] for k in ("m", "T", "beta", "Lstar", "gap", "method", "fit_L",
+                k: r[k] for k in ("m", "T", "beta", "Lstar", "gap", "corr", "method", "fit_L",
                                   "batch_hash", "rep")
             } | {
                 "j": int(j), "detected": int(j) in set(r["detected"]),
@@ -148,7 +149,7 @@ def causal_frame(ff: pl.DataFrame) -> pl.DataFrame:
     return pl.DataFrame(out, infer_schema_length=None) if out else pl.DataFrame()
 
 
-_KEY = ["m", "T", "beta", "Lstar", "gap", "fit_L", "batch_hash", "rep"]
+_KEY = ["m", "T", "beta", "Lstar", "gap", "corr", "fit_L", "batch_hash", "rep"]
 
 
 def paired(df: pl.DataFrame, col: str, *, extra_key=(), ratio=False) -> pl.DataFrame:

@@ -39,6 +39,7 @@ MULTI_T = 8
 PILOT_TARGETS = [8, 16]
 PILOT_MULTI = (3, 10)             # (L*, gap) at T=MULTI_T
 
+
 METHODS = [
     "logistic_q2_ser_gibss_laplace", "logistic_q2_ser_gibss", "logistic_q2_ser_globaljj",
     "logistic_q2_ser_cavi", "logistic_q2_ser_score",
@@ -46,10 +47,17 @@ METHODS = [
     "logistic_q2_L10_cavi", "logistic_q2_L10_score",
 ]
 
+# Independent-design control: the pilot's multi-causal cells (L*=3, gap 10, T=8) at corr=0, L=10
+# arms only, CAVI skipped (cost). Separates approximation error from the correlated-design
+# (between-causal) misses.
+INDEP_CORR = 0.0
+INDEP_BATCHES = 2
+INDEP_METHODS = [m for m in METHODS if "_L10_" in m and not m.endswith("_cavi")]
 
-def _design(m: int) -> str:
+
+def _design(m: int, corr: float = CORR) -> str:
     return (f"{{function: binary_markov_X, arguments: "
-            f"{{n: {N}, p: {P}, corr: {CORR}, density: {m / N:g}}}}}")
+            f"{{n: {N}, p: {P}, corr: {corr}, density: {m / N:g}}}}}")
 
 
 def _single(m: int, t: int, beta: float) -> str:
@@ -77,13 +85,17 @@ def entries(m: int, betas: dict, *, pilot: bool) -> list[str]:
     return rows
 
 
-def collections_block(betas: dict, indent: str, *, pilot: bool) -> str:
+def collections_block(betas: dict, indent: str, *, pilot: bool, multi_only: bool = False,
+                      corr: float = CORR) -> str:
     """One collection per set size (the design density differs per m)."""
     blocks = []
     for m in SET_SIZES:
-        lines = "\n".join(f"{indent}        {e}" for e in entries(m, betas, pilot=pilot))
+        rows = entries(m, betas, pilot=pilot)
+        if multi_only:
+            rows = [e for e in rows if "spaced_index_effect" in e]
+        lines = "\n".join(f"{indent}        {e}" for e in rows)
         blocks.append(
-            f"{indent}- template: {{design: {_design(m)}, signal: binary, error: noiseless}}\n"
+            f"{indent}- template: {{design: {_design(m, corr)}, signal: binary, error: noiseless}}\n"
             f"{indent}  over:\n"
             f"{indent}    enrichment:\n{lines}"
         )
@@ -95,6 +107,7 @@ def main() -> None:
     n_cells = len(SET_SIZES) * (len(TARGETS) + 1 + len(LSTARS) * len(GAPS))
     n_pilot = len(SET_SIZES) * (len(PILOT_TARGETS) + 1 + 1)
     methods_yaml = "[" + ", ".join(METHODS) + "]"
+    indep_yaml = "[" + ", ".join(INDEP_METHODS) + "]"
     text = f"""\
 # 022_logistic_laplace: when is gIBSS-Laplace good enough? Five Q2 logistic-SuSiE arms at
 # L=1 and L=10 -- gIBSS-Laplace (order-1 SER, plug-in offset, reduced to Q2), gIBSS-Q2
@@ -134,6 +147,18 @@ supercollections:
     default_args: *default_args
     outputs:
       - {{name: pilot, method_filter: *methods, analyses: [pip, cs]}}
+
+  # independent-design control: the pilot's mc{PILOT_MULTI[0]} gap-{PILOT_MULTI[1]} cells at corr={INDEP_CORR}, L=10 arms (no CAVI),
+  # {INDEP_BATCHES * 10} reps. Same betas (calibration is per column, corr-free).
+  022-laplace-pilot-indep:
+    replicates_per_batch: 10
+    n_batches: {INDEP_BATCHES}
+    collections:
+{collections_block(betas, "      ", pilot=True, multi_only=True, corr=INDEP_CORR)}
+    methods: {indep_yaml}
+    default_args: *default_args
+    outputs:
+      - {{name: indep, method_filter: {indep_yaml}, analyses: [pip, cs]}}
 """
     OUT.write_text(text)
     print(f"wrote {OUT} ({n_cells} cells full, {n_pilot} pilot, {len(METHODS)} methods)")
