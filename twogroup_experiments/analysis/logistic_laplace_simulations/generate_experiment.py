@@ -20,6 +20,11 @@ Supercollections (cells are content-addressed; labels are display-only):
                              phi between causals ~0.47 / ~0.05), T in {8,16}, m in {5,10,50,100,200,400},
                              + one null per m. CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / score,
                              200 reps.
+  * 022-laplace-ser          FULL GRID, single effect. n=1000, L=1 (SER arms), one causal,
+                             T in {8,16}, m in {5,10,50,100,200,400}, + one null per m (the null
+                             cells are content-identical to the full grid's, so their sims are
+                             shared). All five arms, 200 reps. At L=1 gIBSS-Q2 == CAVI-Q2 by
+                             construction (no other effects to fold): an identity check.
   * 022-laplace-pilot        n=10000 pilot: T in {8,16} single-effect + null + L*=3 gap-10 T=8,
                              m in {5,10,30,100}; all five arms at L=1 and L=10; 10 reps.
   * 022-laplace-pilot-indep  pilot gap-10 multi cells at corr=0 (L=10, no CAVI), 20 reps.
@@ -47,6 +52,10 @@ FULL_METHODS = [
     "logistic_q2_L5_globaljj", "logistic_q2_L5_score",
 ]
 NOCAVI_METHODS = [m for m in FULL_METHODS if not m.endswith("_cavi")]
+SER_METHODS = [
+    "logistic_q2_ser_cavi", "logistic_q2_ser_gibss", "logistic_q2_ser_gibss_laplace",
+    "logistic_q2_ser_globaljj", "logistic_q2_ser_score",
+]
 
 # ---- pilot (n=10000) ----------------------------------------------------------------------
 PILOT_N = 10000
@@ -114,6 +123,10 @@ def main() -> None:
         return ([_multi(m, FULL_LSTAR, g, tbl[str(t)], t) for t in FULL_TARGETS for g in FULL_GAPS]
                 + [_null(m)])
 
+    def ser_rows(m):
+        tbl = full_b[str(m)]
+        return [_single(m, t, tbl[str(t)]) for t in FULL_TARGETS] + [_null(m)]
+
     def pilot_rows(m):
         tbl = pilot_b[str(m)]
         return ([_single(m, t, tbl[str(t)]) for t in PILOT_TARGETS] + [_null(m)]
@@ -126,6 +139,7 @@ def main() -> None:
         return [_multi(m, lstar, GAPMAX, pilot_b[str(m)][str(t)], t) for t in GAPMAX_TARGETS]
 
     n_full = len(FULL_SET_SIZES) * (len(FULL_TARGETS) * len(FULL_GAPS) + 1)
+    n_ser = len(FULL_SET_SIZES) * (len(FULL_TARGETS) + 1)
     ind = "      "
     text = f"""\
 # 022_logistic_laplace: when is gIBSS-Laplace good enough? Logistic-SuSiE approximations in Q2,
@@ -166,6 +180,18 @@ supercollections:
     outputs:
       - {{name: laplace_nocavi, method_filter: {_yaml_list(NOCAVI_METHODS)}, analyses: [pip, cs]}}
 
+  # FULL GRID, SINGLE EFFECT: n={FULL_N}, L=1 (SER arms), one causal, T in {{{", ".join(map(str, FULL_TARGETS))}}},
+  # m in {{{", ".join(map(str, FULL_SET_SIZES))}}} + one null per m ({n_ser} cells), {FULL_BATCHES * 10} reps.
+  022-laplace-ser:
+    replicates_per_batch: 10
+    n_batches: {FULL_BATCHES}
+    collections:
+{_collections(FULL_N, FULL_SET_SIZES, ser_rows, ind)}
+    methods: {_yaml_list(SER_METHODS)}
+    default_args: *default_args
+    outputs:
+      - {{name: laplace_ser, method_filter: {_yaml_list(SER_METHODS)}, analyses: [pip, cs]}}
+
   # PILOT (n={PILOT_N}): T in {{{", ".join(map(str, PILOT_TARGETS))}}} single-effect + null + mc{lstar} gap {gap_p} T={t_p},
   # m in {{{", ".join(map(str, PILOT_SET_SIZES))}}}; all five arms at L=1 and L=10; 10 reps.
   022-laplace-pilot:
@@ -202,7 +228,7 @@ supercollections:
       - {{name: gapmax, method_filter: {_yaml_list(CONTROL_METHODS)}, analyses: [pip, cs]}}
 """
     OUT.write_text(text)
-    print(f"wrote {OUT} (full grid {n_full} cells x {len(FULL_METHODS)} arms)")
+    print(f"wrote {OUT} (full grid {n_full} cells x {len(FULL_METHODS)} arms; ser {n_ser} cells x {len(SER_METHODS)} arms)")
 
 
 if __name__ == "__main__":
