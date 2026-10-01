@@ -83,7 +83,7 @@ def elbo_table(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
             .with_columns((pl.col("q2_elbo") - pl.col("ref_elbo")).alias("d")))
     rows = list(rows)
     n = float(sig["n"][0])
-    hdr = ["theta" if r == "m" else r for r in rows] + [f"{R.METHOD_LABEL[a]} - {R.METHOD_LABEL[ref]}" for a in arms]
+    hdr = ["theta" if r == "m" else r for r in rows] + [R.METHOD_LABEL[a] for a in arms]
     lines = ["| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)]
     fmt = f"{{:+.{digits}f}}"
     for combo in sig.select(rows).unique().sort(rows).iter_rows():
@@ -156,7 +156,7 @@ def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000
                 r_ = stat[ref]
                 c, cb = cov(s_) - cov(r_), cov(s_, idx) - cov(r_, idx)
                 p, pb = pw(s_) - pw(r_), pw(s_, idx) - pw(r_, idx)
-                fmt, label = "{:+.3f}", f"{R.METHOD_LABEL[mth]} - {R.METHOD_LABEL[ref]}"
+                fmt, label = "{:+.3f}", R.METHOD_LABEL[mth]
             else:
                 c, cb, p, pb = cov(s_), cov(s_, idx), pw(s_), pw(s_, idx)
                 fmt, label = "{:.3f}", R.METHOD_LABEL[mth]
@@ -177,7 +177,7 @@ def delta_by_m(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
     others = [m for m in present if m != ref]
     out = []
     for metric in ("coverage", "power"):
-        hdr = ["T", "gap", "m", R.METHOD_LABEL[ref]] + [f"{R.METHOD_LABEL[m]} - {R.METHOD_LABEL[ref]}" for m in others]
+        hdr = ["T", "gap", "m", R.METHOD_LABEL[ref]] + [R.METHOD_LABEL[m] for m in others]
         lines = [f"\n**{metric}** (arm minus {R.METHOD_LABEL[ref]}, 95% CI resamples replicates)\n",
                  "| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)]
         for T, gap, m in sig.select("T", "gap", "m").unique().sort(["T", "gap", "m"]).iter_rows():
