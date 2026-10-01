@@ -95,7 +95,7 @@ def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000
     present = [m for m in R.METHODS if m in sig["method"].unique().to_list()]
     if ref not in present:
         ref = None
-    lines = ["| T | gap | arm | coverage [95% CI] | size | power [95% CI] | CS/fit |",
+    lines = ["| T | gap | arm | coverage [95% CI] | size (IQR) | power [95% CI] | CS/fit |",
              "|---|---|---|---|---|---|---|"]
     for T, gap in sig.select("T", "gap").unique().sort(["T", "gap"]).iter_rows():
         g = sig.filter(pl.col("T") == T, pl.col("gap") == gap).sort(["batch_hash", "replicate"])
@@ -106,7 +106,9 @@ def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000
                 x=h.select(pl.col("covers").list.sum())["covers"].to_numpy().astype(float),
                 n=h.select(pl.col("sizes").list.len())["sizes"].to_numpy().astype(float),
                 pw=(h["n_detected"] / h["Lstar"]).to_numpy(),
-                size=h.explode("sizes")["sizes"].drop_nulls().median())
+                size=h.explode("sizes")["sizes"].drop_nulls().quantile(0.5),
+                q1=h.explode("sizes")["sizes"].drop_nulls().quantile(0.25),
+                q3=h.explode("sizes")["sizes"].drop_nulls().quantile(0.75))
         n_rep = len(stat[present[0]]["x"])
         idx = rng.integers(0, n_rep, (n_boot, n_rep))
         def cov(s, i=None):
@@ -127,7 +129,7 @@ def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000
             c_lo, c_hi = np.percentile(cb, [2.5, 97.5])
             p_lo, p_hi = np.percentile(pb, [2.5, 97.5])
             lines.append(f"| {T} | {gap} | {label} | {fmt.format(c)} [{fmt.format(c_lo)}, {fmt.format(c_hi)}] | "
-                         f"{s_['size']:.0f} | {fmt.format(p)} [{fmt.format(p_lo)}, {fmt.format(p_hi)}] | "
+                         f"{s_['size']:.0f} ({s_['q1']:.0f}-{s_['q3']:.0f}) | {fmt.format(p)} [{fmt.format(p_lo)}, {fmt.format(p_hi)}] | "
                          f"{s_['n'].mean():.2f} |")
     return "\n".join(lines)
 
@@ -135,7 +137,8 @@ def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000
 def main(sc: str = "022-laplace") -> None:
     d = declared(load(sc))
     print(f"## Pooled over m within T x gap\n")
-    print("*coverage* = declared CSs containing a causal; *size* = median declared-CS size; "
+    print("*coverage* = declared CSs containing a causal; *size* = median declared-CS size with its "
+          "interquartile range; "
           "*power* = mean over reps of the fraction of the 3 causals captured by a declared CS; "
           "*CS/fit* = declared CSs per fit. CAVI-Q2 in absolute terms; other arms as arm minus CAVI-Q2 "
           "on the same replicates. 95% CIs resample replicates.\n")
