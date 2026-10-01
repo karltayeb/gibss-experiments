@@ -38,7 +38,7 @@ def load(sc: str) -> pl.DataFrame:
             if not os.path.exists(f):
                 continue
             meta = R.cell_meta(scoord)
-            df = (pl.read_parquet(f, columns=["replicate", "credible_sets", "single_effects"])
+            df = (pl.read_parquet(f, columns=["replicate", "credible_sets", "single_effects", "q2_elbo"])
                     .with_columns(
                         pl.col("single_effects").list.eval(pl.element().struct.field("ser_log_bf"))
                           .alias("lbf"),
@@ -67,6 +67,31 @@ def declared(df: pl.DataFrame) -> pl.DataFrame:
                      "covers": [r["covers"][i] for i in keep],
                      "n_detected": len(hit), "n_declared": len(keep)})
     return pl.concat([df.drop("lbf", "sizes", "covers", "css"), pl.DataFrame(rows)], how="horizontal")
+
+
+def elbo_table(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int = 0) -> str:
+    """Exact Q2 ELBO of each arm minus the reference's on the SAME replicate (nats), mean with a
+    rep-resampled 95% CI. Rows (T, gap, theta); columns arms. Signal cells only."""
+    rng = np.random.default_rng(seed)
+    sig = d.filter(~pl.col("null"))
+    arms = [m for m in R.METHODS if m != ref and m in sig["method"].unique().to_list()]
+    key = ["T", "gap", "m", "batch_hash", "replicate"]
+    refd = sig.filter(pl.col("method") == ref).select(*key, pl.col("q2_elbo").alias("ref_elbo"))
+    j = (sig.filter(pl.col("method") != ref).join(refd, on=key, how="inner")
+            .with_columns((pl.col("q2_elbo") - pl.col("ref_elbo")).alias("d")))
+    hdr = ["T", "gap", "theta"] + [f"{R.METHOD_LABEL[a]} - {R.METHOD_LABEL[ref]}" for a in arms]
+    lines = ["| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)]
+    for T, gap, m, n in sig.select("T", "gap", "m", "n").unique().sort(["T", "gap", "m"]).iter_rows():
+        cells = []
+        for a in arms:
+            x = j.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m, pl.col("method") == a)["d"].to_numpy()
+            if len(x) == 0:
+                cells.append("-"); continue
+            b = x[rng.integers(0, len(x), (n_boot, len(x)))].mean(1)
+            lo, hi = np.percentile(b, [2.5, 97.5])
+            cells.append(f"{x.mean():+.3f} [{lo:+.3f}, {hi:+.3f}]")
+        lines.append(f"| {T} | {gap} | {m / n:g} | " + " | ".join(cells) + " |")
+    return "\n".join(lines)
 
 
 def table(d: pl.DataFrame, rows: list[str], value: str, fmt) -> str:
