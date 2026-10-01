@@ -46,6 +46,7 @@ FULL_METHODS = [
     "logistic_q2_L5_cavi", "logistic_q2_L5_gibss", "logistic_q2_L5_gibss_laplace",
     "logistic_q2_L5_globaljj", "logistic_q2_L5_score",
 ]
+NOCAVI_METHODS = [m for m in FULL_METHODS if not m.endswith("_cavi")]
 
 # ---- pilot (n=10000) ----------------------------------------------------------------------
 PILOT_N = 10000
@@ -152,6 +153,18 @@ supercollections:
     default_args: *default_args
     outputs:
       - {{name: laplace, method_filter: {_yaml_list(FULL_METHODS)}, analyses: [pip, cs]}}
+
+  # the full grid's cells WITHOUT CAVI-Q2 (content-identical, so its fits are the full grid's):
+  # run first, since CAVI-Q2 is ~2/3 of the compute.
+  022-laplace-nocavi:
+    replicates_per_batch: 10
+    n_batches: {FULL_BATCHES}
+    collections:
+{_collections(FULL_N, FULL_SET_SIZES, full_rows, ind)}
+    methods: {_yaml_list(NOCAVI_METHODS)}
+    default_args: *default_args
+    outputs:
+      - {{name: laplace_nocavi, method_filter: {_yaml_list(NOCAVI_METHODS)}, analyses: [pip, cs]}}
 
   # PILOT (n={PILOT_N}): T in {{{", ".join(map(str, PILOT_TARGETS))}}} single-effect + null + mc{lstar} gap {gap_p} T={t_p},
   # m in {{{", ".join(map(str, PILOT_SET_SIZES))}}}; all five arms at L=1 and L=10; 10 reps.
