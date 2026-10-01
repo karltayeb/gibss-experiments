@@ -69,10 +69,11 @@ R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "T", "method"]), facet="T",
 
 ```{python}
 #| label: fig-effect-ser
-#| fig-cap: "Causal feature's conditional posterior N(mu, sd^2), EB-shrunk toward 0 (a Bayesian interval at a fixed true beta). Top: (mu - beta)/sd. Bottom: 95% interval coverage of beta."
+#| fig-cap: "Causal feature's conditional posterior N(mu, sd^2), DETECTED causals only (a declared CS contains it). Top: (mu - beta)/sd. Bottom: 95% interval coverage of beta."
 c = cf.filter(SER)
-R.line_vs_m(R.mean_se(c, "z", ["m", "T", "method"]), facet="T", ylabel="(mu - beta) / sd", ref=0.0)
-R.line_vs_m(R.mean_se(c, "covered", ["m", "T", "method"]), facet="T", ylabel="beta 95% interval coverage", ref=0.95);
+cd = c.filter(pl.col("detected"))
+R.line_vs_m(R.mean_se(cd, "z", ["m", "T", "method"]), facet="T", ylabel="(mu - beta) / sd", ref=0.0)
+R.line_vs_m(R.mean_se(cd, "covered", ["m", "T", "method"]), facet="T", ylabel="beta 95% interval coverage", ref=0.95);
 ```
 
 ```{python}
@@ -151,10 +152,11 @@ R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "method"]), ylabel="ELBO - ELB
 
 ```{python}
 #| label: fig-effect-multi
-#| fig-cap: "Causal features' conditional posteriors (EB-shrunk), L*=3, fit L=10. Top: (mu - beta)/sd. Bottom: 95% interval coverage of beta."
+#| fig-cap: "Causal features' conditional posteriors, DETECTED causals only, L*=3, fit L=10. Top: (mu - beta)/sd. Bottom: 95% interval coverage of beta."
 c = cf.filter(MULTI)
-fig1 = R.line_vs_m(R.mean_se(c, "z", ["m", "method"]), ylabel="(mu - beta) / sd", ref=0.0)
-fig2 = R.line_vs_m(R.mean_se(c, "covered", ["m", "method"]), ylabel="beta 95% interval coverage", ref=0.95);
+cd = c.filter(pl.col("detected"))
+fig1 = R.line_vs_m(R.mean_se(cd, "z", ["m", "method"]), ylabel="(mu - beta) / sd", ref=0.0)
+fig2 = R.line_vs_m(R.mean_se(cd, "covered", ["m", "method"]), ylabel="beta 95% interval coverage", ref=0.95);
 ```
 
 ## PIP and credible sets {#sec-pip-cs-multi}

@@ -116,12 +116,18 @@ def fit_frame(sc: str = "022-laplace-pilot",
                     "pip": _pip(alpha).tolist(), "causal": causal,
                     "cs_sizes": [s for s, _ in declared], "cs_covers": [c for _, c in declared],
                     "_se": [{k: e[k] for k in ("alpha", "mu", "var", "feature_log_bf")} for e in se],
+                    # causal features captured by a declared CS (component log BF >= MIN_LOG_BF)
+                    "detected": sorted({j for c, b in zip(r["credible_sets"], lbf)
+                                        if b >= MIN_LOG_BF for j in c["cs"]} & set(causal)),
                 })
     return pl.DataFrame(rows, infer_schema_length=None) if rows else pl.DataFrame()
 
 
 def causal_frame(ff: pl.DataFrame) -> pl.DataFrame:
-    """Per (fit, causal feature): conditional posterior of b_j in its selecting component."""
+    """Per (fit, causal feature): conditional posterior of b_j in its selecting component.
+    `detected` = a declared CS contains j. Effect-size metrics (bias, beta interval coverage)
+    are only meaningful for detected effects: an undetected causal is read from an ARD-shrunk
+    near-null component (EB prior variance ~0.2), whose interval sits at 0 by construction."""
     out = []
     for r in ff.filter(~pl.col("null")).iter_rows(named=True):
         alpha = np.array([e["alpha"] for e in r["_se"]])
@@ -134,7 +140,8 @@ def causal_frame(ff: pl.DataFrame) -> pl.DataFrame:
                 k: r[k] for k in ("m", "T", "beta", "Lstar", "gap", "method", "fit_L",
                                   "batch_hash", "rep")
             } | {
-                "j": int(j), "alpha": float(alpha[l, j]), "mu": mu, "sd": sd,
+                "j": int(j), "detected": int(j) in set(r["detected"]),
+                "alpha": float(alpha[l, j]), "mu": mu, "sd": sd,
                 "z": (mu - r["beta"]) / sd, "covered": abs(mu - r["beta"]) <= 1.959964 * sd,
                 "feature_log_bf": float(e["feature_log_bf"][j]),
             })
