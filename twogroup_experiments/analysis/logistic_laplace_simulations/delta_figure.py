@@ -8,7 +8,9 @@ Columns = T x gap panels. Bands = 95% CI from resampling replicates jointly for 
 so the interval is on the difference. Zero line = identical to CAVI-Q2.
 
     uv run python analysis/logistic_laplace_simulations/delta_figure.py [SC] [REF]
-writes figures/delta_vs_<REF>.{pdf,png} next to this file.
+writes figures/delta_vs_<REF>.{pdf,png} next to this file. REF=none gives the absolute
+version: every arm's own coverage (0.95 nominal line), power and geometric-mean CS size,
+each with its own rep-resampled 95% CI, written to figures/absolute_vs_m.{pdf,png}.
 """
 from __future__ import annotations
 
@@ -26,10 +28,13 @@ import laplacelib as R  # noqa: E402
 
 METRIC_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size ratio"}
 METRIC_REF = {"coverage": 0.0, "power": 0.0, "size": 1.0}   # "same as reference" line
+ABS_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size (geometric mean)"}
+ABS_REF = {"coverage": 0.95, "power": None, "size": None}   # nominal line
 
 
-def delta_frame(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int = 0) -> pl.DataFrame:
-    """Per (metric, T, gap, m, arm): arm minus ref with joint rep-resampled 95% CI."""
+def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, seed: int = 0) -> pl.DataFrame:
+    """Per (metric, T, gap, m, arm): arm minus ref with joint rep-resampled 95% CI; with
+    ref=None, each arm's own value with its own rep-resampled CI (size = geometric mean)."""
     rng = np.random.default_rng(seed)
     sig = d.filter(~pl.col("null"))
     arms = [m for m in R.METHODS if m != ref and m in sig["method"].unique().to_list()]
@@ -37,7 +42,7 @@ def delta_frame(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: in
     for T, gap, m in sig.select("T", "gap", "m").unique().sort(["T", "gap", "m"]).iter_rows():
         g = sig.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m).sort(["batch_hash", "replicate"])
         per = {}
-        for mth in arms + [ref]:
+        for mth in arms + ([ref] if ref else []):
             h = g.filter(pl.col("method") == mth)
             n_decl = h.select(pl.col("sizes").list.len())["sizes"].to_numpy().astype(float)
             per[mth] = {
@@ -47,7 +52,7 @@ def delta_frame(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: in
                 "size": (h.select(pl.col("sizes").list.eval(pl.element().cast(pl.Float64).log()).list.sum())
                           ["sizes"].fill_null(0.0).to_numpy().astype(float), n_decl),
             }
-        n_rep = len(per[ref]["power"][0])
+        n_rep = len(per[arms[0]]["power"][0])
         idx = rng.integers(0, n_rep, (n_boot, n_rep))
 
         def est(a, i=None):
@@ -58,9 +63,12 @@ def delta_frame(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: in
 
         for metric in ("coverage", "power", "size"):
             for mth in arms:
-                dlt = est(per[mth][metric]) - est(per[ref][metric])
-                b = est(per[mth][metric], idx) - est(per[ref][metric], idx)
-                if metric == "size":   # difference of mean log sizes -> ratio of geometric means
+                if ref:
+                    dlt = est(per[mth][metric]) - est(per[ref][metric])
+                    b = est(per[mth][metric], idx) - est(per[ref][metric], idx)
+                else:
+                    dlt, b = est(per[mth][metric]), est(per[mth][metric], idx)
+                if metric == "size":   # mean log size -> geometric mean (ratio of them with ref)
                     dlt, b = np.exp(dlt), np.exp(b)
                 lo, hi = np.percentile(b, [2.5, 97.5])
                 rows.append({"metric": metric, "T": T, "gap": gap, "m": m, "method": mth,
@@ -68,7 +76,8 @@ def delta_frame(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: in
     return pl.DataFrame(rows)
 
 
-def draw(df: pl.DataFrame, *, ref: str = "cavi", ax_w: float = 1.75, ax_h: float = 1.9):
+def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float = 1.75, ax_h: float = 1.9):
+    labels, refs = (METRIC_LABEL, METRIC_REF) if ref else (ABS_LABEL, ABS_REF)
     panels = df.select("T", "gap").unique().sort(["T", "gap"]).rows()
     metrics = ["coverage", "power", "size"]
     arms = [m for m in R.METHODS if m in df["method"].unique().to_list()]
@@ -79,7 +88,8 @@ def draw(df: pl.DataFrame, *, ref: str = "cavi", ax_w: float = 1.75, ax_h: float
         for j, (T, gap) in enumerate(panels):
             ax = axes[i][j]
             g = df.filter(pl.col("metric") == metric, pl.col("T") == T, pl.col("gap") == gap)
-            ax.axhline(METRIC_REF[metric], color="0.55", lw=0.8, ls="--", zorder=0)
+            if refs[metric] is not None:
+                ax.axhline(refs[metric], color="0.55", lw=0.8, ls="--", zorder=0)
             for mth in arms:
                 s = g.filter(pl.col("method") == mth).sort("m")
                 x = s["m"].to_numpy() * R._DODGE[mth]
@@ -89,8 +99,9 @@ def draw(df: pl.DataFrame, *, ref: str = "cavi", ax_w: float = 1.75, ax_h: float
                         ms=4, lw=1.4, mec="white", mew=0.6, label=R.METHOD_LABEL[mth], zorder=2)
             if metric == "size":
                 ax.set_yscale("log", base=2)
-                ax.set_yticks([0.35, 0.5, 0.71, 1, 1.41, 2])
-                ax.set_yticklabels(["0.35", "0.5", "0.71", "1", "1.41", "2"])
+                ticks = [0.35, 0.5, 0.71, 1, 1.41, 2] if ref else [1, 2, 4, 8, 16]
+                ax.set_yticks(ticks)
+                ax.set_yticklabels([f"{t:g}" for t in ticks])
             ax.set_xscale("log")
             ax.set_xticks(m_ticks)
             ax.set_xticklabels([str(v) for v in m_ticks], fontsize=7)
@@ -101,26 +112,29 @@ def draw(df: pl.DataFrame, *, ref: str = "cavi", ax_w: float = 1.75, ax_h: float
             if i == 0:
                 ax.set_title(f"T = {T}, gap = {gap}", fontsize=8.5)
             if j == 0:
-                ax.set_ylabel(METRIC_LABEL[metric], fontsize=8)
+                ax.set_ylabel(labels[metric], fontsize=8)
     handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(handles, labels, loc="upper center", ncol=len(labels), frameon=False,
                bbox_to_anchor=(0.5, 1.0), fontsize=8)
     fig.supxlabel("expected set size m", fontsize=8.5, y=0.035)
-    fig.supylabel(f"arm relative to {R.METHOD_LABEL[ref]} (difference; size as ratio)", fontsize=8.5)
+    if ref:
+        fig.supylabel(f"arm relative to {R.METHOD_LABEL[ref]} (difference; size as ratio)", fontsize=8.5)
     fig.tight_layout(rect=(0.01, 0.0, 1, 0.95))
     return fig
 
 
 def main(sc: str = "022-laplace", ref: str = "cavi") -> None:
+    ref = None if ref.lower() == "none" else ref
     d = C.declared(C.load(sc))
     df = delta_frame(d, ref=ref)
     out = os.path.join(_HERE, "figures")
     os.makedirs(out, exist_ok=True)
-    df.write_parquet(os.path.join(out, f"delta_vs_{ref}.parquet"))
+    stem = f"delta_vs_{ref}" if ref else "absolute_vs_m"
+    df.write_parquet(os.path.join(out, f"{stem}.parquet"))
     fig = draw(df, ref=ref)
     for ext in ("pdf", "png"):
-        fig.savefig(os.path.join(out, f"delta_vs_{ref}.{ext}"), dpi=200, bbox_inches="tight")
-    print(os.path.join(out, f"delta_vs_{ref}.png"))
+        fig.savefig(os.path.join(out, f"{stem}.{ext}"), dpi=200, bbox_inches="tight")
+    print(os.path.join(out, f"{stem}.png"))
 
 
 if __name__ == "__main__":
