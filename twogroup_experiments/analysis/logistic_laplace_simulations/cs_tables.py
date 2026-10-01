@@ -85,28 +85,50 @@ def table(d: pl.DataFrame, rows: list[str], value: str, fmt) -> str:
     return "\n".join(out)
 
 
-def pooled_summary(d: pl.DataFrame, n_boot: int = 2000, seed: int = 0) -> str:
-    """Headline table: per T x gap (pooled over m) and arm, coverage, median CS size, power,
-    CS/fit. Intervals resample replicates (the independent unit; CSs within a fit are not)."""
+def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000,
+                   seed: int = 0) -> str:
+    """Headline table per T x gap (pooled over m). With `ref`, that arm is shown in absolute
+    terms and every other arm as its difference from `ref` (arm minus ref). Intervals resample
+    replicates jointly across arms (the independent unit; CSs within a fit are not)."""
     rng = np.random.default_rng(seed)
     sig = d.filter(~pl.col("null"))
     present = [m for m in R.METHODS if m in sig["method"].unique().to_list()]
+    if ref not in present:
+        ref = None
     lines = ["| T | gap | arm | coverage [95% CI] | size | power [95% CI] | CS/fit |",
              "|---|---|---|---|---|---|---|"]
     for T, gap in sig.select("T", "gap").unique().sort(["T", "gap"]).iter_rows():
+        g = sig.filter(pl.col("T") == T, pl.col("gap") == gap).sort(["batch_hash", "replicate"])
+        stat = {}
         for mth in present:
-            g = sig.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("method") == mth)
-            x = g.select(pl.col("covers").list.sum())["covers"].to_numpy().astype(float)
-            n = g.select(pl.col("sizes").list.len())["sizes"].to_numpy().astype(float)
-            pw = (g["n_detected"] / g["Lstar"]).to_numpy()
-            size = g.explode("sizes")["sizes"].drop_nulls().median()
-            idx = rng.integers(0, len(x), (n_boot, len(x)))
-            cov_b = x[idx].sum(1) / np.maximum(n[idx].sum(1), 1)
-            pw_b = pw[idx].mean(1)
-            c_lo, c_hi = np.percentile(cov_b, [2.5, 97.5])
-            p_lo, p_hi = np.percentile(pw_b, [2.5, 97.5])
-            lines.append(f"| {T} | {gap} | {R.METHOD_LABEL[mth]} | {x.sum()/n.sum():.3f} [{c_lo:.3f}, {c_hi:.3f}] | "
-                         f"{size:.0f} | {pw.mean():.3f} [{p_lo:.3f}, {p_hi:.3f}] | {n.mean():.2f} |")
+            h = g.filter(pl.col("method") == mth)
+            stat[mth] = dict(
+                x=h.select(pl.col("covers").list.sum())["covers"].to_numpy().astype(float),
+                n=h.select(pl.col("sizes").list.len())["sizes"].to_numpy().astype(float),
+                pw=(h["n_detected"] / h["Lstar"]).to_numpy(),
+                size=h.explode("sizes")["sizes"].drop_nulls().median())
+        n_rep = len(stat[present[0]]["x"])
+        idx = rng.integers(0, n_rep, (n_boot, n_rep))
+        def cov(s, i=None):
+            x, n = (s["x"], s["n"]) if i is None else (s["x"][i].sum(1), s["n"][i].sum(1))
+            return x.sum() / n.sum() if i is None else x / np.maximum(n, 1)
+        def pw(s, i=None):
+            return s["pw"].mean() if i is None else s["pw"][i].mean(1)
+        for mth in present:
+            s_ = stat[mth]
+            if ref and mth != ref:
+                r_ = stat[ref]
+                c, cb = cov(s_) - cov(r_), cov(s_, idx) - cov(r_, idx)
+                p, pb = pw(s_) - pw(r_), pw(s_, idx) - pw(r_, idx)
+                fmt, label = "{:+.3f}", f"{R.METHOD_LABEL[mth]} - {R.METHOD_LABEL[ref]}"
+            else:
+                c, cb, p, pb = cov(s_), cov(s_, idx), pw(s_), pw(s_, idx)
+                fmt, label = "{:.3f}", R.METHOD_LABEL[mth]
+            c_lo, c_hi = np.percentile(cb, [2.5, 97.5])
+            p_lo, p_hi = np.percentile(pb, [2.5, 97.5])
+            lines.append(f"| {T} | {gap} | {label} | {fmt.format(c)} [{fmt.format(c_lo)}, {fmt.format(c_hi)}] | "
+                         f"{s_['size']:.0f} | {fmt.format(p)} [{fmt.format(p_lo)}, {fmt.format(p_hi)}] | "
+                         f"{s_['n'].mean():.2f} |")
     return "\n".join(lines)
 
 
@@ -115,8 +137,9 @@ def main(sc: str = "022-laplace") -> None:
     print(f"## Pooled over m within T x gap\n")
     print("*coverage* = declared CSs containing a causal; *size* = median declared-CS size; "
           "*power* = mean over reps of the fraction of the 3 causals captured by a declared CS; "
-          "*CS/fit* = declared CSs per fit. 95% CIs resample replicates.\n")
-    print(pooled_summary(d), "\n")
+          "*CS/fit* = declared CSs per fit. CAVI-Q2 in absolute terms; other arms as arm minus CAVI-Q2 "
+          "on the same replicates. 95% CIs resample replicates.\n")
+    print(pooled_summary(d, ref="cavi"), "\n")
     print("## Per cell\n")
     key = ["T", "gap", "m", "method"]
     sig = d.filter(~pl.col("null"))
