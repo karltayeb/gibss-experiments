@@ -38,6 +38,7 @@ def load(sc: str) -> pl.DataFrame:
             if not os.path.exists(f):
                 continue
             meta = R.cell_meta(scoord)
+            fit_L = int((mcoord.get("kwargs") or {}).get("L", 1) or 1)
             df = (pl.read_parquet(f, columns=["replicate", "credible_sets", "single_effects", "q2_elbo"])
                     .with_columns(
                         pl.col("single_effects").list.eval(pl.element().struct.field("ser_log_bf"))
@@ -51,8 +52,14 @@ def load(sc: str) -> pl.DataFrame:
                     ).drop("credible_sets", "single_effects"))
             frames.append(df.with_columns(
                 pl.lit(R._method_key(mname)).alias("method"), pl.lit(bh).alias("batch_hash"),
-                **{k: pl.lit(v) for k, v in meta.items()}))
+                pl.lit(fit_L).alias("fit_L"),
+                **{k: (pl.lit(None, dtype=pl.Int64) if v is None else pl.lit(v)) for k, v in meta.items()}))
     return pl.concat(frames, how="diagonal_relaxed")
+
+
+def eq(col: str, v):
+    """Null-safe equality for cell axes (gap is null on single-causal cells)."""
+    return pl.col(col).is_null() if v is None else pl.col(col) == v
 
 
 def declared(df: pl.DataFrame) -> pl.DataFrame:
@@ -78,8 +85,10 @@ def elbo_table(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
     sig = d.filter(~pl.col("null"))
     arms = [m for m in R.METHODS if m != ref and m in sig["method"].unique().to_list()]
     key = ["T", "gap", "m", "batch_hash", "replicate"]
+    sig = sig.with_columns(pl.col("gap").fill_null(-1))   # nulls don't join; single-causal cells
     refd = sig.filter(pl.col("method") == ref).select(*key, pl.col("q2_elbo").alias("ref_elbo"))
     j = (sig.filter(pl.col("method") != ref).join(refd, on=key, how="inner")
+            .with_columns(pl.when(pl.col("gap") < 0).then(None).otherwise(pl.col("gap")).alias("gap"))
             .with_columns((pl.col("q2_elbo") - pl.col("ref_elbo")).alias("d")))
     rows = list(rows)
     n = float(sig["n"][0])
@@ -89,7 +98,7 @@ def elbo_table(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
     for combo in sig.select(rows).unique().sort(rows).iter_rows():
         g = j
         for c, v in zip(rows, combo):
-            g = g.filter(pl.col(c) == v)
+            g = g.filter(eq(c, None if (c == "gap" and v == -1) else v))
         cells = []
         for a in arms:
             x = g.filter(pl.col("method") == a)["d"].to_numpy()
@@ -98,7 +107,7 @@ def elbo_table(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
             b = x[rng.integers(0, len(x), (n_boot, len(x)))].mean(1)
             lo, hi = np.percentile(b, [2.5, 97.5])
             cells.append(f"{fmt.format(x.mean())} [{fmt.format(lo)}, {fmt.format(hi)}]")
-        label = [f"{v / n:g}" if c == "m" else str(v) for c, v in zip(rows, combo)]
+        label = [f"{v / n:g}" if c == "m" else ("-" if (c == "gap" and v == -1) else str(v)) for c, v in zip(rows, combo)]
         lines.append("| " + " | ".join(label + cells) + " |")
     return "\n".join(lines)
 
@@ -110,7 +119,7 @@ def table(d: pl.DataFrame, rows: list[str], value: str, fmt) -> str:
     for combo in d.select(rows).unique().sort(rows).iter_rows():
         g = d
         for c, v in zip(rows, combo):
-            g = g.filter(pl.col(c) == v)
+            g = g.filter(eq(c, v))
         cells = []
         for m in present:
             x = g.filter(pl.col("method") == m)
@@ -132,7 +141,7 @@ def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000
     lines = ["| T | gap | arm | coverage [95% CI] | size (IQR) | power [95% CI] | CS/fit |",
              "|---|---|---|---|---|---|---|"]
     for T, gap in sig.select("T", "gap").unique().sort(["T", "gap"]).iter_rows():
-        g = sig.filter(pl.col("T") == T, pl.col("gap") == gap).sort(["batch_hash", "replicate"])
+        g = sig.filter(eq("T", T), eq("gap", gap)).sort(["batch_hash", "replicate"])
         stat = {}
         for mth in present:
             h = g.filter(pl.col("method") == mth)
@@ -162,7 +171,7 @@ def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000
                 fmt, label = "{:.3f}", R.METHOD_LABEL[mth]
             c_lo, c_hi = np.percentile(cb, [2.5, 97.5])
             p_lo, p_hi = np.percentile(pb, [2.5, 97.5])
-            lines.append(f"| {T} | {gap} | {label} | {fmt.format(c)} [{fmt.format(c_lo)}, {fmt.format(c_hi)}] | "
+            lines.append(f"| {T} | {'-' if gap is None else gap} | {label} | {fmt.format(c)} [{fmt.format(c_lo)}, {fmt.format(c_hi)}] | "
                          f"{s_['size']:.0f} ({s_['q1']:.0f}-{s_['q3']:.0f}) | {fmt.format(p)} [{fmt.format(p_lo)}, {fmt.format(p_hi)}] | "
                          f"{s_['n'].mean():.2f} |")
     return "\n".join(lines)
@@ -181,7 +190,7 @@ def delta_by_m(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
         lines = [f"\n**{metric}** (arm minus {R.METHOD_LABEL[ref]}, 95% CI resamples replicates)\n",
                  "| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)]
         for T, gap, m in sig.select("T", "gap", "m").unique().sort(["T", "gap", "m"]).iter_rows():
-            g = sig.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m).sort(["batch_hash", "replicate"])
+            g = sig.filter(eq("T", T), eq("gap", gap), pl.col("m") == m).sort(["batch_hash", "replicate"])
             st = {}
             for mth in present:
                 h = g.filter(pl.col("method") == mth)
@@ -276,7 +285,7 @@ def main(sc: str = "022-laplace") -> None:
     print(__doc__.split("Columns:")[1].strip(), "\n")
     for T in sorted(tab["T"].unique().to_list()):
         for gap in sorted(tab["gap"].unique().to_list()):
-            t = tab.filter(pl.col("T") == T, pl.col("gap") == gap)
+            t = tab.filter(eq("T", T), eq("gap", gap))
             print(f"\n### T = {T}, gap = {gap}\n")
             print("**coverage** (declared CSs containing a causal, x/n)\n")
             print(table(t, ["m"], "x", lambda r: f"{int(r['x'])}/{int(r['n'])} ({r['x']/r['n']:.2f})"

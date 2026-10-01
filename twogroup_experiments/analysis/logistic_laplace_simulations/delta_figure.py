@@ -44,7 +44,7 @@ def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, s
     arms = [m for m in R.METHODS if m != ref and m in sig["method"].unique().to_list()]
     rows = []
     for T, gap, m in sig.select("T", "gap", "m").unique().sort(["T", "gap", "m"]).iter_rows():
-        g = sig.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m).sort(["batch_hash", "replicate"])
+        g = sig.filter(C.eq("T", T), C.eq("gap", gap), pl.col("m") == m).sort(["batch_hash", "replicate"])
         per = {}
         for mth in arms + ([ref] if ref else []):
             h = g.filter(pl.col("method") == mth)
@@ -80,9 +80,11 @@ def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, s
     return pl.DataFrame(rows)
 
 
-def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float = 1.5, ax_h: float = 1.75):
+def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float | None = None, ax_h: float = 1.75):
     labels, refs = (METRIC_LABEL, METRIC_REF) if ref else (ABS_LABEL, ABS_REF)
     panels = df.select("T", "gap").unique().sort(["T", "gap"]).rows()
+    if ax_w is None:
+        ax_w = 1.5 if len(panels) > 2 else 2.4   # a 2-panel (single-causal) figure can afford wider axes
     metrics = ["coverage", "power", "size"]
     arms = [m for m in R.METHODS if m in df["method"].unique().to_list()]
     x_ticks = sorted(df["theta"].unique().to_list())
@@ -91,8 +93,7 @@ def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float = 1.5, ax_h:
     for i, metric in enumerate(metrics):
         for j, (T, gap) in enumerate(panels):
             ax = axes[i][j]
-            g = df.filter(pl.col("metric") == metric, pl.col("T") == T,
-                          pl.col("gap").is_null() if gap is None else pl.col("gap") == gap)
+            g = df.filter(pl.col("metric") == metric, C.eq("T", T), C.eq("gap", gap))
             if refs[metric] is not None:
                 ax.axhline(refs[metric], color="0.55", lw=0.8, ls="--", zorder=0)
             for mth in arms:
@@ -104,7 +105,7 @@ def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float = 1.5, ax_h:
                         ms=4, lw=1.4, mec="white", mew=0.6, label=R.METHOD_LABEL[mth], zorder=2)
             if metric == "size":
                 ax.set_yscale("log", base=2)
-                ticks = [0.35, 0.5, 0.71, 1, 1.41, 2] if ref else [1, 2, 4, 8, 16]
+                ticks = [0.25, 0.35, 0.5, 0.71, 1, 1.41, 2] if ref else [1, 2, 4, 8, 16, 32]
                 ax.set_yticks(ticks)
                 ax.set_yticklabels([f"{t:g}" for t in ticks])
             ax.set_xscale("log")
@@ -145,7 +146,8 @@ def main(sc: str = "022-laplace", ref: str = "cavi") -> None:
     df = delta_frame(d, ref=ref)
     out = os.path.join(_HERE, "figures")
     os.makedirs(out, exist_ok=True)
-    stem = f"delta_vs_{ref}" if ref else "absolute_vs_m"
+    base = f"delta_vs_{ref}" if ref else "absolute_vs_m"
+    stem = base if sc == "022-laplace" else f"{sc.removeprefix('022-laplace-')}_{base}"
     df.write_parquet(os.path.join(out, f"{stem}.parquet"))
     fig = draw(df, ref=ref)
     for ext in ("pdf", "png"):

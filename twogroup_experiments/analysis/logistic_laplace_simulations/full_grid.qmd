@@ -115,7 +115,86 @@ print("**Per cell:**\n")
 print(C.elbo_table(d, ref="cavi"))
 ```
 
-# Null cells {#sec-null}
+# Single causal, L = 1 {#sec-ser}
+
+```{python}
+#| label: setup-ser
+#| include: false
+SC_SER = "022-laplace-ser"
+ds = C.declared(C.load(SC_SER))
+sigs = ds.filter(~pl.col("null"))
+```
+
+The same design with one causal column and the single-effect arms ($L = 1$). At $L = 1$
+there are no other effects to fold in, so gIBSS-Q2 and CAVI-Q2 run the same update; any
+difference between arms is in the single-effect regression itself. Note the declaration
+rate at $T = 8$: a lone causal clears $\log \text{BF} \ge 2$ in only about one fit in eight
+(the SER log BF pays $\log p \approx 5.5$ nats against an expected LRT of 8), so the $T = 8$
+coverage rests on 25 to 30 declared sets per cell and its intervals are wide. In the $L = 5$
+grid the three correlated causals pooled their signal and declared at over one set per fit.
+
+```{python}
+#| label: status-ser
+#| echo: false
+#| output: asis
+reps = sigs.group_by("T", "m", "method").len()["len"]
+print(f"{SC_SER}: {sigs.select('T', 'm').unique().height} signal cells x {sigs['method'].n_unique()} arms, "
+      f"{reps.min()}-{reps.max()} reps per cell; {ds.filter(pl.col('null')).select('m').unique().height} null cells.")
+```
+
+## Headline: pooled over θ {#sec-ser-pooled}
+
+```{python}
+#| label: tab-ser-pooled
+#| echo: false
+#| output: asis
+print("As the $L = 5$ headline table: CAVI-Q2 absolute, other arms as arm minus CAVI-Q2 on the "
+      "same replicates, 95% CIs resample replicates. *power* is the fraction of fits whose "
+      "declared set contains the causal.\n")
+print(C.pooled_summary(ds, ref="cavi"))
+```
+
+## Along θ {#sec-ser-along}
+
+```{python}
+#| label: fig-ser-delta
+#| echo: false
+#| fig-cap: "Credible set metrics, relative to CAVI, single causal. As the L = 5 figure, for the single-effect arms (L = 1) on a design with one causal column. Rows: coverage of declared 95% credible sets, power (fraction of fits whose declared set contains the causal), and mean credible set size as a ratio (log axis). Bands are 95% intervals from resampling replicates jointly for both arms; T = 8 intervals are wide because few fits declare a set."
+F.draw(F.delta_frame(ds, ref="cavi"), ref="cavi");
+```
+
+```{python}
+#| label: fig-ser-absolute
+#| echo: false
+#| fig-cap: "Credible set metrics, absolute, single causal. Each arm's own coverage (dashed line: nominal 0.95), power, and mean credible set size, with per-arm 95% intervals from resampling replicates."
+F.draw(F.delta_frame(ds, ref=None), ref=None);
+```
+
+## ELBO, relative to CAVI-Q2 {#sec-ser-elbo}
+
+```{python}
+#| label: tab-ser-elbo
+#| echo: false
+#| output: asis
+print("Exact $\\mathcal{Q}_2$ ELBO minus CAVI-Q2's on the same replicate, nats, pooled over $T$. "
+      "gIBSS-Q2 is the identity check: at $L = 1$ the two arms run the same update and differ "
+      "only in convergence bookkeeping.\n")
+print(C.elbo_table(ds, ref="cavi", rows=("m",), digits=2))
+```
+
+## Null cells {#sec-ser-null}
+
+```{python}
+#| label: tab-ser-null
+#| echo: false
+#| output: asis
+nul = (ds.filter(pl.col("null")).group_by(["m", "method"])
+         .agg(pl.col("n_declared").mean().alias("false_cs"), pl.len().alias("reps")))
+print("Declared sets per fit on null data; every one is false. Reps in parentheses.\n")
+print(C.table(nul, ["m"], "false_cs", lambda r: f"{r['false_cs']:.3f} ({int(r['reps'])})"))
+```
+
+# Null cells, L = 5 {#sec-null}
 
 ```{python}
 #| label: tab-null
