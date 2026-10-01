@@ -33,7 +33,7 @@ ABS_REF = {"coverage": 0.95, "power": None, "size": None}   # nominal line
 # column headers: signal strength (T = expected LRT of the causal vs null) over causal correlation
 SIGNAL_LABEL = {8: "moderate signal", 16: "strong signal"}
 # binary phi between causals at the design's adjacent-column rho = 0.8 (laplacelib / brief.typ)
-GAP_LABEL = {8: "strongly correlated\ncausals (r = 0.47)", 64: "weakly correlated\ncausals (r = 0.05)",
+GAP_LABEL = {8: "correlated\ncausals (r = 0.47)", 64: "weakly correlated\ncausals (r = 0.05)",
              None: "single causal"}
 X_LABEL = r"proportion at risk, $\theta = P(X = 1)$"
 
