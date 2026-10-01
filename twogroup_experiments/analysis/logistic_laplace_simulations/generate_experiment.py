@@ -8,7 +8,7 @@ scored on the same exact Q2 ELBO:
   gIBSS-Q2       Gaussian-VI SER (GH over b), plug-in mean offset
   global-JJ      Jaakkola-Jordan quadratic bound, one shared tilt (jj_fixed)
   score          linear approximation: one Newton step from the intercept-only null
-  CAVI-Q2        Gaussian-VI SER, exact offset fold (cf) -- pilot only (cost)
+  CAVI-Q2        Gaussian-VI SER, exact offset fold (cf)
 
 Axis: expected set size m of a sparse 0/1 design (corr=0.8 between adjacent sets, b0=-2), with
 beta calibrated per m to E[LRT] = T (calibrate.py). Detectability is matched along the axis;
@@ -17,8 +17,9 @@ overshoot), large m is near-Gaussian.
 
 Supercollections (cells are content-addressed; labels are display-only):
   * 022-laplace              FULL GRID. n=1000, L=5, L*=3 causals at gap in {8, 64} (binary
-                             phi between causals ~0.47 / ~0.05), T=16, m in {5,10,50,100,200,400},
-                             + one null per m. gIBSS-Laplace / gIBSS-Q2 / global-JJ / score, 50 reps.
+                             phi between causals ~0.47 / ~0.05), T in {8,16}, m in {5,10,50,100,200,400},
+                             + one null per m. CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / score,
+                             200 reps.
   * 022-laplace-pilot        n=10000 pilot: T in {8,16} single-effect + null + L*=3 gap-10 T=8,
                              m in {5,10,30,100}; all five arms at L=1 and L=10; 10 reps.
   * 022-laplace-pilot-indep  pilot gap-10 multi cells at corr=0 (L=10, no CAVI), 20 reps.
@@ -36,14 +37,14 @@ P, CORR, B0 = 256, 0.8, -2.0
 
 # ---- full grid (n=1000) -------------------------------------------------------------------
 FULL_N = 1000
-FULL_BATCHES = 5                      # 50 reps
+FULL_BATCHES = 20                     # 200 reps
 FULL_SET_SIZES = [5, 10, 50, 100, 200, 400]
-FULL_T = 16
+FULL_TARGETS = [8, 16]
 FULL_LSTAR = 3
 FULL_GAPS = [8, 64]                   # binary phi between causals ~0.47 / ~0.05
 FULL_METHODS = [
-    "logistic_q2_L5_gibss_laplace", "logistic_q2_L5_gibss", "logistic_q2_L5_globaljj",
-    "logistic_q2_L5_score",
+    "logistic_q2_L5_cavi", "logistic_q2_L5_gibss", "logistic_q2_L5_gibss_laplace",
+    "logistic_q2_L5_globaljj", "logistic_q2_L5_score",
 ]
 
 # ---- pilot (n=10000) ----------------------------------------------------------------------
@@ -108,8 +109,9 @@ def main() -> None:
     lstar, gap_p, t_p = PILOT_MULTI
 
     def full_rows(m):
-        beta = full_b[str(m)][str(FULL_T)]
-        return [_multi(m, FULL_LSTAR, g, beta, FULL_T) for g in FULL_GAPS] + [_null(m)]
+        tbl = full_b[str(m)]
+        return ([_multi(m, FULL_LSTAR, g, tbl[str(t)], t) for t in FULL_TARGETS for g in FULL_GAPS]
+                + [_null(m)])
 
     def pilot_rows(m):
         tbl = pilot_b[str(m)]
@@ -122,13 +124,13 @@ def main() -> None:
     def gapmax_rows(m):
         return [_multi(m, lstar, GAPMAX, pilot_b[str(m)][str(t)], t) for t in GAPMAX_TARGETS]
 
-    n_full = len(FULL_SET_SIZES) * (len(FULL_GAPS) + 1)
+    n_full = len(FULL_SET_SIZES) * (len(FULL_TARGETS) * len(FULL_GAPS) + 1)
     ind = "      "
     text = f"""\
 # 022_logistic_laplace: when is gIBSS-Laplace good enough? Logistic-SuSiE approximations in Q2,
 # all scored on the exact Q2 ELBO: gIBSS-Laplace (order-1 SER, plug-in offset, reduced to Q2),
 # gIBSS-Q2 (Gaussian-VI SER, plug-in offset), global-JJ (jj_fixed bound), score (one Newton step
-# at the null); CAVI-Q2 (exact cf offset fold) in the pilot only. Centered, shared Gaussian
+# at the null); CAVI-Q2 (exact cf offset fold). Centered, shared Gaussian
 # intercept, EB prior variance (cap 100).
 #
 # Axis: expected set size m of a sparse 0/1 design (p={P}, corr={CORR} between adjacent sets,
@@ -139,7 +141,7 @@ _anchors:
   default_args: &default_args {{min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}}
 
 supercollections:
-  # FULL GRID: n={FULL_N}, L=5, L*={FULL_LSTAR} at gap in {{{", ".join(map(str, FULL_GAPS))}}}, T={FULL_T},
+  # FULL GRID: n={FULL_N}, L=5, L*={FULL_LSTAR} at gap in {{{", ".join(map(str, FULL_GAPS))}}}, T in {{{", ".join(map(str, FULL_TARGETS))}}},
   # m in {{{", ".join(map(str, FULL_SET_SIZES))}}} + one null per m ({n_full} cells), {FULL_BATCHES * 10} reps.
   022-laplace:
     replicates_per_batch: 10

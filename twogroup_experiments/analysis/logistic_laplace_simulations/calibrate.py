@@ -29,7 +29,7 @@ B0 = -2.0
 # output file -> (n rows, expected set sizes m = n * density, E[LRT] targets)
 TABLES = {
     "betas.json": (10000, [5, 10, 30, 100], [4, 8, 16]),       # pilot (T=32 unreachable at m=5)
-    "betas_n1000.json": (1000, [5, 10, 50, 100, 200, 400], [16]),   # full 022 grid
+    "betas_n1000.json": (1000, [5, 10, 50, 100, 200, 400], [8, 16]),   # full 022 grid
 }
 
 

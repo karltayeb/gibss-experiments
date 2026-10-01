@@ -1889,6 +1889,9 @@ methods:
   logistic_q2_L5_score:
     function: run_logistic_method
     template: {response_source: z, L: 5, method: score, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  logistic_q2_L5_cavi:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: cf, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, max_iter: 50, freeze_prior_variance: 0.01}
   # No-freeze control for the freeze_prior_variance sanity check: identical to
   # logistic_q2_L10_globaljj but the prior-variance freeze is disabled, so every
   # component keeps updating (slower ~2-3x). Used to confirm the 0.01 freeze does
