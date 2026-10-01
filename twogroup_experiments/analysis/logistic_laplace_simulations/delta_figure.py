@@ -104,7 +104,7 @@ def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float = 1.5, ax_h:
                 ax.set_yticklabels([f"{t:g}" for t in ticks])
             ax.set_xscale("log")
             ax.set_xticks(m_ticks)
-            ax.set_xticklabels([str(v) for v in m_ticks], fontsize=7)
+            ax.set_xticklabels([str(v) for v in m_ticks], fontsize=6)
             ax.minorticks_off()
             ax.tick_params(axis="y", labelsize=7)
             ax.spines[["top", "right"]].set_visible(False)
