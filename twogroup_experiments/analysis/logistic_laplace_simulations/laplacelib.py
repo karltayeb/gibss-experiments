@@ -11,7 +11,8 @@ no effect-size posterior, intercept, or runtime) and returns tidy frames:
                          most (argmax_l alpha_lj), its log BF, and the truth.
   * ``paired(ff, col)``  a column differenced against CAVI-Q2 on the SAME simulated data.
 
-Method keys: laplace = gIBSS-Laplace, gibss = gIBSS-Q2, globaljj = global-JJ, cavi = CAVI-Q2.
+Method keys: cavi = CAVI-Q2, gibss = gIBSS-Q2, laplace = gIBSS-Laplace, globaljj = global-JJ,
+score = one Newton step at the null.
 """
 from __future__ import annotations
 
@@ -34,20 +35,23 @@ N_ROWS = int(_BETAS_JSON["_meta"]["n"])
 B0_TRUE = float(_BETAS_JSON["_meta"]["b0"])
 MIN_LOG_BF = 2.0          # declared-CS threshold (the experiment's default_args min_log_bf)
 
-METHODS = ["cavi", "gibss", "laplace", "globaljj"]   # most to least accurate
+METHODS = ["cavi", "gibss", "laplace", "globaljj", "score"]   # most to least accurate
 METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "globaljj": "global-JJ",
-                "cavi": "CAVI-Q2"}
+                "cavi": "CAVI-Q2", "score": "score"}
 # The 019 logistic palette (resultslib.METHOD_COLOR): gIBSS blue, CAVI vermillion, global-JJ
-# green; gIBSS-Laplace sky blue (a gIBSS variant, as gibss_profiled in 019). Validated with the
-# dataviz validate_palette.js, light mode, all pairs.
+# green, score reddish purple; gIBSS-Laplace sky blue (a gIBSS variant, as gibss_profiled in 019).
+# Validated with the dataviz validate_palette.js, light mode, all pairs: score/global-JJ is
+# deutan dE 7.6 (floor band), so the markers + legend + x-dodge carry identity too.
 METHOD_COLOR = {"laplace": "#56B4E9", "gibss": "#0072B2", "globaljj": "#009E73",
-                "cavi": "#D55E00"}
-METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "cavi": "o"}
+                "cavi": "#D55E00", "score": "#CC79A7"}
+METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "cavi": "o", "score": "P"}
 
 
 def _method_key(mname: str) -> str:
     if mname.endswith("_globaljj"):
         return "globaljj"
+    if mname.endswith("_score"):
+        return "score"
     if mname.endswith("_gibss_laplace"):
         return "laplace"
     if mname.endswith("_gibss"):
@@ -209,10 +213,10 @@ def mean_se(df: pl.DataFrame, value: str, by: list[str]) -> pl.DataFrame:
 # ------------------------------------------------------------------------------ figures
 # Multiplicative x-dodge on the log-m axis so coincident arms (gIBSS-Q2 ~ CAVI-Q2 at L=1) stay
 # visible side by side instead of stacking.
-_DODGE = {"cavi": 0.91, "gibss": 0.97, "laplace": 1.03, "globaljj": 1.095}
+_DODGE = {"cavi": 0.89, "gibss": 0.945, "laplace": 1.0, "globaljj": 1.055, "score": 1.11}
 
 
-def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks):
+def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks, symlog=None):
     for mth in methods:
         s = tab.filter(pl.col("method") == mth).sort("m")
         if s.height == 0:
@@ -223,6 +227,12 @@ def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks):
                     capsize=0, label=METHOD_LABEL[mth])
     if ref is not None:
         ax.axhline(ref, color="0.6", lw=0.8, ls="--", zorder=0)
+    if symlog is not None:   # gaps spanning 1e-3..10 nats: linear inside +-symlog, log outside
+        ax.set_yscale("symlog", linthresh=symlog)
+        shown = tab.filter(pl.col("method").is_in(list(methods)))
+        hi = float((shown["mean"] + shown["se"].fill_null(0)).max())
+        if hi <= symlog:   # all gaps on one side: drop the empty positive decades
+            ax.set_ylim(top=symlog)
     ax.set_xscale("log")
     ax.set_xticks(m_ticks)
     ax.set_xticklabels([str(v) for v in m_ticks])
@@ -239,7 +249,7 @@ def _legend_on_top(fig, ax):
 
 
 def line_vs_m(tab: pl.DataFrame, *, ylabel: str, facet: str | None = None, ref: float | None = None,
-              methods=METHODS, title_fmt="{}={}", ax_w=2.6, ax_h=2.3):
+              methods=METHODS, title_fmt="{}={}", ax_w=2.6, ax_h=2.3, symlog=None):
     """mean +- 1 se vs set size m (log x), one line per method, optional facet columns.
     `tab` is a `mean_se` frame keyed by m (+ facet) + method."""
     import matplotlib.pyplot as plt
@@ -249,7 +259,7 @@ def line_vs_m(tab: pl.DataFrame, *, ylabel: str, facet: str | None = None, ref: 
     fig, axes = plt.subplots(1, len(fvals), figsize=(width, ax_h), sharey=True, squeeze=False)
     for ax, fv in zip(axes[0], fvals):
         g = tab if facet is None else tab.filter(pl.col(facet) == fv)
-        _draw_vs_m(ax, g, methods=methods, ref=ref, m_ticks=m_ticks)
+        _draw_vs_m(ax, g, methods=methods, ref=ref, m_ticks=m_ticks, symlog=symlog)
         if fv is not None:
             ax.set_title(title_fmt.format(facet, fv), fontsize=9)
     axes[0][0].set_ylabel(ylabel)
@@ -258,14 +268,16 @@ def line_vs_m(tab: pl.DataFrame, *, ylabel: str, facet: str | None = None, ref: 
     return fig
 
 
-def panels_vs_m(panels: list[tuple[pl.DataFrame, str, float | None]], *, methods=METHODS,
-                ax_w=3.1, ax_h=2.3):
-    """Side-by-side panels with their own y-axis: each is (mean_se frame, ylabel, ref line)."""
+def panels_vs_m(panels: list[tuple], *, methods=METHODS, ax_w=3.1, ax_h=2.3):
+    """Side-by-side panels with their own y-axis: each is (mean_se frame, ylabel, ref line) or
+    (mean_se frame, ylabel, ref line, symlog linthresh)."""
     import matplotlib.pyplot as plt
-    m_ticks = sorted({v for tab, _, _ in panels for v in tab["m"].unique().to_list()})
+    m_ticks = sorted({v for spec in panels for v in spec[0]["m"].unique().to_list()})
     fig, axes = plt.subplots(1, len(panels), figsize=(ax_w * len(panels) + 0.3, ax_h), squeeze=False)
-    for ax, (tab, ylabel, ref) in zip(axes[0], panels):
-        _draw_vs_m(ax, tab, methods=methods, ref=ref, m_ticks=m_ticks)
+    for ax, spec in zip(axes[0], panels):
+        tab, ylabel, ref = spec[:3]
+        _draw_vs_m(ax, tab, methods=methods, ref=ref, m_ticks=m_ticks,
+                   symlog=spec[3] if len(spec) > 3 else None)
         ax.set_ylabel(ylabel)
     _legend_on_top(fig, axes[0][0])
     fig.tight_layout()

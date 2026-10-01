@@ -1,5 +1,5 @@
 ---
-title: "CAVI-Q2 vs gIBSS-Q2 vs gIBSS-Laplace vs global-JJ"
+title: "CAVI-Q2 vs gIBSS-Q2 vs gIBSS-Laplace vs global-JJ vs score"
 subtitle: "Logistic SuSiE along the expected-set-size axis at matched detectability (experiment 022, pilot)."
 engine: jupyter
 jupyter: python3
@@ -29,7 +29,7 @@ SER = (pl.col("Lstar") == 1) & (pl.col("fit_L") == 1)     # single causal, L=1
 MULTI = (pl.col("Lstar") >= 2) & (pl.col("fit_L") == 10)  # several causals, L=10
 ```
 
-Four logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$:
+Five logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$:
 
 | arm | own SER update | other effects enter as |
 |---|---|---|
@@ -37,6 +37,7 @@ Four logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$:
 | gIBSS-Q2 | Gaussian VI (GH over $b$) | posterior mean (plug-in) |
 | gIBSS-Laplace | Laplace: $N(\hat b, H^{-1})$, Laplace evidence | posterior mean (plug-in) |
 | global-JJ | Jaakkola-Jordan quadratic bound, one shared tilt | closed form under the bound |
+| score | one Newton step from the intercept-only null (linearized) | linearized at the null |
 
 Design: sparse 0/1 columns ($n=10^4$, $p=256$, adjacent-column $\phi=0.8$), $b_0=-2$.
 Axis: expected set size $m$. $\beta$ is calibrated per $m$ to $E[\text{LRT}]=T$, so detectability
@@ -47,7 +48,7 @@ is matched and only the shape of each feature's likelihood changes with $m$.
 #| echo: false
 #| output: asis
 n_fit = ff.select("batch_hash", "method", "fit_L").unique().height
-print(f"{SC}: {ff.height} fits ({n_fit} cell x arm jobs of 128), "
+print(f"{SC}: {ff.height} fits ({n_fit} cell x arm jobs of 160), "
       f"{ff['batch_hash'].n_unique()} cells, reps/cell = {ff.group_by('batch_hash','method','fit_L').len()['len'].max()}.")
 ```
 
@@ -57,10 +58,11 @@ print(f"{SC}: {ff.height} fits ({n_fit} cell x arm jobs of 128), "
 
 ```{python}
 #| label: fig-elbo-ser
-#| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), mean +- 1 se over reps."
+#| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), mean +- 1 se over reps. Symmetric-log y axis (linear within +-0.01)."
 d = R.paired(ff.filter(SER), "q2_elbo")
 R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "T", "method"]), facet="T",
-            ylabel="ELBO - ELBO(CAVI)", ref=0.0, methods=["gibss", "laplace", "globaljj"]);
+            ylabel="ELBO - ELBO(CAVI)", ref=0.0, methods=["gibss", "laplace", "globaljj", "score"],
+            symlog=0.01);
 ```
 
 ## Causal effect posterior {#sec-effect-ser}
@@ -75,13 +77,13 @@ R.line_vs_m(R.mean_se(c, "covered", ["m", "T", "method"]), facet="T", ylabel="be
 
 ```{python}
 #| label: fig-effect-vs-cavi-ser
-#| fig-cap: "Paired against CAVI-Q2 on the same data, pooled over T: posterior sd ratio (left) and causal-feature log BF difference (right)."
+#| fig-cap: "Paired against CAVI-Q2 on the same data, pooled over T: posterior sd ratio (left) and causal-feature log BF difference (right, symmetric-log axis, linear within +-0.01)."
 R.panels_vs_m([
     (R.mean_se(R.paired(c, "sd", extra_key=("j",), ratio=True), "sd_vs_cavi", ["m", "method"]),
      "sd / sd(CAVI)", 1.0),
     (R.mean_se(R.paired(c, "feature_log_bf", extra_key=("j",)), "feature_log_bf_vs_cavi", ["m", "method"]),
-     "logBF - logBF(CAVI)", 0.0),
-], methods=["gibss", "laplace", "globaljj"]);
+     "logBF - logBF(CAVI)", 0.0, 0.01),
+], methods=["gibss", "laplace", "globaljj", "score"]);
 ```
 
 ## PIP and credible sets {#sec-pip-cs-ser}
@@ -139,10 +141,10 @@ for v, f, what in [("b0_err", "{:+.3f}", "mean fitted intercept minus the true b
 
 ```{python}
 #| label: fig-elbo-multi
-#| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), L*=3 causals (gap 10), fit L=10."
+#| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), L*=3 causals (gap 10), fit L=10. Symmetric-log y axis (linear within +-0.01)."
 d = R.paired(ff.filter(MULTI), "q2_elbo")
 R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "method"]), ylabel="ELBO - ELBO(CAVI)",
-            ref=0.0, methods=["gibss", "laplace", "globaljj"]);
+            ref=0.0, methods=["gibss", "laplace", "globaljj", "score"], symlog=0.01);
 ```
 
 ## Causal effect posterior {#sec-effect-multi}
