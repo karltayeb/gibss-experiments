@@ -1,5 +1,5 @@
 ---
-title: "gIBSS-Laplace vs gIBSS-Q2 vs global-JJ vs CAVI-Q2"
+title: "CAVI-Q2 vs gIBSS-Q2 vs gIBSS-Laplace vs global-JJ"
 subtitle: "Logistic SuSiE along the expected-set-size axis at matched detectability (experiment 022, pilot)."
 engine: jupyter
 jupyter: python3
@@ -33,10 +33,10 @@ Four logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$:
 
 | arm | own SER update | other effects enter as |
 |---|---|---|
-| gIBSS-Laplace | Laplace: $N(\hat b, H^{-1})$, Laplace evidence | posterior mean (plug-in) |
-| gIBSS-Q2 | Gaussian VI (GH over $b$) | posterior mean (plug-in) |
-| global-JJ | Jaakkola-Jordan quadratic bound, one shared tilt | closed form under the bound |
 | CAVI-Q2 | Gaussian VI (GH over $b$) | exact offset fold (cf) |
+| gIBSS-Q2 | Gaussian VI (GH over $b$) | posterior mean (plug-in) |
+| gIBSS-Laplace | Laplace: $N(\hat b, H^{-1})$, Laplace evidence | posterior mean (plug-in) |
+| global-JJ | Jaakkola-Jordan quadratic bound, one shared tilt | closed form under the bound |
 
 Design: sparse 0/1 columns ($n=10^4$, $p=256$, adjacent-column $\phi=0.8$), $b_0=-2$.
 Axis: expected set size $m$. $\beta$ is calibrated per $m$ to $E[\text{LRT}]=T$, so detectability
@@ -60,7 +60,7 @@ print(f"{SC}: {ff.height} fits ({n_fit} cell x arm jobs of 128), "
 #| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), mean +- 1 se over reps."
 d = R.paired(ff.filter(SER), "q2_elbo")
 R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "T", "method"]), facet="T",
-            ylabel="ELBO - ELBO(CAVI)", ref=0.0, methods=["laplace", "gibss", "globaljj"]);
+            ylabel="ELBO - ELBO(CAVI)", ref=0.0, methods=["gibss", "laplace", "globaljj"]);
 ```
 
 ## Causal effect posterior {#sec-effect-ser}
@@ -70,7 +70,7 @@ R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "T", "method"]), facet="T",
 #| fig-cap: "Causal feature's conditional posterior N(mu, sd^2), EB-shrunk toward 0 (a Bayesian interval at a fixed true beta). Top: (mu - beta)/sd. Bottom: 95% interval coverage of beta."
 c = cf.filter(SER)
 R.line_vs_m(R.mean_se(c, "z", ["m", "T", "method"]), facet="T", ylabel="(mu - beta) / sd", ref=0.0)
-R.line_vs_m(R.mean_se(c, "covered", ["m", "T", "method"]), facet="T", ylabel="95% coverage", ref=0.95);
+R.line_vs_m(R.mean_se(c, "covered", ["m", "T", "method"]), facet="T", ylabel="beta 95% interval coverage", ref=0.95);
 ```
 
 ```{python}
@@ -81,7 +81,7 @@ R.panels_vs_m([
      "sd / sd(CAVI)", 1.0),
     (R.mean_se(R.paired(c, "feature_log_bf", extra_key=("j",)), "feature_log_bf_vs_cavi", ["m", "method"]),
      "logBF - logBF(CAVI)", 0.0),
-], methods=["laplace", "gibss", "globaljj"]);
+], methods=["gibss", "laplace", "globaljj"]);
 ```
 
 ## PIP and credible sets {#sec-pip-cs-ser}
@@ -142,7 +142,7 @@ for v, f, what in [("b0_err", "{:+.3f}", "mean fitted intercept minus the true b
 #| fig-cap: "Exact Q2 ELBO minus CAVI-Q2's on the same data (nats), L*=3 causals (gap 10), fit L=10."
 d = R.paired(ff.filter(MULTI), "q2_elbo")
 R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "method"]), ylabel="ELBO - ELBO(CAVI)",
-            ref=0.0, methods=["laplace", "gibss", "globaljj"]);
+            ref=0.0, methods=["gibss", "laplace", "globaljj"]);
 ```
 
 ## Causal effect posterior {#sec-effect-multi}
@@ -152,7 +152,7 @@ R.line_vs_m(R.mean_se(d, "q2_elbo_vs_cavi", ["m", "method"]), ylabel="ELBO - ELB
 #| fig-cap: "Causal features' conditional posteriors (EB-shrunk), L*=3, fit L=10. Top: (mu - beta)/sd. Bottom: 95% interval coverage of beta."
 c = cf.filter(MULTI)
 fig1 = R.line_vs_m(R.mean_se(c, "z", ["m", "method"]), ylabel="(mu - beta) / sd", ref=0.0)
-fig2 = R.line_vs_m(R.mean_se(c, "covered", ["m", "method"]), ylabel="95% coverage", ref=0.95);
+fig2 = R.line_vs_m(R.mean_se(c, "covered", ["m", "method"]), ylabel="beta 95% interval coverage", ref=0.95);
 ```
 
 ## PIP and credible sets {#sec-pip-cs-multi}

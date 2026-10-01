@@ -34,7 +34,7 @@ N_ROWS = int(_BETAS_JSON["_meta"]["n"])
 B0_TRUE = float(_BETAS_JSON["_meta"]["b0"])
 MIN_LOG_BF = 2.0          # declared-CS threshold (the experiment's default_args min_log_bf)
 
-METHODS = ["laplace", "gibss", "globaljj", "cavi"]
+METHODS = ["cavi", "gibss", "laplace", "globaljj"]   # most to least accurate
 METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "globaljj": "global-JJ",
                 "cavi": "CAVI-Q2"}
 # The 019 logistic palette (resultslib.METHOD_COLOR): gIBSS blue, CAVI vermillion, global-JJ
@@ -209,7 +209,7 @@ def mean_se(df: pl.DataFrame, value: str, by: list[str]) -> pl.DataFrame:
 # ------------------------------------------------------------------------------ figures
 # Multiplicative x-dodge on the log-m axis so coincident arms (gIBSS-Q2 ~ CAVI-Q2 at L=1) stay
 # visible side by side instead of stacking.
-_DODGE = {"laplace": 0.91, "gibss": 0.97, "globaljj": 1.03, "cavi": 1.095}
+_DODGE = {"cavi": 0.91, "gibss": 0.97, "laplace": 1.03, "globaljj": 1.095}
 
 
 def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks):
