@@ -27,3 +27,8 @@ gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "2079de2" 
 # Standalone project, not a member of any parent uv workspace.
 [tool.uv.workspace]
 members = []
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

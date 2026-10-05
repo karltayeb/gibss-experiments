@@ -99,6 +99,25 @@ def annotate_grade(cat, coords, drug, gene, mutation, row) -> tuple[int | None, 
     return None, None, "unmatched"
 
 
+def site_key(row) -> tuple | None:
+    """The genomic site a CRyPTIC row speaks about, independent of the allele called.
+
+    Needed because a no-call is not recorded against the variant it obscures. CRyPTIC
+    writes an uncalled base as its own mutation (`rpoB` `c-61x`, alt `x`) or a
+    filter-failed one with alt `o`, so the null for a site arrives under a different
+    MUTATION string than the real variant at that site. Counting missingness per feature
+    therefore has to go through the site, not the name. Nucleotide-level rows carry
+    GENOME_INDEX; amino-acid rows carry only the codon number.
+    """
+    gi = row["GENOME_INDEX"]
+    if gi is not None and not np.isnan(gi):
+        return (row["GENE"], "pos", int(gi))
+    aa = row["AMINO_ACID_NUMBER"]
+    if aa is not None and not np.isnan(aa):
+        return (row["GENE"], "codon", int(aa))
+    return None
+
+
 def is_lof(row) -> bool:
     """Does this CRyPTIC call knock the gene out?
 
@@ -152,6 +171,9 @@ def build_drug(drug: str, cfg, cat, coords, muts: pl.DataFrame, reuse, plate, li
     missing: dict[tuple[str, str], set[int]] = defaultdict(set)
     meta: dict[tuple[str, str], dict] = {}
     lof_carriers: dict[str, set[int]] = defaultdict(set)
+    # isolates whose genotype at a given site is unknown, keyed by site not by allele
+    null_at_site: dict[tuple, set[int]] = defaultdict(set)
+    feature_site: dict[tuple[str, str], tuple] = {}
     n_rows_used = n_missing_calls = 0
     for row in sub.iter_rows(named=True):
         i = idx.get(row["UNIQUEID"])
@@ -161,10 +183,16 @@ def build_drug(drug: str, cfg, cat, coords, muts: pl.DataFrame, reuse, plate, li
         meta.setdefault(feat, row)
         # A failed filter or an explicit null is not evidence of the reference allele.
         if row["IS_NULL"] or not row["IS_FILTER_PASS"]:
+            sk = site_key(row)
+            if sk is not None:
+                null_at_site[sk].add(i)
             missing[feat].add(i)
             n_missing_calls += 1
             continue
         carriers[feat].add(i)
+        sk = site_key(row)
+        if sk is not None:
+            feature_site.setdefault(feat, sk)
         if is_lof(row):
             lof_carriers[row["GENE"]].add(i)
         n_rows_used += 1
@@ -196,7 +224,8 @@ def build_drug(drug: str, cfg, cat, coords, muts: pl.DataFrame, reuse, plate, li
             "feature": f"{gene}_{mutation}",
             "n_carriers": len(carriers[rep]),
             "n_carriers_resistant": int(y[sorted(carriers[rep])].sum()),
-            "n_missing": len(missing.get(rep, ())),
+            # isolates imputed as reference at this variant's site because the call failed
+            "n_missing": len(null_at_site.get(feature_site.get(rep), ())),
             "genome_index": None if row["GENOME_INDEX"] is None or np.isnan(row["GENOME_INDEX"])
             else int(row["GENOME_INDEX"]),
             "amino_acid_number": None if row["AMINO_ACID_NUMBER"] is None

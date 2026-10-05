@@ -12,8 +12,10 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import numpy as np
 import polars as pl
 import yaml
+from scipy import sparse
 
 ROOT = Path(__file__).resolve().parent.parent
 PROC = ROOT / "data/processed"
@@ -145,17 +147,34 @@ def main() -> None:
     w("")
     w("`grade 1-2 in design` counts WHO group 1 or 2 variants that cleared the minor allele")
     w("count and so could be found at all. `in a CS` counts those that appear in some")
-    w("credible set. `carrier recall` is the share of resistant isolates carrying at least")
-    w("one variant that appears in some credible set.")
+    w("credible set. `carrier recall` is the percentage of resistant isolates carrying at")
+    w("least one variant that appears in some credible set, and")
+    w("`carried by susceptible %` the same percentage among susceptible isolates, which is")
+    w("the price paid for that recall.")
     w("")
     rows = []
     for d in drugs:
         cs, comp, feat, meta = load(d)
         g12 = feat.filter(pl.col("who_grade") <= 2)
         in_cs = set(cs["feature"].to_list()) if cs is not None and cs.height else set()
+        # carrier recall: of the resistant isolates, how many carry at least one variant
+        # that some credible set contains. This is the clinically legible number -- a
+        # method can name every known mutation and still explain few actual isolates.
+        X = sparse.load_npz(PROC / d / "X.npz").tocsc()
+        y = meta["y"].to_numpy().astype(float)
+        names = feat["feature"].to_list()
+        cols = [j for j, f in enumerate(names) if f in in_cs]
+        if cols:
+            covered = np.asarray(X[:, cols].sum(axis=1)).ravel() > 0
+            recall = float((covered & (y > 0)).sum() / max((y > 0).sum(), 1))
+            fp = float((covered & (y == 0)).sum() / max((y == 0).sum(), 1))
+        else:
+            recall = fp = 0.0
         rows.append({
             "drug": d,
             "grade 1-2 in design": g12.height,
+            "carrier recall": round(100 * recall, 1),
+            "carried by susceptible %": round(100 * fp, 1),
             "in a CS": g12.filter(pl.col("feature").is_in(list(in_cs))).height
             if in_cs else 0,
             "CS variants": len(in_cs),
@@ -308,6 +327,34 @@ def main() -> None:
         rows.append({"drug": d, "columns with a twin": 0 if f is None else f.height})
     w(md_table(pl.DataFrame(rows), ["drug", "columns with a twin"]))
     w("")
+
+    # L sensitivity, if scripts/05_stability.py has been run. Reported here because the
+    # number of credible sets is not a property of the data alone: a fit that uses every
+    # component it was given has run out, and its extra sets are an artifact of the cap.
+    stab = RESULTS / "stability_L.csv"
+    w("## L sensitivity")
+    w("")
+    if stab.exists():
+        sf = pl.read_csv(stab)
+        w("From `scripts/05_stability.py`. A fit marked `saturated` filled every component")
+        w("slot and is not reportable; the reported fits below use "
+          f"L={cfg['fit']['L'][-1]}.")
+        w("")
+        w(md_table(sf.with_columns(
+            pl.when(pl.col("saturated")).then(pl.lit("yes")).otherwise(pl.lit("no"))
+            .alias("saturated")),
+            ["drug", "L", "active", "saturated", "credible_sets"],
+            ["drug", "L", "active", "saturated", "credible sets"]))
+        w("")
+        bad = sf.filter(pl.col("saturated"))
+        if bad.height:
+            w("Saturated, therefore excluded: "
+              + ", ".join(f"{r['drug']} at L={r['L']}" for r in bad.iter_rows(named=True))
+              + ". See `stability_L.md` for which variants appear only in those fits.")
+            w("")
+    else:
+        w("Not yet run; see `scripts/05_stability.py`.")
+        w("")
 
     out = RESULTS / "summary.md"
     out.write_text("\n".join(lines) + "\n")

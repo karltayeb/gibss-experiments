@@ -100,9 +100,15 @@ def cryptic_key(gene: str, mutation: str, *, in_promoter: bool, element_type: st
     m = _C_AA.match(mutation)
     if m:
         alt = "*" if m["alt"] == "!" else m["alt"]
-        if alt == "O" or alt == "X":  # null / filter-fail amino acid call
+        if alt in ("O", "X"):  # null / filter-fail amino acid call
             return None
-        return ("aa", gene, int(m["codon"]), alt)
+        codon = int(m["codon"])
+        # WHO collapses every start-codon substitution into one `p.Met1?` entry, while
+        # CRyPTIC names the specific replacement (`M1T`). Without this the start-lost
+        # variants never join, and `katG_p.Met1?` is a group 1 isoniazid call.
+        if codon == 1 and m["ref"] == "M":
+            return ("aa", gene, 1, "?")
+        return ("aa", gene, codon, alt)
     m = _C_NT.match(mutation)
     if m:
         if m["alt"] in ("x", "o"):
