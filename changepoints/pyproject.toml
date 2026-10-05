@@ -1,0 +1,45 @@
+# Self-contained uv project for the changepoint examples (coal-mining Poisson,
+# lambda phage binomial). Kept ISOLATED from the repo-root env on purpose, like
+# cryptic_tb and ames_mutagenicity: this analysis pins its own gibss-mono rev so a
+# fit is reproducible independently of whatever the shared repo .venv tracks.
+# Build/run from this directory:
+#
+#   cd changepoints
+#   uv sync
+#   uv run python scripts/01_build.py
+[project]
+name = "changepoints"
+version = "0.1.0"
+description = "GLM SuSiE changepoint credible intervals vs exact Bayesian changepoint posteriors"
+requires-python = ">=3.13"
+dependencies = [
+    "gibss-mono",
+    "jax>=0.10.0",
+    "numpy>=2.4.4",
+    "polars>=1.40.1",
+    "scipy>=1.16.0",
+    "matplotlib>=3.10.9",
+    "pyyaml>=6.0",
+]
+
+[tool.uv.sources]
+# e2fd039 (local main, 2026-10-05) adds Binomial(n_i, p_i) via trials=. It is NOT pushed to
+# GitHub yet, so the source is the local clone; switch the url back to
+# https://github.com/karltayeb/gibss-mono once the commit is on origin/main. Keep the
+# rev explicit either way.
+gibss-mono = { git = "file:///Users/ktayeb/py/gibss-mono", rev = "e2fd039" }
+
+# Standalone project, not a member of any parent uv workspace.
+[tool.uv.workspace]
+members = []
+
+[dependency-groups]
+dev = [
+    "great-tables>=1.0.0",
+    "ipykernel>=7.4.0",
+    "itables>=2.9.1",
+    "jupyter-client>=8.10.0",
+    "nbclient>=0.11.0",
+    "nbformat>=5.11.1",
+    "pytest>=9.1.1",
+]

@@ -1,0 +1,434 @@
+---
+title: "Changepoint credible intervals with GLM SuSiE"
+subtitle: "Coal-mining disasters (Poisson) and lambda phage GC content (binomial), against exact Bayesian changepoint posteriors"
+date: today
+jupyter: changepoints
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 3
+    toc-expand: true
+    code-fold: true
+    code-summary: "code"
+    fig-dpi: 110
+execute:
+  warning: false
+---
+
+```{python}
+#| label: setup
+import sys
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import polars as pl
+import yaml
+
+sys.path.insert(0, str(Path("..").resolve() / "src"))
+sys.path.insert(0, str(Path(".").resolve()))
+import coal_report as cr
+import lambda_report as lr
+import nbtables as nt
+
+CFG = yaml.safe_load(Path("../config.yaml").read_text())
+COAL, LAM = CFG["coal"], CFG["lambda"]
+plt.rcParams["figure.dpi"] = 110
+
+single = cr.fig_single(COAL)[1]
+plt.close("all")
+coal_comp = nt.coal_component_table("poisson_L5")
+e2 = coal_comp.filter(pl.col("effect") == 2).row(0, named=True)
+phi, rho = nt.lambda_dispersion()
+lam_ann = pl.read_csv("../results/lambda/w100/declared_cs_annotated.csv")
+n_on_boundary = int((lam_ann["dist_to_block_boundary_bp"] <= 100).sum())
+lam_grid = pl.read_csv("../results/lambda/exact_grid_summary.csv").filter(
+    (pl.col("width") == 100) & (pl.col("p_per_100bp") == LAM["exact"]["p_default"])).row(0, named=True)
+```
+
+# The question
+
+A changepoint problem is a variable selection problem in disguise. For an ordered
+sequence $y_1, \dots, y_n$, take the step basis $x_{tj} = 1(t > j)$ for
+$j = 1, \dots, n-1$. A nonzero $b_j$ is a jump in the linear predictor (log rate, log
+odds) between positions $j$ and $j+1$, and the intercept is the level of the first
+segment. Adjacent step columns are nearly collinear, so a single SuSiE effect cannot
+choose between neighbouring positions and its credible set becomes an **interval of
+plausible changepoint locations**.
+
+The question is whether those intervals are any good when the data are counts. Both
+examples here are conjugate, so the exact Bayesian multiple-changepoint posterior is
+computable (Fearnhead 2006: forward-backward sums over all segmentations, $O(n^2)$),
+and every SuSiE answer can be checked against it. The two models are not the same.
+SuSiE puts a normal prior on jumps in the linear predictor and caps the count at $L$.
+The exact model gives every segment an independent conjugate rate and puts a geometric
+prior on segment lengths. Agreement on *locations* is the target, not identical numbers.
+
+Fits use gibss `fit_glm_susie` with the default free-form quadrature SER, centered
+columns, a shared estimated intercept and an empirical-Bayes prior variance. The step
+basis is not standardized. A component is **declared** when its SER log Bayes factor is
+at least 2 nats.
+
+# Coal-mining disasters (Poisson)
+
+Dates of 191 British coal-mine explosions killing ten or more, March 1851 to March 1962
+(Jarrett 1979 corrected series, R `boot::coal`, cross-checked event for event against the
+pymc-examples copy). The primary analysis uses yearly counts, $n = 112$.
+
+The exact benchmark is a Poisson-Gamma product-partition model. Each segment rate has a
+Gamma(1, 1/mean count) prior, and each year boundary is a changepoint with prior
+probability $p$. The default is $p = 0.02$, which expects 2.2 changepoints a priori.
+
+## One changepoint: SuSiE L=1 is the exact posterior
+
+```{python}
+#| label: fig-coal-single
+#| fig-cap: "SuSiE L=1 single-effect posterior (bars) against the exact posterior over the location of exactly one changepoint (line), at each year boundary."
+fig, _ = cr.fig_single(COAL)
+plt.show()
+```
+
+With one effect, SuSiE's credible set is the exact 95% highest-posterior set, element for
+element: the same `{python} len(single["L1_cs"])` year boundaries, with the mode at
+`{python} single["L1_mode_year"]` in both. The largest difference between the two
+location posteriors is `{python} f'{single["L1_vs_exact_max_abs_diff"]:.3f}'`, and the
+exact model puts `{python} f'{single["exact_mass_in_L1_cs"]:.3f}'` of its mass inside
+the SuSiE set. The new regime has about 0.3 times the old disaster rate. This reproduces
+the classic single-changepoint analyses (Raftery & Akman 1986; Carlin, Gelfand & Smith
+1992), which put the change around 1890, after the 1880s mine-safety legislation.
+
+The two models start from different priors, a normal prior on the log-rate jump against
+independent Gamma rates, and they still agree to two decimal places on where the change
+is. That is the cleanest result in this notebook.
+
+## More than one changepoint
+
+```{python}
+#| label: fig-coal-main
+#| fig-cap: "Top, yearly counts with the SuSiE L=5 fitted rate (blue), the exact posterior mean rate (dashed) and the credible-set hulls (shaded; faint = below the declaration threshold). Bottom, per-effect SuSiE alphas against the exact marginal probability of a changepoint at each boundary."
+fig = cr.fig_main(COAL)
+plt.show()
+```
+
+```{python}
+#| label: tbl-coal-components
+nt.gt(coal_comp,
+      "**log BF**: SER log Bayes factor of the effect against no effect. "
+      "**declared**: log BF of at least 2. **CS size**: step columns in the 95% credible set. "
+      "**CS hull**: first year of the new regime, smallest to largest column in the set. "
+      "**main block**: the contiguous run of the set carrying the most alpha; **block mass**: "
+      "that run's alpha. **top**, **top alpha**: column with the largest alpha. "
+      "**rate ratio**: exp of the top column's posterior mean jump (after / before).",
+      title="SuSiE components, yearly counts, L=5")
+```
+
+SuSiE finds the same two places the exact posterior does. Effect 1 tracks the exact
+boundary probabilities around 1892. Effect 2 sits on the exact model's second mode, a
+drop to about half a disaster a year in 1948 (Green 1995 found this second change by
+reversible-jump MCMC on the event times). L=3 and L=5 give the same fit; the spare
+effects shrink to prior variance near zero.
+
+Two things are not clean.
+
+- **Effect 2 is below the threshold**, at log BF `{python} f'{e2["log BF"]:.1f}'`.
+  SuSiE reports one declared changepoint plus a candidate.
+- **Its credible set is a poor interval.** The hull runs `{python} e2["CS hull"]`, but
+  `{python} f'{e2["block mass"]:.0%}'` of its alpha sits in one block,
+  `{python} e2["main block"]`. The 95% set collects scattered tail columns of tiny alpha to
+  reach its coverage. For a weak effect the contiguous block is the honest interval, and
+  both should be reported.
+
+### How many changepoints?
+
+```{python}
+#| label: fig-coal-k
+#| fig-cap: "Exact posterior on the number of changepoints for five prior changepoint rates, with SuSiE's declared counts at L=1, 3, 5 (vertical line)."
+fig, _ = cr.fig_k_posterior(COAL)
+plt.show()
+```
+
+```{python}
+#| label: tbl-coal-exact
+windows = nt.coal_exact_windows([0.005, 0.01, 0.02, 0.05])
+nt.gt(windows,
+      "**p**: prior probability of a changepoint at each year boundary. **prior E[k]**, "
+      "**E[k | y]**: prior and posterior expected number of changepoints. **P(k=...)**: "
+      "exact posterior on the count. **P(cp window)**: exact posterior probability of at "
+      "least one changepoint with the new regime starting in that window, from 4000 "
+      "perfect posterior samples of the segmentation. Gamma shape 1.",
+      title="Exact posterior, yearly counts", per_column={"p": 3})
+```
+
+Here the methods part ways, and the exact answer depends on its prior as much as on the
+data. A changepoint around 1890 is certain under every prior. The 1948 change goes from
+a coin flip ($p = 0.005$) to near certain ($p = 0.05$), and a third change around 1930
+appears as the prior rate rises. SuSiE's count does not move with a segment-length prior
+because it has none; its threshold on the evidence for each effect is the more
+conservative counter here. The Gamma shape (0.5, 1, 2) moves $E[k \mid y]$ by at most
+0.15 at fixed $p$.
+
+## Resolution: yearly against monthly
+
+```{python}
+#| label: fig-coal-resolution
+#| fig-cap: "Per-effect alphas and exact boundary probabilities at yearly (n = 112) and monthly (n = 1344) resolution, L=5."
+fig, res_tbl = cr.fig_resolution(COAL)
+plt.show()
+```
+
+```{python}
+#| label: tbl-coal-resolution
+nt.gt(res_tbl.select(["resolution", "n", "component", "ser_log_bf", "cs_size", "cs_start",
+                      "cs_end", "cs_calendar_width_years", "top"])
+      .rename({"ser_log_bf": "log BF", "cs_size": "CS size", "cs_start": "CS start",
+               "cs_end": "CS end", "cs_calendar_width_years": "CS width (years)"}),
+      "**CS start/end**: decimal year of the first and last column of the credible-set hull. "
+      "**CS width**: hull length in calendar years. **top**: decimal year of the column "
+      "with the largest alpha. Effect 2 is below the declaration threshold at both "
+      "resolutions.", decimals=2)
+```
+
+Twelve times as many positions give the same interval in calendar time and the same
+evidence. The monthly set has ten times more members because the alpha is spread over
+twelve times more columns. The monthly top for effect 1 is March 1890, which the yearly
+binning cannot resolve. The dense $1344 \times 1343$ design fits in a few seconds, so a
+cumulative-sum operator for the step basis was not needed at this scale.
+
+## Sensitivity
+
+```{python}
+#| label: tbl-coal-sensitivity
+nt.gt(nt.coal_sensitivity(),
+      "Effect 1 (the 1890s change) for each fit variant and L. **log BF**, **CS size**, "
+      "**CS hull**, **top** as above. **effect 2 log BF**: the second component's evidence "
+      "(blank at L=1). The default uses the raw step basis and an estimated prior "
+      "variance; cf_cavi is exact CAVI with a Gaussian q; irls is the plug-in IRLS method.",
+      title="Effect 1 across fit variants, yearly counts")
+```
+
+The 1890s interval does not move. Standardizing the step basis rescales the estimated
+prior variance and leaves the fit unchanged. The column standard deviations vary only
+about 2.5-fold across the interior, so the implicit prior on edge jumps barely changes.
+A small fixed prior variance (0.25) widens the set and loses the second effect. Exact
+CAVI matches the default within 1.5 nats. The plug-in IRLS method keeps log BF 31 at
+every L and finds no second effect. Under the earlier gibss pin (2079de2) it reported
+36-37 nats; gibss 6646e02 fixed its null intercept.
+
+## Calibration by simulation
+
+**Design A** simulates Poisson counts from a two-changepoint fit to the data (new
+regimes from 1892 and 1948), 200 replicates.
+
+```{python}
+#| label: fig-coal-cal-a
+#| fig-cap: "Design A. Left, hull widths of declared credible sets. Right, where the declared sets' top columns land (truth dotted)."
+fig = cr.fig_calibration_a()
+plt.show()
+```
+
+```{python}
+#| label: tbl-coal-cal-a
+nt.gt(nt.coal_design_a(),
+      "**declared CSs**: total over 200 replicates with log BF at least 2. **CS coverage**: "
+      "fraction of declared sets containing a true changepoint column. **false CSs**: "
+      "declared sets containing none. **declared per rep**: mean per replicate. "
+      "**recall**: fraction of replicates in which some declared set contains that true "
+      "changepoint. **exact E[k]**: the exact posterior's mean count on the same "
+      "replicates (p = 0.02), against a truth of 2.", title="Design A",
+      per_column={"CS coverage": 3, "recall 1892": 3, "recall 1948": 3, "median CS size": 1,
+                  "declared per rep": 2})
+```
+
+Declared sets cover a true changepoint at the nominal rate for every L. The false sets
+are near misses rather than invented locations: most stop one to five columns short of
+the truth, and at L=1 the lone effect is pulled a little late by the second drop it
+cannot model. The 1948 drop is weak (rate 1.1 to 0.47 over the last 15 years) and is
+declared in 63% of replicates. The exact model overshoots the count because its prior
+expects 2.2 changepoints.
+
+**Design B** has one changepoint at varying position and jump size, base rate 3 per year,
+100 replicates per cell. SuSiE L=1 is compared against the exact single-changepoint 95%
+set on the same replicate.
+
+```{python}
+#| label: fig-coal-cal-b
+#| fig-cap: "Design B. Coverage of the true changepoint, median 95% set size and power, by position and jump size. Solid: SuSiE L=1. Dashed: exact single-changepoint posterior."
+fig = cr.fig_calibration_b()
+plt.show()
+```
+
+```{python}
+#| label: tbl-coal-cal-b
+nt.gt(nt.coal_design_b(),
+      "**new regime from**: year the lower rate starts. **years to end**: distance to the "
+      "nearer end of the series. **rate ratio**: after / before. **power**: fraction of "
+      "replicates with log BF at least 2. **coverage**: fraction of replicates whose 95% set "
+      "contains the true column (all replicates). **set size**: median columns in the set. "
+      "**exact mass in SuSiE CS**: the exact location posterior's mass inside the SuSiE "
+      "set; 0.95 means the sets agree. **L=3 false per fit**: declared L=3 sets missing "
+      "the true column.", title="Design B",
+      per_column={"SuSiE set size": 1, "exact set size": 1})
+```
+
+Coverage is nominal everywhere for both methods, and the SuSiE set captures 0.95-0.97 of
+the exact posterior wherever the jump is detectable. The cost is at the ends of the
+series. Within six years of either end, power falls to a fraction of its interior
+value, and the SuSiE set grows wider than the exact one for mild jumps. The zero-centered
+normal prior on the jump cannot be pinned down by a handful of edge observations, so
+alpha spreads over most of the series. Coverage survives only because the set is nearly
+everything.
+
+## Verdict: coal
+
+When the truth is one changepoint, Poisson SuSiE reproduces the exact Bayesian
+changepoint posterior. With more effects it finds the same locations as the exact
+multi-changepoint posterior, with calibrated intervals and few false sets, all of them
+near misses. It does not answer "how many changepoints" the way the exact model does. It
+is more conservative, and its count cannot be tuned through a segment-length prior.
+Weak effects get a credible set that is a hull plus scattered tail columns. Report the
+contiguous block that carries the alpha.
+
+# Lambda phage GC content (binomial)
+
+The Enterobacteria phage lambda genome (RefSeq NC_001416.1, 48,502 bp, GC fraction 0.499),
+with $y_t = 1$ for G or C, binned into non-overlapping windows. Each bin is a binomial
+count (k GC of m bases), fitted with gibss's Binomial family,
+`fit_glm_susie(X, k, trials=m)`. The primary width is 100 bp (485 bins), with L up to 20.
+
+There are two benchmarks. The first is the exact Beta(1, 1)-Binomial changepoint
+posterior, with the prior changepoint probability scaled by bin width ($p = 0.01$ per
+100 bp, 4.8 changepoints expected a priori). The second is a two-state HMM with binomial
+emissions in the style of Churchill (1989). Functional gene blocks come from the
+GenBank CDS table.
+
+## Changepoints and gene blocks
+
+```{python}
+#| label: fig-lambda-main
+#| fig-cap: "Top, GC fraction per 100 bp bin with the SuSiE L=20 fit (blue), the exact posterior mean (dashed), declared credible-set hulls (shaded) and gene blocks (bar). Middle, alphas of the declared effects. Bottom, exact changepoint probabilities and HMM switch probabilities. Grey lines mark block boundaries."
+fig, _ = lr.fig_main(LAM)
+plt.show()
+```
+
+```{python}
+#| label: tbl-lambda-cs
+nt.gt(nt.lambda_annotated(),
+      "Declared credible sets, 100 bp bins, L=20. **CS (kb)**: hull, as the first base of "
+      "the new regime. **top**: column with the largest alpha. **bins**: credible-set size. "
+      "**GC**: fitted GC fraction before and after the top column. **block boundary**: "
+      "the boundary between functional gene blocks closest to the top column; "
+      "**distance**: how far. **in CS**: that boundary falls inside the hull (one bin of slack). "
+      "**exact mass**, **HMM mass**: expected number of changepoints (exact posterior) or "
+      "state switches (HMM) inside the hull.",
+      title="Declared credible sets, lambda, 100 bp").cols_width(cases={"GC": "110px"})
+```
+
+`{python} n_on_boundary` of the `{python} lam_ann.height` declared sets sit within
+100 bp of a boundary between functional gene blocks. These are the end of the tail genes
+(22.5 kb, the largest jump, GC 0.50 to 0.41), the int gene (27.9 kb), the
+exo-bet-gam / cIII boundary (33.2 kb) and the end of the lysis genes (46.4 kb). The two
+strongest have 200 bp credible sets with log Bayes factors in the hundreds. The 39.2 kb
+set lies inside the O gene and the 21.1 kb set inside the tail-fiber genes. The exact
+posterior agrees with both, while the two-level HMM misses 21.1 kb. The 2.5 kb set is a
+weak, wide head-region effect with no gene boundary.
+
+## Where SuSiE under-counts
+
+The exact posterior has `{python} f'{lam_grid["k_mean"]:.1f}'` changepoints on average
+(90% interval `{python} lam_grid["k_q05"]`-`{python} lam_grid["k_q95"]`) against
+SuSiE's `{python} lam_ann.height`. What SuSiE misses are short segments and small jumps:
+a pulse inside b2 (24.1-25.0 kb), a second boundary next to 22.5 kb, and the ea-region
+bump near 31 kb.
+
+```{python}
+#| label: tbl-lambda-variants
+nt.gt(nt.lambda_presence(),
+      "Log Bayes factor of the declared set at each location (columns, by top position) "
+      "for each fit at 100 bp; blank = not declared. **pv** fits fix the prior variance "
+      "(0.05 or 0.25) instead of estimating it.", title="Which fits find which changepoints")
+```
+
+The 24.1 kb step is not a blind spot of the method. With the prior variance fixed, L=20
+declares it at log BF 87-118. With the prior variance estimated, that effect's variance
+collapses to zero and empirical Bayes prunes it. L=10 and L=20 also settle in different
+local optima: L=10 keeps the 31.2 kb effect and puts 128 nats on 33.1 kb, while L=20
+drops 31.2 kb. Every location with log BF above 20 appears in every fit. The declared
+count is a lower bound that depends on L and on how the prior variance is treated. It is
+not a posterior on the number of changepoints.
+
+## Bin width
+
+```{python}
+#| label: fig-lambda-scale
+#| fig-cap: "Declared credible-set hulls (L=20) at each bin width; ticks mark the top bin, grey lines the gene-block boundaries."
+fig = lr.fig_scale(LAM)
+plt.show()
+```
+
+```{python}
+#| label: tbl-lambda-scale
+nt.gt(nt.lambda_scale(),
+      "**CSs L=...**: declared credible sets at that L. **median CS width**: hull width in "
+      "bp at L=20. **exact E[k] (90%)**: exact posterior mean count and 90% interval at the "
+      "width-scaled prior. **HMM switches**: expected number of state switches.",
+      decimals=1, title="Scale dependence", per_column={"median CS width (bp)": 0})
+```
+
+The expected scale dependence, more segments at finer bins, does not appear for SuSiE.
+The declared sets and their widths in base pairs are the same from 50 to 500 bp; at
+1000 bp two of them merge. The HMM does drift, from 9 switches at 1000 bp to 19 at 50 bp.
+
+## Overdispersion and calibration
+
+The GC indicator has lag-1 autocorrelation `{python} f'{rho:.3f}'`, and the 100 bp counts
+have Pearson dispersion `{python} f'{phi:.2f}'` around the fitted step function (1 is
+binomial). Both make the binomial likelihood a little overconfident. The simulation
+takes the seven declared changepoints as the truth and draws from three models: plain
+binomial; beta-binomial with the measured dispersion; and per-base Markov dependence
+matched to the measured autocorrelation. Each model gets 40 replicates. Fits use L=5 and
+L=10, since L=10 declares the same sets as L=20 on the data and runs three times faster.
+
+```{python}
+#| label: tbl-lambda-cal
+nt.gt(nt.lambda_calibration(),
+      "**declared per fit**, **false per fit**: mean declared sets and those containing no "
+      "true changepoint. **CS coverage**: fraction of declared sets containing a true "
+      "changepoint. **recall of 7**: fraction of the true changepoints inside some declared "
+      "set (L=5 caps it at 5/7). **residual dispersion**: median Pearson chi-square/df of "
+      "the simulated counts around the fit.", title="Calibration, 100 bp",
+      per_column={"CS coverage": 3, "median CS size": 1})
+```
+
+Coverage is nominal under the binomial truth and slips about two points under the
+measured overdispersion, with a few more false sets per fit. The measured
+autocorrelation is too weak to matter. Most false sets have their top within 500 bp of a
+true changepoint, on short segments and on the weak 2.5 kb jump.
+
+## Verdict: lambda
+
+Binomial SuSiE finds GC changepoints that line up with lambda's gene organisation. Its
+intervals are stable across bin widths and close to calibrated at the measured
+overdispersion. It under-counts against the exact posterior, missing short pulses and
+small jumps, and one real step is lost to empirical-Bayes pruning rather than to a lack
+of evidence. Weak effects again get wide sets padded with tail columns. Where the signal
+is strong it is sharp: the two largest jumps get 200 bp intervals.
+
+# Reproduce
+
+Every number and figure here is read from `changepoints/results/`. Build them from
+`changepoints/` with the numbered scripts (see `README.md`). Then render:
+
+```bash
+cd changepoints/analysis
+quarto render changepoints.qmd
+```
+
+The notebook uses the named Jupyter kernel `changepoints`. Re-register it after
+`uv sync` recreates the virtual environment:
+
+```bash
+uv run python -m ipykernel install --user --name changepoints --display-name "Python (changepoints)"
+```
+
+gibss-mono is pinned to e2fd039.
