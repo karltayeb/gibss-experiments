@@ -24,15 +24,25 @@ Raw data and the processed matrices are gitignored.
 
 ## What to know before reading the results
 
-- **Report only unsaturated fits.** A fit whose active components fill every available slot
-  has run out of components, and the extra credible sets are an artifact of that cap. At
-  L=20 isoniazid produced six ahpC promoter credible sets that vanish at L=40 and L=60.
-  `scripts/05_stability.py` checks this; L=40 is the reported setting.
+- **The credible-set count depends on L, so do not read it as a property of the data.**
+  Two separate effects, both shown by `scripts/05_stability.py`:
+  1. A *saturated* fit, one whose active components fill every available slot, has run out
+     of components and invents sets. At L=20 isoniazid produced six ahpC promoter credible
+     sets that are absent at L=40 and L=60. Those fits are not reportable.
+  2. Even unsaturated, the count still drifts: ethambutol gives 16 sets at L=40 and 12 at
+     L=60. So "N credible sets" is not a stable summary for the strong-signal drugs, and
+     the per-variant question ("is rpoB Ser450Leu in a set at every L?") is the one that
+     has a stable answer. `stability_L.md` reports that set.
+
+  L=40 is the reported setting, and it is unsaturated for every drug.
 - **The WHO join is by genomic coordinate, not name.** The two sources disagree about which
   gene some variants belong to. CRyPTIC files the main isoniazid promoter variant under
   `fabG1` at `c-15`; WHO files the same base under `inhA` at `c.-777` and lists no `fabG1`
   tier for isoniazid. A name join drops the second strongest isoniazid signal in the cohort.
 - **Pyrazinamide is not in this cohort.** The UKMYC plates do not include it.
-- **Covariates enter as a fixed offset**, since the gibss front door has no fixed-covariate
-  block. Lineage indicators stand in for genome-wide principal components for now, and three
-  credible sets land on common WHO grade-5 variants as a result.
+- **Covariates are fit jointly** (`fit_glm_susie(covariates=Z)`, gibss 7c7e462), not frozen
+  as an offset. This matters: the frozen-offset route *caused* lineage-marker false
+  positives that joint fitting does not have, while finding fewer true positives. See
+  `results/covariate_mode.md` and the covariates section of `docs/data_notes.md`.
+  Clofazimine's mmpL5 Asp767Asn survives joint adjustment and is still unexplained;
+  genome-wide principal components are the next thing to try.

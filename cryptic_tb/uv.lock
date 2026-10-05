@@ -104,7 +104,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "gibss-mono", git = "https://github.com/karltayeb/gibss-mono?rev=2079de2" },
+    { name = "gibss-mono", git = "file:///Users/ktayeb/py/gibss-mono?rev=7c7e462" },
     { name = "jax", specifier = ">=0.10.0" },
     { name = "matplotlib", specifier = ">=3.10.9" },
     { name = "numpy", specifier = ">=2.4.4" },
@@ -177,7 +177,7 @@ wheels = [
 [[package]]
 name = "gibss-mono"
 version = "0.1.0"
-source = { git = "https://github.com/karltayeb/gibss-mono?rev=2079de2#2079de2a8c5139446919dedf12ae7c29e8f00e52" }
+source = { git = "file:///Users/ktayeb/py/gibss-mono?rev=7c7e462#7c7e462ee394efb651118f984ffeec4606917ed5" }
 dependencies = [
     { name = "jax" },
     { name = "numpy" },

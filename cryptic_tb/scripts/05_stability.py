@@ -37,10 +37,17 @@ def _fit_module():
     return mod
 
 
+def _has_design(drug: str) -> bool:
+    """A drug the pipeline skipped (no phenotype in this cohort) has no usable design.
+    Checked by content, not existence: an earlier run could have left an empty table."""
+    x, f = PROC / drug / "X.npz", PROC / drug / "features.csv"
+    return x.exists() and f.exists() and f.stat().st_size > 0
+
+
 def main() -> None:
     cfg = yaml.safe_load((ROOT / "config.yaml").read_text())
     m = _fit_module()
-    drugs = sys.argv[1:] or [d for d in cfg["drugs"] if (PROC / d / "X.npz").exists()]
+    drugs = sys.argv[1:] or [d for d in cfg["drugs"] if _has_design(d)]
 
     rows = []
     tops: dict[tuple[str, int], set[str]] = {}
@@ -66,6 +73,12 @@ def main() -> None:
             print(f"{drug} L={L:<3} active={n_active:<3} "
                   f"{'SATURATED' if n_active >= L else 'ok':<10} CS={strong.height}",
                   flush=True)
+            # Write as we go: this loop is ~12 minutes of fits, and a failure in a later
+            # drug should not discard the earlier ones.
+            pl.DataFrame(rows).write_csv(RESULTS / "stability_L.csv")
+            pl.DataFrame([{"drug": d, "L": l, "top": t}
+                          for (d, l), ts in tops.items() for t in sorted(ts)]
+                         ).write_csv(RESULTS / "stability_L_tops.csv")
 
     frame = pl.DataFrame(rows)
     frame.write_csv(RESULTS / "stability_L.csv")

@@ -75,8 +75,37 @@ def logistic_irls(Z: np.ndarray, y: np.ndarray, *, ridge: float = 1.0,
     return beta
 
 
+def covariate_matrix(meta: pl.DataFrame, cfg) -> tuple[np.ndarray, list[str]]:
+    """Dense (n, k) covariate matrix Z for `fit_glm_susie(covariates=Z)`.
+
+    No intercept column: gibss forms the nuisance design W = [1 | Z] itself and rejects a
+    constant column as rank deficient. One level per factor is dropped as the reference.
+    """
+    n = meta.height
+    cols: list[np.ndarray] = []
+    names: list[str] = []
+    cov = cfg["covariates"]
+    for field, enabled in (("site", cov.get("site")), ("plate", cov.get("plate_type")),
+                           ("lineage", cov.get("lineage", True))):
+        if not enabled:
+            continue
+        values = meta[field].to_list()
+        levels = sorted(set(values))[1:]  # drop the first level as the reference
+        for lv in levels:
+            cols.append(np.array([1.0 if v == lv else 0.0 for v in values]))
+            names.append(f"{field}={lv}")
+    if not cols:
+        return np.zeros((n, 0)), []
+    return np.column_stack(cols), names
+
+
 def covariate_offset(meta: pl.DataFrame, cfg) -> tuple[np.ndarray, list[str]]:
-    """Covariate-only logistic fit's centred linear predictor, plus the column names."""
+    """The OLD route, kept only to quantify what the approximation cost.
+
+    Fits the covariates once on their own and freezes their linear predictor as an offset.
+    The variant effects then never feed back into the covariate coefficients. Superseded by
+    `covariates=Z`, which fits (b0, gamma) jointly with the effects.
+    """
     y = meta["y"].to_numpy().astype(float)
     n = len(y)
     cols: list[np.ndarray] = [np.ones(n)]
@@ -159,9 +188,16 @@ def to_bcoo(X: sparse.csr_matrix):
     return jsparse.BCOO((jnp.asarray(coo.data), idx), shape=X.shape)
 
 
-def fit_one(drug: str, cfg, *, L: int, method: str | None, use_offset: bool,
+def fit_one(drug: str, cfg, *, L: int, method: str | None, use_offset: bool = True,
+            covariate_mode: str = "joint",
             estimate_prior_variance: bool = True, prior_variance: float = 1.0,
             sparse_design: bool = True):
+    """Fit one drug.
+
+    `covariate_mode` is "joint" (covariates fit with the intercept as one Gaussian nuisance
+    factor), "offset" (the old frozen-coefficient approximation) or "none". `use_offset`
+    False forces "none" and is kept so older call sites keep working.
+    """
     from gibss.methods import fit_glm_susie
     from gibss.summary import summarize_fit
 
@@ -172,23 +208,37 @@ def fit_one(drug: str, cfg, *, L: int, method: str | None, use_offset: bool,
     features = pl.read_csv(d / "features.csv")
     y = meta["y"].to_numpy().astype(float)
 
-    offset, cov_names = covariate_offset(meta, cfg) if use_offset else (0.0, [])
+    if not use_offset:
+        covariate_mode = "none"
+    offset: float | np.ndarray = 0.0
+    covariates = None
+    cov_names: list[str] = []
+    if covariate_mode == "joint":
+        Z, cov_names = covariate_matrix(meta, cfg)
+        covariates = Z if Z.shape[1] else None
+    elif covariate_mode == "offset":
+        offset, cov_names = covariate_offset(meta, cfg)
+    elif covariate_mode != "none":
+        raise ValueError(f"covariate_mode must be joint/offset/none, got {covariate_mode!r}")
     names = features["feature"].to_list()
 
     Xfit = to_bcoo(X) if sparse_design else X.toarray()
     t0 = time.time()
     state = fit_glm_susie(
         Xfit, y, L=L, method=method,
-        offset=offset,
+        offset=offset, covariates=covariates,
         center=True, estimate_intercept=True,
         estimate_prior_variance=estimate_prior_variance,
         prior_variance=prior_variance,
     )
     elapsed = time.time() - t0
     summary = summarize_fit(state, Xfit, feature_names=names,
-                            coverage=cfg["fit"]["coverage"], expand_cs=True)
+                            coverage=cfg["fit"]["coverage"], expand_cs=True,
+                            **({"covariate_names": cov_names} if covariate_mode == "joint"
+                               and cov_names else {}))
     return {
-        "drug": drug, "L": L, "method": method or "logistic", "use_offset": use_offset,
+        "drug": drug, "L": L, "method": method or "logistic",
+        "covariate_mode": covariate_mode,
         "estimate_prior_variance": estimate_prior_variance,
         "state": state, "summary": summary, "features": features, "meta": meta,
         "X": X, "offset": offset, "cov_names": cov_names, "seconds": elapsed,
@@ -259,15 +309,17 @@ def main() -> None:
             print(f"[{drug}] no design built, skipping")
             continue
         print(f"\n{'=' * 100}\n{drug}  (L={L})\n{'=' * 100}")
-        fit = fit_one(drug, cfg, L=L, method=None, use_offset=True)
+        fit = fit_one(drug, cfg, L=L, method=None, covariate_mode="joint")
         print(f"n={fit['n']} cases={fit['cases']} p={fit['p']} "
               f"fit {fit['seconds']:.1f}s")
         print(fit["summary"])
 
         print("  marginal tests per variant (LRT + Fisher) ...", flush=True)
+        # The marginal comparator conditions on the same covariates. There is no joint
+        # nuisance factor in a one-variant GLM, so it uses the frozen-offset route.
+        marg_offset, _ = covariate_offset(fit["meta"], cfg)
         marg = marginal_tests(
-            fit["X"], fit["meta"]["y"].to_numpy().astype(float),
-            fit["offset"] if isinstance(fit["offset"], np.ndarray) else None)
+            fit["X"], fit["meta"]["y"].to_numpy().astype(float), marg_offset)
         table = cs_table(fit, marginal=marg)
         out = RESULTS / drug
         out.mkdir(parents=True, exist_ok=True)

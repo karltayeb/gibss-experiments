@@ -157,6 +157,72 @@ The result: 98% of design columns carry a grade (RIF 381 of 390, INH 311 of 319)
 Genotypes are haploid 0/1 and the matrix is stored sparse (`scipy` CSR, converted to a jax
 BCOO for the fit so the design is never densified).
 
+## Covariates: the frozen-offset approximation was causing false positives
+
+Until gibss supported fixed covariates (rev 7c7e462), site, plate design and lineage had
+to enter as an offset: fit a covariate-only logistic model, freeze its linear predictor,
+pass it in. The covariate coefficients never saw the variant effects. That was described
+here as an approximation to state and move past. It was worse than that.
+
+Running all seven drugs three ways, with no adjustment, with the frozen offset, and with
+`covariates=Z` fit jointly with the intercept, and counting pure credible sets whose top
+variant is common (100 or more carriers) and graded 4 or 5 by WHO, meaning it has looked
+and found the variant *not* associated with resistance:
+
+| Drug | no adjustment | frozen offset | joint |
+|---|---|---|---|
+| RIF | 0 | 2 (mtrB Pro18Ser, rpoC Gly594Glu) | 0 |
+| INH | 0 | 1 (mshA Ala187Val) | 0 |
+| EMB | 0 | 1 (aftB Asp397Gly) | 0 |
+| CFZ | 0 | 1 (mmpL5 Asp767Asn) | 1 (mmpL5 Asp767Asn) |
+| LEV, LZD, BDQ | 0 | 0 | 0 |
+
+The lineage-marker credible sets reported earlier in this analysis were an artifact of
+freezing the coefficients, not a failure to adjust. Joint fitting removes every one of them
+except clofazimine's, and it finds *more* WHO group 1 and 2 variants at the same time
+(rifampicin 22 against 20, ethambutol 13 against 11). The frozen offset is strictly worse
+than both alternatives, so it should not be used even as a convenience.
+
+The likely mechanism: the covariate coefficients are fit without the variants in the model,
+so they absorb variant signal. Once frozen, the offset systematically mis-predicts, and a
+common lineage-correlated variant is the cheapest thing available to correct the residual.
+Fitting gamma jointly lets it adjust once the effects are present, so no correction is
+needed.
+
+Clofazimine is the real residual problem and it is not about freezing. mmpL5 Asp767Asn is
+absent without adjustment and present under both adjusted fits, where joint makes it
+stronger, not weaker (log Bayes factor 17 to 61, effect -1.5 to -2.3). It has 2,718
+carriers of whom 0.7% are resistant, against a 1.5% background, so the model is fitting a
+protective effect. Either Mykrobe lineage level 1 is too coarse to capture the structure
+this variant tracks, which is what genome-wide principal components would settle, or the
+protective association is real and the WHO grade of 5 reflects that their SOLO analysis
+was not powered to call a protective effect. Worth resolving before the example is used.
+
+## The number of credible sets is not a property of the data
+
+Worth stating before the results are read, because it bit this analysis twice.
+
+`gibss` is given a fixed number of components, L, and the count of credible sets it returns
+depends on that choice in two different ways.
+
+**A saturated fit invents sets.** When every one of the L components comes back active, the
+model has used everything it was given and had no way to say "I have run out". The components
+that do not correspond to a real effect get pushed onto whatever residual structure remains.
+At L=20 the isoniazid fit had all 20 components active and reported six ahpC promoter
+credible sets with pure singletons and 88-100% resistant carriers. They look exactly like
+the "uncertain significance becomes confident" discovery the brief is hoping for, and they do
+not survive: at L=40 and L=60 they are gone. Had the L=20 fit been reported on its own it
+would have claimed six novel resistance variants that the model does not actually support.
+
+**Drift continues even when unsaturated.** Ethambutol is unsaturated at both L=40 (16 active)
+and L=60 (12 active), and the two disagree. So raising L until the cap stops binding is
+necessary but not sufficient for a stable count.
+
+What follows from this: a credible-set *count* should not be quoted as a result for the
+strong-signal drugs. The stable quantity is per variant, whether a given mutation tops a
+credible set across every unsaturated L, and `results/stability_L.md` reports exactly that.
+The reported fits use L=40, which is unsaturated for all seven drugs.
+
 ## Still outstanding
 
 - `VARIANTS.csv.gz` (2.8 GB) is still downloading. It is needed for the genome-wide

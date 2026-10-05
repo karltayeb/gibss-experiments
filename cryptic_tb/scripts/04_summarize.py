@@ -55,9 +55,17 @@ def md_table(frame: pl.DataFrame, cols: list[str], headers: list[str] | None = N
     return "\n".join(out)
 
 
+def _has_design(drug: str) -> bool:
+    """A drug the pipeline skipped (no phenotype in this cohort) has no usable design.
+    Checked by content, not existence: an earlier run could have left an empty table."""
+    x, f = PROC / drug / "X.npz", PROC / drug / "features.csv"
+    return x.exists() and f.exists() and f.stat().st_size > 0
+
+
 def main() -> None:
     cfg = yaml.safe_load((ROOT / "config.yaml").read_text())
-    drugs = [d for d in cfg["drugs"] if (RESULTS / d / "components.csv").exists()]
+    drugs = [d for d in cfg["drugs"]
+             if (RESULTS / d / "components.csv").exists() and _has_design(d)]
     min_purity = cfg["fit"]["min_purity"]
 
     lines: list[str] = []

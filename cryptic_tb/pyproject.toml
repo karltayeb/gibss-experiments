@@ -22,7 +22,13 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "2079de2" }
+# 7c7e462 (local main, 2026-10-05) adds fixed covariates as a joint Gaussian nuisance
+# factor with the intercept: fit_glm_susie(X, y, covariates=Z). That replaces the offset
+# approximation this analysis used before, where the covariate coefficients were fit once
+# on their own and then frozen. It is NOT pushed to GitHub yet, so the source is the local
+# clone; switch the url back to https://github.com/karltayeb/gibss-mono once the commit is
+# on origin/main. Keep the rev explicit either way.
+gibss-mono = { git = "file:///Users/ktayeb/py/gibss-mono", rev = "7c7e462" }
 
 # Standalone project, not a member of any parent uv workspace.
 [tool.uv.workspace]
