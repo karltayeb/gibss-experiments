@@ -84,10 +84,13 @@ def elbo_table(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
     rng = np.random.default_rng(seed)
     sig = d.filter(~pl.col("null"))
     arms = [m for m in R.METHODS if m != ref and m in sig["method"].unique().to_list()]
-    key = ["T", "gap", "m", "batch_hash", "replicate"]
-    sig = sig.with_columns(pl.col("gap").fill_null(-1))   # nulls don't join; single-causal cells
+    # pair on the replicate itself: (batch_hash, replicate) identifies the simulated data, and
+    # the cell axes can be null (gap on single-causal cells, m on the Gaussian design), which
+    # would silently drop every row from the join
+    key = ["batch_hash", "replicate"]
+    sig = sig.with_columns(pl.col("gap").fill_null(-1))
     refd = sig.filter(pl.col("method") == ref).select(*key, pl.col("q2_elbo").alias("ref_elbo"))
-    j = (sig.filter(pl.col("method") != ref).join(refd, on=key, how="inner")
+    j = (sig.filter(pl.col("method") != ref).join(refd, on=key, how="inner", validate="m:1")
             .with_columns(pl.when(pl.col("gap") < 0).then(None).otherwise(pl.col("gap")).alias("gap"))
             .with_columns((pl.col("q2_elbo") - pl.col("ref_elbo")).alias("d")))
     rows = list(rows)
