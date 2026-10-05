@@ -34,24 +34,29 @@ _BETAS = {}
 for _f in ("betas.json", "betas_n1000.json"):
     _j = json.load(open(os.path.join(_HERE, _f)))
     _BETAS[int(_j["_meta"]["n"])] = _j["betas"]
+# the 022 analogs: 023 Gaussian (one beta per T, rho-free) and 024 nested (beta per depth x T)
+_BETAS_GAUSS = json.load(open(os.path.join(_HERE, "betas_gaussian_n500.json")))["betas"]
+_BETAS_NESTED = json.load(open(os.path.join(_HERE, "betas_nested_n1000.json")))
 B0_TRUE = -2.0
 MIN_LOG_BF = 2.0          # declared-CS threshold (the experiment's default_args min_log_bf)
 
-METHODS = ["cavi", "gibss", "laplace", "globaljj", "score"]   # most to least accurate
-METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "globaljj": "global-JJ",
+METHODS = ["cavi", "gibss", "laplace", "localjj", "globaljj", "score"]   # most to least accurate
+METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "globaljj": "global-JJ", "localjj": "local-JJ",
                 "cavi": "CAVI-Q2", "score": "score"}
 # The 019 logistic palette (resultslib.METHOD_COLOR): gIBSS blue, CAVI vermillion, global-JJ
 # green, score reddish purple; gIBSS-Laplace sky blue (a gIBSS variant, as gibss_profiled in 019).
 # Validated with the dataviz validate_palette.js, light mode, all pairs: score/global-JJ is
 # deutan dE 7.6 (floor band), so the markers + legend + x-dodge carry identity too.
-METHOD_COLOR = {"laplace": "#56B4E9", "gibss": "#0072B2", "globaljj": "#009E73",
+METHOD_COLOR = {"laplace": "#56B4E9", "gibss": "#0072B2", "globaljj": "#009E73", "localjj": "#E69F00",
                 "cavi": "#D55E00", "score": "#CC79A7"}
-METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "cavi": "o", "score": "P"}
+METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "localjj": "^", "cavi": "o", "score": "P"}
 
 
 def _method_key(mname: str) -> str:
     if mname.endswith("_globaljj"):
         return "globaljj"
+    if mname.endswith("_localjj"):
+        return "localjj"
     if mname.endswith("_score"):
         return "score"
     if mname.endswith("_gibss_laplace"):
@@ -64,22 +69,37 @@ def _method_key(mname: str) -> str:
 
 
 def cell_meta(scoord: dict) -> dict:
+    """Cell coordinates for the three designs. ``m`` is the causal column's expected size
+    (022: the design density x n; 024: n x density x (1 - drop)^depth; 023: None, every
+    Gaussian column is dense), ``depth`` is the attrition depth (024 only), ``T`` is the
+    calibration rung recovered from beta via the design's beta table."""
+    fn = scoord["design"]["function"]
     dargs = scoord["design"]["arguments"]
     enr = scoord["enrichment"]
     a = enr.get("arguments") or {}
-    m = int(round(float(dargs["density"]) * int(dargs["n"])))
+    n = int(dargs["n"])
     if "causal_effects" in a:
         effs = [float(e) for e in a["causal_effects"]]
         beta, lstar, gap = effs[0], len(effs), int(a["gap"])
     else:
         beta, gap = float(a["causal_effect"]), None
         lstar = 0 if beta == 0.0 else 1
+    depth = None
+    if fn == "gaussian_markov_X":
+        design, m, row, corr = "gaussian", None, _BETAS_GAUSS, float(dargs["rho"])
+    elif fn == "binary_attrition_X":
+        depth = int(a.get("base_index", 0)) if lstar else None
+        m = (int(round(n * float(dargs["density"]) * (1.0 - float(dargs["drop"])) ** depth))
+             if depth is not None else None)
+        design, row, corr = "nested", (_BETAS_NESTED["betas"][str(depth)] if depth is not None else None), float(dargs["corr"])
+    else:
+        design, m, corr = "binary", int(round(float(dargs["density"]) * n)), float(dargs.get("corr"))
+        row = _BETAS[n][str(m)]
     T = None
     if beta != 0.0:
-        row = _BETAS[int(dargs["n"])][str(m)]
         T = int(min(row, key=lambda t: abs(beta - row[t])))
-    return {"n": int(dargs["n"]), "m": m, "T": T, "beta": beta, "Lstar": lstar, "gap": gap,
-            "null": lstar == 0, "corr": float(dargs.get("corr"))}
+    return {"n": n, "m": m, "T": T, "beta": beta, "Lstar": lstar, "gap": gap,
+            "null": lstar == 0, "corr": corr, "depth": depth, "design": design}
 
 
 def _pip(alphas: np.ndarray) -> np.ndarray:
@@ -223,7 +243,7 @@ def mean_se(df: pl.DataFrame, value: str, by: list[str]) -> pl.DataFrame:
 # ------------------------------------------------------------------------------ figures
 # Multiplicative x-dodge on the log-m axis so coincident arms (gIBSS-Q2 ~ CAVI-Q2 at L=1) stay
 # visible side by side instead of stacking.
-_DODGE = {"cavi": 0.89, "gibss": 0.945, "laplace": 1.0, "globaljj": 1.055, "score": 1.11}
+_DODGE = {"cavi": 0.875, "gibss": 0.925, "laplace": 0.975, "localjj": 1.025, "globaljj": 1.075, "score": 1.125}
 
 
 def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks, symlog=None):

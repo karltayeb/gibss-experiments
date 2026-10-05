@@ -177,20 +177,23 @@ def pooled_summary(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000
     return "\n".join(lines)
 
 
-def delta_by_m(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int = 0) -> str:
-    """Per cell (T, gap, m): reference arm absolute, other arms as arm minus reference, for
-    coverage and power, joint rep-resampled 95% CIs. Wide: one row per cell, one column per arm."""
+def delta_by_m(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int = 0,
+               axis: str = "m") -> str:
+    """Per cell (T, gap, axis): reference arm absolute, other arms as arm minus reference, for
+    coverage and power, joint rep-resampled 95% CIs. Wide: one row per cell, one column per arm.
+    `axis` is the cell's sweep column ("m" for 022/024, "T" for 023; T is still a row key)."""
     rng = np.random.default_rng(seed)
     sig = d.filter(~pl.col("null"))
     present = [m for m in R.METHODS if m in sig["method"].unique().to_list()]
     others = [m for m in present if m != ref]
+    keys = ["T", "gap"] + ([axis] if axis not in ("T", "gap") else [])
     out = []
     for metric in ("coverage", "power"):
-        hdr = ["T", "gap", "m", R.METHOD_LABEL[ref]] + [R.METHOD_LABEL[m] for m in others]
+        hdr = keys + [R.METHOD_LABEL[ref]] + [R.METHOD_LABEL[m] for m in others]
         lines = [f"\n**{metric}** (arm minus {R.METHOD_LABEL[ref]}, 95% CI resamples replicates)\n",
                  "| " + " | ".join(hdr) + " |", "|" + "---|" * len(hdr)]
-        for T, gap, m in sig.select("T", "gap", "m").unique().sort(["T", "gap", "m"]).iter_rows():
-            g = sig.filter(eq("T", T), eq("gap", gap), pl.col("m") == m).sort(["batch_hash", "replicate"])
+        for combo in sig.select(keys).unique().sort(keys).iter_rows():
+            g = sig.filter(*[eq(c, v) for c, v in zip(keys, combo)]).sort(["batch_hash", "replicate"])
             st = {}
             for mth in present:
                 h = g.filter(pl.col("method") == mth)
@@ -213,25 +216,28 @@ def delta_by_m(d: pl.DataFrame, ref: str = "cavi", n_boot: int = 2000, seed: int
                 b = est(st[mth], idx) - est(st[ref], idx)
                 lo, hi = np.percentile(b, [2.5, 97.5])
                 cells.append(f"{dlt:+.2f} [{lo:+.2f}, {hi:+.2f}]")
-            lines.append(f"| {T} | {gap} | {m} | " + " | ".join(cells) + " |")
+            lines.append("| " + " | ".join(str(v) for v in combo) + " | " + " | ".join(cells) + " |")
         out.append("\n".join(lines))
     return "\n".join(out)
 
 
 def compact_vs_m(d: pl.DataFrame, arm: str, ref: str = "cavi", metric: str = "coverage",
-                 n_boot: int = 2000, seed: int = 0) -> str:
-    """One row per T x gap, m across columns: `arm` minus `ref` with a joint rep-resampled
-    95% CI (both arms recomputed on the same resampled replicates)."""
+                 n_boot: int = 2000, seed: int = 0, axis: str = "m") -> str:
+    """One row per (row keys) x `axis` across columns: `arm` minus `ref` with a joint
+    rep-resampled 95% CI (both arms recomputed on the same resampled replicates). Row keys are
+    T x gap for axis "m", gap only for axis "T"."""
     rng = np.random.default_rng(seed)
     sig = d.filter(~pl.col("null"))
-    ms = sorted(sig["m"].unique().to_list())
-    lines = ["| T | gap | " + " | ".join(f"m={m}" for m in ms) + " |", "|---|---|" + "---|" * len(ms)]
-    for T, gap in sig.select("T", "gap").unique().sort(["T", "gap"]).iter_rows():
+    rows_keys = [k for k in ("T", "gap") if k != axis]
+    ms = sorted(sig[axis].unique().to_list())
+    lines = ["| " + " | ".join(rows_keys) + " | " + " | ".join(f"{axis}={m}" for m in ms) + " |",
+             "|" + "---|" * len(rows_keys) + "---|" * len(ms)]
+    for combo in sig.select(rows_keys).unique().sort(rows_keys).iter_rows():
         cells = []
         for m in ms:
             st = {}
             for mth in (arm, ref):
-                h = (sig.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("m") == m, pl.col("method") == mth)
+                h = (sig.filter(*[eq(c, v) for c, v in zip(rows_keys, combo)], pl.col(axis) == m, pl.col("method") == mth)
                         .sort(["batch_hash", "replicate"]))
                 if metric == "coverage":
                     st[mth] = (h.select(pl.col("covers").list.sum())["covers"].to_numpy().astype(float),
@@ -248,7 +254,7 @@ def compact_vs_m(d: pl.DataFrame, arm: str, ref: str = "cavi", metric: str = "co
             dlt = est(st[arm]) - est(st[ref])
             lo, hi = np.percentile(est(st[arm], idx) - est(st[ref], idx), [2.5, 97.5])
             cells.append(f"{dlt:+.2f} [{lo:+.2f}, {hi:+.2f}]")
-        lines.append(f"| {T} | {gap} | " + " | ".join(cells) + " |")
+        lines.append("| " + " | ".join(str(v) for v in combo) + " | " + " | ".join(cells) + " |")
     return "\n".join(lines)
 
 

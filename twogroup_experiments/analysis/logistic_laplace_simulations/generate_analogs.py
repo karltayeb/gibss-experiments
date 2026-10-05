@@ -2,7 +2,7 @@
 experiments/024_logistic_laplace_nested.yaml.
 
 Both keep 022's protocol fixed (n=1000, p=256, b0=-2, L=5, L*=3 at gap in {8, 64}, T in {8, 16},
-EB prior, the five Q2-scored arms CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / score,
+EB prior, the six Q2-scored arms CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / local-JJ / score,
 200 reps) and swap the design + its axis:
 
   023 GAUSSIAN  gaussian_markov_X(n=500, p, rho=0.95): a small illustrative dense design. Every column is N(0,1): dense,
@@ -37,7 +37,7 @@ TARGETS = [8, 16]
 LSTAR = 3
 GAPS = [8, 64]
 METHODS = ["logistic_q2_L5_cavi", "logistic_q2_L5_gibss", "logistic_q2_L5_gibss_laplace",
-           "logistic_q2_L5_globaljj", "logistic_q2_L5_score"]
+           "logistic_q2_L5_globaljj", "logistic_q2_L5_localjj", "logistic_q2_L5_score"]
 NOCAVI = [m for m in METHODS if not m.endswith("_cavi")]
 
 GAUSS_RHO = 0.9
@@ -105,7 +105,7 @@ def gaussian() -> None:
     rows.append(_null("null"))
     header = f"""\
 # 023_logistic_laplace_gaussian: the 022 protocol on a small illustrative AR1 GAUSSIAN design (rho={GAUSS_RHO}).
-# Same five Q2-scored arms (CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / score), n={GAUSS_N}, p={P},
+# Same six Q2-scored arms (CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / local-JJ / score), n={GAUSS_N}, p={P},
 # b0={B0:g}, L=5, L*={LSTAR} at gap in {{{", ".join(map(str, GAPS))}}} (causal-causal latent corr rho**gap),
 # EB prior (cap 100).
 #

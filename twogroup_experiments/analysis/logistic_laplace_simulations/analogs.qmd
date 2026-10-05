@@ -1,0 +1,213 @@
+---
+title: "Logistic-SuSiE approximations: the 022 protocol on a Gaussian and on a nested design"
+subtitle: "CAVI-Q2 vs gIBSS-Q2 vs gIBSS-Laplace vs global-JJ vs score (experiments 023 and 024, L=5, 200 reps)"
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))   # analysis/logistic_laplace_simulations -> analysis
+os.chdir("..")                                # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/logistic_laplace_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import cs_tables as C
+import delta_figure as F
+import posterior_figure as PF
+import laplacelib as R
+
+SC_G, SC_N = "023-laplace-gaussian", "024-laplace-nested"
+dg = C.declared(C.load(SC_G)); sg = dg.filter(~pl.col("null"))
+dn = C.declared(C.load(SC_N)); sn = dn.filter(~pl.col("null"))
+```
+
+Two analogs of the [022 full grid](full_grid.qmd). The protocol is 022's: $p = 256$,
+$b_0 = -2$, $L^* = 3$ equal causals at gap 8 (correlated) or 64 (independent), fit with
+$L = 5$, EB prior variance, the same five arms in $\mathcal{Q}_2$, 200 replicates per cell.
+Only the design and its sweep change.
+
+- **023, Gaussian.** AR(1) Gaussian columns, $n = 500$, adjacent $\rho = 0.9$ (causal-causal
+  latent correlation $0.9^8 = 0.43$ at gap 8, $\approx 0$ at gap 64). Every column is dense and
+  $N(0, 1)$, so there is no set-size axis; the sweep is the signal $T = E[\text{LRT}]$ per
+  causal in $\{4, 8, 12, 16, 20, 24\}$, with one $\beta$ per $T$. The dense control for 022's
+  sparse-set findings.
+- **024, nested.** `binary_attrition_X`: Markov roots (phi 0.8, half the rows) expanded into 32
+  blocks of 8 nested sets, each step keeping 55% of the parent's members, so one matrix holds
+  sets from 500 members down to 8. $n = 1000$. The sweep is the causals' depth $d \in 0..7$,
+  i.e. their expected size $500 \cdot 0.55^d$ (022's $m$), with $\beta$ per $(d, T)$ and
+  $T \in \{8, 16\}$. Causals sit at the same depth in blocks gap/8 apart; their decoys are
+  their own ancestors and descendants at other sizes.
+
+All CS metrics are over **declared** CSs (component $\log \text{BF} \ge 2$), as in 022.
+
+```{python}
+#| label: status
+#| echo: false
+#| output: asis
+for sc, d, s, keys in ((SC_G, dg, sg, ["T", "gap"]), (SC_N, dn, sn, ["T", "gap", "depth"])):
+    reps = s.group_by(keys + ["method"]).len()["len"]
+    print(f"- `{sc}`: {s.select(keys).unique().height} signal cells x {s['method'].n_unique()} arms, "
+          f"{reps.min()}-{reps.max()} reps per cell; {d.filter(pl.col('null')).height // max(d.filter(pl.col('null'))['method'].n_unique(), 1)} null reps per arm.")
+```
+
+# 023: Gaussian design, signal axis {#sec-gauss}
+
+## Headline: per gap, pooled over T {#sec-gauss-pooled}
+
+```{python}
+#| label: tab-gauss-pooled
+#| echo: false
+#| output: asis
+print("CAVI-Q2 in absolute terms; every other arm as **arm minus CAVI-Q2** on the same "
+      "replicates. *coverage*: fraction of declared CSs containing a causal. *size*: median "
+      "declared-CS size with its interquartile range. *power*: mean over reps of the fraction "
+      "of the 3 causals captured by a declared CS. *CS/fit*: declared CSs per fit. 95% CIs "
+      "resample replicates, jointly for both arms of a difference. One row per T x gap cell "
+      "(there is no size axis to pool over).\n")
+print(C.pooled_summary(dg, ref="cavi"))
+```
+
+## Along T {#sec-gauss-along}
+
+```{python}
+#| label: fig-gauss-delta
+#| echo: false
+#| fig-cap: "Credible set metrics, relative to CAVI, Gaussian design. AR(1) Gaussian columns ($n = 500$, $p = 256$, $\\rho = 0.9$), $L^* = 3$, fit $L = 5$, 200 replicates per cell. The x axis is the signal per causal, $T = E[\\mathrm{LRT}]$ against the null; every column is $N(0, 1)$ so $\\beta$ is one number per $T$. Columns: correlated (gap 8, latent $r = 0.43$) or independent (gap 64) causals. Rows: coverage of declared 95% credible sets, power, and mean credible set size as a ratio (log axis), each as the arm minus CAVI-Q2 on the same replicates; dashed line: no difference. Bands: 95% intervals from resampling replicates."
+F.draw(F.delta_frame(dg, ref="cavi", axis="T", panels=("gap",)), ref="cavi");
+```
+
+```{python}
+#| label: fig-gauss-absolute
+#| echo: false
+#| fig-cap: "Credible set metrics, absolute, Gaussian design. Same layout; each arm's own coverage (dashed: nominal 0.95), power, and mean credible set size (log axis), with per-arm 95% intervals from resampling replicates."
+F.draw(F.delta_frame(dg, ref=None, axis="T", panels=("gap",)), ref=None);
+```
+
+## Per-cell tables {#sec-gauss-cells}
+
+```{python}
+#| label: tab-gauss-cells
+#| echo: false
+#| output: asis
+print("Arm minus CAVI-Q2 per cell, 95% CI resamples replicates jointly.\n")
+print(C.delta_by_m(dg, ref="cavi", axis="T"))
+```
+
+## PIPs and effect sizes {#sec-gauss-posterior}
+
+```{python}
+#| label: setup-gauss-posterior
+#| include: false
+PG = PF.load_posterior(SC_G)
+```
+
+```{python}
+#| label: fig-gauss-pip
+#| echo: false
+#| fig-cap: "PIPs, relative to CAVI, Gaussian design. Rows: mean PIP over the 3 causal features and the sum of PIPs over the 253 nulls (expected false inclusions per fit), from declared components, each as the arm minus CAVI-Q2. Bands: joint 95% intervals from resampling replicates."
+PF.draw(PF.metric_frame(PG, PF.PIP_METRICS, ref="cavi", axis="T", panels=("gap",)), PF.PIP_METRICS, ref="cavi");
+```
+
+```{python}
+#| label: fig-gauss-effect
+#| echo: false
+#| fig-cap: "Effect size posteriors, relative to CAVI, Gaussian design. Rows 1 to 3 condition on detection: conditional posterior mean over the true effect (ratio to CAVI-Q2, log axis), coverage of the 95% conditional interval (arm minus CAVI-Q2), conditional posterior sd (ratio, log axis). Row 4: RMSE of the fitted linear predictor, ratio to CAVI-Q2 (log axis)."
+PF.draw(PF.metric_frame(PG, PF.EFFECT_METRICS, ref="cavi", axis="T", panels=("gap",)), PF.EFFECT_METRICS, ref="cavi");
+```
+
+## ELBO, relative to CAVI-Q2 {#sec-gauss-elbo}
+
+```{python}
+#| label: tab-gauss-elbo
+#| echo: false
+#| output: asis
+print("Exact $\\mathcal{Q}_2$ ELBO of each arm minus CAVI-Q2's on the same replicate, in nats, "
+      "mean over the 200 replicates of a cell with a 95% CI from resampling replicates. Rows: "
+      "signal $T$, causal gap. Signal cells only.\n")
+print(C.elbo_table(dg, ref="cavi", rows=("T", "gap")))
+```
+
+# 024: nested design, depth axis {#sec-nested}
+
+## Headline: per T x gap, pooled over depth {#sec-nested-pooled}
+
+```{python}
+#| label: tab-nested-pooled
+#| echo: false
+#| output: asis
+print("Same columns as above; pooled over the causals' depth within each T x gap.\n")
+print(C.pooled_summary(dn, ref="cavi"))
+```
+
+## Along depth {#sec-nested-along}
+
+The x axis is the causal sets' expected density $\theta = 0.5 \cdot 0.55^d$, i.e. their
+expected size over $n = 1000$, so it reads like 022's density axis: 0.5 is the root (500
+members), 0.008 is depth 7 (8 members).
+
+```{python}
+#| label: fig-nested-delta
+#| echo: false
+#| fig-cap: "Credible set metrics, relative to CAVI, nested design. Attrition blocks ($n = 1000$, $p = 256$, roots at density 0.5 shrinking 0.55x per step over 8 depths), $L^* = 3$ causals at one depth, fit $L = 5$, 200 replicates per cell. The x axis is the causals' expected density $0.5 \\cdot 0.55^d$ for depth $d = 0..7$; $\\beta$ is calibrated per depth so $E[\\mathrm{LRT}] = T$. Columns: signal ($T = 8, 16$) over causal correlation (gap 8: same depth in adjacent blocks; gap 64: 8 blocks apart). Rows and bands as in the Gaussian figure."
+F.draw(F.delta_frame(dn, ref="cavi"), ref="cavi");
+```
+
+```{python}
+#| label: fig-nested-absolute
+#| echo: false
+#| fig-cap: "Credible set metrics, absolute, nested design. Each arm's own coverage (dashed: nominal 0.95), power, and mean credible set size (log axis), with per-arm 95% intervals from resampling replicates."
+F.draw(F.delta_frame(dn, ref=None), ref=None);
+```
+
+## Per-cell tables {#sec-nested-cells}
+
+```{python}
+#| label: tab-nested-cells
+#| echo: false
+#| output: asis
+print("Arm minus CAVI-Q2 per cell (m = the causals' expected size), 95% CI resamples replicates jointly.\n")
+print(C.delta_by_m(dn, ref="cavi"))
+```
+
+## PIPs and effect sizes {#sec-nested-posterior}
+
+```{python}
+#| label: setup-nested-posterior
+#| include: false
+PN = PF.load_posterior(SC_N)
+```
+
+```{python}
+#| label: fig-nested-pip
+#| echo: false
+#| fig-cap: "PIPs, relative to CAVI, nested design. Rows: mean PIP over the 3 causal features and the sum of PIPs over the 253 nulls, from declared components, each as the arm minus CAVI-Q2. Bands: joint 95% intervals from resampling replicates."
+PF.draw(PF.metric_frame(PN, PF.PIP_METRICS, ref="cavi"), PF.PIP_METRICS, ref="cavi");
+```
+
+```{python}
+#| label: fig-nested-effect
+#| echo: false
+#| fig-cap: "Effect size posteriors, relative to CAVI, nested design. Rows as in the Gaussian effect-size figure."
+PF.draw(PF.metric_frame(PN, PF.EFFECT_METRICS, ref="cavi"), PF.EFFECT_METRICS, ref="cavi");
+```
+
+## ELBO, relative to CAVI-Q2 {#sec-nested-elbo}
+
+```{python}
+#| label: tab-nested-elbo
+#| echo: false
+#| output: asis
+print("Exact $\\mathcal{Q}_2$ ELBO of each arm minus CAVI-Q2's on the same replicate, in nats. "
+      "Rows: signal $T$, causal gap, expected size of the causal sets. Signal cells only.\n")
+print("**Pooled over $T$ and gap:**\n")
+print(C.elbo_table(dn, ref="cavi", rows=("m",), digits=2), "\n")
+print("**Per cell:**\n")
+print(C.elbo_table(dn, ref="cavi"))
+```

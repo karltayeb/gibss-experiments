@@ -1,5 +1,5 @@
 # 023_logistic_laplace_gaussian: the 022 protocol on a small illustrative AR1 GAUSSIAN design (rho=0.9).
-# Same five Q2-scored arms (CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / score), n=500, p=256,
+# Same six Q2-scored arms (CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / local-JJ / score), n=500, p=256,
 # b0=-2, L=5, L*=3 at gap in {8, 64} (causal-causal latent corr rho**gap),
 # EB prior (cap 100).
 #
@@ -12,7 +12,7 @@ _anchors:
   default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
 
 supercollections:
-  # FULL GRID: 13 cells x 5 arms, 200 reps.
+  # FULL GRID: 13 cells x 6 arms, 200 reps.
   023-laplace-gaussian:
     replicates_per_batch: 10
     n_batches: 20
@@ -33,10 +33,10 @@ supercollections:
               - {label: mc3_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.6528, 0.6528, 0.6528], gap: 8}, intercept: -2.0}
               - {label: mc3_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.6528, 0.6528, 0.6528], gap: 64}, intercept: -2.0}
               - {label: null, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score]
+    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: laplace_gaussian, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score], analyses: [pip, cs]}
+      - {name: laplace_gaussian, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}
 
   # the full grid's cells WITHOUT CAVI-Q2 (content-identical; run first, CAVI is most of the compute).
   023-laplace-gaussian-nocavi:
@@ -59,10 +59,10 @@ supercollections:
               - {label: mc3_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.6528, 0.6528, 0.6528], gap: 8}, intercept: -2.0}
               - {label: mc3_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.6528, 0.6528, 0.6528], gap: 64}, intercept: -2.0}
               - {label: null, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score]
+    methods: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: laplace_gaussian_nocavi, method_filter: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score], analyses: [pip, cs]}
+      - {name: laplace_gaussian_nocavi, method_filter: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}
 
   # PILOT: the full grid's cells at 10 reps (= the full grid's batch 0), all five arms.
   023-laplace-gaussian-pilot:
@@ -85,7 +85,7 @@ supercollections:
               - {label: mc3_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.6528, 0.6528, 0.6528], gap: 8}, intercept: -2.0}
               - {label: mc3_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.6528, 0.6528, 0.6528], gap: 64}, intercept: -2.0}
               - {label: null, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score]
+    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: laplace_gaussian_pilot, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score], analyses: [pip, cs]}
+      - {name: laplace_gaussian_pilot, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}

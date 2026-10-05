@@ -66,10 +66,10 @@ supercollections:
               - {label: mc3_m400_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [0.6797, 0.6797, 0.6797], gap: 8}, intercept: -2.0}
               - {label: mc3_m400_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [0.6797, 0.6797, 0.6797], gap: 64}, intercept: -2.0}
               - {label: null_m400, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score]
+    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: laplace, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score], analyses: [pip, cs]}
+      - {name: laplace, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}
 
   # the full grid's cells WITHOUT CAVI-Q2 (content-identical, so its fits are the full grid's):
   # run first, since CAVI-Q2 is ~2/3 of the compute.
@@ -125,10 +125,10 @@ supercollections:
               - {label: mc3_m400_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [0.6797, 0.6797, 0.6797], gap: 8}, intercept: -2.0}
               - {label: mc3_m400_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [0.6797, 0.6797, 0.6797], gap: 64}, intercept: -2.0}
               - {label: null_m400, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score]
+    methods: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: laplace_nocavi, method_filter: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score], analyses: [pip, cs]}
+      - {name: laplace_nocavi, method_filter: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}
 
   # FULL GRID, SINGLE EFFECT: n=1000, L=1 (SER arms), one causal, T in {8, 16},
   # m in {5, 10, 50, 100, 200, 400} + one null per m (18 cells), 200 reps.
@@ -172,10 +172,10 @@ supercollections:
               - {label: ser_m400_T8, function: uniform_single_effect, arguments: {causal_effect: 0.4805}, intercept: -2.0}
               - {label: ser_m400_T16, function: uniform_single_effect, arguments: {causal_effect: 0.6797}, intercept: -2.0}
               - {label: null_m400, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_ser_cavi, logistic_q2_ser_gibss, logistic_q2_ser_gibss_laplace, logistic_q2_ser_globaljj, logistic_q2_ser_score]
+    methods: [logistic_q2_ser_cavi, logistic_q2_ser_gibss, logistic_q2_ser_gibss_laplace, logistic_q2_ser_globaljj, logistic_q2_ser_localjj, logistic_q2_ser_score]
     default_args: *default_args
     outputs:
-      - {name: laplace_ser, method_filter: [logistic_q2_ser_cavi, logistic_q2_ser_gibss, logistic_q2_ser_gibss_laplace, logistic_q2_ser_globaljj, logistic_q2_ser_score], analyses: [pip, cs]}
+      - {name: laplace_ser, method_filter: [logistic_q2_ser_cavi, logistic_q2_ser_gibss, logistic_q2_ser_gibss_laplace, logistic_q2_ser_globaljj, logistic_q2_ser_localjj, logistic_q2_ser_score], analyses: [pip, cs]}
 
   # PILOT (n=10000): T in {8, 16} single-effect + null + mc3 gap 10 T=8,
   # m in {5, 10, 30, 100}; all five arms at L=1 and L=10; 10 reps.

@@ -7,6 +7,7 @@ scored on the same exact Q2 ELBO:
   gIBSS-Laplace  order-1 quad SER (Laplace evidence), plug-in mean offset, reduced to Q2
   gIBSS-Q2       Gaussian-VI SER (GH over b), plug-in mean offset
   global-JJ      Jaakkola-Jordan quadratic bound, one shared tilt (jj_fixed)
+  local-JJ       Jaakkola-Jordan bound, one variational parameter per observation (jj)
   score          linear approximation: one Newton step from the intercept-only null
   CAVI-Q2        Gaussian-VI SER, exact offset fold (cf)
 
@@ -49,12 +50,12 @@ FULL_LSTAR = 3
 FULL_GAPS = [8, 64]                   # binary phi between causals ~0.47 / ~0.05
 FULL_METHODS = [
     "logistic_q2_L5_cavi", "logistic_q2_L5_gibss", "logistic_q2_L5_gibss_laplace",
-    "logistic_q2_L5_globaljj", "logistic_q2_L5_score",
+    "logistic_q2_L5_globaljj", "logistic_q2_L5_localjj", "logistic_q2_L5_score",
 ]
 NOCAVI_METHODS = [m for m in FULL_METHODS if not m.endswith("_cavi")]
 SER_METHODS = [
     "logistic_q2_ser_cavi", "logistic_q2_ser_gibss", "logistic_q2_ser_gibss_laplace",
-    "logistic_q2_ser_globaljj", "logistic_q2_ser_score",
+    "logistic_q2_ser_globaljj", "logistic_q2_ser_localjj", "logistic_q2_ser_score",
 ]
 
 # ---- pilot (n=10000) ----------------------------------------------------------------------

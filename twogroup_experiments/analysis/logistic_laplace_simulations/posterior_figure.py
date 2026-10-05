@@ -75,16 +75,34 @@ ABS_LOG = {"mean_ratio": [1, 2, 4, 8], "sd": [0.0625, 0.125, 0.25, 0.5, 1, 2, 4]
            "lp_rmse": [0.0625, 0.125, 0.25, 0.5, 1]}
 
 
-def dense_design(spec: core.SimulationSpec, replicate: int) -> np.ndarray:
-    """Regenerate the binary Markov design of one replicate as a dense array, bypassing the
-    sparse conversion (which consumes no RNG, so the draw is identical to the pipeline's)."""
-    fn = spec.design_sampler
-    assert fn.func is markov.binary_markov_X, fn
-    kw = fn.keywords
-    rng = np.random.default_rng(core.replicate_seed(spec.base_seed, spec.hash, int(replicate)))
-    rho = markov.latent_from_binary_corr(kw["corr"], kw["density"])
-    G = markov.gaussian_markov_X(rng, n=kw["n"], p=kw["p"], rho=rho)
-    return (G > markov._norm_ppf(1.0 - float(kw["density"]))).astype(float)
+def truth(spec: core.SimulationSpec, replicate: int) -> tuple[np.ndarray, np.ndarray]:
+    """Regenerate one replicate's design (dense) and true coefficient vector b by re-running
+    the pipeline's deterministic simulation (seeded by spec + replicate), so no
+    simulations.parquet needs to be on disk. Works for every design function."""
+    import jax.experimental.sparse as _jsp
+
+    class _Dense:
+        """Stand-in for BCOO during re-simulation: the sparse conversion is pure layout (no
+        RNG), and skipping JAX here makes the per-replicate re-simulation ~100x faster."""
+        def __init__(self, a): self.a = np.asarray(a, dtype=float)
+        @classmethod
+        def fromdense(cls, a): return cls(a)
+        def todense(self): return self.a
+        def __array__(self, dtype=None, copy=None): return self.a if dtype is None else self.a.astype(dtype)
+        def __matmul__(self, b): return self.a @ np.asarray(b)
+        @property
+        def shape(self): return self.a.shape
+    _orig = _jsp.BCOO
+    _jsp.BCOO = _Dense
+    try:
+        sim = core.simulate(spec, int(replicate))
+    finally:
+        _jsp.BCOO = _orig
+    X = sim.X
+    X = np.asarray(X.todense()) if hasattr(X, "todense") else np.asarray(X, dtype=float)
+    b = np.zeros(X.shape[1], dtype=float)
+    b[np.asarray(sim.causal_indices, dtype=int)] = np.asarray(sim.causal_effects, dtype=float)
+    return X, b
 
 
 def _fit_rows(path: str, b_by_rep: dict[int, np.ndarray], X_by_rep: dict[int, np.ndarray]) -> list[dict]:
@@ -140,10 +158,12 @@ def load_posterior(sc: str) -> pl.DataFrame:
         paths = {k: v for k, v in c["paths"].items() if os.path.exists(v[0])}
         if meta["null"] or not paths:
             continue
-        sims = pl.read_parquet(f"{_TG_ROOT}/results/by_batch/{bh}/simulations.parquet")
-        b_by_rep = {int(rep): np.array(s["b"], dtype=float) for rep, s in zip(sims["replicate"], sims["simulation"])}
         spec = loader.resolve_simulation_from_coord(c["scoord"])
-        X_by_rep = {rep: dense_design(spec, rep) for rep in b_by_rep}
+        reps = sorted({int(r) for p_, _ in paths.values()
+                       for r in pl.read_parquet(p_, columns=["replicate"])["replicate"].to_list()})
+        X_by_rep, b_by_rep = {}, {}
+        for rep in reps:
+            X_by_rep[rep], b_by_rep[rep] = truth(spec, rep)
         for method, (path, fit_L) in paths.items():
             rows = _fit_rows(path, b_by_rep, X_by_rep)
             frames.append(pl.DataFrame(rows).with_columns(
@@ -153,15 +173,18 @@ def load_posterior(sc: str) -> pl.DataFrame:
 
 
 def metric_frame(P: pl.DataFrame, metrics: list[str], ref: str | None = "cavi",
-                 n_boot: int = 2000, seed: int = 0) -> pl.DataFrame:
-    """Per (metric, T, gap, m, arm): arm vs ref (SPEC[metric]['cmp']) with a joint rep-resampled
-    95% CI, or with ref=None each arm's own value with its own CI. Same columns as
-    delta_figure.delta_frame so delta_figure.draw renders it."""
+                 n_boot: int = 2000, seed: int = 0, axis: str = "m",
+                 panels: tuple[str, ...] = ("T", "gap")) -> pl.DataFrame:
+    """Per (metric, panel keys, axis value, arm): arm vs ref (SPEC[metric]['cmp']) with a joint
+    rep-resampled 95% CI, or with ref=None each arm's own value with its own CI. Same columns
+    as delta_figure.delta_frame so delta_figure.draw renders it (`axis`/`panels` as there)."""
     rng = np.random.default_rng(seed)
     arms = [m for m in R.METHODS if m != ref and m in P["method"].unique().to_list()]
     rows = []
-    for T, gap, m in P.select("T", "gap", "m").unique().sort(["T", "gap", "m"]).iter_rows():
-        g = P.filter(C.eq("T", T), C.eq("gap", gap), pl.col("m") == m).sort(["batch_hash", "replicate"])
+    keys = list(panels) + [axis]
+    for combo in P.select(keys).unique().sort(keys).iter_rows():
+        g = P.filter(*[C.eq(c, v) for c, v in zip(keys, combo)]).sort(["batch_hash", "replicate"])
+        kv = dict(zip(keys, combo)); T, gap, m = kv.get("T"), kv.get("gap"), combo[-1]
         per = {}
         for mth in arms + ([ref] if ref else []):
             h = g.filter(pl.col("method") == mth)
@@ -189,9 +212,12 @@ def metric_frame(P: pl.DataFrame, metrics: list[str], ref: str | None = "cavi",
                     r0, rb = est(per[ref][metric], sp["post"]), est(per[ref][metric], sp["post"], idx)
                     dlt, bb = (a / r0, ab / rb) if sp["cmp"] == "ratio" else (a - r0, ab - rb)
                 lo, hi = np.nanpercentile(bb, [2.5, 97.5])
-                rows.append({"metric": metric, "T": T, "gap": gap, "m": m, "theta": m / float(g["n"][0]),
+                rows.append({"metric": metric, "T": T, "gap": gap, "m": m,
+                             "theta": (m / float(g["n"][0])) if axis == "m" else float(m),
                              "method": mth, "delta": float(dlt), "lo": float(lo), "hi": float(hi)})
-    return pl.DataFrame(rows)
+    design = str(P["design"][0]) if "design" in P.columns else "binary"
+    return pl.DataFrame(rows).with_columns(pl.lit(axis).alias("axis"), pl.lit(",".join(panels)).alias("panels"),
+                                           pl.lit(design).alias("design"))
 
 
 def draw(df: pl.DataFrame, metrics: list[str], *, ref: str | None = "cavi", **kw):

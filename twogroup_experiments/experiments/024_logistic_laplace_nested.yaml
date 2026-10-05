@@ -13,7 +13,7 @@ _anchors:
   default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
 
 supercollections:
-  # FULL GRID: 33 cells x 5 arms, 200 reps.
+  # FULL GRID: 33 cells x 6 arms, 200 reps.
   024-laplace-nested:
     replicates_per_batch: 10
     n_batches: 20
@@ -54,10 +54,10 @@ supercollections:
               - {label: mc3_d7_m7_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [2.9683, 2.9683, 2.9683], gap: 8, base_index: 7}, intercept: -2.0}
               - {label: mc3_d7_m7_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [2.9683, 2.9683, 2.9683], gap: 64, base_index: 7}, intercept: -2.0}
               - {label: null, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score]
+    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: laplace_nested, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score], analyses: [pip, cs]}
+      - {name: laplace_nested, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}
 
   # the full grid's cells WITHOUT CAVI-Q2 (content-identical; run first, CAVI is most of the compute).
   024-laplace-nested-nocavi:
@@ -100,10 +100,10 @@ supercollections:
               - {label: mc3_d7_m7_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [2.9683, 2.9683, 2.9683], gap: 8, base_index: 7}, intercept: -2.0}
               - {label: mc3_d7_m7_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [2.9683, 2.9683, 2.9683], gap: 64, base_index: 7}, intercept: -2.0}
               - {label: null, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score]
+    methods: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: laplace_nested_nocavi, method_filter: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score], analyses: [pip, cs]}
+      - {name: laplace_nested_nocavi, method_filter: [logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}
 
   # PILOT: the full grid's cells at 10 reps (= the full grid's batch 0), all five arms.
   024-laplace-nested-pilot:
@@ -146,7 +146,7 @@ supercollections:
               - {label: mc3_d7_m7_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [2.9683, 2.9683, 2.9683], gap: 8, base_index: 7}, intercept: -2.0}
               - {label: mc3_d7_m7_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [2.9683, 2.9683, 2.9683], gap: 64, base_index: 7}, intercept: -2.0}
               - {label: null, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score]
+    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: laplace_nested_pilot, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_score], analyses: [pip, cs]}
+      - {name: laplace_nested_pilot, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}
