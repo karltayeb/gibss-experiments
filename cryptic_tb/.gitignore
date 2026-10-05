@@ -1,0 +1,6 @@
+data/
+results/**/*.npz
+results/**/*.pkl
+.venv/
+__pycache__/
+*.pyc

@@ -1,0 +1,29 @@
+# Self-contained uv project for the CRyPTIC TB drug-resistance example.
+# Kept ISOLATED from the repo-root env on purpose, like gsea_examples/lifan: this
+# analysis pins its own gibss-mono rev so a fit is reproducible independently of
+# whatever the shared repo .venv tracks. Build/run from this directory:
+#
+#   cd cryptic_tb
+#   uv sync
+#   uv run python scripts/01_phenotypes.py
+[project]
+name = "cryptic-tb"
+version = "0.1.0"
+description = "Logistic SuSiE on CRyPTIC M. tuberculosis drug resistance"
+requires-python = ">=3.13"
+dependencies = [
+    "gibss-mono",
+    "jax>=0.10.0",
+    "numpy>=2.4.4",
+    "polars>=1.40.1",
+    "scipy>=1.16.0",
+    "matplotlib>=3.10.9",
+    "pyyaml>=6.0",
+]
+
+[tool.uv.sources]
+gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "2079de2" }
+
+# Standalone project, not a member of any parent uv workspace.
+[tool.uv.workspace]
+members = []

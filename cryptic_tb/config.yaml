@@ -1,0 +1,35 @@
+# Starting config — gene lists are from memory; replace with WHO catalogue tiers
+# (tier 1 + tier 2) once the catalogue is downloaded.
+reference: NC_000962.3   # H37Rv
+drugs:
+  RIF: {role: validation, genes: [rpoB], diagnostic_genes: [rpoA, rpoC]}  # compensatory
+  INH: {role: validation, genes: [katG, inhA, fabG1, ahpC]}
+  BDQ: {role: discovery,  genes: [Rv0678, atpE, pepQ, Rv1979c]}
+  LZD: {role: discovery,  genes: [rrl, rplC]}
+  CFZ: {role: discovery,  genes: [Rv0678, Rv1979c, pepQ]}
+  EMB: {role: optional,   genes: [embB, embA, embC, ubiA]}
+  LEV: {role: optional,   genes: [gyrA, gyrB]}
+  PZA: {role: failure_mode, genes: [pncA, panD, rpsA]}   # allelic heterogeneity
+phenotype:
+  quality_keep: [HIGH, MEDIUM]
+genotype:
+  min_mac: 3
+  min_mac_genomewide: 10
+  frs_min: 0.9            # below -> treat call as mixed/missing
+  drop_synonymous: true
+  gene_burden: true        # add one "any LoF in gene" column per gene
+covariates:
+  site: true
+  plate_type: true
+  n_pcs: 10
+fit:
+  impls: [irls, logistic_profile]
+  L: [5, 10, 20, 40]   # 40 is the reported setting: RIF and EMB both saturate L=20
+  estimate_prior_variance: [true]
+  fixed_prior_variance: [1.0, 4.0]
+  coverage: 0.95
+  min_purity: 0.5
+subsample:
+  n: [500, 1000, 2000, 5000, all]
+  reps: 20
+seed: 20261004
