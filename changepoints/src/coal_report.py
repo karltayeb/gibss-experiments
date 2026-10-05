@@ -242,7 +242,8 @@ def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
     indicator "at least one disaster in the bin". Columns = exact posterior (Poisson-Gamma,
     Beta-Bernoulli), exact CAVI, gIBSS. Each model row has a main panel (data, fitted
     rate or probability, SuSiE effects with log BF > 0.5) over a strip with the
-    per-boundary changepoint probability: the exact boundary marginal, or the SuSiE PIP.
+    per-boundary changepoint probability: the exact boundary marginal, or for SuSiE the
+    alpha of those effects stacked by effect.
     Each effect's 95% credible set is one row of ticks under the axis (one tick per member
     column); the contiguous block carrying most of its alpha is shaded, with that alpha mass
     printed above (strong shading = declared, faint = below the threshold)."""
@@ -324,7 +325,13 @@ def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
                             f"log BF {lbf:.1f}" + ("" if declared else " (not declared)"),
                             transform=ax.transAxes, ha="right", va="top", fontsize=7,
                             color=COMP[r], bbox=LABEL_BOX)
-                sx.vlines(bnd, 0, fit["pip"], color=EXACT, lw=0.6)
+                # expected changepoints per boundary from the reported effects only, each
+                # effect's alpha stacked in its colour; the PIP would add a flat floor from
+                # the null effects, whose alpha is spread evenly over every column
+                base = np.zeros(len(bnd))
+                for r, l in enumerate(shown):
+                    sx.vlines(bnd, base, base + fit["alpha"][l], color=COMP[r], lw=0.6)
+                    base = base + fit["alpha"][l]
             ax.axhline(0, color="#777777", lw=0.5)
             ax.set_ylim(-ymax * (0.07 + 0.08 * max(n_shown, 2)), ymax * 1.14)
             ax.tick_params(labelbottom=False)
@@ -348,7 +355,7 @@ def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
     handles = [Line2D([], [], color=EXACT, lw=1.3, label="posterior mean rate / probability")]
     for r in range(n_effects):
         handles.append(Patch(color=COMP[r], alpha=0.5,
-                             label=f"effect {r + 1}: CS members (ticks), main block (shaded)"))
+                             label=f"effect {r + 1}: CS members (ticks), main block (shaded), alpha (strip)"))
     fig.legend(handles=handles, loc="lower center", ncol=1, frameon=False, fontsize=7.5,
                bbox_to_anchor=(0.5, 0.0))
     return fig
