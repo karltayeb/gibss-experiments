@@ -20,6 +20,7 @@ plt.rcParams["figure.dpi"] = 110
 import polars as pl
 import cs_tables as C
 import delta_figure as F
+import posterior_figure as PF
 import laplacelib as R
 
 SC = "022-laplace"
@@ -96,6 +97,58 @@ print("Arm minus CAVI-Q2 per cell, 95% CI resamples replicates jointly.\n")
 print(C.delta_by_m(d, ref="cavi"))
 ```
 
+# PIPs and effect sizes {#sec-posterior}
+
+The credible set metrics above see only the 95% set of each declared component. The same
+fits give per-feature PIPs and per-component effect posteriors. PIPs are computed from the
+declared components (log BF $\ge 2$), as the CS metrics are: an undeclared component spreads
+about $1/p$ over every feature, invisible per feature but adding about 1 to any sum over the 253
+nulls. The effect-size rows condition on detection: over declared components whose 95% set
+contains a causal, the component's conditional posterior $N(\mu, \sigma^2)$ on that causal is
+compared with the true $b$. The last row needs no matching: $\hat b = \sum_l \alpha_l \mu_l$
+is the marginal posterior mean, and the error $\|X(\hat b - b)\|/\sqrt{n}$ on the linear
+predictor forgives posterior mass moved between correlated columns.
+
+```{python}
+#| label: setup-posterior
+#| include: false
+P = PF.load_posterior(SC)
+```
+
+## PIPs {#sec-pip}
+
+```{python}
+#| label: fig-pip-delta
+#| echo: false
+#| fig-cap: "PIPs, relative to CAVI. Same experiment and layout as the credible set figure. Rows: mean PIP over the 3 causal features, and the sum of PIPs over the 253 null features (the expected number of false inclusions per fit), both from declared components, each as the arm minus CAVI-Q2 on the same replicates. Bands are 95% intervals from resampling replicates jointly for both arms."
+F_pip = PF.metric_frame(P, PF.PIP_METRICS, ref="cavi")
+PF.draw(F_pip, PF.PIP_METRICS, ref="cavi");
+```
+
+```{python}
+#| label: fig-pip-absolute
+#| echo: false
+#| fig-cap: "PIPs, absolute. Each arm's own mean PIP on the causals and sum of PIPs on the nulls, from declared components, with per-arm 95% intervals from resampling replicates."
+PF.draw(PF.metric_frame(P, PF.PIP_METRICS, ref=None), PF.PIP_METRICS, ref=None);
+```
+
+## Effect sizes {#sec-effect}
+
+```{python}
+#| label: fig-effect-delta
+#| echo: false
+#| fig-cap: "Effect size posteriors, relative to CAVI. Rows 1 to 3 condition on detection (declared components whose 95% set contains a causal, on that causal): the conditional posterior mean over the true effect, as the ratio of the arm's mean to CAVI-Q2's (log axis); coverage of the 95% conditional posterior interval $\\mu \\pm 1.96\\sigma$ for the true effect, as the arm minus CAVI-Q2; and the conditional posterior sd as a ratio (log axis). Row 4: root mean squared error of the fitted linear predictor $X \\hat b$ against $X b$, as a ratio to CAVI-Q2's (log axis). Bands are 95% intervals from resampling replicates jointly for both arms."
+F_eff = PF.metric_frame(P, PF.EFFECT_METRICS, ref="cavi")
+PF.draw(F_eff, PF.EFFECT_METRICS, ref="cavi");
+```
+
+```{python}
+#| label: fig-effect-absolute
+#| echo: false
+#| fig-cap: "Effect size posteriors, absolute. Conditional posterior mean over the true effect (log axis, dashed line: unbiased), coverage of the 95% conditional posterior interval (dashed line: nominal), conditional posterior sd, and linear predictor RMSE, with per-arm 95% intervals from resampling replicates. The posterior mean sits far above the truth at small design density for every arm: a column with 5 members is close to separation, the prior variance is estimated (capped at 100), and the conditional posterior is wide and right-skewed."
+PF.draw(PF.metric_frame(P, PF.EFFECT_METRICS, ref=None), PF.EFFECT_METRICS, ref=None);
+```
+
 # ELBO, relative to CAVI-Q2 {#sec-elbo}
 
 ```{python}
@@ -168,6 +221,45 @@ F.draw(F.delta_frame(ds, ref="cavi"), ref="cavi");
 #| echo: false
 #| fig-cap: "Credible set metrics, absolute, single causal. Each arm's own coverage (dashed line: nominal 0.95), power, and mean credible set size, with per-arm 95% intervals from resampling replicates."
 F.draw(F.delta_frame(ds, ref=None), ref=None);
+```
+
+## PIPs and effect sizes {#sec-ser-posterior}
+
+As the $L = 5$ section, for the single-effect arms. With one causal the PIP row is the PIP of
+that feature and the effect rows condition on the declared set containing it.
+
+```{python}
+#| label: setup-ser-posterior
+#| include: false
+Ps = PF.load_posterior(SC_SER)
+```
+
+```{python}
+#| label: fig-ser-pip-delta
+#| echo: false
+#| fig-cap: "PIPs, relative to CAVI, single causal. The causal feature's PIP and the sum of PIPs on the 255 nulls from the declared component, as the arm minus CAVI-Q2, with joint rep-resampled 95% intervals."
+PF.draw(PF.metric_frame(Ps, PF.PIP_METRICS, ref="cavi"), PF.PIP_METRICS, ref="cavi");
+```
+
+```{python}
+#| label: fig-ser-pip-absolute
+#| echo: false
+#| fig-cap: "PIPs, absolute, single causal."
+PF.draw(PF.metric_frame(Ps, PF.PIP_METRICS, ref=None), PF.PIP_METRICS, ref=None);
+```
+
+```{python}
+#| label: fig-ser-effect-delta
+#| echo: false
+#| fig-cap: "Effect size posteriors, relative to CAVI, single causal. As the L = 5 figure; rows 1 to 3 are over fits whose declared set contains the causal."
+PF.draw(PF.metric_frame(Ps, PF.EFFECT_METRICS, ref="cavi"), PF.EFFECT_METRICS, ref="cavi");
+```
+
+```{python}
+#| label: fig-ser-effect-absolute
+#| echo: false
+#| fig-cap: "Effect size posteriors, absolute, single causal."
+PF.draw(PF.metric_frame(Ps, PF.EFFECT_METRICS, ref=None), PF.EFFECT_METRICS, ref=None);
 ```
 
 ## ELBO, relative to CAVI-Q2 {#sec-ser-elbo}

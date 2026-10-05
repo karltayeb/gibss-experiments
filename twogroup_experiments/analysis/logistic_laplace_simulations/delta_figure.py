@@ -80,12 +80,29 @@ def delta_frame(d: pl.DataFrame, ref: str | None = "cavi", n_boot: int = 2000, s
     return pl.DataFrame(rows)
 
 
-def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float | None = None, ax_h: float = 1.75):
-    labels, refs = (METRIC_LABEL, METRIC_REF) if ref else (ABS_LABEL, ABS_REF)
+# log2-axis ticks for the ratio (ref) / absolute metrics drawn on a log scale
+LOG_TICKS = {"size": [0.25, 0.35, 0.5, 0.71, 1, 1.41, 2]}
+ABS_LOG_TICKS = {"size": [1, 2, 4, 8, 16, 32]}
+
+
+def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float | None = None, ax_h: float = 1.75,
+         metrics: list[str] | None = None, labels: dict | None = None, refs: dict | None = None,
+         log_ticks: dict | None = None, ylabel: str | None = None):
+    """Rows = `metrics` (default the CS metrics), columns = T x gap panels, x = design density.
+    `labels`/`refs` give the row label and the "no difference" (ref) or nominal (absolute) line
+    per metric; `log_ticks` lists metrics drawn on a log2 axis with their ticks. Other modules
+    (posterior_figure) pass their own metric specs and get the same layout."""
+    if labels is None:
+        labels = METRIC_LABEL if ref else ABS_LABEL
+    if refs is None:
+        refs = METRIC_REF if ref else ABS_REF
+    if log_ticks is None:
+        log_ticks = LOG_TICKS if ref else ABS_LOG_TICKS
+    if metrics is None:
+        metrics = ["coverage", "power", "size"]
     panels = df.select("T", "gap").unique().sort(["T", "gap"]).rows()
     if ax_w is None:
         ax_w = 1.5 if len(panels) > 2 else 2.4   # a 2-panel (single-causal) figure can afford wider axes
-    metrics = ["coverage", "power", "size"]
     arms = [m for m in R.METHODS if m in df["method"].unique().to_list()]
     x_ticks = sorted(df["theta"].unique().to_list())
     fig, axes = plt.subplots(len(metrics), len(panels), figsize=(ax_w * len(panels) + 0.6, ax_h * len(metrics) + 0.9),
@@ -103,9 +120,9 @@ def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float | None = Non
                                 alpha=0.16, lw=0, zorder=1)
                 ax.plot(x, s["delta"].to_numpy(), color=R.METHOD_COLOR[mth], marker=R.METHOD_MARKER[mth],
                         ms=4, lw=1.4, mec="white", mew=0.6, label=R.METHOD_LABEL[mth], zorder=2)
-            if metric == "size":
+            if metric in log_ticks:
                 ax.set_yscale("log", base=2)
-                ticks = [0.25, 0.35, 0.5, 0.71, 1, 1.41, 2] if ref else [1, 2, 4, 8, 16, 32]
+                ticks = log_ticks[metric]
                 ax.set_yticks(ticks)
                 ax.set_yticklabels([f"{t:g}" for t in ticks])
             ax.set_xscale("log")
@@ -124,8 +141,12 @@ def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float | None = Non
     fig.legend(handles, labels_, loc="upper center", ncol=len(labels_), frameon=False,
                bbox_to_anchor=(0.5, 1.0), fontsize=8)
     fig.supxlabel(X_LABEL, fontsize=8.5, y=0.02)
-    fig.supylabel(f"metrics, relative to {R.METHOD_LABEL[ref]}" if ref else "metrics", fontsize=8.5)
-    fig.tight_layout(rect=(0.01, 0.0, 1, 0.9))
+    if ylabel is None:
+        ylabel = f"metrics, relative to {R.METHOD_LABEL[ref]}" if ref else "metrics"
+    fig.supylabel(ylabel, fontsize=8.5)
+    # vertical offsets in inches so the legend / super-header band is the same whatever the row count
+    fig_h = fig.get_size_inches()[1]
+    fig.tight_layout(rect=(0.01, 0.0, 1, 1 - 0.62 / fig_h))
     # super headers: one per signal strength, spanning that T's columns, with a rule beneath
     fig.canvas.draw()
     from matplotlib.lines import Line2D
@@ -134,9 +155,9 @@ def draw(df: pl.DataFrame, *, ref: str | None = "cavi", ax_w: float | None = Non
         left = axes[0][cols[0]].get_position().x0
         right = axes[0][cols[-1]].get_position().x1
         top = axes[0][cols[0]].get_position().y1
-        fig.text((left + right) / 2, top + 0.075, f"{SIGNAL_LABEL.get(T, f'T = {T}')} (T = {T})",
+        fig.text((left + right) / 2, top + 0.46 / fig_h, f"{SIGNAL_LABEL.get(T, f'T = {T}')} (T = {T})",
                  ha="center", va="bottom", fontsize=8.5)
-        fig.add_artist(Line2D([left, right], [top + 0.07, top + 0.07], color="0.3", lw=0.8))
+        fig.add_artist(Line2D([left, right], [top + 0.43 / fig_h] * 2, color="0.3", lw=0.8))
     return fig
 
 
