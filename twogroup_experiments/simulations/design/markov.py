@@ -188,3 +188,79 @@ def binary_markov_X(
     threshold = _norm_ppf(1.0 - float(density))  # upper-tail cut for P(X=1)=density
     dense = (gaussian_X > threshold).astype(float)
     return BCOO.fromdense(dense)
+
+
+def binary_attrition_X(
+    rng: np.random.Generator,
+    *,
+    n: int,
+    p: int,
+    corr: float,
+    density: float,
+    block_size: int,
+    drop: float,
+    add: float = 0.0,
+    min_ones: int = 2,
+):
+    """Heterogeneous nested-set design: Markov roots expanded into fixed-size attrition blocks.
+
+    Construction (``p`` columns in ``p // block_size`` contiguous blocks):
+
+    1. ROOTS. A ``binary_markov_X`` chain at (``corr``, ``density``) supplies one root per
+       block, in chain order, so adjacent roots keep that chain's phi correlation ``corr``
+       and every root has membership rate ``density`` (a moderate-to-large set).
+    2. ATTRITION. Within a block, column ``k + 1`` is column ``k`` passed through a
+       two-state Markov step: each 1 becomes 0 with probability ``drop``, each 0 becomes 1
+       with probability ``add``. Membership decays geometrically down the chain, so the
+       ``block_size`` columns of a block are nested, shrinking sets (a GO-term ancestry,
+       or a shrinking LD block); with ``add = 0`` the nesting is exact.
+
+    For a sparse parent the adjacent phi within a block is about ``sqrt(1 - drop)``
+    (``drop = 0.36`` matches the Markov designs' 0.8), and the deepest column has expected
+    size ``n * density * (1 - drop) ** (block_size - 1)`` (plus ``add`` strays). One matrix
+    therefore holds columns from ``density * n`` members down to a handful, nested in
+    blocks, with between-block correlation ``corr``. Column ``j`` sits in block
+    ``j // block_size`` at depth ``j % block_size``.
+
+    A step whose child would have fewer than ``min_ones`` members is redrawn (fresh uniforms,
+    same parent), so the bottom of the ladder is a truncated thinning rather than an empty or
+    singleton column; this is rare when the expected size stays above a handful (at expected
+    size 7.6 about 2% of steps redraw). Raises after 100 redraws of one step, which means the
+    configuration itself is too sparse (lower ``drop`` or ``block_size``, or raise ``density``).
+
+    Returned SPARSE (``jax BCOO``) for the same reason as ``binary_markov_X``. Deterministic
+    given ``rng``.
+    """
+    if n <= 0 or p <= 0:
+        raise ValueError("binary_attrition_X requires n > 0 and p > 0.")
+    if block_size < 1 or p % block_size != 0:
+        raise ValueError("binary_attrition_X requires block_size >= 1 dividing p.")
+    if not (0.0 < density < 1.0):
+        raise ValueError("binary_attrition_X requires 0 < density < 1.")
+    if not (0.0 <= drop < 1.0) or not (0.0 <= add < 1.0):
+        raise ValueError("binary_attrition_X requires 0 <= drop < 1 and 0 <= add < 1.")
+    if min_ones < 1:
+        raise ValueError("binary_attrition_X requires min_ones >= 1.")
+    from jax.experimental.sparse import BCOO
+    n_blocks = p // block_size
+    roots = np.asarray(
+        binary_markov_X(rng, n=n, p=n_blocks, corr=corr, density=density).todense()
+    )
+    X = np.empty((n, p), dtype=float)
+    for b in range(n_blocks):
+        col = roots[:, b]
+        X[:, b * block_size] = col
+        for k in range(1, block_size):
+            for attempt in range(100):
+                u = rng.random(n)
+                child = np.where(col == 1.0, u >= drop, u < add).astype(float)
+                if child.sum() >= min_ones:
+                    break
+            else:
+                raise ValueError(
+                    f"binary_attrition_X: column {b * block_size + k} cannot keep {min_ones} "
+                    "member(s) after 100 redraws; lower drop or block_size, or raise density."
+                )
+            col = child
+            X[:, b * block_size + k] = col
+    return BCOO.fromdense(X)
