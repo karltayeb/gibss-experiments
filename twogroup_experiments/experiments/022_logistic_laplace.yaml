@@ -177,6 +177,112 @@ supercollections:
     outputs:
       - {name: laplace_ser, method_filter: [logistic_q2_ser_cavi, logistic_q2_ser_gibss, logistic_q2_ser_gibss_laplace, logistic_q2_ser_globaljj, logistic_q2_ser_localjj, logistic_q2_ser_score], analyses: [pip, cs]}
 
+  # TIMING: batch 0 (10 reps) of the full grid and of the single-effect grid, all six arms, so
+  # every arm's fit_seconds comes from ONE machine (Midway caslake, one core per job). The
+  # full-grid fits were run on a laptop under parallel load, so their timings do not compare.
+  # Content-identical to batch 0 of 022-laplace / 022-laplace-ser (same hashes).
+  022-laplace-timing:
+    replicates_per_batch: 10
+    n_batches: 1
+    collections:
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.005}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: mc3_m5_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [2.4532, 2.4532, 2.4532], gap: 8}, intercept: -2.0}
+              - {label: mc3_m5_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [2.4532, 2.4532, 2.4532], gap: 64}, intercept: -2.0}
+              - {label: mc3_m5_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [3.9336, 3.9336, 3.9336], gap: 8}, intercept: -2.0}
+              - {label: mc3_m5_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [3.9336, 3.9336, 3.9336], gap: 64}, intercept: -2.0}
+              - {label: null_m5, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.01}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: mc3_m10_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [1.8278, 1.8278, 1.8278], gap: 8}, intercept: -2.0}
+              - {label: mc3_m10_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [1.8278, 1.8278, 1.8278], gap: 64}, intercept: -2.0}
+              - {label: mc3_m10_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [2.5835, 2.5835, 2.5835], gap: 8}, intercept: -2.0}
+              - {label: mc3_m10_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [2.5835, 2.5835, 2.5835], gap: 64}, intercept: -2.0}
+              - {label: null_m10, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.05}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: mc3_m50_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.9576, 0.9576, 0.9576], gap: 8}, intercept: -2.0}
+              - {label: mc3_m50_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.9576, 0.9576, 0.9576], gap: 64}, intercept: -2.0}
+              - {label: mc3_m50_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [1.3196, 1.3196, 1.3196], gap: 8}, intercept: -2.0}
+              - {label: mc3_m50_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [1.3196, 1.3196, 1.3196], gap: 64}, intercept: -2.0}
+              - {label: null_m50, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.1}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: mc3_m100_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.7313, 0.7313, 0.7313], gap: 8}, intercept: -2.0}
+              - {label: mc3_m100_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.7313, 0.7313, 0.7313], gap: 64}, intercept: -2.0}
+              - {label: mc3_m100_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [1.0155, 1.0155, 1.0155], gap: 8}, intercept: -2.0}
+              - {label: mc3_m100_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [1.0155, 1.0155, 1.0155], gap: 64}, intercept: -2.0}
+              - {label: null_m100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.2}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: mc3_m200_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.5711, 0.5711, 0.5711], gap: 8}, intercept: -2.0}
+              - {label: mc3_m200_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.5711, 0.5711, 0.5711], gap: 64}, intercept: -2.0}
+              - {label: mc3_m200_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [0.8007, 0.8007, 0.8007], gap: 8}, intercept: -2.0}
+              - {label: mc3_m200_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [0.8007, 0.8007, 0.8007], gap: 64}, intercept: -2.0}
+              - {label: null_m200, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.4}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: mc3_m400_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.4805, 0.4805, 0.4805], gap: 8}, intercept: -2.0}
+              - {label: mc3_m400_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.4805, 0.4805, 0.4805], gap: 64}, intercept: -2.0}
+              - {label: mc3_m400_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [0.6797, 0.6797, 0.6797], gap: 8}, intercept: -2.0}
+              - {label: mc3_m400_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [0.6797, 0.6797, 0.6797], gap: 64}, intercept: -2.0}
+              - {label: null_m400, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
+    default_args: *default_args
+    outputs:
+      - {name: laplace_timing, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}
+
+  022-laplace-ser-timing:
+    replicates_per_batch: 10
+    n_batches: 1
+    collections:
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.005}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: ser_m5_T8, function: uniform_single_effect, arguments: {causal_effect: 2.4532}, intercept: -2.0}
+              - {label: ser_m5_T16, function: uniform_single_effect, arguments: {causal_effect: 3.9336}, intercept: -2.0}
+              - {label: null_m5, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.01}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: ser_m10_T8, function: uniform_single_effect, arguments: {causal_effect: 1.8278}, intercept: -2.0}
+              - {label: ser_m10_T16, function: uniform_single_effect, arguments: {causal_effect: 2.5835}, intercept: -2.0}
+              - {label: null_m10, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.05}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: ser_m50_T8, function: uniform_single_effect, arguments: {causal_effect: 0.9576}, intercept: -2.0}
+              - {label: ser_m50_T16, function: uniform_single_effect, arguments: {causal_effect: 1.3196}, intercept: -2.0}
+              - {label: null_m50, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.1}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: ser_m100_T8, function: uniform_single_effect, arguments: {causal_effect: 0.7313}, intercept: -2.0}
+              - {label: ser_m100_T16, function: uniform_single_effect, arguments: {causal_effect: 1.0155}, intercept: -2.0}
+              - {label: null_m100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.2}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: ser_m200_T8, function: uniform_single_effect, arguments: {causal_effect: 0.5711}, intercept: -2.0}
+              - {label: ser_m200_T16, function: uniform_single_effect, arguments: {causal_effect: 0.8007}, intercept: -2.0}
+              - {label: null_m200, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+      - template: {design: {function: binary_markov_X, arguments: {n: 1000, p: 256, corr: 0.8, density: 0.4}}, signal: binary, error: noiseless}
+        over:
+          enrichment:
+              - {label: ser_m400_T8, function: uniform_single_effect, arguments: {causal_effect: 0.4805}, intercept: -2.0}
+              - {label: ser_m400_T16, function: uniform_single_effect, arguments: {causal_effect: 0.6797}, intercept: -2.0}
+              - {label: null_m400, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
+    methods: [logistic_q2_ser_cavi, logistic_q2_ser_gibss, logistic_q2_ser_gibss_laplace, logistic_q2_ser_globaljj, logistic_q2_ser_localjj, logistic_q2_ser_score]
+    default_args: *default_args
+    outputs:
+      - {name: laplace_ser_timing, method_filter: [logistic_q2_ser_cavi, logistic_q2_ser_gibss, logistic_q2_ser_gibss_laplace, logistic_q2_ser_globaljj, logistic_q2_ser_localjj, logistic_q2_ser_score], analyses: [pip, cs]}
+
   # PILOT (n=10000): T in {8, 16} single-effect + null + mc3 gap 10 T=8,
   # m in {5, 10, 30, 100}; all five arms at L=1 and L=10; 10 reps.
   022-laplace-pilot:

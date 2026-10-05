@@ -193,6 +193,30 @@ supercollections:
     outputs:
       - {{name: laplace_ser, method_filter: {_yaml_list(SER_METHODS)}, analyses: [pip, cs]}}
 
+  # TIMING: batch 0 (10 reps) of the full grid and of the single-effect grid, all six arms, so
+  # every arm's fit_seconds comes from ONE machine (Midway caslake, one core per job). The
+  # full-grid fits were run on a laptop under parallel load, so their timings do not compare.
+  # Content-identical to batch 0 of 022-laplace / 022-laplace-ser (same hashes).
+  022-laplace-timing:
+    replicates_per_batch: 10
+    n_batches: 1
+    collections:
+{_collections(FULL_N, FULL_SET_SIZES, full_rows, ind)}
+    methods: {_yaml_list(FULL_METHODS)}
+    default_args: *default_args
+    outputs:
+      - {{name: laplace_timing, method_filter: {_yaml_list(FULL_METHODS)}, analyses: [pip, cs]}}
+
+  022-laplace-ser-timing:
+    replicates_per_batch: 10
+    n_batches: 1
+    collections:
+{_collections(FULL_N, FULL_SET_SIZES, ser_rows, ind)}
+    methods: {_yaml_list(SER_METHODS)}
+    default_args: *default_args
+    outputs:
+      - {{name: laplace_ser_timing, method_filter: {_yaml_list(SER_METHODS)}, analyses: [pip, cs]}}
+
   # PILOT (n={PILOT_N}): T in {{{", ".join(map(str, PILOT_TARGETS))}}} single-effect + null + mc{lstar} gap {gap_p} T={t_p},
   # m in {{{", ".join(map(str, PILOT_SET_SIZES))}}}; all five arms at L=1 and L=10; 10 reps.
   022-laplace-pilot:
