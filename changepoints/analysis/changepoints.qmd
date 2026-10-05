@@ -211,9 +211,24 @@ The 1890s interval does not move. Standardizing the step basis rescales the esti
 prior variance and leaves the fit unchanged. The column standard deviations vary only
 about 2.5-fold across the interior, so the implicit prior on edge jumps barely changes.
 A small fixed prior variance (0.25) widens the set and loses the second effect. Exact
-CAVI matches the default within 1.5 nats. The plug-in IRLS method keeps log BF 31 at
+CAVI matches the default within 1.5 nats (compared at both resolutions below). The plug-in IRLS method keeps log BF 31 at
 every L and finds no second effect. Under the earlier gibss pin (2079de2) it reported
 36-37 nats; gibss 6646e02 fixed its null intercept.
+
+### gIBSS against exact CAVI
+
+```{python}
+#| label: fig-coal-gibss-cavi
+#| fig-cap: "gIBSS (left) and exact CAVI (right) at L=5, yearly (top) and monthly (bottom). Grey bars are the counts and the black line the fitted rate. Ticks under the axis mark every member of each effect's 95% credible set, one row per effect. The shaded span is the contiguous block of the set carrying the most alpha, with its alpha mass printed above; faint shading marks an effect below the declaration threshold."
+fig = cr.fig_method_compare(COAL, resolutions=("year", "month"))
+plt.show()
+```
+
+The two inference schemes give the same answer at both resolutions. The 1890s set is
+the same block of years in all four panels, and CAVI's log Bayes factors sit about one
+nat above gIBSS's. The second effect stays below the threshold under both. Its credible
+set is the same scattered collection of columns, with over 90% of its alpha in one
+block starting in the mid-1930s.
 
 ## Calibration by simulation
 

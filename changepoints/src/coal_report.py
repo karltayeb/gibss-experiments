@@ -226,3 +226,62 @@ def fig_calibration_b():
     axes[0].legend(frameon=False, fontsize=7, title="solid SuSiE L=1\ndashed exact", title_fontsize=7)
     fig.suptitle("Design B: one changepoint, base rate 3/yr, n=112", fontsize=10)
     return fig
+
+
+def _cs_blocks(cs, alpha):
+    """Contiguous runs of a credible set as (lo, hi, alpha mass), heaviest first."""
+    cols = np.array(sorted(cs))
+    runs = np.split(cols, np.flatnonzero(np.diff(cols) > 1) + 1)
+    return sorted(((int(r[0]), int(r[-1]), float(alpha[r].sum())) for r in runs),
+                  key=lambda b: -b[2])
+
+
+def fig_method_compare(cfg: dict, resolutions=("year",), methods=("poisson", "cf_cavi"),
+                       L: int = 5):
+    """Rows = resolutions, columns = methods (gIBSS default vs exact CAVI). Each panel shows
+    the counts, the fitted rate, and every effect with log BF > 0.5: its credible set as a
+    rug of member boundaries under the axis, and the contiguous block carrying most of its
+    alpha shaded (strong for a declared effect, faint below the threshold)."""
+    min_bf = cfg["fit"]["min_log_bf"]
+    names = {"poisson": "gIBSS", "cf_cavi": "CAVI"}
+    nr, nc = len(resolutions), len(methods)
+    fig, axes = plt.subplots(nr, nc, figsize=(6.5, 3.3 * nr), squeeze=False,
+                             sharex=True, sharey="row", layout="constrained")
+    for i, res in enumerate(resolutions):
+        labels, y = series(res)
+        step = labels[1] - labels[0]
+        bnd = labels[1:] - step / 2  # boundary between bin j and bin j+1
+        unit = "year" if res == "year" else "month"
+        ymax = max(y.max(), 1.0)
+        for j, m in enumerate(methods):
+            ax = axes[i, j]
+            fit = load_fit(res, f"{m}_L{L}")
+            ax.bar(labels, y, width=step * 0.9, color=DATA, lw=0, alpha=0.6 if res == "year" else 0.45)
+            ax.step(labels, np.exp(fit["eta"]), where="mid", color=EXACT, lw=1.3,
+                    label="fitted rate")
+            shown = [l for l in range(fit["L"]) if fit["ser_log_bf"][l] >= 0.5]
+            for r, l in enumerate(shown):
+                a = fit["alpha"][l]
+                cs = fit["cs"][l]
+                lbf = float(fit["ser_log_bf"][l])
+                declared = lbf >= min_bf
+                lo, hi, mass = _cs_blocks(cs, a)[0]
+                ax.axvspan(bnd[lo] - step / 2, bnd[hi] + step / 2, color=COMP[r],
+                           alpha=0.25 if declared else 0.10, lw=0,
+                           label=f"effect {l + 1}, log BF {lbf:.1f}"
+                                 f"{'' if declared else ' (not declared)'}")
+                y0 = -ymax * (0.05 + 0.06 * r)
+                ax.vlines(bnd[list(cs)], y0 - ymax * 0.025, y0 + ymax * 0.025,
+                          color=COMP[r], lw=0.8 if res == "year" else 0.4)
+                ax.text(bnd[lo] - step / 2, ymax * 1.02, f"{mass:.0%}", color=COMP[r],
+                        fontsize=7, va="bottom", ha="left")
+            ax.axhline(0, color="#777777", lw=0.5)
+            ax.set_ylim(-ymax * (0.05 + 0.06 * max(len(shown), 1)), ymax * 1.12)
+            ax.set_title(f"{names.get(m, m)}, {res}ly (n={fit['n']})", fontsize=9)
+            ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16 if i == nr - 1 else -0.06),
+                      frameon=False, fontsize=7, ncol=1)
+            if j == 0:
+                ax.set_ylabel(f"disasters per {unit}")
+        for ax in axes[-1]:
+            ax.set_xlabel("year")
+    return fig

@@ -40,6 +40,7 @@ def main() -> None:
     fig, kt = cr.fig_k_posterior(cfg)
     save(fig, "coal_year_k_posterior.png")
     print(kt)
+    save(cr.fig_method_compare(cfg, resolutions=("year", "month")), "coal_gibss_vs_cavi.png")
     fig, rt = cr.fig_resolution(cfg)
     save(fig, "coal_resolution.png")
     rt.write_csv(cr.RESULTS / "resolution_table.csv")

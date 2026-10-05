@@ -4,7 +4,8 @@
 Primary: yearly counts, raw step basis, estimated prior variance, the default
 "poisson" method (free-form quadrature SER, shared estimated intercept, centered).
 Sensitivities: L, standardized basis, fixed prior variance, implementation
-(cf_cavi = exact CAVI in Q2, irls = plug-in IRLS), monthly resolution.
+(irls = plug-in IRLS), monthly resolution. cf_cavi (exact CAVI in Q2) runs at
+every resolution next to the default gIBSS fit.
 Run from changepoints/:  uv run python scripts/03_fit_susie.py [year|month ...]
 """
 
@@ -29,6 +30,9 @@ def variants(cfg: dict, res: str):
     f = cfg["fit"]
     for L in f["L"]:
         yield f"poisson_L{L}", {"L": L, "method": "poisson"}
+        # exact CAVI (Gaussian q, closed-form Poisson log-normal offset) at every resolution,
+        # so gIBSS and CAVI can be compared yearly and monthly
+        yield f"cf_cavi_L{L}", {"L": L, "method": "cf_cavi", "family": "poisson"}
     if res == "year":
         for L in f["L"]:
             yield f"poisson_std_L{L}", {"L": L, "method": "poisson", "standardize": True}
@@ -36,8 +40,7 @@ def variants(cfg: dict, res: str):
                 yield f"poisson_pv{pv}_L{L}", {"L": L, "method": "poisson",
                                                    "estimate_prior_variance": False,
                                                    "prior_variance": pv}
-            for m in ("cf_cavi", "irls"):
-                yield f"{m}_L{L}", {"L": L, "method": m, "family": "poisson"}
+            yield f"irls_L{L}", {"L": L, "method": "irls", "family": "poisson"}
 
 
 def run(res: str, cfg: dict) -> None:
