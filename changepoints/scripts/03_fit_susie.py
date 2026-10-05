@@ -5,7 +5,9 @@ Primary: yearly counts, raw step basis, estimated prior variance, the default
 "poisson" method (free-form quadrature SER, shared estimated intercept, centered).
 Sensitivities: L, standardized basis, fixed prior variance, implementation
 (irls = plug-in IRLS), monthly resolution. cf_cavi (exact CAVI in Q2) runs at
-every resolution next to the default gIBSS fit.
+every resolution next to the default gIBSS fit. Monthly also fits a Bernoulli model to the
+indicator "at least one disaster this month" (gIBSS and exact CAVI), the binomial
+counterpart of the Poisson count model.
 Run from changepoints/:  uv run python scripts/03_fit_susie.py [year|month ...]
 """
 
@@ -15,6 +17,7 @@ import pickle
 import sys
 from pathlib import Path
 
+import numpy as np
 import polars as pl
 import yaml
 
@@ -33,6 +36,12 @@ def variants(cfg: dict, res: str):
         # exact CAVI (Gaussian q, closed-form Poisson log-normal offset) at every resolution,
         # so gIBSS and CAVI can be compared yearly and monthly
         yield f"cf_cavi_L{L}", {"L": L, "method": "cf_cavi", "family": "poisson"}
+    if res == "month":
+        for L in f["L"]:
+            yield f"bernoulli_L{L}", {"L": L, "method": None, "family": "binomial",
+                                      "response": "any"}
+            yield f"cf_cavi_bernoulli_L{L}", {"L": L, "method": "cf_cavi",
+                                              "family": "binomial", "response": "any"}
     if res == "year":
         for L in f["L"]:
             yield f"poisson_std_L{L}", {"L": L, "method": "poisson", "standardize": True}
@@ -52,7 +61,11 @@ def run(res: str, cfg: dict) -> None:
     tables = []
     for tag, kw in variants(cfg, res):
         kw.setdefault("family", "poisson")
-        fit = fit_step_susie(y, coverage=cfg["fit"]["coverage"], **kw)
+        if kw.pop("response", "count") == "any":
+            yk, kw["trials"] = (y > 0).astype(float), np.ones_like(y)
+        else:
+            yk = y
+        fit = fit_step_susie(yk, coverage=cfg["fit"]["coverage"], **kw)
         with open(out / f"{tag}.pkl", "wb") as fh:
             pickle.dump(fit, fh)
         tbl = cs_table(fit, labels, tag=tag)

@@ -170,8 +170,13 @@ def coal_design_b() -> pl.DataFrame:
 
 def lambda_annotated() -> pl.DataFrame:
     t = pl.read_csv(RESULTS / "lambda/w100/declared_cs_annotated.csv")
-    kb = lambda c: (pl.col(c) / 1000).round(1).cast(pl.String)
-    two = lambda c: pl.col(c).map_elements(lambda v: f"{v:.2f}", return_dtype=pl.String)
+
+    def kb(c):
+        return (pl.col(c) / 1000).round(1).cast(pl.String)
+
+    def two(c):
+        return pl.col(c).map_elements(lambda v: f"{v:.2f}", return_dtype=pl.String)
+
     return t.select([
         pl.format("{}-{}", kb("cs_start_bp"), kb("cs_end_bp")).alias("CS (kb)"),
         pl.col("top_bp").alias("top (bp)"), pl.col("ser_log_bf").alias("log BF"),

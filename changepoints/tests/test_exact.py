@@ -70,7 +70,9 @@ def test_segment_marginal_is_negative_binomial():
     from scipy.integrate import quad
     from scipy.stats import gamma
 
-    f = lambda lam: poisson.pmf(1, lam) * poisson.pmf(4, lam) * gamma.pdf(lam, 2.5, scale=1 / 0.7)
+    def f(lam):
+        return poisson.pmf(1, lam) * poisson.pmf(4, lam) * gamma.pdf(lam, 2.5, scale=1 / 0.7)
+
     val, _ = quad(f, 0, 60)
     assert np.isclose(model.segment_logml(y2)[0, 2], np.log(val), rtol=1e-6)
 

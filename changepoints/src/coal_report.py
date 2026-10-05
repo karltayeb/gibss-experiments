@@ -23,6 +23,7 @@ FIG = RESULTS / "figures"
 COMP = ["#0072B2", "#E69F00", "#009E73", "#CC79A7", "#56B4E9"]
 EXACT = "#222222"
 DATA = "#9a9a9a"
+LABEL_BOX = {"facecolor": "white", "edgecolor": "none", "alpha": 0.8, "pad": 1.0}
 plt.rcParams.update({"font.size": 9, "axes.spines.top": False, "axes.spines.right": False,
                      "axes.grid": True, "grid.alpha": 0.25, "grid.linewidth": 0.5})
 
@@ -236,68 +237,118 @@ def _cs_blocks(cs, alpha):
                   key=lambda b: -b[2])
 
 
-def fig_method_compare(cfg: dict, resolutions=("year",), methods=("poisson", "cf_cavi"),
-                       L: int = 5):
-    """Columns = methods (gIBSS default vs exact CAVI); resolutions stacked in each column on
-    a shared x axis. Each panel shows the counts, the fitted rate, and every effect with log
-    BF > 0.5: its 95% credible set as one row of ticks under the axis (one tick per member
-    column), and the contiguous block carrying most of its alpha shaded with that alpha mass
+def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
+    """Rows = observation models on the same series: Poisson counts, and the Bernoulli
+    indicator "at least one disaster in the bin". Columns = exact posterior (Poisson-Gamma,
+    Beta-Bernoulli), exact CAVI, gIBSS. Each model row has a main panel (data, fitted
+    rate or probability, SuSiE effects with log BF > 0.5) over a strip with the
+    per-boundary changepoint probability: the exact boundary marginal, or the SuSiE PIP.
+    Each effect's 95% credible set is one row of ticks under the axis (one tick per member
+    column); the contiguous block carrying most of its alpha is shaded, with that alpha mass
     printed above (strong shading = declared, faint = below the threshold)."""
     from matplotlib.lines import Line2D
     from matplotlib.patches import Patch
 
     min_bf = cfg["fit"]["min_log_bf"]
-    names = {"poisson": "gIBSS", "cf_cavi": "CAVI"}
-    nr, nc = len(resolutions), len(methods)
-    fig, axes = plt.subplots(nr, nc, figsize=(6.5, 2.4 * nr + 0.6), squeeze=False,
-                             sharex=True, sharey="row",
-                             gridspec_kw={"hspace": 0.04, "wspace": 0.06})
+    ex = cfg["exact"]
+    labels, counts = series(res)
+    step = labels[1] - labels[0]
+    bnd = labels[1:] - step / 2  # boundary between bin j and bin j+1
+    per_year = 12 if res == "month" else 1
+    unit = "month" if res == "month" else "year"
+    models = [
+        {"name": "Poisson", "y": counts, "link": np.exp,
+         "exact": load_exact(res, ex["shape_default"], ex["p_default"]),
+         "exact_name": "Poisson-Gamma", "exact_scale": 1.0 / per_year,
+         "fits": {"CAVI": f"cf_cavi_L{L}", "gIBSS": f"poisson_L{L}"},
+         "ylabel": f"Poisson\ndisasters per {unit}"},
+        {"name": "Bernoulli", "y": (counts > 0).astype(float),
+         "link": lambda e: 1.0 / (1.0 + np.exp(-e)),
+         "exact": dict(np.load(RESULTS / res / "exact"
+                               / f"exact_bernoulli_a{ex['shape_default']}_p{ex['p_default']}.npz")),
+         "exact_name": "Beta-Bernoulli", "exact_scale": 1.0,
+         "fits": {"CAVI": f"cf_cavi_bernoulli_L{L}", "gIBSS": f"bernoulli_L{L}"},
+         "ylabel": f"Bernoulli\nany disaster in {unit}"},
+    ]
+    cols = ["exact", "CAVI", "gIBSS"]
+    fig = plt.figure(figsize=(6.5, 6.6))
+    gs = fig.add_gridspec(5, 3, height_ratios=[3, 1, 0.45, 3, 1], hspace=0.06, wspace=0.07,
+                          bottom=0.15, top=0.96)
+    first = None
     n_effects = 0
-    for i, res in enumerate(resolutions):
-        labels, y = series(res)
-        step = labels[1] - labels[0]
-        bnd = labels[1:] - step / 2  # boundary between bin j and bin j+1
-        unit = "year" if res == "year" else "month"
+    for i, mod in enumerate(models):
+        y = mod["y"]
         ymax = max(y.max(), 1.0)
-        for j, m in enumerate(methods):
-            ax = axes[i, j]
-            fit = load_fit(res, f"{m}_L{L}")
-            ax.bar(labels, y, width=step * 0.9, color=DATA, lw=0,
-                   alpha=0.6 if res == "year" else 0.45)
-            ax.step(labels, np.exp(fit["eta"]), where="mid", color=EXACT, lw=1.3)
-            shown = [l for l in range(fit["L"]) if fit["ser_log_bf"][l] >= 0.5]
-            n_effects = max(n_effects, len(shown))
-            notes = []
-            for r, l in enumerate(shown):
-                a = fit["alpha"][l]
-                cs = fit["cs"][l]
-                lbf = float(fit["ser_log_bf"][l])
-                declared = lbf >= min_bf
-                lo, hi, mass = _cs_blocks(cs, a)[0]
-                ax.axvspan(bnd[lo] - step / 2, bnd[hi] + step / 2, color=COMP[r],
-                           alpha=0.25 if declared else 0.10, lw=0)
-                y0 = -ymax * (0.07 + 0.08 * r)
-                ax.vlines(bnd[list(cs)], y0 - ymax * 0.03, y0 + ymax * 0.03,
-                          color=COMP[r], lw=0.8 if res == "year" else 0.4)
-                ax.text(bnd[lo] - step / 2, ymax * 1.01, f"{mass:.0%}", color=COMP[r],
-                        fontsize=7, va="bottom", ha="left")
-                notes.append((f"log BF {lbf:.1f}" + ("" if declared else " (not declared)"),
-                              COMP[r]))
-            for k, (txt, col) in enumerate(notes):
-                ax.text(0.99, 0.84 - 0.09 * k, txt, transform=ax.transAxes, ha="right",
-                        va="top", fontsize=7, color=col)
+        main_row, strip_row = 3 * i, 3 * i + 1
+        strip_axes = []
+        row_first = None
+        for j, col in enumerate(cols):
+            ax = fig.add_subplot(gs[main_row, j], sharex=first, sharey=row_first)
+            first = first or ax
+            row_first = row_first or ax
+            sx = fig.add_subplot(gs[strip_row, j], sharex=first)
+            strip_axes.append(sx)
+            # one line per nonzero bin: monthly bars are sub-pixel wide and alias away
+            nz = y > 0
+            ax.vlines(labels[nz], 0, y[nz], color="#c4c4c4", lw=0.5)
+            n_shown = 0
+            if col == "exact":
+                e = mod["exact"]
+                ax.step(labels, e["mean_profile"] * mod["exact_scale"], where="mid",
+                        color=EXACT, lw=1.3)
+                kp = e["k_prob"]
+                kmean = float(np.sum(np.arange(len(kp)) * kp))
+                ax.text(0.99, 0.84, f"{mod['exact_name']}\nE[k] = {kmean:.1f}",
+                        transform=ax.transAxes, ha="right", va="top", fontsize=7, bbox=LABEL_BOX)
+                sx.vlines(bnd, 0, e["boundary_prob"], color=EXACT, lw=0.6)
+            else:
+                fit = load_fit(res, mod["fits"][col])
+                ax.step(labels, mod["link"](fit["eta"]), where="mid", color=EXACT, lw=1.3)
+                shown = [l for l in range(fit["L"]) if fit["ser_log_bf"][l] >= 0.5]
+                n_shown = len(shown)
+                n_effects = max(n_effects, n_shown)
+                for r, l in enumerate(shown):
+                    a = fit["alpha"][l]
+                    cs = fit["cs"][l]
+                    lbf = float(fit["ser_log_bf"][l])
+                    declared = lbf >= min_bf
+                    lo, hi, mass = _cs_blocks(cs, a)[0]
+                    ax.axvspan(bnd[lo] - step / 2, bnd[hi] + step / 2, color=COMP[r],
+                               alpha=0.25 if declared else 0.10, lw=0)
+                    y0 = -ymax * (0.07 + 0.08 * r)
+                    ax.vlines(bnd[list(cs)], y0 - ymax * 0.03, y0 + ymax * 0.03,
+                              color=COMP[r], lw=0.4)
+                    ax.text(bnd[lo] - step / 2, ymax * 1.01, f"{mass:.0%}", color=COMP[r],
+                            fontsize=7, va="bottom", ha="left", bbox=LABEL_BOX)
+                    ax.text(0.99, 0.84 - 0.09 * r,
+                            f"log BF {lbf:.1f}" + ("" if declared else " (not declared)"),
+                            transform=ax.transAxes, ha="right", va="top", fontsize=7,
+                            color=COMP[r], bbox=LABEL_BOX)
+                sx.vlines(bnd, 0, fit["pip"], color=EXACT, lw=0.6)
             ax.axhline(0, color="#777777", lw=0.5)
-            ax.set_ylim(-ymax * (0.07 + 0.08 * max(len(shown), 1)), ymax * 1.14)
+            ax.set_ylim(-ymax * (0.07 + 0.08 * max(n_shown, 2)), ymax * 1.14)
+            ax.tick_params(labelbottom=False)
+            ax.set_yticks([t for t in ax.get_yticks() if 0 <= t <= ymax])
             if i == 0:
-                ax.set_title(names.get(m, m), fontsize=10)
+                ax.set_title(col, fontsize=10)
             if j == 0:
-                ax.set_ylabel(f"disasters per {unit}\n({res}ly, n={fit['n']})")
-    for ax in axes[-1]:
-        ax.set_xlabel("year")
-    handles = [Line2D([], [], color=EXACT, lw=1.3, label="fitted rate")]
+                ax.set_ylabel(mod["ylabel"])
+                sx.set_ylabel("P(change)", fontsize=7.5)
+            else:
+                ax.tick_params(labelleft=False)
+                sx.tick_params(labelleft=False)
+            if i == 0:
+                sx.tick_params(labelbottom=False)
+            else:
+                sx.set_xlabel("year")
+        top = max(s.get_ylim()[1] for s in strip_axes)
+        for s in strip_axes:
+            s.set_ylim(0, top)
+            s.tick_params(labelsize=7)
+    handles = [Line2D([], [], color=EXACT, lw=1.3, label="posterior mean rate / probability")]
     for r in range(n_effects):
         handles.append(Patch(color=COMP[r], alpha=0.5,
                              label=f"effect {r + 1}: CS members (ticks), main block (shaded)"))
     fig.legend(handles=handles, loc="lower center", ncol=1, frameon=False, fontsize=7.5,
-               bbox_to_anchor=(0.5, -0.02 - 0.03 * n_effects))
+               bbox_to_anchor=(0.5, 0.0))
     return fig
