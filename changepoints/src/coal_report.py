@@ -238,15 +238,21 @@ def _cs_blocks(cs, alpha):
 
 def fig_method_compare(cfg: dict, resolutions=("year",), methods=("poisson", "cf_cavi"),
                        L: int = 5):
-    """Rows = resolutions, columns = methods (gIBSS default vs exact CAVI). Each panel shows
-    the counts, the fitted rate, and every effect with log BF > 0.5: its credible set as a
-    rug of member boundaries under the axis, and the contiguous block carrying most of its
-    alpha shaded (strong for a declared effect, faint below the threshold)."""
+    """Columns = methods (gIBSS default vs exact CAVI); resolutions stacked in each column on
+    a shared x axis. Each panel shows the counts, the fitted rate, and every effect with log
+    BF > 0.5: its 95% credible set as one row of ticks under the axis (one tick per member
+    column), and the contiguous block carrying most of its alpha shaded with that alpha mass
+    printed above (strong shading = declared, faint = below the threshold)."""
+    from matplotlib.lines import Line2D
+    from matplotlib.patches import Patch
+
     min_bf = cfg["fit"]["min_log_bf"]
     names = {"poisson": "gIBSS", "cf_cavi": "CAVI"}
     nr, nc = len(resolutions), len(methods)
-    fig, axes = plt.subplots(nr, nc, figsize=(6.5, 3.3 * nr), squeeze=False,
-                             sharex=True, sharey="row", layout="constrained")
+    fig, axes = plt.subplots(nr, nc, figsize=(6.5, 2.4 * nr + 0.6), squeeze=False,
+                             sharex=True, sharey="row",
+                             gridspec_kw={"hspace": 0.04, "wspace": 0.06})
+    n_effects = 0
     for i, res in enumerate(resolutions):
         labels, y = series(res)
         step = labels[1] - labels[0]
@@ -256,10 +262,12 @@ def fig_method_compare(cfg: dict, resolutions=("year",), methods=("poisson", "cf
         for j, m in enumerate(methods):
             ax = axes[i, j]
             fit = load_fit(res, f"{m}_L{L}")
-            ax.bar(labels, y, width=step * 0.9, color=DATA, lw=0, alpha=0.6 if res == "year" else 0.45)
-            ax.step(labels, np.exp(fit["eta"]), where="mid", color=EXACT, lw=1.3,
-                    label="fitted rate")
+            ax.bar(labels, y, width=step * 0.9, color=DATA, lw=0,
+                   alpha=0.6 if res == "year" else 0.45)
+            ax.step(labels, np.exp(fit["eta"]), where="mid", color=EXACT, lw=1.3)
             shown = [l for l in range(fit["L"]) if fit["ser_log_bf"][l] >= 0.5]
+            n_effects = max(n_effects, len(shown))
+            notes = []
             for r, l in enumerate(shown):
                 a = fit["alpha"][l]
                 cs = fit["cs"][l]
@@ -267,21 +275,29 @@ def fig_method_compare(cfg: dict, resolutions=("year",), methods=("poisson", "cf
                 declared = lbf >= min_bf
                 lo, hi, mass = _cs_blocks(cs, a)[0]
                 ax.axvspan(bnd[lo] - step / 2, bnd[hi] + step / 2, color=COMP[r],
-                           alpha=0.25 if declared else 0.10, lw=0,
-                           label=f"effect {l + 1}, log BF {lbf:.1f}"
-                                 f"{'' if declared else ' (not declared)'}")
-                y0 = -ymax * (0.05 + 0.06 * r)
-                ax.vlines(bnd[list(cs)], y0 - ymax * 0.025, y0 + ymax * 0.025,
+                           alpha=0.25 if declared else 0.10, lw=0)
+                y0 = -ymax * (0.07 + 0.08 * r)
+                ax.vlines(bnd[list(cs)], y0 - ymax * 0.03, y0 + ymax * 0.03,
                           color=COMP[r], lw=0.8 if res == "year" else 0.4)
-                ax.text(bnd[lo] - step / 2, ymax * 1.02, f"{mass:.0%}", color=COMP[r],
+                ax.text(bnd[lo] - step / 2, ymax * 1.01, f"{mass:.0%}", color=COMP[r],
                         fontsize=7, va="bottom", ha="left")
+                notes.append((f"log BF {lbf:.1f}" + ("" if declared else " (not declared)"),
+                              COMP[r]))
+            for k, (txt, col) in enumerate(notes):
+                ax.text(0.99, 0.84 - 0.09 * k, txt, transform=ax.transAxes, ha="right",
+                        va="top", fontsize=7, color=col)
             ax.axhline(0, color="#777777", lw=0.5)
-            ax.set_ylim(-ymax * (0.05 + 0.06 * max(len(shown), 1)), ymax * 1.12)
-            ax.set_title(f"{names.get(m, m)}, {res}ly (n={fit['n']})", fontsize=9)
-            ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.16 if i == nr - 1 else -0.06),
-                      frameon=False, fontsize=7, ncol=1)
+            ax.set_ylim(-ymax * (0.07 + 0.08 * max(len(shown), 1)), ymax * 1.14)
+            if i == 0:
+                ax.set_title(names.get(m, m), fontsize=10)
             if j == 0:
-                ax.set_ylabel(f"disasters per {unit}")
-        for ax in axes[-1]:
-            ax.set_xlabel("year")
+                ax.set_ylabel(f"disasters per {unit}\n({res}ly, n={fit['n']})")
+    for ax in axes[-1]:
+        ax.set_xlabel("year")
+    handles = [Line2D([], [], color=EXACT, lw=1.3, label="fitted rate")]
+    for r in range(n_effects):
+        handles.append(Patch(color=COMP[r], alpha=0.5,
+                             label=f"effect {r + 1}: CS members (ticks), main block (shaded)"))
+    fig.legend(handles=handles, loc="lower center", ncol=1, frameon=False, fontsize=7.5,
+               bbox_to_anchor=(0.5, -0.02 - 0.03 * n_effects))
     return fig

@@ -219,7 +219,7 @@ every L and finds no second effect. Under the earlier gibss pin (2079de2) it rep
 
 ```{python}
 #| label: fig-coal-gibss-cavi
-#| fig-cap: "gIBSS (left) and exact CAVI (right) at L=5, yearly (top) and monthly (bottom). Grey bars are the counts and the black line the fitted rate. Ticks under the axis mark every member of each effect's 95% credible set, one row per effect. The shaded span is the contiguous block of the set carrying the most alpha, with its alpha mass printed above; faint shading marks an effect below the declaration threshold."
+#| fig-cap: "gIBSS (left) and exact CAVI (right) at L=5, yearly counts stacked over monthly counts on a shared time axis. Grey bars are the counts and the black line the fitted rate. Ticks under the axis mark every member of each effect's 95% credible set, one row per effect. The shaded span is the contiguous block of the set carrying the most alpha, with its alpha mass printed above; faint shading marks an effect below the declaration threshold."
 fig = cr.fig_method_compare(COAL, resolutions=("year", "month"))
 plt.show()
 ```
