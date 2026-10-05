@@ -8,7 +8,7 @@ Selectors (union; at least one required):
 
 Data kinds (-d, repeatable; default reductions):
   reductions  by_batch/<bh>/fits/<mh>/reductions/*.parquet  (+ manifest_cache.json)  [~0.16 GB/exp]
-  plots       supercollections/<sc>/**                        (analysis PDFs + .done)
+  plots       supercollections/<sc>/**                        (analysis PDFs + .done/.plots markers)
   sims        by_batch/<bh>/{simulations,sample_metadata}.parquet                     [~6 GB]
   fits        by_batch/<bh>/fits/<mh>/fits.parquet             (the raw fits)          [~78 GB]
   all         reductions + plots + sims + fits

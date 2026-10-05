@@ -555,6 +555,23 @@ def analysis_inputs(config: dict[str, Any], manifest: dict[str, Any],
     return paths
 
 
+def sc_data_targets(config: dict[str, Any], manifest: dict[str, Any], sc_name: str) -> list[str]:
+    """Every reduction parquet the supercollection's analyses read, with no PDF in between.
+
+    The union of ``analysis_inputs`` over the SC's analyses, so it carries the same method and
+    simulation filters the plots would apply; each reduction pulls in its fit and simulation.
+    This is what ``results/supercollections/<sc>/.done`` depends on: the data, not the plots.
+    """
+    paths: list[str] = []
+    seen: set[str] = set()
+    for analysis in sorted({a for a, _ in resolve_sc_analyses(config, sc_name)}):
+        for p in analysis_inputs(config, manifest, sc_name, analysis):
+            if p not in seen:
+                seen.add(p)
+                paths.append(p)
+    return paths
+
+
 def resolve_args(config: dict[str, Any], sc_name: str, args_name: str) -> dict[str, Any]:
     sc = config["supercollections"][sc_name]
     defaults = dict(sc.get("default_args", {}) or {})

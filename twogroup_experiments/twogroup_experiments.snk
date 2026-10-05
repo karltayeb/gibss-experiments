@@ -197,16 +197,27 @@ rule all_plots:
 
 
 # ---------------------------------------------------------------------------
-# Per-supercollection aggregator: build every analysis PDF for one SC
-#   uv run snakemake -s twogroup_experiments.snk -c8 \
-#       results/supercollections/<sc>/.done
+# Per-supercollection targets
+#
+#   .done   every fit + reduction the SC's analyses read (the DATA). No PDFs.
+#             uv run snakemake -s twogroup_experiments.snk -c8 results/supercollections/<sc>/.done
+#   .plots  every analysis PDF for the SC (opt-in; aggregates all reductions in one job and
+#           can need a lot of memory). Request it only when you want the PDFs.
+#             uv run snakemake -s twogroup_experiments.snk -c8 results/supercollections/<sc>/.plots
 # ---------------------------------------------------------------------------
 
 rule supercollection:
+    input:
+        lambda wc: loader.sc_data_targets(CONFIG, MANIFEST, wc.supercollection),
+    output:
+        touch(f"{RESULTS_ROOT}/supercollections/{{supercollection}}/.done"),
+
+
+rule supercollection_plots:
     input:
         lambda wc: [
             f"{RESULTS_ROOT}/supercollections/{wc.supercollection}/{analysis}/{args_name}.pdf"
             for analysis, args_name in loader.resolve_sc_analyses(CONFIG, wc.supercollection)
         ],
     output:
-        touch(f"{RESULTS_ROOT}/supercollections/{{supercollection}}/.done"),
+        touch(f"{RESULTS_ROOT}/supercollections/{{supercollection}}/.plots"),
