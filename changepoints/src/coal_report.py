@@ -229,10 +229,12 @@ def fig_calibration_b():
     return fig
 
 
-def _cs_blocks(cs, alpha):
-    """Contiguous runs of a credible set as (lo, hi, alpha mass), heaviest first."""
+def _cs_blocks(cs, alpha, max_gap: int = 0):
+    """Runs of a credible set as (lo, hi, alpha mass), heaviest first. Runs separated by
+    at most `max_gap` non-member columns merge into one block (the mass counts members
+    only); at monthly resolution single low-alpha months otherwise split one interval."""
     cols = np.array(sorted(cs))
-    runs = np.split(cols, np.flatnonzero(np.diff(cols) > 1) + 1)
+    runs = np.split(cols, np.flatnonzero(np.diff(cols) > max_gap + 1) + 1)
     return sorted(((int(r[0]), int(r[-1]), float(alpha[r].sum())) for r in runs),
                   key=lambda b: -b[2])
 
@@ -257,6 +259,7 @@ def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
     bnd = labels[1:] - step / 2  # boundary between bin j and bin j+1
     per_year = 12 if res == "month" else 1
     unit = "month" if res == "month" else "year"
+    gap = per_year  # bridge credible-set gaps of up to one year
     models = [
         {"name": "Poisson", "y": counts, "link": np.exp,
          "exact": load_exact(res, ex["shape_default"], ex["p_default"]),
@@ -313,7 +316,7 @@ def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
                     cs = fit["cs"][l]
                     lbf = float(fit["ser_log_bf"][l])
                     declared = lbf >= min_bf
-                    lo, hi, mass = _cs_blocks(cs, a)[0]
+                    lo, hi, mass = _cs_blocks(cs, a, max_gap=gap)[0]
                     ax.axvspan(bnd[lo] - step / 2, bnd[hi] + step / 2, color=COMP[r],
                                alpha=0.25 if declared else 0.10, lw=0)
                     y0 = -ymax * (0.07 + 0.08 * r)
