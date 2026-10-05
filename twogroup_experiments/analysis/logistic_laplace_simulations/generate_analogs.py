@@ -5,7 +5,7 @@ Both keep 022's protocol fixed (n=1000, p=256, b0=-2, L=5, L*=3 at gap in {8, 64
 EB prior, the six Q2-scored arms CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / local-JJ / score,
 200 reps) and swap the design + its axis:
 
-  023 GAUSSIAN  gaussian_markov_X(n=500, p, rho=0.95): a small illustrative dense design. Every column is N(0,1): dense,
+  023 GAUSSIAN  gaussian_markov_X(n=500, p, rho=0.9): a small illustrative dense design. Every column is N(0,1): dense,
                 every row informative, no set size. Axis = signal T in {4, 8, 12, 16, 20, 24} at fixed
                 rho (beta per T, betas_gaussian_n500.json): the quantity 022 varies within each
                 panel, extended upward to where the per-row curvature spread strains Laplace /
@@ -21,7 +21,11 @@ EB prior, the six Q2-scored arms CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ 
                 show. The design is fixed, so there is ONE null cell.
 
 Supercollections per experiment: <sc> (full grid), <sc>-nocavi (same cells minus CAVI, run
-first), <sc>-pilot (the full grid's cells at 10 reps = batch 0, for a local smoke / first look).
+first), <sc>-pilot (the full grid's cells at 10 reps = batch 0, for a local smoke / first look),
+<sc>-ser (single effect, L=1 SER arms, 200 reps; 022-laplace-ser's analog) and <sc>-ser-pilot
+(its batch 0). The SER cells reuse the multi-effect betas (each is calibrated for ONE column) and
+put the one causal at the fixed interior column SER_GAP + d (gap 64 -> block 8 of 32 in 024,
+column 64 in 023), away from the chain ends; the design is redrawn every replicate.
 """
 from __future__ import annotations
 
@@ -39,6 +43,9 @@ GAPS = [8, 64]
 METHODS = ["logistic_q2_L5_cavi", "logistic_q2_L5_gibss", "logistic_q2_L5_gibss_laplace",
            "logistic_q2_L5_globaljj", "logistic_q2_L5_localjj", "logistic_q2_L5_score"]
 NOCAVI = [m for m in METHODS if not m.endswith("_cavi")]
+SER_METHODS = ["logistic_q2_ser_cavi", "logistic_q2_ser_gibss", "logistic_q2_ser_gibss_laplace",
+               "logistic_q2_ser_globaljj", "logistic_q2_ser_localjj", "logistic_q2_ser_score"]
+SER_GAP = 64
 
 GAUSS_RHO = 0.9
 GAUSS_N = 500                   # small, illustrative; not tied to 019
@@ -56,6 +63,12 @@ def _multi(label, beta, gap, base=0):
     base_s = f", base_index: {base}" if base else ""
     return (f"- {{label: {label}, function: spaced_index_effect, "
             f"arguments: {{causal_effects: [{eff}], gap: {gap}{base_s}}}, intercept: {B0:.1f}}}")
+
+
+def _single(label, beta, base=0):
+    base_s = f", base_index: {base}" if base else ""
+    return (f"- {{label: {label}, function: spaced_index_effect, "
+            f"arguments: {{causal_effects: [{beta:.4f}], gap: {SER_GAP}{base_s}}}, intercept: {B0:.1f}}}")
 
 
 def _null(label):
@@ -83,7 +96,8 @@ def _sc(name, collections, methods, batches, out_name):
 """
 
 
-def _file(header, sc, cells, n_cells):
+def _file(header, sc, cells, n_cells, ser_cells, n_ser):
+    out = sc.split('-', 1)[1].replace('-', '_')
     return f"""\
 {header}
 _anchors:
@@ -91,11 +105,15 @@ _anchors:
 
 supercollections:
   # FULL GRID: {n_cells} cells x {len(METHODS)} arms, {BATCHES * 10} reps.
-{_sc(sc, cells, METHODS, BATCHES, sc.split('-', 1)[1].replace('-', '_'))}
+{_sc(sc, cells, METHODS, BATCHES, out)}
   # the full grid's cells WITHOUT CAVI-Q2 (content-identical; run first, CAVI is most of the compute).
-{_sc(sc + "-nocavi", cells, NOCAVI, BATCHES, sc.split('-', 1)[1].replace('-', '_') + "_nocavi")}
+{_sc(sc + "-nocavi", cells, NOCAVI, BATCHES, out + "_nocavi")}
   # PILOT: the full grid's cells at 10 reps (= the full grid's batch 0), all five arms.
-{_sc(sc + "-pilot", cells, METHODS, 1, sc.split('-', 1)[1].replace('-', '_') + "_pilot")}"""
+{_sc(sc + "-pilot", cells, METHODS, 1, out + "_pilot")}
+  # SINGLE EFFECT: {n_ser} cells x {len(SER_METHODS)} L=1 SER arms, {BATCHES * 10} reps. Isolates variable selection.
+{_sc(sc + "-ser", ser_cells, SER_METHODS, BATCHES, out + "_ser")}
+  # SINGLE-EFFECT PILOT: the -ser cells at 10 reps (= its batch 0).
+{_sc(sc + "-ser-pilot", ser_cells, SER_METHODS, 1, out + "_ser_pilot")}"""
 
 
 def gaussian() -> None:
@@ -103,6 +121,7 @@ def gaussian() -> None:
     design = f"{{function: gaussian_markov_X, arguments: {{n: {GAUSS_N}, p: {P}, rho: {GAUSS_RHO}}}}}"
     rows = [_multi(f"mc{LSTAR}_T{t}_g{g}", b[str(t)], g) for t in GAUSS_TARGETS for g in GAPS]
     rows.append(_null("null"))
+    ser_rows = [_single(f"ser_T{t}", b[str(t)]) for t in GAUSS_TARGETS] + [_null("null")]
     header = f"""\
 # 023_logistic_laplace_gaussian: the 022 protocol on a small illustrative AR1 GAUSSIAN design (rho={GAUSS_RHO}).
 # Same six Q2-scored arms (CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / local-JJ / score), n={GAUSS_N}, p={P},
@@ -113,10 +132,12 @@ def gaussian() -> None:
 # there is no set-size axis; beta per T from analysis/logistic_laplace_simulations/
 # betas_gaussian_n500.json (MC inversion). The dense control for 022's sparse-set findings:
 # large beta is where per-row curvature spread strains Laplace, the JJ bound and score. One
-# null. GENERATED by generate_analogs.py -- edit that, not this."""
+# null. The -ser supercollections repeat the T axis with ONE causal (column {SER_GAP}) and L=1 SER
+# arms, isolating variable selection from the multi-effect fit. GENERATED by generate_analogs.py -- edit that, not this."""
     n_cells = len(GAUSS_TARGETS) * len(GAPS) + 1
-    (EXP / "023_logistic_laplace_gaussian.yaml").write_text(_file(header, "023-laplace-gaussian", _collection(design, rows), n_cells))
-    print(f"wrote 023 ({n_cells} cells)")
+    (EXP / "023_logistic_laplace_gaussian.yaml").write_text(
+        _file(header, "023-laplace-gaussian", _collection(design, rows), n_cells, _collection(design, ser_rows), len(ser_rows)))
+    print(f"wrote 023 ({n_cells} cells; ser {len(ser_rows)} cells)")
 
 
 def nested() -> None:
@@ -130,6 +151,8 @@ def nested() -> None:
             for g in GAPS:
                 rows.append(_multi(f"mc{LSTAR}_d{d}_m{int(float(sizes[str(d)]))}_T{t}_g{g}", betas[str(d)][str(t)], g, base=d))
     rows.append(_null("null"))
+    ser_rows = [_single(f"ser_d{d}_m{int(float(sizes[str(d)]))}_T{t}", betas[str(d)][str(t)], base=d)
+                for d in DEPTHS for t in TARGETS] + [_null("null")]
     header = f"""\
 # 024_logistic_laplace_nested: the 022 protocol on the NESTED attrition design. Same five Q2-scored
 # arms (CAVI-Q2 / gIBSS-Q2 / gIBSS-Laplace / global-JJ / score), n={N}, p={P}, b0={B0:g}, L=5,
@@ -140,11 +163,14 @@ def nested() -> None:
 # Axis: causal DEPTH d in {{{", ".join(map(str, DEPTHS))}}} = expected size {{{", ".join(str(int(float(sizes[str(d)]))) for d in DEPTHS)}}} (022's m), beta
 # per (d, T) from analysis/logistic_laplace_simulations/betas_nested_n1000.json. Causals sit at
 # depth d in blocks gap/8 apart (gap 8 = adjacent blocks, 64 = 8 apart); their decoys are their
-# own ancestors/descendants at other sizes. Fixed design -> one null cell. GENERATED by
+# own ancestors/descendants at other sizes. Fixed design -> one null cell. The -ser
+# supercollections put ONE causal at depth d in block {SER_GAP // NESTED['block_size']} with L=1 SER arms, isolating
+# variable selection among a causal's ancestors/descendants. GENERATED by
 # generate_analogs.py -- edit that, not this."""
     n_cells = len(DEPTHS) * len(TARGETS) * len(GAPS) + 1
-    (EXP / "024_logistic_laplace_nested.yaml").write_text(_file(header, "024-laplace-nested", _collection(design, rows), n_cells))
-    print(f"wrote 024 ({n_cells} cells)")
+    (EXP / "024_logistic_laplace_nested.yaml").write_text(
+        _file(header, "024-laplace-nested", _collection(design, rows), n_cells, _collection(design, ser_rows), len(ser_rows)))
+    print(f"wrote 024 ({n_cells} cells; ser {len(ser_rows)} cells)")
 
 
 if __name__ == "__main__":
