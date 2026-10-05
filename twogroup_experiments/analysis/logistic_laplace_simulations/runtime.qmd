@@ -1,0 +1,109 @@
+---
+title: "Runtime relative to CAVI-Q2"
+subtitle: "Wall-clock speedup of gIBSS-Q2, gIBSS-Laplace, local-JJ, global-JJ and score over CAVI-Q2 in experiments 022-024, at L=5 and L=1"
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))   # analysis/logistic_laplace_simulations -> analysis
+os.chdir("..")                                # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/logistic_laplace_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import laplacelib as R
+import runtime as RT
+
+df = RT.load()
+pf = RT.paired(df)
+```
+
+`fit_seconds` times the `fit_glm_susie` call alone. Simulation, ELBO scoring and reductions
+are not included. Every timing comes from one machine: Midway caslake, one core per SLURM job.
+The 022 grid ran on a laptop under parallel load, so 022 uses batch 0 of each cell rerun on
+Midway (`022-laplace-timing`, `022-laplace-ser-timing`, 10 replicates per cell). 023 and 024
+use all 200 replicates.
+
+The first replicate of every batch also pays JAX compilation, because each fit job is a fresh
+process. Ratios use replicates 2-10 of each batch; compilation is in its own table below. An
+arm's time is divided by CAVI-Q2's time on the same replicate, and ratios are averaged on the
+log scale. Null cells are included.
+
+```{python}
+#| label: status
+#| echo: false
+#| output: asis
+for (exp, L), g in df.group_by(["exp", "L"], maintain_order=True):
+    print(f"- {exp}, L={L}: {g.select('batch_hash').n_unique()} batches, "
+          f"{g.filter(pl.col('method') == 'cavi').height} CAVI-Q2 fits, "
+          f"{pf.filter((pl.col('exp') == exp) & (pl.col('L') == L)).height} paired steady-state arm fits")
+```
+
+## Speedup over CAVI-Q2 {#sec-speedup}
+
+```{python}
+#| label: tab-speedup
+#| echo: false
+#| output: asis
+tab = RT.fmt_ci(RT.speedup(pf, ["exp", "L", "method"]))
+print(R.md_table(tab, rows=["exp", "L"], value="cell", fmt="{}", legend=(
+    "*exp*: experiment (022 binary Markov sets, 023 Gaussian AR(1), 024 nested sets). "
+    "*L*: number of fitted components. Each arm column: geometric mean over paired replicates "
+    "of CAVI-Q2 seconds / arm seconds, with a 95% interval from resampling replicates. "
+    "Values above 1 mean the arm is faster than CAVI-Q2.")))
+```
+
+```{python}
+#| label: fig-speedup-axis
+#| echo: false
+#| fig-cap: "Speedup over CAVI-Q2 per cell, against each experiment's sweep axis (non-null cells). Geometric mean over paired replicates, 95% interval from resampling replicates. Dashed line: CAVI-Q2."
+RT.speedup_by_axis_figure(pf);
+```
+
+## Absolute times {#sec-absolute}
+
+```{python}
+#| label: tab-absolute
+#| echo: false
+#| output: asis
+ab = RT.absolute(df, ["exp", "L", "method"]).with_columns(
+    pl.format("{} s ({})", pl.col("secs").round(2), pl.col("sweeps").cast(pl.Int64)).alias("cell"))
+print(R.md_table(ab, rows=["exp", "L"], value="cell", fmt="{}", legend=(
+    "*exp*, *L*: as above. Each arm column: median wall-clock seconds per fit over "
+    "steady-state replicates, with the median number of IBSS sweeps in parentheses. "
+    "One core, Midway caslake.")))
+```
+
+## Per-sweep speedup {#sec-sweep}
+
+```{python}
+#| label: tab-sweep
+#| echo: false
+#| output: asis
+sw = RT.fmt_ci(RT.speedup(pf, ["exp", "L", "method"], col="sweep_ratio"))
+print(R.md_table(sw, rows=["exp", "L"], value="cell", fmt="{}", legend=(
+    "*exp*, *L*: as above. Each arm column: geometric mean over paired replicates of "
+    "(CAVI-Q2 seconds per IBSS sweep) / (arm seconds per IBSS sweep), 95% interval from "
+    "resampling replicates. Differs from the speedup table only through the sweep counts.")))
+```
+
+## Compilation {#sec-compile}
+
+```{python}
+#| label: tab-compile
+#| echo: false
+#| output: asis
+co = RT.compile_overhead(df).with_columns(
+    pl.format("{} s", pl.col("overhead").round(2)).alias("cell"))
+print(R.md_table(co, rows=["exp", "L"], value="cell", fmt="{}", legend=(
+    "*exp*, *L*: as above. Each arm column: per batch, first-replicate seconds minus the "
+    "median of replicates 2-10 in the same batch; median over batches. This is the one-off "
+    "JAX compilation cost per process, excluded from every table above.")))
+```
