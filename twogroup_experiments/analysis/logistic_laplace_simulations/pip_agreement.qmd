@@ -1,0 +1,130 @@
+---
+title: "Variable-selection agreement with CAVI-Q2"
+subtitle: "TV, KL and max |Δα| between each arm's single-effect posteriors and CAVI-Q2's, plus max |ΔPIP|, in experiments 022-024 at L=5 and L=1"
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))   # analysis/logistic_laplace_simulations -> analysis
+os.chdir("..")                                # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/logistic_laplace_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import laplacelib as R
+import pip_agreement as P
+
+comp, fits = P.load()
+cn, fn = comp.filter(~pl.col("null")), fits.filter(~pl.col("null"))
+```
+
+Every arm is compared with CAVI-Q2 on the same replicate. For single effect $l$,
+$\alpha_l$ is the posterior over which feature carries the effect: $\alpha_l =
+\text{softmax}(\log \text{BF}_l)$ under the uniform prior. Three distances between CAVI-Q2's
+$\alpha$ and the arm's $\alpha'$:
+
+- $\text{TV} = \tfrac12 \sum_j |\alpha_j - \alpha'_j|$, the largest change in the probability of
+  any set of features (a credible set is one).
+- $\text{KL}(\alpha \,\|\, \alpha') = \sum_j \alpha_j \log(\alpha_j / \alpha'_j)$, in nats,
+  computed from log BFs (no floor). Large when the arm puts little mass where CAVI-Q2 has mass.
+  It is the variable-selection term of the KL between the two single-effect posteriors.
+- $\max_j |\alpha_j - \alpha'_j|$, the largest single-feature change (TV over single features).
+
+At $L = 5$ the components are unordered, so each arm's components are matched to CAVI-Q2's by
+minimum total TV. At both $L$, a component pair counts only if at least one side declares it
+(component $\log \text{BF} \ge 2$); null components have diffuse $\alpha$ and their distances
+are noise. The last table is per fit and needs no matching: $\max_j |\text{PIP}_j -
+\text{PIP}'_j|$ over the combined PIPs. At $L = 1$ it equals $\max |\Delta\alpha|$ wherever a
+component is declared.
+
+Fits: 022 full grids (200 replicates), 023 and 024 full grids and `-ser` grids (200
+replicates). Non-null cells only.
+
+```{python}
+#| label: status
+#| echo: false
+#| output: asis
+st = (fn.group_by("exp", "L", maintain_order=True)
+      .agg(pl.col("batch_hash").n_unique().alias("batches"),
+           (pl.len() / pl.col("method").n_unique()).cast(pl.Int64).alias("reps"),
+           pl.col("n_pairs").mean().alias("pairs")).sort("exp", "L"))
+for r in st.iter_rows(named=True):
+    print(f"- {r['exp']}, L={r['L']}: {r['batches']} batches, {r['reps']} paired replicates per arm, "
+          f"{r['pairs']:.2f} declared component pairs per fit")
+```
+
+```{python}
+#| label: helpers
+#| include: false
+def table(df, value, legend, digits=3):
+    tab = P.fmt(P.summarize(df, value, ["exp", "L", "method"]), digits)
+    print(R.md_table(tab, rows=["exp", "L"], value="cell", fmt="{}", legend=legend))
+
+COMMON = ("*exp*: experiment (022 binary Markov sets, 023 Gaussian AR(1), 024 nested sets). "
+          "*L*: fitted components. Each arm column: mean over {unit}, with a 95% interval from "
+          "resampling replicates. 0 = identical to CAVI-Q2.")
+```
+
+## TV {#sec-tv}
+
+```{python}
+#| label: tab-tv
+#| echo: false
+#| output: asis
+table(cn, "tv", COMMON.format(unit="matched declared component pairs") +
+      " Value: total variation between the pair's alpha vectors, in [0, 1].")
+```
+
+## KL {#sec-kl}
+
+```{python}
+#| label: tab-kl
+#| echo: false
+#| output: asis
+table(cn, "kl", COMMON.format(unit="matched declared component pairs") +
+      " Value: KL(alpha_CAVI || alpha_arm) in nats.")
+```
+
+## Max |Δα| {#sec-max-alpha}
+
+```{python}
+#| label: tab-max-alpha
+#| echo: false
+#| output: asis
+table(cn, "max_alpha", COMMON.format(unit="matched declared component pairs") +
+      " Value: the largest absolute difference in alpha over features, in [0, 1].")
+```
+
+## Max |ΔPIP| per fit {#sec-max-pip}
+
+```{python}
+#| label: tab-max-pip
+#| echo: false
+#| output: asis
+table(fn, "max_pip", COMMON.format(unit="fits") +
+      " Value: the largest absolute PIP difference over features, in [0, 1]. Every fit "
+      "counts, declared components or not.")
+```
+
+## Per cell {#sec-cells}
+
+```{python}
+#| label: fig-cells-L5
+#| echo: false
+#| fig-cap: "L = 5: mean distance to CAVI-Q2 per cell against each experiment's sweep axis (non-null cells, matched declared component pairs). 95% intervals resample replicates."
+P.by_axis_figure(comp, 5);
+```
+
+```{python}
+#| label: fig-cells-L1
+#| echo: false
+#| fig-cap: "L = 1: as above, one component per fit."
+P.by_axis_figure(comp, 1);
+```
