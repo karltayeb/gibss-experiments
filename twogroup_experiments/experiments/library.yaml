@@ -1971,6 +1971,16 @@ methods:
   poisson_q2_L10_score:
     function: run_poisson_method
     template: {L: 10, method: score, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  # L=5 arms (025 background-rate experiment): same settings as the L10 arms above.
+  poisson_q2_L5_gibss:
+    function: run_poisson_method
+    template: {L: 5, variational_family: gaussian, offset_integration: none, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  poisson_q2_L5_cavi:
+    function: run_poisson_method
+    template: {L: 5, variational_family: gaussian, offset_integration: cf, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, max_iter: 50, freeze_prior_variance: 0.01}
+  poisson_q2_L5_score:
+    function: run_poisson_method
+    template: {L: 5, method: score, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   # fixed unit-prior (pv=1) twins: estimate_prior_variance off, prior_variance pinned to 1.
   poisson_q2_ser_gibss_pv1:
     function: run_poisson_method

@@ -34,6 +34,8 @@ Pure NumPy / SciPy - no jax, no gibss, no design generation.
 """
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 from scipy.stats import binom
 from scipy.special import xlogy
@@ -78,8 +80,10 @@ def e_lrt_binary(n, density, b0, beta, *, n_rep=40000, seed=0):
 # Gaussian AR1 design: Monte-Carlo (profiled Poisson MLE by Newton)            #
 # --------------------------------------------------------------------------- #
 def _seed_for(profile, b0, beta, salt=0):
-    """Deterministic per-point seed (no global RNG)."""
-    return int(hash((profile, round(float(b0), 6), round(float(beta), 6), int(salt))) & 0xFFFFFFFF)
+    """Deterministic per-point seed (no global RNG). hashlib, not hash(): str hashing is
+    salted per process, so hash() would give a different seed every run."""
+    key = f"{profile}:{round(float(b0), 6)}:{round(float(beta), 6)}:{int(salt)}".encode()
+    return int.from_bytes(hashlib.sha256(key).digest()[:4], "big")
 
 
 def _poisson_ll(eta, y):

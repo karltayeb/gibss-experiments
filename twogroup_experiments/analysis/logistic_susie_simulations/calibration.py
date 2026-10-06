@@ -36,6 +36,8 @@ Everything here is pure NumPy / SciPy - no jax, no gibss, no design generation.
 """
 from __future__ import annotations
 
+import hashlib
+
 import numpy as np
 from scipy.stats import binom
 from scipy.special import roots_hermitenorm, xlogy, logsumexp
@@ -147,9 +149,10 @@ def e_logbf_binary(n, density, b0, beta, *, prior_sd=1.0, m_tail=1e-9):
 # Gaussian AR1 design: Monte-Carlo (asymptotic 1+lambda is too loose)          #
 # --------------------------------------------------------------------------- #
 def _seed_for(profile, b0, beta):
-    """Deterministic per-point seed (no global RNG / Date.now)."""
-    key = (hash((profile, round(float(b0), 6), round(float(beta), 6))) & 0xFFFFFFFF)
-    return int(key)
+    """Deterministic per-point seed (no global RNG). hashlib, not hash(): str hashing is
+    salted per process, so hash() would give a different seed every run."""
+    key = f"{profile}:{round(float(b0), 6)}:{round(float(beta), 6)}".encode()
+    return int.from_bytes(hashlib.sha256(key).digest()[:4], "big")
 
 
 def _ll(eta, z):
