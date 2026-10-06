@@ -240,9 +240,11 @@ def _cs_blocks(cs, alpha, max_gap: int = 0):
 
 
 def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
-    """Rows = observation models on the same series: Poisson counts, and the Bernoulli
-    indicator "at least one disaster in the bin". Columns = exact posterior (Poisson-Gamma,
-    Beta-Bernoulli), exact CAVI, gIBSS. Each model row has a main panel (data, fitted
+    """Rows = observation models on the same series: Poisson counts, the Bernoulli
+    indicator "at least one disaster in the bin", and a Gaussian (linear) model of the raw
+    counts. Columns = the exact product-partition posterior for that model (Poisson-Gamma,
+    Beta-Bernoulli, Normal-Normal; titled by name), exact CAVI, gIBSS. Linear SuSiE IBSS
+    is exact CAVI, so the linear row shows one fit in both columns. Each model row has a main panel (data, fitted
     rate or probability, SuSiE effects with log BF > 0.5) over a strip with the
     per-boundary changepoint probability: the exact boundary marginal, or for SuSiE the
     alpha of those effects stacked by effect.
@@ -273,11 +275,20 @@ def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
          "exact_name": "Beta-Bernoulli", "exact_scale": 1.0,
          "fits": {"CAVI": f"cf_cavi_bernoulli_L{L}", "gIBSS": f"bernoulli_L{L}"},
          "ylabel": f"Bernoulli\nany disaster in {unit}"},
+        {"name": "Linear", "y": counts, "link": lambda e: e,
+         "exact": dict(np.load(RESULTS / res / "exact"
+                               / f"exact_normal_shape{ex['shape_default']}_p{ex['p_default']}.npz")),
+         "exact_name": "Normal-Normal", "exact_scale": 1.0,
+         "fits": {"CAVI": f"linear_L{L}", "gIBSS": f"linear_L{L}"},
+         "same_fit": True,
+         "ylabel": f"Linear\ndisasters per {unit}"},
     ]
     cols = ["exact", "CAVI", "gIBSS"]
-    fig = plt.figure(figsize=(6.5, 6.6))
-    gs = fig.add_gridspec(5, 3, height_ratios=[3, 1, 0.45, 3, 1], hspace=0.06, wspace=0.07,
-                          bottom=0.15, top=0.96)
+    nm = len(models)
+    ratios = [3, 1, 0.6] * nm
+    fig = plt.figure(figsize=(6.5, 3.3 * nm + 0.8))
+    gs = fig.add_gridspec(3 * nm - 1, 3, height_ratios=ratios[:-1], hspace=0.06,
+                          wspace=0.07, bottom=0.1, top=0.97)
     first = None
     n_effects = 0
     for i, mod in enumerate(models):
@@ -302,7 +313,7 @@ def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
                         color=EXACT, lw=1.3)
                 kp = e["k_prob"]
                 kmean = float(np.sum(np.arange(len(kp)) * kp))
-                ax.text(0.99, 0.84, f"{mod['exact_name']}\nE[k] = {kmean:.1f}",
+                ax.text(0.99, 0.84, f"E[k] = {kmean:.1f}",
                         transform=ax.transAxes, ha="right", va="top", fontsize=7, bbox=LABEL_BOX)
                 sx.vlines(bnd, 0, e["boundary_prob"], color=EXACT, lw=0.6)
             else:
@@ -335,11 +346,17 @@ def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
                 for r, l in enumerate(shown):
                     sx.vlines(bnd, base, base + fit["alpha"][l], color=COMP[r], lw=0.6)
                     base = base + fit["alpha"][l]
+                if mod.get("same_fit") and col == "gIBSS":
+                    ax.text(0.99, 0.84 - 0.09 * n_shown, "same fit as CAVI\n(Gaussian IBSS is CAVI)",
+                            transform=ax.transAxes, ha="right", va="top", fontsize=7,
+                            color="#555555", bbox=LABEL_BOX)
             ax.axhline(0, color="#777777", lw=0.5)
             ax.set_ylim(-ymax * (0.07 + 0.08 * max(n_shown, 2)), ymax * 1.14)
             ax.tick_params(labelbottom=False)
             ax.set_yticks([t for t in ax.get_yticks() if 0 <= t <= ymax])
-            if i == 0:
+            if col == "exact":
+                ax.set_title(mod["exact_name"], fontsize=10)
+            elif i == 0:
                 ax.set_title(col, fontsize=10)
             if j == 0:
                 ax.set_ylabel(mod["ylabel"])
@@ -347,7 +364,7 @@ def fig_model_compare(cfg: dict, res: str = "month", L: int = 5):
             else:
                 ax.tick_params(labelleft=False)
                 sx.tick_params(labelleft=False)
-            if i == 0:
+            if i < nm - 1:
                 sx.tick_params(labelbottom=False)
             else:
                 sx.set_xlabel("year")

@@ -7,7 +7,7 @@ Sensitivities: L, standardized basis, fixed prior variance, implementation
 (irls = plug-in IRLS), monthly resolution. cf_cavi (exact CAVI in Q2) runs at
 every resolution next to the default gIBSS fit. Monthly also fits a Bernoulli model to the
 indicator "at least one disaster this month" (gIBSS and exact CAVI), the binomial
-counterpart of the Poisson count model.
+counterpart of the Poisson count model, and linear SuSiE to the raw counts.
 Run from changepoints/:  uv run python scripts/03_fit_susie.py [year|month ...]
 """
 
@@ -42,6 +42,12 @@ def variants(cfg: dict, res: str):
                                       "response": "any"}
             yield f"cf_cavi_bernoulli_L{L}", {"L": L, "method": "cf_cavi",
                                               "family": "binomial", "response": "any"}
+            # linear SuSiE on the raw counts (estimated residual variance); IBSS is
+            # exact CAVI for a Gaussian likelihood, so one fit stands for both. Null effects
+            # shrink their prior variance slowly (ELBO gains ~2e-4/iter at 100 iterations,
+            # decaying geometrically), so allow more of the cheap linear iterations
+            yield f"linear_L{L}", {"L": L, "method": None, "family": "gaussian",
+                                   "max_iter": 500}
     if res == "year":
         for L in f["L"]:
             yield f"poisson_std_L{L}", {"L": L, "method": "poisson", "standardize": True}

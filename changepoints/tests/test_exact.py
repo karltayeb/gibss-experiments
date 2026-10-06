@@ -10,6 +10,7 @@ from scipy.stats import nbinom, poisson
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 from exact import (
+    NormalNormal,
     PoissonGamma,
     exact_posterior,
     single_changepoint_posterior,
@@ -85,3 +86,24 @@ def test_single_changepoint_sums_to_one():
     assert np.isclose(prob.sum(), 1.0)
     assert prob.argmax() in range(7, 12)
     assert log_bf > 0
+
+
+def test_normal_normal_segment_marginal_and_brute_force():
+    from scipy.stats import multivariate_normal
+
+    model = NormalNormal(m0=0.3, tau2=0.5, sigma2=0.2)
+    y = np.array([0.1, 1.4, -0.3, 0.8, 2.0, 1.7])
+    M = model.segment_logml(y)
+    for s, u in [(0, 1), (1, 4), (0, 6)]:
+        k = u - s
+        cov = model.sigma2 * np.eye(k) + model.tau2 * np.ones((k, k))
+        assert np.isclose(M[s, u], multivariate_normal(np.full(k, model.m0), cov).logpdf(y[s:u]))
+    seg = y[1:4]
+    prec = 1 / model.tau2 + len(seg) / model.sigma2
+    assert np.isclose(model.segment_mean(y)[1, 4],
+                      (model.m0 / model.tau2 + seg.sum() / model.sigma2) / prec)
+    post = exact_posterior(M, model.segment_mean(y), 0.3)
+    log_Z, boundary, _, profile = brute_force(y, model, 0.3)
+    assert np.isclose(post.log_evidence, log_Z)
+    np.testing.assert_allclose(post.boundary_prob, boundary, atol=1e-12)
+    np.testing.assert_allclose(post.mean_profile, profile, atol=1e-12)

@@ -215,17 +215,24 @@ CAVI matches the default within 1.5 nats (compared at both resolutions below). T
 every L and finds no second effect. Under the earlier gibss pin (2079de2) it reported
 36-37 nats; gibss 6646e02 fixed its null intercept.
 
-### Exact posterior, CAVI and gIBSS under two observation models
+### Exact posterior, CAVI and gIBSS under three observation models
 
-The monthly series is fitted twice: as Poisson counts, and as a Bernoulli indicator of at
-least one disaster in the month (21 of the 191 events share a month with another and
-drop out). Each model gets its exact product-partition posterior (Poisson-Gamma,
-Beta-Bernoulli with prior mean equal to the observed fraction of months, shape 1,
-p = 0.02 per year) next to exact CAVI and gIBSS at L=5.
+The monthly series is fitted three ways: as Poisson counts, as a Bernoulli indicator of
+at least one disaster in the month (21 of the 191 events share a month with another and
+drop out), and as a Gaussian (linear) model of the raw counts. Each model gets its exact
+product-partition posterior next to SuSiE at L=5, with p = 0.02 per year throughout:
+
+- Poisson-Gamma, Gamma prior with mean equal to the overall rate and shape 1.
+- Beta-Bernoulli, prior mean equal to the observed fraction of months, shape 1.
+- Normal-Normal, segment means N(m0, m0^2) with m0 the overall mean, noise variance from
+  the first-difference estimator.
+
+Linear SuSiE estimates its residual variance. Its IBSS is exact CAVI, so one fit fills
+both SuSiE columns of that row.
 
 ```{python}
 #| label: fig-coal-model-compare
-#| fig-cap: "Monthly coal series. Top pair of rows, Poisson counts; bottom pair, the Bernoulli indicator. Columns are the exact posterior, exact CAVI and gIBSS (L=5). Grey lines are the data, the black line the posterior mean rate or probability. Ticks under the axis mark every member of each SuSiE effect's 95% credible set, one row per effect; the shaded span is the block of the set carrying the most alpha (gaps of up to a year bridged), with its alpha mass above (faint = below the declaration threshold). The strip under each panel is the probability of a changepoint at each boundary: for the exact posterior its marginal (summing to E[k]); for SuSiE the alpha of the reported effects, stacked in effect colour. Each effect's alpha sums to 1 whatever its evidence, so read the SuSiE strips for location and the log BF for evidence."
+#| fig-cap: "Monthly coal series under three observation models: Poisson counts, the Bernoulli indicator, and a linear model of the counts. The first column is the exact posterior for each model, titled by name; then exact CAVI and gIBSS (L=5). Grey lines are the data, the black line the posterior mean rate or probability. Ticks under the axis mark every member of each SuSiE effect's 95% credible set, one row per effect; the shaded span is the block of the set carrying the most alpha (gaps of up to a year bridged), with its alpha mass above (faint = below the declaration threshold). The strip under each panel is the probability of a changepoint at each boundary: for the exact posterior its marginal (summing to E[k]); for SuSiE the alpha of the reported effects, stacked in effect colour. Each effect's alpha sums to 1 whatever its evidence, so read the SuSiE strips for location and the log BF for evidence."
 fig = cr.fig_model_compare(COAL)
 plt.show()
 ```

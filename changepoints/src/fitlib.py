@@ -15,7 +15,8 @@ def fit_step_susie(y: np.ndarray, *, L: int, family: str = "poisson",
                    estimate_prior_variance: bool = True, prior_variance: float = 1.0,
                    offset=0.0, coverage: float = 0.95, max_iter: int = 100,
                    X: np.ndarray | None = None, trials=None) -> dict:
-    """Fit and return a host-numpy record (no jax objects, picklable)."""
+    """Fit and return a host-numpy record (no jax objects, picklable). `eta` is the
+    fitted linear predictor: log rate, logit, or (gaussian) the mean itself."""
     from gibss.methods import fit_glm_susie
 
     n = len(y)
@@ -27,16 +28,27 @@ def fit_step_susie(y: np.ndarray, *, L: int, family: str = "poisson",
                   "estimate_intercept": True, "estimate_prior_variance": estimate_prior_variance,
                   "prior_variance": prior_variance, "max_iter": max_iter}
     t0 = time.time()
-    state = fit_glm_susie(X, np.asarray(y, dtype=float), **kwargs)
+    if family == "gaussian":
+        # dedicated linear stack: estimates the residual variance (the GLM front door's
+        # gaussian family holds it fixed at 1, which flattens every Bayes factor)
+        from gibss.linear import fit_linear_susie
+
+        state = fit_linear_susie(X, np.asarray(y, dtype=float), L=L, center=True,
+                                 estimate_intercept=True,
+                                 estimate_prior_variance=estimate_prior_variance,
+                                 prior_variance=prior_variance, max_iter=max_iter)
+    else:
+        state = fit_glm_susie(X, np.asarray(y, dtype=float), **kwargs)
     elapsed = time.time() - t0
     fs = state.family_state
+    intercept = float(fs.intercept if family == "gaussian" else fs.intercept_value)
     alpha = np.asarray(state.alpha)
     mu = np.asarray(state.mu)
     var = np.asarray(state.var) if hasattr(state, "var") else np.stack(
         [np.asarray(e.var) for e in state.single_effects])
     post_mean = np.sum(alpha * mu, axis=0)  # on the (possibly scaled) columns
     Xc = X - X.mean(axis=0)
-    eta = float(fs.intercept_value) + Xc @ post_mean
+    eta = intercept + Xc @ post_mean
     cs = state.get_credible_sets(coverage)
     return {
         "L": L, "family": family, "method": method or family, "standardize": standardize,
@@ -47,7 +59,8 @@ def fit_step_susie(y: np.ndarray, *, L: int, family: str = "poisson",
         "alpha": alpha, "mu": mu / scale, "var": var / scale**2, "scale": scale,
         "ser_log_bf": np.asarray(state.ser_log_bf, dtype=float),
         "prior_variance": np.array([float(e.prior_variance) for e in state.single_effects]),
-        "intercept": float(fs.intercept_value), "eta": np.asarray(eta),
+        "intercept": intercept, "eta": np.asarray(eta),
+        "residual_variance": (float(fs.residual_variance) if family == "gaussian" else None),
         "pip": np.asarray(state.pip), "cs": [tuple(int(i) for i in c) for c in cs],
     }
 

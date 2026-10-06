@@ -11,6 +11,7 @@ O(n^2 kmax) for the distribution of the number of changepoints.
 Segment models (log marginal likelihood of y[s:u] as one segment):
   PoissonGamma: y_i ~ Poisson(lambda e_i), lambda ~ Gamma(shape a, rate b)
   BetaBinomial: y_i ~ Binomial(m_i, theta), theta ~ Beta(a, b)
+  NormalNormal: y_i ~ N(mu, sigma2), mu ~ N(m0, tau2), sigma2 known and shared
 """
 
 from __future__ import annotations
@@ -86,6 +87,40 @@ class BetaBinomial:
         K = ck[None, :] - ck[:, None]
         Mt = cm[None, :] - cm[:, None]
         return (self.a + K) / (self.a + self.b + Mt)
+
+
+@dataclass(frozen=True)
+class NormalNormal:
+    m0: float
+    tau2: float
+    sigma2: float
+
+    def _sums(self, y: np.ndarray):
+        y = np.asarray(y, dtype=float)
+        cs = np.concatenate([[0.0], np.cumsum(y)])
+        cq = np.concatenate([[0.0], np.cumsum(y * y)])
+        n = y.shape[0]
+        k = np.arange(n + 1)
+        K = (k[None, :] - k[:, None]).astype(float)
+        return K, cs[None, :] - cs[:, None], cq[None, :] - cq[:, None]
+
+    def segment_logml(self, y: np.ndarray) -> np.ndarray:
+        """log N(y[s:u]; m0 1, sigma2 I + tau2 J), from the segment's length, sum and
+        sum of squares (Sherman-Morrison for the inverse, matrix determinant lemma)."""
+        K, S, Q = self._sums(y)
+        s2, t2, m0 = self.sigma2, self.tau2, self.m0
+        r1 = S - K * m0  # sum of residuals about m0
+        r2 = Q - 2 * m0 * S + K * m0**2  # sum of squared residuals about m0
+        with np.errstate(invalid="ignore", divide="ignore"):
+            quad = (r2 - t2 * r1**2 / (s2 + K * t2)) / s2
+            M = -0.5 * (K * np.log(2 * np.pi * s2) + np.log1p(K * t2 / s2) + quad)
+        s, u = np.indices(M.shape)
+        M[~(s < u)] = _NEG_INF
+        return M
+
+    def segment_mean(self, y: np.ndarray) -> np.ndarray:
+        K, S, _ = self._sums(y)
+        return (self.m0 / self.tau2 + S / self.sigma2) / (1 / self.tau2 + K / self.sigma2)
 
 
 @dataclass
