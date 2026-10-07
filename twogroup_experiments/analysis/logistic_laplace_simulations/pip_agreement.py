@@ -79,7 +79,8 @@ def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict, n
     for i, k in enumerate(match(la, lb)):
         dr, da = bool(lbf_a[i] >= R.MIN_LOG_BF), bool(lbf_b[k] >= R.MIN_LOG_BF)
         group = GROUPS[0] if dr and da else GROUPS[1] if dr else GROUPS[2] if da else GROUPS[3]
-        out.append({**_dist(la[i], lb[k]), "declared_ref": dr, "declared_arm": da, "group": group})
+        out.append({**_dist(la[i], lb[k]), "declared_ref": dr, "declared_arm": da, "group": group,
+                    "min_log_bf": float(min(lbf_a[i], lbf_b[k]))})
     # Matched alphas compared feature by feature, grouped by which side declares the pair. A pair
     # that crosses the threshold (CAVI-only / arm-only) is its own group. NaN when a fit has no
     # pair in the group. |dPIP_j| <= sum_l |dalpha_lj|, so these bound the PIP gap.
@@ -354,6 +355,51 @@ def group_cells(fits: pl.DataFrame, group: str) -> pl.DataFrame:
             .agg((pl.col(col) > 0.1).mean().alias("hi"), pl.len().alias("n"))
             .with_columns(pl.format("{}% ({})", (100 * pl.col("hi")).round(1), pl.col("n"))
                           .alias("cell")))
+
+
+BARS = np.arange(-1.0, 10.01, 0.25)
+
+
+def bar_figure(comp: pl.DataFrame, L: int, bars=BARS, n_boot: int = 0):
+    """Columns = experiments. x = bar t on the pair's smaller component log BF (both sides must
+    reach t). Rows: share of surviving pairs with TV > 0.1, share with TV > 0.01, and surviving
+    pairs per fit. One line per arm; non-null cells. t = 2 is the both-declare group."""
+    import matplotlib.pyplot as plt
+    exps = ["022", "023", "024"]
+    rows = [("share of pairs\nwith TV > 0.1", 0.1), ("share of pairs\nwith TV > 0.01", 0.01),
+            ("pairs per fit", None)]
+    fig, axes = plt.subplots(len(rows), 3, figsize=(6.5, 5.6), sharex=True, sharey="row")
+    sub_l = comp.filter((pl.col("L") == L) & ~pl.col("null"))
+    for j, exp in enumerate(exps):
+        sub = sub_l.filter(pl.col("exp") == exp)
+        for m in ARMS:
+            d = sub.filter(pl.col("method") == m)
+            if d.height == 0:
+                continue
+            lbf, tv = d["min_log_bf"].to_numpy(), d["tv"].to_numpy()
+            n_fits = d.select(pl.struct("batch_hash", "rep").n_unique()).item()
+            keep = lbf[None, :] >= bars[:, None]
+            n = keep.sum(1)
+            with np.errstate(invalid="ignore", divide="ignore"):
+                vals = [(keep & (tv > cut)).sum(1) / n if cut is not None else n / n_fits
+                        for _, cut in rows]
+            for i, v in enumerate(vals):
+                v = np.where(n >= 20, v, np.nan) if rows[i][1] is not None else v
+                axes[i, j].plot(bars, v, color=R.METHOD_COLOR[m], lw=1.2, label=R.METHOD_LABEL[m])
+        for i in range(len(rows)):
+            ax = axes[i, j]
+            ax.axvline(R.MIN_LOG_BF, color="0.6", lw=0.6, ls=":")
+            ax.grid(True, alpha=0.25)
+            ax.tick_params(labelsize=7)
+            if j == 0:
+                ax.set_ylabel(rows[i][0], fontsize=8)
+        axes[0, j].set_title(f"{exp} ({_DESIGN[exp]})", fontsize=8)
+        axes[-1, j].set_xlabel("bar on min component log BF", fontsize=7.5)
+    h, lab = axes[0, 0].get_legend_handles_labels()
+    fig.legend(h, lab, loc="upper center", ncol=len(lab), fontsize=7, frameon=False)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    return fig
+
 
 _DESIGN = {"022": "binary Markov", "023": "Gaussian AR(1)", "024": "nested"}
 
