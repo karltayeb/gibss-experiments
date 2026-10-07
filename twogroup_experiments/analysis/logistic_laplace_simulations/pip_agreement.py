@@ -61,26 +61,48 @@ def _pip(la: np.ndarray) -> np.ndarray:
     return 1.0 - np.prod(1.0 - np.exp(la), axis=0)
 
 
-def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], float]:
-    """Component-pair distances (matched, declared-on-either-side) and the per-fit max |dPIP|."""
+def match(la: np.ndarray, lb: np.ndarray) -> np.ndarray:
+    """Arm component index matched to each reference component (minimum total TV)."""
+    tv = 0.5 * np.abs(np.exp(la)[:, None, :] - np.exp(lb)[None, :, :]).sum(-1)
+    _, cols = linear_sum_assignment(tv)   # identity at L=1
+    return cols
+
+
+def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict, np.ndarray, np.ndarray]:
+    """Component-pair distances (matched, declared-on-either-side), per-fit summaries, and the
+    two PIP vectors (reference, arm)."""
     la, lbf_a = _components(ref_se)
     lb, lbf_b = _components(arm_se)
-    max_pip = float(np.abs(_pip(la) - _pip(lb)).max())
-    tv = 0.5 * np.abs(np.exp(la)[:, None, :] - np.exp(lb)[None, :, :]).sum(-1)
-    rows, cols = linear_sum_assignment(tv)   # identity at L=1
+    pa, pb = _pip(la), _pip(lb)
+    dpip = np.abs(pa - pb)
     out = []
-    for i, k in zip(rows, cols):
+    for i, k in enumerate(match(la, lb)):
         dr, da = bool(lbf_a[i] >= R.MIN_LOG_BF), bool(lbf_b[k] >= R.MIN_LOG_BF)
         if dr or da:
             out.append({**_dist(la[i], lb[k]), "declared_ref": dr, "declared_arm": da})
-    return out, max_pip
+    fit = {"max_pip": float(dpip.max()), "argmax_pip": int(dpip.argmax()),
+           "n_decl_ref": int((lbf_a >= R.MIN_LOG_BF).sum()),
+           "n_decl_arm": int((lbf_b >= R.MIN_LOG_BF).sum())}
+    return out, fit, pa, pb
 
 
-def load(sources=SOURCES, results_root: str = RESULTS) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """(component-pair frame, per-fit frame). One row per matched declared component pair /
-    per (arm, replicate). Cells carry exp, L, m, T, depth, gap, null."""
+PIP_FLOOR = 0.05   # feature frame keeps features with PIP >= this on either side
+
+
+def load(sources=SOURCES, results_root: str = RESULTS
+         ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """(component-pair frame, per-fit frame, feature frame).
+
+    * component pairs: one row per matched declared component pair.
+    * fits: one row per (arm, replicate): max |dPIP| and the feature attaining it, declared
+      component counts on each side, q2 ELBO difference (arm - CAVI-Q2), and both fits.parquet
+      paths so a single replicate can be re-read (``replicate_pair``).
+    * features: one row per (arm, replicate, feature) with PIP >= PIP_FLOOR on either side;
+      every other feature has both PIPs below the floor.
+
+    Cells carry exp, L, m, T, depth, gap, null."""
     cfg = loader.load_config()
-    comp_rows, fit_rows = [], []
+    comp_rows, fit_rows, feat_parts = [], [], []
     for exp, L, sc in sources:
         by_batch: dict[str, dict] = {}
         for coll in loader.collection_method_pairs(cfg, sc).values():
@@ -94,22 +116,40 @@ def load(sources=SOURCES, results_root: str = RESULTS) -> tuple[pl.DataFrame, pl
             if "cavi" not in cell["fits"]:
                 continue
             meta = {k: cell["meta"][k] for k in ("m", "T", "depth", "gap", "null")}
-            ref = {r["replicate"]: r["single_effects"] for r in
-                   pl.read_parquet(cell["fits"]["cavi"], columns=["replicate", "single_effects"])
-                   .iter_rows(named=True)}
+            cols = ["replicate", "single_effects", "q2_elbo"]
+            ref = {r["replicate"]: r for r in
+                   pl.read_parquet(cell["fits"]["cavi"], columns=cols).iter_rows(named=True)}
             for method, f in cell["fits"].items():
                 if method == "cavi":
                     continue
-                for r in pl.read_parquet(f, columns=["replicate", "single_effects"]).iter_rows(named=True):
+                for r in pl.read_parquet(f, columns=cols).iter_rows(named=True):
                     rep = r["replicate"]
                     if rep not in ref:
                         continue
-                    pairs, max_pip = compare(ref[rep], r["single_effects"])
+                    pairs, fit, pa, pb = compare(ref[rep]["single_effects"], r["single_effects"])
                     key = {"exp": exp, "L": L, "method": method, "batch_hash": bh, "rep": rep, **meta}
-                    fit_rows.append({**key, "max_pip": max_pip, "n_pairs": len(pairs)})
+                    fit_rows.append({**key, **fit, "n_pairs": len(pairs),
+                                     "d_elbo": r["q2_elbo"] - ref[rep]["q2_elbo"],
+                                     "ref_file": cell["fits"]["cavi"], "arm_file": f})
                     comp_rows.extend({**key, **p} for p in pairs)
+                    keep = np.flatnonzero(np.maximum(pa, pb) >= PIP_FLOOR)
+                    feat_parts.append(pl.DataFrame({
+                        "exp": exp, "L": L, "method": method, "null": meta["null"],
+                        "j": keep.astype(np.int32), "pip_ref": pa[keep], "pip_arm": pb[keep]}))
     return (pl.DataFrame(comp_rows, infer_schema_length=None),
-            pl.DataFrame(fit_rows, infer_schema_length=None))
+            pl.DataFrame(fit_rows, infer_schema_length=None),
+            pl.concat(feat_parts))
+
+
+def replicate_pair(row: dict) -> tuple[list[dict], list[dict], list[int]]:
+    """(CAVI-Q2 single effects, arm single effects, causal feature indices) for one per-fit
+    row of ``load``."""
+    def read(f):
+        return (pl.read_parquet(f, columns=["replicate", "single_effects", "credible_sets"])
+                .filter(pl.col("replicate") == row["rep"]).row(0, named=True))
+    ref, arm = read(row["ref_file"]), read(row["arm_file"])
+    causal = sorted({j for cs in ref["credible_sets"] for j in cs["causal_indices"]})
+    return ref["single_effects"], arm["single_effects"], causal
 
 
 def _boot_ci(x: np.ndarray, groups: np.ndarray, n_boot: int = 2000, seed: int = 0):
@@ -188,4 +228,185 @@ def by_axis_figure(comp: pl.DataFrame, L: int):
     fig.legend(handles.values(), handles.keys(), loc="upper center", ncol=max(len(handles), 1),
                fontsize=7, frameon=False)
     fig.tight_layout(rect=(0, 0, 1, 0.95))
+    return fig
+
+
+# ------------------------------------------------------------------------------ per replicate
+BANDS = [(0.01, "≤ 0.01"), (0.1, "0.01-0.1"), (1.0, "> 0.1")]
+
+
+def band(col: str = "max_pip") -> pl.Expr:
+    return (pl.when(pl.col(col) <= 0.01).then(pl.lit(BANDS[0][1]))
+            .when(pl.col(col) <= 0.1).then(pl.lit(BANDS[1][1]))
+            .otherwise(pl.lit(BANDS[2][1])).alias("band"))
+
+
+def quantile_cells(fits: pl.DataFrame, value: str = "max_pip") -> pl.DataFrame:
+    """'median / 90th / 99th percentile' strings per (exp, L, method)."""
+    return (fits.group_by("exp", "L", "method")
+            .agg([pl.col(value).quantile(q, "linear").alias(f"q{int(q * 100)}")
+                  for q in (0.5, 0.9, 0.99)])
+            .with_columns(pl.format("{} / {} / {}", *[pl.col(c).round(3) for c in ("q50", "q90", "q99")])
+                          .alias("cell")))
+
+
+def share_cells(fits: pl.DataFrame, value: str = "max_pip") -> pl.DataFrame:
+    """'% <= 0.01 / % > 0.1' strings per (exp, L, method)."""
+    return (fits.group_by("exp", "L", "method")
+            .agg((pl.col(value) <= 0.01).mean().alias("lo"), (pl.col(value) > 0.1).mean().alias("hi"))
+            .with_columns(pl.format("{}% / {}%", (100 * pl.col("lo")).round(1), (100 * pl.col("hi")).round(1))
+                          .alias("cell")))
+
+
+def tail_table(fits: pl.DataFrame, methods=("gibss", "laplace"), nats: float = 0.1) -> pl.DataFrame:
+    """Per arm and max |dPIP| band: fit count, median ELBO difference (arm - CAVI-Q2), the share
+    of fits where CAVI-Q2's ELBO is higher by more than `nats` / the arm's is, and the share with
+    a different number of declared components."""
+    return (fits.filter(pl.col("method").is_in(list(methods))).with_columns(band())
+            .group_by("method", "L", "band")
+            .agg(pl.len().alias("fits"),
+                 pl.col("d_elbo").median().alias("median ΔELBO"),
+                 (pl.col("d_elbo") < -nats).mean().alias("CAVI-Q2 higher"),
+                 (pl.col("d_elbo") > nats).mean().alias("arm higher"),
+                 (pl.col("n_decl_ref") != pl.col("n_decl_arm")).mean().alias("declared count differs"))
+            .with_columns(pl.col("band").replace_strict({b: i for i, (_, b) in enumerate(BANDS)},
+                                                       return_dtype=pl.Int8).alias("_o"))
+            .sort(pl.col("method").replace_strict({m: i for i, m in enumerate(R.METHODS)},
+                                                  return_dtype=pl.Int8), "L", "_o")
+            .drop("_o")
+            .with_columns(pl.col("method").replace_strict(R.METHOD_LABEL).alias("arm"))
+            .select("arm", "L", "band", "fits", "median ΔELBO", "CAVI-Q2 higher",
+                    "arm higher", "declared count differs"))
+
+
+def md_frame(df: pl.DataFrame, fmts: dict[str, str], legend: str = "") -> str:
+    """Markdown table of a frame; `fmts` maps column -> format string (others via str)."""
+    cols = df.columns
+    lines = ["| " + " | ".join(cols) + " |", "|" + "---|" * len(cols)]
+    for r in df.iter_rows(named=True):
+        lines.append("| " + " | ".join(fmts[c].format(r[c]) if c in fmts else str(r[c])
+                                       for c in cols) + " |")
+    return "\n".join(lines) + (f"\n\n{legend}" if legend else "")
+
+
+def survival_figure(fits: pl.DataFrame, floor: float = 1e-4):
+    """Rows = L (1, 5), columns = experiments: share of fits with max |dPIP| > x, one line per
+    arm, log-log. Values below `floor` are drawn at the floor."""
+    import matplotlib.pyplot as plt
+    exps, Ls = ["022", "023", "024"], [1, 5]
+    fig, axes = plt.subplots(2, 3, figsize=(6.5, 4.4), sharex=True, sharey=True)
+    for i, L in enumerate(Ls):
+        for j, exp in enumerate(exps):
+            ax = axes[i, j]
+            sub = fits.filter((pl.col("L") == L) & (pl.col("exp") == exp))
+            for m in ARMS:
+                x = np.sort(np.maximum(sub.filter(pl.col("method") == m)["max_pip"].to_numpy(), floor))
+                if x.size == 0:
+                    continue
+                surv = 1.0 - np.arange(1, x.size + 1) / x.size
+                ax.step(x[:-1], surv[:-1], where="post", color=R.METHOD_COLOR[m], lw=1.1,
+                        label=R.METHOD_LABEL[m])
+            for v in (0.01, 0.1):
+                ax.axvline(v, color="0.6", lw=0.6, ls=":")
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+            ax.set_xlim(floor, 1)
+            ax.set_ylim(1e-3, 1.05)
+            ax.grid(True, which="major", alpha=0.25)
+            ax.tick_params(labelsize=7)
+            if i == 0:
+                ax.set_title(f"{exp} ({_DESIGN[exp]})", fontsize=8)
+            if i == 1:
+                ax.set_xlabel("max |ΔPIP| in the fit", fontsize=7.5)
+            if j == 0:
+                ax.set_ylabel(f"L = {L}\nshare of fits above x", fontsize=8)
+    h, lab = axes[0, 0].get_legend_handles_labels()
+    fig.legend(h, lab, loc="upper center", ncol=len(lab), fontsize=7, frameon=False)
+    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    return fig
+
+
+_DESIGN = {"022": "binary Markov", "023": "Gaussian AR(1)", "024": "nested"}
+
+
+def scatter_figure(feat: pl.DataFrame, L: int = 5):
+    """Rows = experiments, columns = arms: per-feature PIP, arm vs CAVI-Q2, pooled over
+    replicates and non-null cells, as a hexbin with log counts. Only features with PIP >=
+    PIP_FLOOR on either side (every other feature sits in the corner below it)."""
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm
+    exps = ["022", "023", "024"]
+    fig, axes = plt.subplots(3, len(ARMS), figsize=(6.5, 4.3), sharex=True, sharey=True)
+    sub_l = feat.filter((pl.col("L") == L) & ~pl.col("null"))
+    for i, exp in enumerate(exps):
+        for k, m in enumerate(ARMS):
+            ax = axes[i, k]
+            d = sub_l.filter((pl.col("exp") == exp) & (pl.col("method") == m))
+            ax.hexbin(d["pip_ref"].to_numpy(), d["pip_arm"].to_numpy(), gridsize=30,
+                      extent=(0, 1, 0, 1), norm=LogNorm(vmin=1, vmax=1e5), cmap="Blues",
+                      mincnt=1, linewidths=0)
+            ax.plot([0, 1], [0, 1], color="0.5", lw=0.5)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
+            ax.set_aspect("equal")
+            ax.tick_params(labelsize=6)
+            if i == 0:
+                ax.set_title(R.METHOD_LABEL[m], fontsize=7.5, color=R.METHOD_COLOR[m])
+            if i == 2:
+                ax.set_xlabel("PIP, CAVI-Q2", fontsize=7)
+            if k == 0:
+                ax.set_ylabel(f"{exp}\nPIP, arm", fontsize=7)
+    fig.tight_layout()
+    return fig
+
+
+def _cs(alpha: np.ndarray, coverage: float = 0.95) -> np.ndarray:
+    o = np.argsort(-alpha)
+    return o[: int(np.searchsorted(np.cumsum(alpha[o]), coverage) + 1)]
+
+
+class _State:
+    """The interface gibss.plotting.plot_pip reads, built from stored single effects."""
+
+    def __init__(self, se: list[dict], order=None):
+        se = [se[k] for k in order] if order is not None else se
+        self.alpha = np.stack([np.asarray(e["alpha"], dtype=float) for e in se])
+        self.ser_log_bf = np.array([e["ser_log_bf"] for e in se], dtype=float)
+        self.pip = 1.0 - np.prod(1.0 - self.alpha, axis=0)
+
+    def get_credible_sets(self, coverage: float = 0.95):
+        return [_cs(a, coverage) for a in self.alpha]
+
+
+def replicate_figure(rows: list[dict], window: int = 24):
+    """One row per fit: CAVI-Q2 (left) and the arm (right) PIP plots via gibss.plotting.plot_pip,
+    declared credible sets only, the arm's components reordered to their CAVI-Q2 match so a
+    matched pair shares a colour. x is cropped to features with PIP >= 0.02 on either side,
+    padded by `window`."""
+    import matplotlib.pyplot as plt
+    from gibss.plotting import plot_pip
+    fig, axes = plt.subplots(len(rows), 2, figsize=(6.5, 1.75 * len(rows)), sharey=True,
+                             squeeze=False)
+    for i, row in enumerate(rows):
+        ref_se, arm_se, causal = replicate_pair(row)
+        order = match(_components(ref_se)[0], _components(arm_se)[0])
+        states = [_State(ref_se), _State(arm_se, order)]
+        hot = np.flatnonzero(np.maximum(states[0].pip, states[1].pip) >= 0.02)
+        lo = max(int(hot.min()) - window, 0) if hot.size else 0
+        hi = int(hot.max()) + window if hot.size else len(states[0].pip)
+        for k, (st, name) in enumerate(zip(states, ["cavi", row["method"]])):
+            ax = axes[i, k]
+            plot_pip(st, causal_idx=causal, min_log_bf=R.MIN_LOG_BF, ax=ax, show_legend=False)
+            ax.set_xlim(lo - 0.5, min(hi, len(st.pip)) - 0.5)
+            ax.tick_params(labelsize=6)
+            ax.set_xlabel("feature" if i == len(rows) - 1 else "", fontsize=7)
+            ax.set_ylabel("PIP" if k == 0 else "", fontsize=7)
+            cellname = ", ".join(f"{c} = {row[c]}" for c in dict.fromkeys((axis_col(row["exp"]), "T", "gap")))
+            title = f"{R.METHOD_LABEL[name]}"
+            if k == 0:
+                title += f"   ({row['exp']}: {cellname}, rep {row['rep']})"
+            else:
+                title += f"   max |ΔPIP| {row['max_pip']:.2f}, ΔELBO {row['d_elbo']:+.2f}"
+            ax.set_title(title, fontsize=7, loc="left")
+    fig.tight_layout()
     return fig
