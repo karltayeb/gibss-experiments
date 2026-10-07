@@ -3,7 +3,7 @@
 Per design (gaussian / binary / block), one figure: rows = coverage of declared CSs (arm minus
 CAVI), power (fraction of causals captured by a declared CS, arm minus CAVI), CS size (ratio of
 mean declared-CS size, arm over CAVI, log axis) and ELBO (arm minus CAVI, nats, common Q2 ELBO).
-Columns = signal T. x = lambda0 (log). The ELBO row shows gIBSS only: score's Q2 ELBO collapses
+Columns = signal T. x = lambda0 (log). The ELBO row shows the gIBSS arms only: score's Q2 ELBO collapses
 at low rate (~-1e15 nats at lambda0 = 0.01), which the per-cell parquet still records. Colour = arm; solid = gap 8 (correlated causals), dashed =
 gap 64. The -ser variant (one causal, L=1) has no gap and no ELBO row (gIBSS-Q2 == CAVI-Q2 at L=1).
 Declared = 95% CS of a component with SER log BF >= 2. Bands = 95% CI from resampling replicates
@@ -31,11 +31,11 @@ import experiments.loader as loader  # noqa: E402
 RESULTS = os.path.join(_TG, "results")
 CACHE = os.path.join(_HERE, ".cache")
 REF = "cavi"
-ARMS = ["gibss", "score"]
-LABEL = {"cavi": "CAVI-Q2", "gibss": "gIBSS-Q2", "score": "score"}
-COLOR = {"gibss": "#0072B2", "score": "#CC79A7"}       # resultslib palette
+ARMS = ["gibss", "laplace", "score"]
+LABEL = {"cavi": "CAVI-Q2", "gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "score": "score"}
+COLOR = {"gibss": "#0072B2", "laplace": "#009E73", "score": "#CC79A7"}
 GAP_STYLE = {8: "-", 64: "--", None: "-"}
-DODGE = {"gibss": 0.93, "score": 1.07}
+DODGE = {"gibss": 0.9, "laplace": 1.0, "score": 1.1}
 MIN_LOG_BF = 2.0
 IDX95 = 94                                              # CS_BETA_GRID index of 0.95
 DESIGN_TITLE = {"gaussian": "AR1 Gaussian (n=500, rho=0.9)",
@@ -179,7 +179,7 @@ def delta_frame(rep: pl.DataFrame, elbo: pl.DataFrame | None, seed: int = 0) -> 
     return pl.DataFrame(rows).sort("metric", "method", "gap", "T", "lambda0", nulls_last=True)
 
 
-ROW_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size ratio", "elbo": "ELBO, gIBSS\n(nats)"}
+ROW_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size ratio", "elbo": "ELBO, gIBSS\narms (nats)"}
 ROW_REF = {"coverage": 0.0, "power": 0.0, "size": 1.0, "elbo": 0.0}
 
 
@@ -194,8 +194,8 @@ def draw(df: pl.DataFrame, title: str):
         for j, T in enumerate(Ts):
             ax = axes[i][j]
             ax.axhline(ROW_REF[metric], color="0.55", lw=0.8, ls=":", zorder=0)
-            # score's Q2 ELBO collapses (to ~-1e15 at lambda0 = 0.01): ELBO row is gIBSS only
-            for m in (["gibss"] if metric == "elbo" else ARMS):
+            # score's Q2 ELBO collapses (to ~-1e15 at lambda0 = 0.01): ELBO row is gIBSS arms only
+            for m in ([a for a in ARMS if a != "score"] if metric == "elbo" else ARMS):
                 for gap in gaps:
                     s = df.filter(pl.col("metric") == metric, pl.col("method") == m, pl.col("T") == T,
                                   (pl.col("gap") == gap) if gap is not None else pl.col("gap").is_null()).sort("lambda0")

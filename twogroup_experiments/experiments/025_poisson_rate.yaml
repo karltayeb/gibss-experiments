@@ -10,7 +10,7 @@ _anchors:
   default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
 
 supercollections:
-  # gaussian: 44 cells x 3 L=5 arms, 200 reps; pilot = batch 0.
+  # gaussian: 44 cells x 4 L=5 arms, 200 reps; pilot = batch 0.
   025-rate-gaussian:
     replicates_per_batch: 10
     n_batches: 20
@@ -62,10 +62,10 @@ supercollections:
               - {label: mc3_r100_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.0216, 0.0216, 0.0216], gap: 8}, intercept: 4.6052}
               - {label: mc3_r100_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.0216, 0.0216, 0.0216], gap: 64}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score]
+    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_gaussian, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score], analyses: [pip, cs]}
+      - {name: 025_rate_gaussian, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score], analyses: [pip, cs]}
 
   025-rate-gaussian-pilot:
     replicates_per_batch: 10
@@ -118,12 +118,12 @@ supercollections:
               - {label: mc3_r100_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.0216, 0.0216, 0.0216], gap: 8}, intercept: 4.6052}
               - {label: mc3_r100_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.0216, 0.0216, 0.0216], gap: 64}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score]
+    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_gaussian_pilot, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score], analyses: [pip, cs]}
+      - {name: 025_rate_gaussian_pilot, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score], analyses: [pip, cs]}
 
-  # gaussian single effect: 24 cells x 3 L=1 SER arms.
+  # gaussian single effect: 24 cells x 4 L=1 SER arms.
   025-rate-gaussian-ser:
     replicates_per_batch: 10
     n_batches: 20
@@ -155,10 +155,10 @@ supercollections:
               - {label: ser_r100_T20, function: spaced_index_effect, arguments: {causal_effects: [0.0194], gap: 64}, intercept: 4.6052}
               - {label: ser_r100_T24, function: spaced_index_effect, arguments: {causal_effects: [0.0216], gap: 64}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score]
+    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_gaussian_ser, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score], analyses: [pip, cs]}
+      - {name: 025_rate_gaussian_ser, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score], analyses: [pip, cs]}
 
   025-rate-gaussian-ser-pilot:
     replicates_per_batch: 10
@@ -191,12 +191,12 @@ supercollections:
               - {label: ser_r100_T20, function: spaced_index_effect, arguments: {causal_effects: [0.0194], gap: 64}, intercept: 4.6052}
               - {label: ser_r100_T24, function: spaced_index_effect, arguments: {causal_effects: [0.0216], gap: 64}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score]
+    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_gaussian_ser_pilot, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score], analyses: [pip, cs]}
+      - {name: 025_rate_gaussian_ser_pilot, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score], analyses: [pip, cs]}
 
-  # binary: 44 cells x 3 L=5 arms, 200 reps; pilot = batch 0.
+  # binary: 44 cells x 4 L=5 arms, 200 reps; pilot = batch 0.
   025-rate-binary:
     replicates_per_batch: 10
     n_batches: 20
@@ -248,10 +248,10 @@ supercollections:
               - {label: mc3_r100_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.0502, 0.0502, 0.0502], gap: 8}, intercept: 4.6052}
               - {label: mc3_r100_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.0502, 0.0502, 0.0502], gap: 64}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score]
+    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_binary, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score], analyses: [pip, cs]}
+      - {name: 025_rate_binary, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score], analyses: [pip, cs]}
 
   025-rate-binary-pilot:
     replicates_per_batch: 10
@@ -304,12 +304,12 @@ supercollections:
               - {label: mc3_r100_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.0502, 0.0502, 0.0502], gap: 8}, intercept: 4.6052}
               - {label: mc3_r100_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.0502, 0.0502, 0.0502], gap: 64}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score]
+    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_binary_pilot, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score], analyses: [pip, cs]}
+      - {name: 025_rate_binary_pilot, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score], analyses: [pip, cs]}
 
-  # binary single effect: 24 cells x 3 L=1 SER arms.
+  # binary single effect: 24 cells x 4 L=1 SER arms.
   025-rate-binary-ser:
     replicates_per_batch: 10
     n_batches: 20
@@ -341,10 +341,10 @@ supercollections:
               - {label: ser_r100_T20, function: spaced_index_effect, arguments: {causal_effects: [0.0450], gap: 64}, intercept: 4.6052}
               - {label: ser_r100_T24, function: spaced_index_effect, arguments: {causal_effects: [0.0502], gap: 64}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score]
+    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_binary_ser, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score], analyses: [pip, cs]}
+      - {name: 025_rate_binary_ser, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score], analyses: [pip, cs]}
 
   025-rate-binary-ser-pilot:
     replicates_per_batch: 10
@@ -377,12 +377,12 @@ supercollections:
               - {label: ser_r100_T20, function: spaced_index_effect, arguments: {causal_effects: [0.0450], gap: 64}, intercept: 4.6052}
               - {label: ser_r100_T24, function: spaced_index_effect, arguments: {causal_effects: [0.0502], gap: 64}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score]
+    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_binary_ser_pilot, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score], analyses: [pip, cs]}
+      - {name: 025_rate_binary_ser_pilot, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score], analyses: [pip, cs]}
 
-  # block: 44 cells x 3 L=5 arms, 200 reps; pilot = batch 0.
+  # block: 44 cells x 4 L=5 arms, 200 reps; pilot = batch 0.
   025-rate-block:
     replicates_per_batch: 10
     n_batches: 20
@@ -434,10 +434,10 @@ supercollections:
               - {label: mc3_r100_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.0538, 0.0538, 0.0538], gap: 8, base_index: 3}, intercept: 4.6052}
               - {label: mc3_r100_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.0538, 0.0538, 0.0538], gap: 64, base_index: 3}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score]
+    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_block, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score], analyses: [pip, cs]}
+      - {name: 025_rate_block, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score], analyses: [pip, cs]}
 
   025-rate-block-pilot:
     replicates_per_batch: 10
@@ -490,12 +490,12 @@ supercollections:
               - {label: mc3_r100_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.0538, 0.0538, 0.0538], gap: 8, base_index: 3}, intercept: 4.6052}
               - {label: mc3_r100_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.0538, 0.0538, 0.0538], gap: 64, base_index: 3}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score]
+    methods: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_block_pilot, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_score], analyses: [pip, cs]}
+      - {name: 025_rate_block_pilot, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score], analyses: [pip, cs]}
 
-  # block single effect: 24 cells x 3 L=1 SER arms.
+  # block single effect: 24 cells x 4 L=1 SER arms.
   025-rate-block-ser:
     replicates_per_batch: 10
     n_batches: 20
@@ -527,10 +527,10 @@ supercollections:
               - {label: ser_r100_T20, function: spaced_index_effect, arguments: {causal_effects: [0.0494], gap: 64, base_index: 3}, intercept: 4.6052}
               - {label: ser_r100_T24, function: spaced_index_effect, arguments: {causal_effects: [0.0538], gap: 64, base_index: 3}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score]
+    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_block_ser, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score], analyses: [pip, cs]}
+      - {name: 025_rate_block_ser, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score], analyses: [pip, cs]}
 
   025-rate-block-ser-pilot:
     replicates_per_batch: 10
@@ -563,7 +563,7 @@ supercollections:
               - {label: ser_r100_T20, function: spaced_index_effect, arguments: {causal_effects: [0.0494], gap: 64, base_index: 3}, intercept: 4.6052}
               - {label: ser_r100_T24, function: spaced_index_effect, arguments: {causal_effects: [0.0538], gap: 64, base_index: 3}, intercept: 4.6052}
               - {label: null_r100, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: 4.6052}
-    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score]
+    methods: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score]
     default_args: *default_args
     outputs:
-      - {name: 025_rate_block_ser_pilot, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_score], analyses: [pip, cs]}
+      - {name: 025_rate_block_ser_pilot, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score], analyses: [pip, cs]}
