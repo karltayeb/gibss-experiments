@@ -188,7 +188,7 @@ def draw(df: pl.DataFrame, title: str):
     Ts = sorted(t for t in df["T"].unique().to_list() if t is not None)
     gaps = sorted(df["gap"].unique().to_list(), key=lambda v: (v is None, v))
     lams = sorted(df["lambda0"].unique().to_list())
-    fig, axes = plt.subplots(len(metrics), len(Ts), figsize=(1.3 * len(Ts) + 0.8, 1.45 * len(metrics) + 1.0),
+    fig, axes = plt.subplots(len(metrics), len(Ts), figsize=(1.12 * len(Ts) + 0.6, 1.4 * len(metrics) + 1.0),
                              sharex=True, sharey="row", squeeze=False)
     for i, metric in enumerate(metrics):
         for j, T in enumerate(Ts):
@@ -232,9 +232,29 @@ def draw(df: pl.DataFrame, title: str):
                   fontsize=8, y=0.01)
     fig.supylabel(f"relative to {LABEL[REF]}", fontsize=8)
     fig_h = fig.get_size_inches()[1]
-    fig.suptitle(title, fontsize=8.5, y=1.0 - 0.25 / fig_h, va="top")
-    fig.tight_layout(rect=(0.01, 0.0, 1, 1 - 0.45 / fig_h))
+    fig.tight_layout(rect=(0.01, 0.0, 1, 1 - 0.5 / fig_h))
+    top = max(ax.get_position().y1 for ax in axes[0])
+    fig.suptitle(title, fontsize=8.5, y=top + 0.3 / fig_h, va="bottom")
     return fig
+
+
+def absolute_table(sc: str) -> pl.DataFrame:
+    """CAVI-Q2's own coverage, power and mean declared-CS size per (lambda0, gap), pooled over T."""
+    rep = per_rep(sc).filter(~pl.col("null"), pl.col("method") == REF)
+    return (rep.group_by("lambda0", "gap")
+               .agg((pl.col("n_cover").sum() / pl.col("n_decl").sum()).alias("coverage"),
+                    (pl.col("n_detected").sum() / pl.col("Lstar").sum()).alias("power"),
+                    (pl.col("size_sum").sum() / pl.col("n_decl").sum()).alias("mean CS size"),
+                    pl.col("n_decl").sum().alias("declared CSs"),
+                    pl.len().alias("reps"))
+               .sort("gap", "lambda0", nulls_last=True)
+               .with_columns(pl.col("lambda0").map_elements(lambda v: f"{v:g}", return_dtype=pl.String)))
+
+
+def figure(design: str, ser: bool = False):
+    sc = f"025-rate-{design}" + ("-ser" if ser else "")
+    df = delta_frame(per_rep(sc), None if ser else elbo_rep(sc))
+    return draw(df, DESIGN_TITLE[design] + (", one causal, L = 1" if ser else ", 3 causals, L = 5"))
 
 
 def run(design: str, ser: bool) -> str:
