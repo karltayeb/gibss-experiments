@@ -115,6 +115,38 @@ P.survival_figure(fn);
 P.scatter_figure(feat, 5);
 ```
 
+
+### Matched alphas by declaration {#sec-matched}
+
+Matching each arm component to a CAVI-Q2 component (minimum total TV, exact over all
+assignments) lets the two fits be compared component by component: $\max_j
+|\alpha_{lj} - \alpha'_{s(l)j}|$ per matched pair. Each pair falls into one group by which
+side declares it (component log BF >= 2): both, CAVI-Q2 only, the arm only, or neither. A pair
+whose log BF crosses the threshold between the two fits lands in a one-sided group instead of
+counting as a disagreement among reported sets. Per fit, take the largest pair value in each
+group. The PIP gap is bounded by the matched alpha gaps: $|\Delta\text{PIP}_j| \le \sum_l
+|\Delta\alpha_{lj}|$.
+
+```{python}
+#| label: tab-groups
+#| echo: false
+#| output: asis
+for g in P.GROUPS:
+    print(f"**{P.GROUP_LABEL[g]}**\n")
+    print(R.md_table(P.group_cells(fn, g), rows=["exp", "L"], value="cell", fmt="{}"))
+    print()
+print("Each arm column: share of fits whose largest matched-pair max |Δα| in the group exceeds "
+      "0.1, among fits with at least one pair in the group (count in brackets). Non-null cells.")
+```
+
+```{python}
+#| label: fig-group-survival
+#| echo: false
+#| fig-cap: "L = 5: share of fits whose largest matched-pair max |Δα| exceeds x, by which side declares the pair, among fits with such a pair (non-null cells). Dotted lines at 0.01 and 0.1."
+P.survival_figure(fn, rows=[(5, f"max_alpha_{g}", P.GROUP_LABEL[g]) for g in P.GROUPS],
+                  xlabel="max |Δα|, matched pairs");
+```
+
 ### When gIBSS and CAVI-Q2 disagree {#sec-tail}
 
 The fits in the tail are mostly different optima of the same objective. The table splits fits by

@@ -80,9 +80,18 @@ def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict, n
         dr, da = bool(lbf_a[i] >= R.MIN_LOG_BF), bool(lbf_b[k] >= R.MIN_LOG_BF)
         if dr or da:
             out.append({**_dist(la[i], lb[k]), "declared_ref": dr, "declared_arm": da})
+    # Matched alphas compared feature by feature, grouped by which side declares the pair. A pair
+    # that crosses the threshold (CAVI-only / arm-only) is its own group. NaN when a fit has no
+    # pair in the group. |dPIP_j| <= sum_l |dalpha_lj|, so these bound the PIP gap.
+    order = match(la, lb)
+    ea, eb = np.exp(la), np.exp(lb)[order]
+    da, db = lbf_a >= R.MIN_LOG_BF, lbf_b[order] >= R.MIN_LOG_BF
+    dmax = np.abs(ea - eb).max(axis=1)
     fit = {"max_pip": float(dpip.max()), "argmax_pip": int(dpip.argmax()),
-           "n_decl_ref": int((lbf_a >= R.MIN_LOG_BF).sum()),
-           "n_decl_arm": int((lbf_b >= R.MIN_LOG_BF).sum())}
+           "n_decl_ref": int(da.sum()), "n_decl_arm": int(db.sum())}
+    for g, mask in zip(GROUPS, (da & db, da & ~db, ~da & db, ~da & ~db)):
+        fit[f"max_alpha_{g}"] = float(dmax[mask].max()) if mask.any() else np.nan
+        fit[f"n_{g}"] = int(mask.sum())
     return out, fit, pa, pb
 
 
@@ -289,18 +298,23 @@ def md_frame(df: pl.DataFrame, fmts: dict[str, str], legend: str = "") -> str:
     return "\n".join(lines) + (f"\n\n{legend}" if legend else "")
 
 
-def survival_figure(fits: pl.DataFrame, floor: float = 1e-4):
-    """Rows = L (1, 5), columns = experiments: share of fits with max |dPIP| > x, one line per
-    arm, log-log. Values below `floor` are drawn at the floor."""
+def survival_figure(fits: pl.DataFrame, rows=None, xlabel: str = "max |ΔPIP| in the fit",
+                    floor: float = 1e-4):
+    """Rows = (L, column, label) triples (default: max_pip at L = 1 and L = 5), columns =
+    experiments: share of fits with the column's value > x, one line per arm, log-log. Values
+    below `floor` are drawn at the floor."""
     import matplotlib.pyplot as plt
-    exps, Ls = ["022", "023", "024"], [1, 5]
-    fig, axes = plt.subplots(2, 3, figsize=(6.5, 4.4), sharex=True, sharey=True)
-    for i, L in enumerate(Ls):
+    exps = ["022", "023", "024"]
+    rows = rows or [(1, "max_pip", "L = 1"), (5, "max_pip", "L = 5")]
+    fig, axes = plt.subplots(len(rows), 3, figsize=(6.5, 2.2 * len(rows)), sharex=True,
+                             sharey=True, squeeze=False)
+    for i, (L, col, label) in enumerate(rows):
         for j, exp in enumerate(exps):
             ax = axes[i, j]
             sub = fits.filter((pl.col("L") == L) & (pl.col("exp") == exp))
             for m in ARMS:
-                x = np.sort(np.maximum(sub.filter(pl.col("method") == m)["max_pip"].to_numpy(), floor))
+                x = sub.filter(pl.col("method") == m)[col].to_numpy()
+                x = np.sort(np.maximum(x[~np.isnan(x)], floor))
                 if x.size == 0:
                     continue
                 surv = 1.0 - np.arange(1, x.size + 1) / x.size
@@ -316,15 +330,28 @@ def survival_figure(fits: pl.DataFrame, floor: float = 1e-4):
             ax.tick_params(labelsize=7)
             if i == 0:
                 ax.set_title(f"{exp} ({_DESIGN[exp]})", fontsize=8)
-            if i == 1:
-                ax.set_xlabel("max |ΔPIP| in the fit", fontsize=7.5)
+            if i == len(rows) - 1:
+                ax.set_xlabel(xlabel, fontsize=7.5)
             if j == 0:
-                ax.set_ylabel(f"L = {L}\nshare of fits above x", fontsize=8)
+                ax.set_ylabel(f"{label}\nshare of fits above x", fontsize=8)
     h, lab = axes[0, 0].get_legend_handles_labels()
     fig.legend(h, lab, loc="upper center", ncol=len(lab), fontsize=7, frameon=False)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    fig.tight_layout(rect=(0, 0, 1, 1 - 0.1 / len(rows)))
     return fig
 
+
+GROUPS = ["both", "cavi", "arm", "neither"]
+GROUP_LABEL = {"both": "both declare", "cavi": "CAVI-Q2 only", "arm": "arm only",
+               "neither": "neither declares"}
+
+
+def group_cells(fits: pl.DataFrame, group: str) -> pl.DataFrame:
+    """'% of fits > 0.1 (fits with such a pair)' per (exp, L, method) for one pair group."""
+    col = f"max_alpha_{group}"
+    return (fits.filter(pl.col(col).is_not_nan()).group_by("exp", "L", "method")
+            .agg((pl.col(col) > 0.1).mean().alias("hi"), pl.len().alias("n"))
+            .with_columns(pl.format("{}% ({})", (100 * pl.col("hi")).round(1), pl.col("n"))
+                          .alias("cell")))
 
 _DESIGN = {"022": "binary Markov", "023": "Gaussian AR(1)", "024": "nested"}
 
