@@ -30,7 +30,7 @@ def fit_poisson_method(
     simulation, *, L=1, offset_integration=None, offset_quadrature_points=None,
     variational_family=None, center=True, intercept=None,
     estimate_prior_variance=False, prior_variance=None, max_prior_variance=None, max_iter=None,
-    freeze_prior_variance=None, method=None,
+    freeze_prior_variance=None, method=None, effect_quadrature_points=None, gaussian_reduce=False,
 ):
     y = np.asarray(simulation.y_count, dtype=float)
 
@@ -79,10 +79,20 @@ def fit_poisson_method(
         kwargs["variational_family"] = variational_family
     if intercept is not None:
         kwargs["intercept"] = intercept
+    # GH order over each effect's own b (unconstrained q only). 1 = the Laplace
+    # approximation: one node at the mode, var = 1/H. Unset keeps the engine default (15).
+    if effect_quadrature_points is not None:
+        kwargs["effect_quadrature_points"] = int(effect_quadrature_points)
 
     t0 = time.perf_counter()
     fitted = fit_glm_susie(simulation.X, y, **kwargs)
     fit_seconds = time.perf_counter() - t0
+    # `gaussian_reduce`: moment-reduce a free-form (Q1) fit to the Gaussian family, so the
+    # stored mu/var and the q2_elbo describe the Q2 state N(mu, var). For the order-1 (Laplace)
+    # fit this IS gIBSS-Laplace in Q2: N(mode, 1/H). alpha is unchanged (reduced after the fit).
+    if gaussian_reduce:
+        from gibss.glm import to_gaussian_family
+        fitted = to_gaussian_family(fitted)
     return {
         "state": fitted,
         "n_selected": int(np.asarray(y).sum()),
@@ -130,10 +140,13 @@ def summarize_poisson_method(
     max_iter=None,
     freeze_prior_variance=None,
     method=None,
+    effect_quadrature_points=None,
+    gaussian_reduce=False,
 ):
     from core import _extract_ser_struct, _extract_family_state_struct, _extract_twogroup_state_struct, _make_cs_struct, _make_fit_summary_struct
     del L, offset_integration, offset_quadrature_points, variational_family, center, intercept
     del estimate_prior_variance, prior_variance, max_prior_variance, max_iter, freeze_prior_variance, method
+    del effect_quadrature_points, gaussian_reduce
     state = fit_obj["state"]
     n_effects = len(state.single_effects)
     return {

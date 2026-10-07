@@ -1975,6 +1975,13 @@ methods:
   poisson_q2_L5_gibss:
     function: run_poisson_method
     template: {L: 5, variational_family: gaussian, offset_integration: none, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  # gIBSS-Laplace: order-1 quadrature SER (Laplace evidence), plug-in mean offset, reduced to Q2.
+  poisson_q2_L5_gibss_laplace:
+    function: run_poisson_method
+    template: {L: 5, offset_integration: none, variational_family: unconstrained, effect_quadrature_points: 1, gaussian_reduce: true, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  poisson_q2_ser_gibss_laplace:
+    function: run_poisson_method
+    template: {L: 1, offset_integration: none, variational_family: unconstrained, effect_quadrature_points: 1, gaussian_reduce: true, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   poisson_q2_L5_cavi:
     function: run_poisson_method
     template: {L: 5, variational_family: gaussian, offset_integration: cf, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, max_iter: 50, freeze_prior_variance: 0.01}
