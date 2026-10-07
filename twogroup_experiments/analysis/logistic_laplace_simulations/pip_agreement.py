@@ -389,6 +389,7 @@ def replicate_figure(rows: list[dict], window: int = 24):
                              squeeze=False)
     for i, row in enumerate(rows):
         ref_se, arm_se, causal = replicate_pair(row)
+        why = explain(ref_se, arm_se, causal)
         order = match(_components(ref_se)[0], _components(arm_se)[0])
         states = [_State(ref_se), _State(arm_se, order)]
         hot = np.flatnonzero(np.maximum(states[0].pip, states[1].pip) >= 0.02)
@@ -406,7 +407,117 @@ def replicate_figure(rows: list[dict], window: int = 24):
             if k == 0:
                 title += f"   ({row['exp']}: {cellname}, rep {row['rep']})"
             else:
-                title += f"   max |ΔPIP| {row['max_pip']:.2f}, ΔELBO {row['d_elbo']:+.2f}"
+                title += (f"   max |ΔPIP| {row['max_pip']:.2f}, ΔELBO {row['d_elbo']:+.2f}, "
+                          f"driver: {why['driver']}")
             ax.set_title(title, fontsize=7, loc="left")
     fig.tight_layout()
     return fig
+
+
+# ------------------------------------------------------------------------------ why PIPs differ
+# Matched components make log(1 - PIP_j) additive over pairs:
+#   log(1 - PIP'_j) - log(1 - PIP_j) = sum_l [log(1 - alpha'_{s(l)j}) - log(1 - alpha_lj)],
+# so the PIP gap at the worst feature j* splits exactly into one term per matched pair. The pair
+# with the largest |term| drives the gap; it is classified by which side declares it.
+DRIVERS = ["same CS", "CS moved", "CAVI-only", "arm-only", "undeclared"]
+NEAR = 1.0   # a one-sided pair is "near threshold" when the other side's log BF >= MIN_LOG_BF - NEAR
+
+
+def explain(ref_se: list[dict], arm_se: list[dict], causal: list[int]) -> dict:
+    """Attribute the fit's largest PIP difference to a matched component pair."""
+    la, lbf_a = _components(ref_se)
+    lb, lbf_b = _components(arm_se)
+    order = match(la, lb)
+    a, b, lbf_b = np.exp(la), np.exp(lb)[order], lbf_b[order]
+    pa, pb = _pip(la), 1.0 - np.prod(1.0 - b, axis=0)
+    j = int(np.abs(pa - pb).argmax())
+    eps = 1e-12
+    terms = np.log1p(-np.minimum(b[:, j], 1 - eps)) - np.log1p(-np.minimum(a[:, j], 1 - eps))
+    l = int(np.abs(terms).argmax())
+    dr, da = lbf_a >= R.MIN_LOG_BF, lbf_b >= R.MIN_LOG_BF
+    if dr[l] and da[l]:
+        same = j in set(_cs(a[l])) and j in set(_cs(b[l]))
+        driver = DRIVERS[0] if same else DRIVERS[1]
+        other = np.nan
+    elif dr[l]:
+        driver, other = DRIVERS[2], float(lbf_b[l])
+    elif da[l]:
+        driver, other = DRIVERS[3], float(lbf_a[l])
+    else:
+        driver, other = DRIVERS[4], np.nan
+    truth = 1.0 if j in set(causal) else 0.0
+    return {"j": j, "j_causal": bool(truth), "pip_ref_j": float(pa[j]), "pip_arm_j": float(pb[j]),
+            "ref_closer": bool(abs(pa[j] - truth) < abs(pb[j] - truth)),
+            "driver": driver, "driver_share": float(abs(terms[l]) / np.abs(terms).sum()),
+            "other_log_bf": other, "near": bool(other >= R.MIN_LOG_BF - NEAR),
+            "driver_log_bf_ref": float(lbf_a[l]), "driver_log_bf_arm": float(lbf_b[l]),
+            "driver_alpha_ref_j": float(a[l, j]), "driver_alpha_arm_j": float(b[l, j]),
+            "n_shared": int((dr & da).sum()), "n_ref_only": int((dr & ~da).sum()),
+            "n_arm_only": int((~dr & da).sum())}
+
+
+def tail_frame(fits: pl.DataFrame, threshold: float = 0.1, methods=ARMS) -> pl.DataFrame:
+    """`explain` for every fit with max |dPIP| > threshold (re-reads the two fits.parquet)."""
+    tail = fits.filter((pl.col("max_pip") > threshold) & pl.col("method").is_in(list(methods)))
+    out = []
+    cols = ["replicate", "single_effects", "credible_sets"]
+    for (rf, af), g in tail.group_by("ref_file", "arm_file", maintain_order=True):
+        reps = set(g["rep"].to_list())
+        ref = {r["replicate"]: r for r in pl.read_parquet(rf, columns=cols).iter_rows(named=True)
+               if r["replicate"] in reps}
+        arm = {r["replicate"]: r for r in pl.read_parquet(af, columns=cols).iter_rows(named=True)
+               if r["replicate"] in reps}
+        for row in g.iter_rows(named=True):
+            r0, r1 = ref[row["rep"]], arm[row["rep"]]
+            causal = sorted({j for cs in r0["credible_sets"] for j in cs["causal_indices"]})
+            out.append({**{k: row[k] for k in ("exp", "L", "method", "batch_hash", "rep",
+                                                "max_pip", "d_elbo")},
+                        **explain(r0["single_effects"], r1["single_effects"], causal)})
+    return pl.DataFrame(out, infer_schema_length=None)
+
+
+def driver_table(tf: pl.DataFrame) -> pl.DataFrame:
+    """Per arm and L: tail fits, the share driven by each pair type (one-sided split into near /
+    far from the threshold), the median share of the gap the driving pair explains, and how often
+    CAVI-Q2's PIP at j* is the closer one to the truth (1 if j* is causal, else 0)."""
+    g = (tf.group_by("method", "L")
+         .agg(pl.len().alias("fits"),
+              *[(pl.col("driver") == d).mean().alias(d) for d in DRIVERS[:2]],
+              *[((pl.col("driver") == d) & f).mean().alias(f"{d} {lab}")
+                for d in DRIVERS[2:4] for f, lab in ((pl.col("near"), "near"), (~pl.col("near"), "far"))],
+              (pl.col("driver") == DRIVERS[4]).mean().alias(DRIVERS[4]),
+              pl.col("driver_share").median().alias("driver explains"),
+              pl.col("ref_closer").mean().alias("CAVI-Q2 closer")))
+    return (g.sort(pl.col("method").replace_strict({m: i for i, m in enumerate(R.METHODS)},
+                                                   return_dtype=pl.Int8), "L")
+            .with_columns(pl.col("method").replace_strict(R.METHOD_LABEL).alias("arm"))
+            .drop("method").select("arm", pl.exclude("arm")))
+
+
+def pattern_table(tf: pl.DataFrame, method: str = "gibss", L: int = 5, top: int = 8) -> pl.DataFrame:
+    """Most common (shared, CAVI-only, arm-only) declared-pair counts among tail fits."""
+    t = tf.filter((pl.col("method") == method) & (pl.col("L") == L))
+    return (t.group_by("n_shared", "n_ref_only", "n_arm_only")
+            .agg(pl.len().alias("fits"), pl.col("d_elbo").median().alias("median ΔELBO"),
+                 pl.col("ref_closer").mean().alias("CAVI-Q2 closer to truth"))
+            .with_columns((pl.col("fits") / t.height).alias("share"))
+            .sort("fits", descending=True).head(top)
+            .rename({"n_shared": "shared", "n_ref_only": "CAVI-only", "n_arm_only": "arm-only"}))
+
+
+def undeclared_table(tf: pl.DataFrame, methods=("gibss", "laplace")) -> pl.DataFrame:
+    """Tail fits driven by a pair neither side declares: the pair's log BFs, its largest alpha at
+    j*, whether j* is causal, and which side has the higher PIP there."""
+    u = tf.filter((pl.col("driver") == DRIVERS[4]) & pl.col("method").is_in(list(methods)))
+    return (u.group_by("method", "L")
+            .agg(pl.len().alias("fits"),
+                 pl.col("driver_log_bf_ref").median().alias("log BF, CAVI-Q2"),
+                 pl.col("driver_log_bf_arm").median().alias("log BF, arm"),
+                 pl.col("driver_alpha_ref_j").median().alias("α at j*, CAVI-Q2"),
+                 pl.col("driver_alpha_arm_j").median().alias("α at j*, arm"),
+                 pl.col("j_causal").mean().alias("j* causal"),
+                 (pl.col("pip_ref_j") > pl.col("pip_arm_j")).mean().alias("CAVI-Q2 PIP higher"))
+            .sort(pl.col("method").replace_strict({m: i for i, m in enumerate(R.METHODS)},
+                                                  return_dtype=pl.Int8), "L")
+            .with_columns(pl.col("method").replace_strict(R.METHOD_LABEL).alias("arm"))
+            .drop("method").select("arm", pl.exclude("arm")))

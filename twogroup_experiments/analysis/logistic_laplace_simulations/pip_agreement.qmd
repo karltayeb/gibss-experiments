@@ -23,6 +23,7 @@ import pip_agreement as P
 
 comp, fits, feat = P.load()
 cn, fn = comp.filter(~pl.col("null")), fits.filter(~pl.col("null"))
+tf = P.tail_frame(fn)   # fits with max |dPIP| > 0.1, attributed to a component pair
 ```
 
 Every arm is compared with CAVI-Q2 on the same replicate. For single effect $l$,
@@ -133,10 +134,70 @@ print(P.md_frame(P.tail_table(fn), {"median ΔELBO": "{:+.3f}", "CAVI-Q2 higher"
              "sides declare a different number of components (log BF >= 2)."))
 ```
 
+
+### Why the PIPs differ {#sec-why}
+
+For a fit in the tail, take the feature $j^*$ with the largest PIP difference. With the
+components matched (minimum total TV), $\log(1-\text{PIP}_{j^*})$ is a sum over components,
+so the gap splits exactly into one term per matched pair:
+
+$$\log(1-\text{PIP}'_{j^*}) - \log(1-\text{PIP}_{j^*}) = \sum_l \left[\log(1-\alpha'_{s(l)j^*}) - \log(1-\alpha_{lj^*})\right].$$
+
+The pair with the largest term drives the gap. It falls into one of five types by which side
+declares it (component $\log\text{BF} \ge 2$):
+
+- *same CS*: both sides declare it and $j^*$ is in both 95% credible sets, so the mass moved
+  within a shared set.
+- *CS moved*: both declare it but $j^*$ is in only one of the two sets.
+- *CAVI-only* / *arm-only*: one side declares it. *near* means the other side's log BF is at
+  least 1, within one unit of the threshold; *far* means below 1.
+- *undeclared*: neither side declares it.
+
+```{python}
+#| label: tab-drivers
+#| echo: false
+#| output: asis
+dt = P.driver_table(tf)
+pct = {c: "{:.0%}" for c in dt.columns if c not in ("arm", "L", "fits")}
+print(P.md_frame(dt, pct,
+      legend="Fits with max |ΔPIP| > 0.1, non-null cells. *fits*: number of such fits. Type "
+             "columns: share of fits whose PIP gap is driven by that pair type (they sum to 1). "
+             "*driver explains*: median share of the summed |terms| that the driving pair "
+             "carries. *CAVI-Q2 closer*: share of fits where CAVI-Q2's PIP at j\\* is closer "
+             "to the truth (1 if j\\* is causal, else 0)."))
+```
+
+In most of the gIBSS tail, the driving pair is one neither side declares.
+
+```{python}
+#| label: tab-undeclared
+#| echo: false
+#| output: asis
+print(P.md_frame(P.undeclared_table(tf),
+      {"log BF, CAVI-Q2": "{:.2f}", "log BF, arm": "{:.2f}", "α at j*, CAVI-Q2": "{:.2f}",
+       "α at j*, arm": "{:.2f}", "j* causal": "{:.0%}", "CAVI-Q2 PIP higher": "{:.0%}"},
+      legend="Tail fits driven by an undeclared pair. *log BF*: median component log BF of "
+             "the driving pair on each side. *α at j\\**: median alpha of that component at the "
+             "worst feature. *j\\* causal*: share where the worst feature is causal. "
+             "*CAVI-Q2 PIP higher*: share where CAVI-Q2's PIP at j\\* is the larger one."))
+```
+
+```{python}
+#| label: tab-patterns
+#| echo: false
+#| output: asis
+print(P.md_frame(P.pattern_table(tf, "gibss", 5),
+      {"median ΔELBO": "{:+.2f}", "CAVI-Q2 closer to truth": "{:.0%}", "share": "{:.0%}"},
+      legend="gIBSS-Q2, L = 5, fits with max |ΔPIP| > 0.1: the most common counts of matched "
+             "pairs that both sides declare (*shared*), only CAVI-Q2 declares, and only "
+             "gIBSS-Q2 declares. *median ΔELBO*: gIBSS-Q2 minus CAVI-Q2, nats. *CAVI-Q2 closer "
+             "to truth*: as above. *share*: of the gIBSS-Q2 L = 5 tail."))
+```
+
 ```{python}
 #| label: fig-worst
 #| echo: false
-#| fig-cap: "The four L = 5 replicates with the largest gIBSS-Q2 PIP difference from CAVI-Q2. Left CAVI-Q2, right gIBSS-Q2, same replicate; coloured points are declared 95% credible sets, gIBSS-Q2 components coloured by their CAVI-Q2 match; ringed features with vertical lines are the causal features. x is cropped to the features with any PIP."
+#| fig-cap: "The four L = 5 replicates with the largest gIBSS-Q2 PIP difference from CAVI-Q2. Left CAVI-Q2, right gIBSS-Q2, same replicate; coloured points are declared 95% credible sets, gIBSS-Q2 components coloured by their CAVI-Q2 match; ringed features with vertical lines are the causal features. x is cropped to the features with any PIP. PIPs include undeclared components, which carry no colour: in the third row the CAVI-Q2 PIP of 0.89 near feature 21 comes from an undeclared component. *driver*: the pair type behind the largest PIP gap (@sec-why)."
 worst = (fn.filter((pl.col("method") == "gibss") & (pl.col("L") == 5))
          .sort("max_pip", descending=True).head(4).to_dicts())
 P.replicate_figure(worst);
