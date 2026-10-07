@@ -173,22 +173,22 @@ P.survival_figure(cn, rows=[(1, "tv", "all pairs")] +
 ```
 
 
-Instead of one threshold, raise a bar $t$ on the smaller of the pair's two component log BFs:
-a pair counts when both sides reach $t$. All pairs is the far left, and $t = 2$ is the "both
-declare" row above.
+Instead of grouping by the declaration threshold, raise a bar on the smaller of the pair's two
+component log BFs: a pair counts when both sides clear it. Each row keeps fewer, stronger
+pairs; the bottom row (> 2) is close to the "both declare" row above.
 
 ```{python}
 #| label: fig-bar-l5
 #| echo: false
-#| fig-cap: "L = 5: matched pairs whose smaller component log BF is at least the bar. Top two rows: share of those pairs whose TV exceeds 0.1 / 0.01 (drawn while at least 20 pairs remain). Bottom: such pairs per fit. Dotted line at the declaration threshold, 2. Non-null cells."
-P.bar_figure(cn, 5);
+#| fig-cap: "L = 5: share of matched pairs whose TV exceeds x (1 - CDF), for all pairs and for pairs whose smaller component log BF exceeds 0, 1, 2 (non-null cells). Dotted lines at 0.01 and 0.1."
+P.survival_figure(cn, rows=P.bar_rows(5), xlabel="TV, matched pair", unit="pairs");
 ```
 
 ```{python}
 #| label: fig-bar-l1
 #| echo: false
 #| fig-cap: "L = 1: as above, one component per fit."
-P.bar_figure(cn, 1);
+P.survival_figure(cn, rows=P.bar_rows(1), xlabel="TV, single effect", unit="pairs");
 ```
 
 ### When gIBSS and CAVI-Q2 disagree {#sec-tail}

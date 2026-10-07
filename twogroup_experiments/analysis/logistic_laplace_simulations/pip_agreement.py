@@ -357,49 +357,15 @@ def group_cells(fits: pl.DataFrame, group: str) -> pl.DataFrame:
                           .alias("cell")))
 
 
-BARS = np.arange(-1.0, 10.01, 0.25)
+
+BARS = [0.0, 1.0, 2.0]
 
 
-def bar_figure(comp: pl.DataFrame, L: int, bars=BARS, n_boot: int = 0):
-    """Columns = experiments. x = bar t on the pair's smaller component log BF (both sides must
-    reach t). Rows: share of surviving pairs with TV > 0.1, share with TV > 0.01, and surviving
-    pairs per fit. One line per arm; non-null cells. t = 2 is the both-declare group."""
-    import matplotlib.pyplot as plt
-    exps = ["022", "023", "024"]
-    rows = [("share of pairs\nwith TV > 0.1", 0.1), ("share of pairs\nwith TV > 0.01", 0.01),
-            ("pairs per fit", None)]
-    fig, axes = plt.subplots(len(rows), 3, figsize=(6.5, 5.6), sharex=True, sharey="row")
-    sub_l = comp.filter((pl.col("L") == L) & ~pl.col("null"))
-    for j, exp in enumerate(exps):
-        sub = sub_l.filter(pl.col("exp") == exp)
-        for m in ARMS:
-            d = sub.filter(pl.col("method") == m)
-            if d.height == 0:
-                continue
-            lbf, tv = d["min_log_bf"].to_numpy(), d["tv"].to_numpy()
-            n_fits = d.select(pl.struct("batch_hash", "rep").n_unique()).item()
-            keep = lbf[None, :] >= bars[:, None]
-            n = keep.sum(1)
-            with np.errstate(invalid="ignore", divide="ignore"):
-                vals = [(keep & (tv > cut)).sum(1) / n if cut is not None else n / n_fits
-                        for _, cut in rows]
-            for i, v in enumerate(vals):
-                v = np.where(n >= 20, v, np.nan) if rows[i][1] is not None else v
-                axes[i, j].plot(bars, v, color=R.METHOD_COLOR[m], lw=1.2, label=R.METHOD_LABEL[m])
-        for i in range(len(rows)):
-            ax = axes[i, j]
-            ax.axvline(R.MIN_LOG_BF, color="0.6", lw=0.6, ls=":")
-            ax.grid(True, alpha=0.25)
-            ax.tick_params(labelsize=7)
-            if j == 0:
-                ax.set_ylabel(rows[i][0], fontsize=8)
-        axes[0, j].set_title(f"{exp} ({_DESIGN[exp]})", fontsize=8)
-        axes[-1, j].set_xlabel("bar on min component log BF", fontsize=7.5)
-    h, lab = axes[0, 0].get_legend_handles_labels()
-    fig.legend(h, lab, loc="upper center", ncol=len(lab), fontsize=7, frameon=False)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
-    return fig
-
+def bar_rows(L: int, bars=BARS) -> list:
+    """survival_figure rows: all matched pairs, then pairs whose smaller component log BF
+    exceeds each bar (both sides must clear it)."""
+    return [(L, "tv", "all pairs")] + [(L, "tv", f"min log BF > {t:g}", pl.col("min_log_bf") > t)
+                                       for t in bars]
 
 _DESIGN = {"022": "binary Markov", "023": "Gaussian AR(1)", "024": "nested"}
 
