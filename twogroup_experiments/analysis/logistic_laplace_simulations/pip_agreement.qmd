@@ -157,8 +157,9 @@ are the smallest TVs any one-to-one pairing gives.
 ```{python}
 #| label: fig-tv-survival
 #| echo: false
-#| fig-cap: "L = 5: share of matched component pairs whose TV exceeds x (1 - CDF), by which side declares the pair (non-null cells). One pair per matched component, five per fit. Dotted lines at 0.01 and 0.1."
-P.survival_figure(cn, rows=[(5, "tv", P.GROUP_LABEL[g], pl.col("group") == g) for g in P.GROUPS],
+#| fig-cap: "L = 5: share of matched component pairs whose TV exceeds x (1 - CDF), first over all matched pairs with no log BF threshold, then by which side declares the pair (non-null cells). One pair per matched component, five per fit. Dotted lines at 0.01 and 0.1."
+P.survival_figure(cn, rows=[(5, "tv", "all pairs")] +
+                            [(5, "tv", P.GROUP_LABEL[g], pl.col("group") == g) for g in P.GROUPS],
                   xlabel="TV, matched pair", unit="pairs");
 ```
 
@@ -166,7 +167,8 @@ P.survival_figure(cn, rows=[(5, "tv", P.GROUP_LABEL[g], pl.col("group") == g) fo
 #| label: fig-tv-survival-l1
 #| echo: false
 #| fig-cap: "L = 1: as above; one component per fit, so no matching. The gIBSS arms never declare a component CAVI-Q2 does not at L = 1, so they have no arm-only curve."
-P.survival_figure(cn, rows=[(1, "tv", P.GROUP_LABEL[g], pl.col("group") == g) for g in P.GROUPS],
+P.survival_figure(cn, rows=[(1, "tv", "all pairs")] +
+                            [(1, "tv", P.GROUP_LABEL[g], pl.col("group") == g) for g in P.GROUPS],
                   xlabel="TV, single effect", unit="pairs");
 ```
 
