@@ -1,6 +1,6 @@
 ---
 title: "Variable-selection agreement with CAVI-Q2"
-subtitle: "How close each arm's PIPs and single-effect posteriors are to CAVI-Q2's on the same replicate, in experiments 022-024 at L=5 and L=1: per-replicate distributions first, then means"
+subtitle: "How close each arm's PIPs and single-effect posteriors are to CAVI-Q2's on the same replicate, in the Binary, Binary-Block and Gaussian designs at L=5 and L=1: per-replicate distributions first, then means"
 engine: jupyter
 jupyter: python3
 execute:
@@ -23,8 +23,7 @@ import pip_agreement as P
 
 comp, fits, feat = P.load()
 cn, fn = comp.filter(~pl.col("null")), fits.filter(~pl.col("null"))
-cd = cn.filter(pl.col("group") != "neither")   # pairs at least one side declares (Means section)
-tf = P.tail_frame(fn)   # fits with max |dPIP| > 0.1, attributed to a component pair
+cd = cn.filter(pl.col("declared_ref") | pl.col("declared_arm"))   # pairs at least one side declares (Means section)
 ```
 
 Every arm is compared with CAVI-Q2 on the same replicate. For single effect $l$,
@@ -46,19 +45,20 @@ are noise. The last table is per fit and needs no matching: $\max_j |\text{PIP}_
 \text{PIP}'_j|$ over the combined PIPs. At $L = 1$ it equals $\max |\Delta\alpha|$ wherever a
 component is declared.
 
-Fits: 022 full grids (200 replicates), 023 and 024 full grids and `-ser` grids (200
-replicates). Non-null cells only.
+Designs: *Binary* (binary Markov sets, experiment 022), *Binary-Block* (nested binary blocks,
+024) and *Gaussian* (Gaussian AR(1), 023). Fits: the full grids at L=5 and the `-ser` grids at
+L=1, 200 replicates each. Non-null cells only.
 
 ```{python}
 #| label: status
 #| echo: false
 #| output: asis
-st = (fn.group_by("exp", "L", maintain_order=True)
+st = (P.with_design(fn).group_by("design", "L", maintain_order=True)
       .agg(pl.col("batch_hash").n_unique().alias("batches"),
            (pl.len() / pl.col("method").n_unique()).cast(pl.Int64).alias("reps"),
-           pl.col("n_pairs").mean().alias("pairs")).sort("exp", "L"))
+           pl.col("n_pairs").mean().alias("pairs")).sort("design", "L"))
 for r in st.iter_rows(named=True):
-    print(f"- {r['exp']}, L={r['L']}: {r['batches']} batches, {r['reps']} paired replicates per arm, "
+    print(f"- {r['design']}, L={r['L']}: {r['batches']} batches, {r['reps']} paired replicates per arm, "
           f"{r['pairs']:.2f} declared component pairs per fit")
 ```
 
@@ -66,10 +66,10 @@ for r in st.iter_rows(named=True):
 #| label: helpers
 #| include: false
 def table(df, value, legend, digits=3):
-    tab = P.fmt(P.summarize(df, value, ["exp", "L", "method"]), digits)
-    print(R.md_table(tab, rows=["exp", "L"], value="cell", fmt="{}", legend=legend))
+    tab = P.fmt(P.summarize(P.with_design(df), value, ["design", "L", "method"]), digits)
+    print(R.md_table(tab, rows=["design", "L"], value="cell", fmt="{}", legend=legend))
 
-COMMON = ("*exp*: experiment (022 binary Markov sets, 023 Gaussian AR(1), 024 nested sets). "
+COMMON = ("*design*: simulated design (Binary, Binary-Block, Gaussian). "
           "*L*: fitted components. Each arm column: mean over {unit}, with a 95% interval from "
           "resampling replicates. 0 = identical to CAVI-Q2.")
 ```
@@ -86,8 +86,8 @@ its distribution over replicates. It needs no component matching.
 #| label: tab-pip-quantiles
 #| echo: false
 #| output: asis
-print(R.md_table(P.quantile_cells(fn), rows=["exp", "L"], value="cell", fmt="{}",
-      legend="*exp*: experiment (022 binary Markov sets, 023 Gaussian AR(1), 024 nested sets). "
+print(R.md_table(P.with_design(P.quantile_cells(fn)), rows=["design", "L"], value="cell", fmt="{}",
+      legend="*design*: simulated design (Binary, Binary-Block, Gaussian). "
              "*L*: fitted components. Each arm column: median / 90th / 99th percentile over fits "
              "(non-null cells, every replicate) of the largest absolute PIP difference from "
              "CAVI-Q2 on the same replicate."))
@@ -97,7 +97,7 @@ print(R.md_table(P.quantile_cells(fn), rows=["exp", "L"], value="cell", fmt="{}"
 #| label: tab-pip-shares
 #| echo: false
 #| output: asis
-print(R.md_table(P.share_cells(fn), rows=["exp", "L"], value="cell", fmt="{}",
+print(R.md_table(P.with_design(P.share_cells(fn)), rows=["design", "L"], value="cell", fmt="{}",
       legend="Columns as above. Each arm column: share of fits whose largest absolute PIP "
              "difference from CAVI-Q2 is at most 0.01 / above 0.1."))
 ```
@@ -117,65 +117,15 @@ P.scatter_figure(feat, 5);
 ```
 
 
-### Matched alphas by declaration {#sec-matched}
+### Matched alphas {#sec-matched}
 
 Matching each arm component to a CAVI-Q2 component (minimum total TV, exact over all
-assignments) lets the two fits be compared component by component: $\max_j
-|\alpha_{lj} - \alpha'_{s(l)j}|$ per matched pair. Each pair falls into one group by which
-side declares it (component log BF >= 2): both, CAVI-Q2 only, the arm only, or neither. A pair
-whose log BF crosses the threshold between the two fits lands in a one-sided group instead of
-counting as a disagreement among reported sets. Per fit, take the largest pair value in each
-group. The PIP gap is bounded by the matched alpha gaps: $|\Delta\text{PIP}_j| \le \sum_l
-|\Delta\alpha_{lj}|$.
-
-```{python}
-#| label: tab-groups
-#| echo: false
-#| output: asis
-for g in P.GROUPS:
-    print(f"**{P.GROUP_LABEL[g]}**\n")
-    print(R.md_table(P.group_cells(fn, g), rows=["exp", "L"], value="cell", fmt="{}"))
-    print()
-print("Each arm column: share of fits whose largest matched-pair max |Δα| in the group exceeds "
-      "0.1, among fits with at least one pair in the group (count in brackets). Non-null cells.")
-```
-
-```{python}
-#| label: fig-group-survival
-#| echo: false
-#| fig-cap: "L = 5: share of fits whose largest matched-pair max |Δα| exceeds x, by which side declares the pair, among fits with such a pair (non-null cells). Dotted lines at 0.01 and 0.1."
-P.survival_figure(fn, rows=[(5, f"max_alpha_{g}", P.GROUP_LABEL[g]) for g in P.GROUPS],
-                  xlabel="max |Δα|, matched pairs");
-```
-
-
-Per matched pair rather than per fit, the total variation $\text{TV} = \tfrac12\sum_j
-|\alpha_{lj} - \alpha'_{s(l)j}|$ is the largest change in the mass of any feature set, so
-it bounds how much a credible set's mass can move. The matching minimizes total TV, so these
-are the smallest TVs any one-to-one pairing gives.
-
-```{python}
-#| label: fig-tv-survival
-#| echo: false
-#| fig-cap: "L = 5: share of matched component pairs whose TV exceeds x (1 - CDF), first over all matched pairs with no log BF threshold, then by which side declares the pair (non-null cells). One pair per matched component, five per fit. Dotted lines at 0.01 and 0.1."
-P.survival_figure(cn, rows=[(5, "tv", "all pairs")] +
-                            [(5, "tv", P.GROUP_LABEL[g], pl.col("group") == g) for g in P.GROUPS],
-                  xlabel="TV, matched pair", unit="pairs");
-```
-
-```{python}
-#| label: fig-tv-survival-l1
-#| echo: false
-#| fig-cap: "L = 1: as above; one component per fit, so no matching. The gIBSS arms never declare a component CAVI-Q2 does not at L = 1, so they have no arm-only curve."
-P.survival_figure(cn, rows=[(1, "tv", "all pairs")] +
-                            [(1, "tv", P.GROUP_LABEL[g], pl.col("group") == g) for g in P.GROUPS],
-                  xlabel="TV, single effect", unit="pairs");
-```
-
-
-Instead of grouping by the declaration threshold, raise a bar on the smaller of the pair's two
-component log BFs: a pair counts when both sides clear it. Each row keeps fewer, stronger
-pairs; the bottom row (> 2) is close to the "both declare" row above.
+assignments) lets the two fits be compared component by component. For each matched pair, the
+total variation $\text{TV} = \tfrac12\sum_j |\alpha_{lj} - \alpha'_{s(l)j}|$ is the largest
+change in the mass of any feature set, so it bounds how much a credible set's mass can move.
+The matching minimizes total TV, so these are the smallest TVs any one-to-one pairing gives.
+The first row uses every matched pair, with no log BF threshold; the others keep pairs whose
+smaller component log BF exceeds a bar (both sides must clear it).
 
 ```{python}
 #| label: fig-bar-l5
@@ -211,69 +161,10 @@ print(P.md_frame(P.tail_table(fn), {"median ΔELBO": "{:+.3f}", "CAVI-Q2 higher"
 ```
 
 
-### Why the PIPs differ {#sec-why}
-
-For a fit in the tail, take the feature $j^*$ with the largest PIP difference. With the
-components matched (minimum total TV), $\log(1-\text{PIP}_{j^*})$ is a sum over components,
-so the gap splits exactly into one term per matched pair:
-
-$$\log(1-\text{PIP}'_{j^*}) - \log(1-\text{PIP}_{j^*}) = \sum_l \left[\log(1-\alpha'_{s(l)j^*}) - \log(1-\alpha_{lj^*})\right].$$
-
-The pair with the largest term drives the gap. It falls into one of five types by which side
-declares it (component $\log\text{BF} \ge 2$):
-
-- *same CS*: both sides declare it and $j^*$ is in both 95% credible sets, so the mass moved
-  within a shared set.
-- *CS moved*: both declare it but $j^*$ is in only one of the two sets.
-- *CAVI-only* / *arm-only*: one side declares it. *near* means the other side's log BF is at
-  least 1, within one unit of the threshold; *far* means below 1.
-- *undeclared*: neither side declares it.
-
-```{python}
-#| label: tab-drivers
-#| echo: false
-#| output: asis
-dt = P.driver_table(tf)
-pct = {c: "{:.0%}" for c in dt.columns if c not in ("arm", "L", "fits")}
-print(P.md_frame(dt, pct,
-      legend="Fits with max |ΔPIP| > 0.1, non-null cells. *fits*: number of such fits. Type "
-             "columns: share of fits whose PIP gap is driven by that pair type (they sum to 1). "
-             "*driver explains*: median share of the summed |terms| that the driving pair "
-             "carries. *CAVI-Q2 closer*: share of fits where CAVI-Q2's PIP at j\\* is closer "
-             "to the truth (1 if j\\* is causal, else 0)."))
-```
-
-In most of the gIBSS tail, the driving pair is one neither side declares.
-
-```{python}
-#| label: tab-undeclared
-#| echo: false
-#| output: asis
-print(P.md_frame(P.undeclared_table(tf),
-      {"log BF, CAVI-Q2": "{:.2f}", "log BF, arm": "{:.2f}", "α at j*, CAVI-Q2": "{:.2f}",
-       "α at j*, arm": "{:.2f}", "j* causal": "{:.0%}", "CAVI-Q2 PIP higher": "{:.0%}"},
-      legend="Tail fits driven by an undeclared pair. *log BF*: median component log BF of "
-             "the driving pair on each side. *α at j\\**: median alpha of that component at the "
-             "worst feature. *j\\* causal*: share where the worst feature is causal. "
-             "*CAVI-Q2 PIP higher*: share where CAVI-Q2's PIP at j\\* is the larger one."))
-```
-
-```{python}
-#| label: tab-patterns
-#| echo: false
-#| output: asis
-print(P.md_frame(P.pattern_table(tf, "gibss", 5),
-      {"median ΔELBO": "{:+.2f}", "CAVI-Q2 closer to truth": "{:.0%}", "share": "{:.0%}"},
-      legend="gIBSS-Q2, L = 5, fits with max |ΔPIP| > 0.1: the most common counts of matched "
-             "pairs that both sides declare (*shared*), only CAVI-Q2 declares, and only "
-             "gIBSS-Q2 declares. *median ΔELBO*: gIBSS-Q2 minus CAVI-Q2, nats. *CAVI-Q2 closer "
-             "to truth*: as above. *share*: of the gIBSS-Q2 L = 5 tail."))
-```
-
 ```{python}
 #| label: fig-worst
 #| echo: false
-#| fig-cap: "The four L = 5 replicates with the largest gIBSS-Q2 PIP difference from CAVI-Q2. Left CAVI-Q2, right gIBSS-Q2, same replicate; coloured points are declared 95% credible sets, gIBSS-Q2 components coloured by their CAVI-Q2 match; ringed features with vertical lines are the causal features. x is cropped to the features with any PIP. PIPs include undeclared components, which carry no colour: in the third row the CAVI-Q2 PIP of 0.89 near feature 21 comes from an undeclared component. *driver*: the pair type behind the largest PIP gap (@sec-why)."
+#| fig-cap: "The four L = 5 replicates with the largest gIBSS-Q2 PIP difference from CAVI-Q2. Left CAVI-Q2, right gIBSS-Q2, same replicate; coloured points are declared 95% credible sets, gIBSS-Q2 components coloured by their CAVI-Q2 match; ringed features with vertical lines are the causal features. x is cropped to the features with any PIP. PIPs include undeclared components, which carry no colour: in the third row the CAVI-Q2 PIP of 0.89 near feature 21 comes from an undeclared component."
 worst = (fn.filter((pl.col("method") == "gibss") & (pl.col("L") == 5))
          .sort("max_pip", descending=True).head(4).to_dicts())
 P.replicate_figure(worst);
@@ -330,12 +221,12 @@ table(fn, "max_pip", COMMON.format(unit="fits") +
 #| label: fig-cells-L5
 #| echo: false
 #| fig-cap: "L = 5: mean distance to CAVI-Q2 per cell against each experiment's sweep axis (non-null cells, matched declared component pairs). 95% intervals resample replicates."
-P.by_axis_figure(comp.filter(pl.col("group") != "neither"), 5);
+P.by_axis_figure(comp.filter(pl.col("declared_ref") | pl.col("declared_arm")), 5);
 ```
 
 ```{python}
 #| label: fig-cells-L1
 #| echo: false
 #| fig-cap: "L = 1: as above, one component per fit."
-P.by_axis_figure(comp.filter(pl.col("group") != "neither"), 1);
+P.by_axis_figure(comp.filter(pl.col("declared_ref") | pl.col("declared_arm")), 1);
 ```
