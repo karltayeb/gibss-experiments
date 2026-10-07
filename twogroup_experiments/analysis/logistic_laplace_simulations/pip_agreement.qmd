@@ -23,6 +23,7 @@ import pip_agreement as P
 
 comp, fits, feat = P.load()
 cn, fn = comp.filter(~pl.col("null")), fits.filter(~pl.col("null"))
+cd = cn.filter(pl.col("group") != "neither")   # pairs at least one side declares (Means section)
 tf = P.tail_frame(fn)   # fits with max |dPIP| > 0.1, attributed to a component pair
 ```
 
@@ -147,6 +148,28 @@ P.survival_figure(fn, rows=[(5, f"max_alpha_{g}", P.GROUP_LABEL[g]) for g in P.G
                   xlabel="max |Δα|, matched pairs");
 ```
 
+
+Per matched pair rather than per fit, the total variation $\text{TV} = \tfrac12\sum_j
+|\alpha_{lj} - \alpha'_{s(l)j}|$ is the largest change in the mass of any feature set, so
+it bounds how much a credible set's mass can move. The matching minimizes total TV, so these
+are the smallest TVs any one-to-one pairing gives.
+
+```{python}
+#| label: fig-tv-survival
+#| echo: false
+#| fig-cap: "L = 5: share of matched component pairs whose TV exceeds x (1 - CDF), by which side declares the pair (non-null cells). One pair per matched component, five per fit. Dotted lines at 0.01 and 0.1."
+P.survival_figure(cn, rows=[(5, "tv", P.GROUP_LABEL[g], pl.col("group") == g) for g in P.GROUPS],
+                  xlabel="TV, matched pair", unit="pairs");
+```
+
+```{python}
+#| label: fig-tv-survival-l1
+#| echo: false
+#| fig-cap: "L = 1: as above; one component per fit, so no matching. The gIBSS arms never declare a component CAVI-Q2 does not at L = 1, so they have no arm-only curve."
+P.survival_figure(cn, rows=[(1, "tv", P.GROUP_LABEL[g], pl.col("group") == g) for g in P.GROUPS],
+                  xlabel="TV, single effect", unit="pairs");
+```
+
 ### When gIBSS and CAVI-Q2 disagree {#sec-tail}
 
 The fits in the tail are mostly different optima of the same objective. The table splits fits by
@@ -245,7 +268,7 @@ The rest of the notebook reports means over component pairs or fits.
 #| label: tab-tv
 #| echo: false
 #| output: asis
-table(cn, "tv", COMMON.format(unit="matched declared component pairs") +
+table(cd, "tv", COMMON.format(unit="matched declared component pairs") +
       " Value: total variation between the pair's alpha vectors, in [0, 1].")
 ```
 
@@ -255,7 +278,7 @@ table(cn, "tv", COMMON.format(unit="matched declared component pairs") +
 #| label: tab-kl
 #| echo: false
 #| output: asis
-table(cn, "kl", COMMON.format(unit="matched declared component pairs") +
+table(cd, "kl", COMMON.format(unit="matched declared component pairs") +
       " Value: KL(alpha_CAVI || alpha_arm) in nats.")
 ```
 
@@ -265,7 +288,7 @@ table(cn, "kl", COMMON.format(unit="matched declared component pairs") +
 #| label: tab-max-alpha
 #| echo: false
 #| output: asis
-table(cn, "max_alpha", COMMON.format(unit="matched declared component pairs") +
+table(cd, "max_alpha", COMMON.format(unit="matched declared component pairs") +
       " Value: the largest absolute difference in alpha over features, in [0, 1].")
 ```
 
@@ -286,12 +309,12 @@ table(fn, "max_pip", COMMON.format(unit="fits") +
 #| label: fig-cells-L5
 #| echo: false
 #| fig-cap: "L = 5: mean distance to CAVI-Q2 per cell against each experiment's sweep axis (non-null cells, matched declared component pairs). 95% intervals resample replicates."
-P.by_axis_figure(comp, 5);
+P.by_axis_figure(comp.filter(pl.col("group") != "neither"), 5);
 ```
 
 ```{python}
 #| label: fig-cells-L1
 #| echo: false
 #| fig-cap: "L = 1: as above, one component per fit."
-P.by_axis_figure(comp, 1);
+P.by_axis_figure(comp.filter(pl.col("group") != "neither"), 1);
 ```

@@ -78,8 +78,8 @@ def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict, n
     out = []
     for i, k in enumerate(match(la, lb)):
         dr, da = bool(lbf_a[i] >= R.MIN_LOG_BF), bool(lbf_b[k] >= R.MIN_LOG_BF)
-        if dr or da:
-            out.append({**_dist(la[i], lb[k]), "declared_ref": dr, "declared_arm": da})
+        group = GROUPS[0] if dr and da else GROUPS[1] if dr else GROUPS[2] if da else GROUPS[3]
+        out.append({**_dist(la[i], lb[k]), "declared_ref": dr, "declared_arm": da, "group": group})
     # Matched alphas compared feature by feature, grouped by which side declares the pair. A pair
     # that crosses the threshold (CAVI-only / arm-only) is its own group. NaN when a fit has no
     # pair in the group. |dPIP_j| <= sum_l |dalpha_lj|, so these bound the PIP gap.
@@ -102,7 +102,7 @@ def load(sources=SOURCES, results_root: str = RESULTS
          ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     """(component-pair frame, per-fit frame, feature frame).
 
-    * component pairs: one row per matched declared component pair.
+    * component pairs: one row per matched component pair (all L), with its declaration group.
     * fits: one row per (arm, replicate): max |dPIP| and the feature attaining it, declared
       component counts on each side, q2 ELBO difference (arm - CAVI-Q2), and both fits.parquet
       paths so a single replicate can be re-read (``replicate_pair``).
@@ -137,7 +137,7 @@ def load(sources=SOURCES, results_root: str = RESULTS
                         continue
                     pairs, fit, pa, pb = compare(ref[rep]["single_effects"], r["single_effects"])
                     key = {"exp": exp, "L": L, "method": method, "batch_hash": bh, "rep": rep, **meta}
-                    fit_rows.append({**key, **fit, "n_pairs": len(pairs),
+                    fit_rows.append({**key, **fit, "n_pairs": sum(p["group"] != GROUPS[3] for p in pairs),
                                      "d_elbo": r["q2_elbo"] - ref[rep]["q2_elbo"],
                                      "ref_file": cell["fits"]["cavi"], "arm_file": f})
                     comp_rows.extend({**key, **p} for p in pairs)
@@ -299,8 +299,8 @@ def md_frame(df: pl.DataFrame, fmts: dict[str, str], legend: str = "") -> str:
 
 
 def survival_figure(fits: pl.DataFrame, rows=None, xlabel: str = "max |ΔPIP| in the fit",
-                    floor: float = 1e-4):
-    """Rows = (L, column, label) triples (default: max_pip at L = 1 and L = 5), columns =
+                    unit: str = "fits", floor: float = 1e-4):
+    """Rows = (L, column, label[, filter expr]) (default: max_pip at L = 1 and L = 5), columns =
     experiments: share of fits with the column's value > x, one line per arm, log-log. Values
     below `floor` are drawn at the floor."""
     import matplotlib.pyplot as plt
@@ -308,10 +308,12 @@ def survival_figure(fits: pl.DataFrame, rows=None, xlabel: str = "max |ΔPIP| in
     rows = rows or [(1, "max_pip", "L = 1"), (5, "max_pip", "L = 5")]
     fig, axes = plt.subplots(len(rows), 3, figsize=(6.5, 2.2 * len(rows)), sharex=True,
                              sharey=True, squeeze=False)
-    for i, (L, col, label) in enumerate(rows):
+    for i, row in enumerate(rows):
+        L, col, label = row[:3]
+        keep = row[3] if len(row) > 3 else pl.lit(True)
         for j, exp in enumerate(exps):
             ax = axes[i, j]
-            sub = fits.filter((pl.col("L") == L) & (pl.col("exp") == exp))
+            sub = fits.filter((pl.col("L") == L) & (pl.col("exp") == exp) & keep)
             for m in ARMS:
                 x = sub.filter(pl.col("method") == m)[col].to_numpy()
                 x = np.sort(np.maximum(x[~np.isnan(x)], floor))
@@ -333,7 +335,7 @@ def survival_figure(fits: pl.DataFrame, rows=None, xlabel: str = "max |ΔPIP| in
             if i == len(rows) - 1:
                 ax.set_xlabel(xlabel, fontsize=7.5)
             if j == 0:
-                ax.set_ylabel(f"{label}\nshare of fits above x", fontsize=8)
+                ax.set_ylabel(f"{label}\nshare of {unit} above x", fontsize=8)
     h, lab = axes[0, 0].get_legend_handles_labels()
     fig.legend(h, lab, loc="upper center", ncol=len(lab), fontsize=7, frameon=False)
     fig.tight_layout(rect=(0, 0, 1, 1 - 0.1 / len(rows)))
