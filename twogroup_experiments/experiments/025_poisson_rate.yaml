@@ -1,5 +1,5 @@
 # 025_poisson_rate: Poisson SuSiE, gIBSS-Q2 vs CAVI-Q2 vs score along the background rate.
-# y ~ Poisson(exp(b0 + X beta)), b0 = log lambda0, lambda0 in {0.01, 1, 10, 100}; T = E[LRT] in
+# y ~ Poisson(exp(b0 + X beta)), b0 = log lambda0, lambda0 in {0.01, 0.1, 1, 10, 100}; T = E[LRT] in
 # {8, 12, 16, 20, 24}; L* = 3 causals at gap in {8, 64}, fit L = 5; one null per
 # lambda0. beta per (design, lambda0, T) from analysis/poisson_susie_simulations/betas_rate.json.
 # Designs: gaussian (AR1 n=500 rho 0.9), binary (Markov n=1000 density
@@ -10,7 +10,7 @@ _anchors:
   default_args: &default_args {min_log_bf: 2.0, max_cs_size: 10000, max_fdp: 0.5}
 
 supercollections:
-  # gaussian: 44 cells x 4 L=5 arms, 200 reps; pilot = batch 0.
+  # gaussian: 55 cells x 4 L=5 arms, 200 reps; pilot = batch 0.
   025-rate-gaussian:
     replicates_per_batch: 10
     n_batches: 20
@@ -29,6 +29,17 @@ supercollections:
               - {label: mc3_r0p01_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [1.3553, 1.3553, 1.3553], gap: 8}, intercept: -4.6052}
               - {label: mc3_r0p01_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [1.3553, 1.3553, 1.3553], gap: 64}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: mc3_r0p1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.3629, 0.3629, 0.3629], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.3629, 0.3629, 0.3629], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.4493, 0.4493, 0.4493], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g64, function: spaced_index_effect, arguments: {causal_effects: [0.4493, 0.4493, 0.4493], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [0.5123, 0.5123, 0.5123], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [0.5123, 0.5123, 0.5123], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g8, function: spaced_index_effect, arguments: {causal_effects: [0.5702, 0.5702, 0.5702], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g64, function: spaced_index_effect, arguments: {causal_effects: [0.5702, 0.5702, 0.5702], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.6193, 0.6193, 0.6193], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.6193, 0.6193, 0.6193], gap: 64}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: mc3_r1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.1168, 0.1168, 0.1168], gap: 8}, intercept: 0.0000}
               - {label: mc3_r1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.1168, 0.1168, 0.1168], gap: 64}, intercept: 0.0000}
               - {label: mc3_r1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.1490, 0.1490, 0.1490], gap: 8}, intercept: 0.0000}
@@ -85,6 +96,17 @@ supercollections:
               - {label: mc3_r0p01_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [1.3553, 1.3553, 1.3553], gap: 8}, intercept: -4.6052}
               - {label: mc3_r0p01_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [1.3553, 1.3553, 1.3553], gap: 64}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: mc3_r0p1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.3629, 0.3629, 0.3629], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.3629, 0.3629, 0.3629], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.4493, 0.4493, 0.4493], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g64, function: spaced_index_effect, arguments: {causal_effects: [0.4493, 0.4493, 0.4493], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [0.5123, 0.5123, 0.5123], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [0.5123, 0.5123, 0.5123], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g8, function: spaced_index_effect, arguments: {causal_effects: [0.5702, 0.5702, 0.5702], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g64, function: spaced_index_effect, arguments: {causal_effects: [0.5702, 0.5702, 0.5702], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [0.6193, 0.6193, 0.6193], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [0.6193, 0.6193, 0.6193], gap: 64}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: mc3_r1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.1168, 0.1168, 0.1168], gap: 8}, intercept: 0.0000}
               - {label: mc3_r1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.1168, 0.1168, 0.1168], gap: 64}, intercept: 0.0000}
               - {label: mc3_r1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.1490, 0.1490, 0.1490], gap: 8}, intercept: 0.0000}
@@ -123,7 +145,7 @@ supercollections:
     outputs:
       - {name: 025_rate_gaussian_pilot, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score], analyses: [pip, cs]}
 
-  # gaussian single effect: 24 cells x 4 L=1 SER arms.
+  # gaussian single effect: 30 cells x 4 L=1 SER arms.
   025-rate-gaussian-ser:
     replicates_per_batch: 10
     n_batches: 20
@@ -137,6 +159,12 @@ supercollections:
               - {label: ser_r0p01_T20, function: spaced_index_effect, arguments: {causal_effects: [1.2902], gap: 64}, intercept: -4.6052}
               - {label: ser_r0p01_T24, function: spaced_index_effect, arguments: {causal_effects: [1.3553], gap: 64}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: ser_r0p1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.3629], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.4493], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.5123], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T20, function: spaced_index_effect, arguments: {causal_effects: [0.5702], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T24, function: spaced_index_effect, arguments: {causal_effects: [0.6193], gap: 64}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: ser_r1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.1168], gap: 64}, intercept: 0.0000}
               - {label: ser_r1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.1490], gap: 64}, intercept: 0.0000}
               - {label: ser_r1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.1718], gap: 64}, intercept: 0.0000}
@@ -173,6 +201,12 @@ supercollections:
               - {label: ser_r0p01_T20, function: spaced_index_effect, arguments: {causal_effects: [1.2902], gap: 64}, intercept: -4.6052}
               - {label: ser_r0p01_T24, function: spaced_index_effect, arguments: {causal_effects: [1.3553], gap: 64}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: ser_r0p1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.3629], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.4493], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.5123], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T20, function: spaced_index_effect, arguments: {causal_effects: [0.5702], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T24, function: spaced_index_effect, arguments: {causal_effects: [0.6193], gap: 64}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: ser_r1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.1168], gap: 64}, intercept: 0.0000}
               - {label: ser_r1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.1490], gap: 64}, intercept: 0.0000}
               - {label: ser_r1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.1718], gap: 64}, intercept: 0.0000}
@@ -196,7 +230,7 @@ supercollections:
     outputs:
       - {name: 025_rate_gaussian_ser_pilot, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score], analyses: [pip, cs]}
 
-  # binary: 44 cells x 4 L=5 arms, 200 reps; pilot = batch 0.
+  # binary: 55 cells x 4 L=5 arms, 200 reps; pilot = batch 0.
   025-rate-binary:
     replicates_per_batch: 10
     n_batches: 20
@@ -215,6 +249,17 @@ supercollections:
               - {label: mc3_r0p01_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [2.3448, 2.3448, 2.3448], gap: 8}, intercept: -4.6052}
               - {label: mc3_r0p01_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [2.3448, 2.3448, 2.3448], gap: 64}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: mc3_r0p1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.7028, 0.7028, 0.7028], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.7028, 0.7028, 0.7028], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.8412, 0.8412, 0.8412], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g64, function: spaced_index_effect, arguments: {causal_effects: [0.8412, 0.8412, 0.8412], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [0.9503, 0.9503, 0.9503], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [0.9503, 0.9503, 0.9503], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g8, function: spaced_index_effect, arguments: {causal_effects: [1.0375, 1.0375, 1.0375], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g64, function: spaced_index_effect, arguments: {causal_effects: [1.0375, 1.0375, 1.0375], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [1.1136, 1.1136, 1.1136], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [1.1136, 1.1136, 1.1136], gap: 64}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: mc3_r1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.2567, 0.2567, 0.2567], gap: 8}, intercept: 0.0000}
               - {label: mc3_r1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.2567, 0.2567, 0.2567], gap: 64}, intercept: 0.0000}
               - {label: mc3_r1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.3160, 0.3160, 0.3160], gap: 8}, intercept: 0.0000}
@@ -271,6 +316,17 @@ supercollections:
               - {label: mc3_r0p01_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [2.3448, 2.3448, 2.3448], gap: 8}, intercept: -4.6052}
               - {label: mc3_r0p01_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [2.3448, 2.3448, 2.3448], gap: 64}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: mc3_r0p1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.7028, 0.7028, 0.7028], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.7028, 0.7028, 0.7028], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.8412, 0.8412, 0.8412], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g64, function: spaced_index_effect, arguments: {causal_effects: [0.8412, 0.8412, 0.8412], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [0.9503, 0.9503, 0.9503], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [0.9503, 0.9503, 0.9503], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g8, function: spaced_index_effect, arguments: {causal_effects: [1.0375, 1.0375, 1.0375], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g64, function: spaced_index_effect, arguments: {causal_effects: [1.0375, 1.0375, 1.0375], gap: 64}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [1.1136, 1.1136, 1.1136], gap: 8}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [1.1136, 1.1136, 1.1136], gap: 64}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: mc3_r1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.2567, 0.2567, 0.2567], gap: 8}, intercept: 0.0000}
               - {label: mc3_r1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.2567, 0.2567, 0.2567], gap: 64}, intercept: 0.0000}
               - {label: mc3_r1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.3160, 0.3160, 0.3160], gap: 8}, intercept: 0.0000}
@@ -309,7 +365,7 @@ supercollections:
     outputs:
       - {name: 025_rate_binary_pilot, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score], analyses: [pip, cs]}
 
-  # binary single effect: 24 cells x 4 L=1 SER arms.
+  # binary single effect: 30 cells x 4 L=1 SER arms.
   025-rate-binary-ser:
     replicates_per_batch: 10
     n_batches: 20
@@ -323,6 +379,12 @@ supercollections:
               - {label: ser_r0p01_T20, function: spaced_index_effect, arguments: {causal_effects: [2.2167], gap: 64}, intercept: -4.6052}
               - {label: ser_r0p01_T24, function: spaced_index_effect, arguments: {causal_effects: [2.3448], gap: 64}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: ser_r0p1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.7028], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.8412], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.9503], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T20, function: spaced_index_effect, arguments: {causal_effects: [1.0375], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T24, function: spaced_index_effect, arguments: {causal_effects: [1.1136], gap: 64}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: ser_r1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.2567], gap: 64}, intercept: 0.0000}
               - {label: ser_r1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.3160], gap: 64}, intercept: 0.0000}
               - {label: ser_r1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.3636], gap: 64}, intercept: 0.0000}
@@ -359,6 +421,12 @@ supercollections:
               - {label: ser_r0p01_T20, function: spaced_index_effect, arguments: {causal_effects: [2.2167], gap: 64}, intercept: -4.6052}
               - {label: ser_r0p01_T24, function: spaced_index_effect, arguments: {causal_effects: [2.3448], gap: 64}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: ser_r0p1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.7028], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.8412], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.9503], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T20, function: spaced_index_effect, arguments: {causal_effects: [1.0375], gap: 64}, intercept: -2.3026}
+              - {label: ser_r0p1_T24, function: spaced_index_effect, arguments: {causal_effects: [1.1136], gap: 64}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: ser_r1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.2567], gap: 64}, intercept: 0.0000}
               - {label: ser_r1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.3160], gap: 64}, intercept: 0.0000}
               - {label: ser_r1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.3636], gap: 64}, intercept: 0.0000}
@@ -382,7 +450,7 @@ supercollections:
     outputs:
       - {name: 025_rate_binary_ser_pilot, method_filter: [poisson_q2_ser_cavi, poisson_q2_ser_gibss, poisson_q2_ser_gibss_laplace, poisson_q2_ser_score], analyses: [pip, cs]}
 
-  # block: 44 cells x 4 L=5 arms, 200 reps; pilot = batch 0.
+  # block: 55 cells x 4 L=5 arms, 200 reps; pilot = batch 0.
   025-rate-block:
     replicates_per_batch: 10
     n_batches: 20
@@ -401,6 +469,17 @@ supercollections:
               - {label: mc3_r0p01_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [2.4371, 2.4371, 2.4371], gap: 8, base_index: 3}, intercept: -4.6052}
               - {label: mc3_r0p01_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [2.4371, 2.4371, 2.4371], gap: 64, base_index: 3}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: mc3_r0p1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.7496, 0.7496, 0.7496], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.7496, 0.7496, 0.7496], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.8969, 0.8969, 0.8969], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g64, function: spaced_index_effect, arguments: {causal_effects: [0.8969, 0.8969, 0.8969], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [1.0082, 1.0082, 1.0082], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [1.0082, 1.0082, 1.0082], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g8, function: spaced_index_effect, arguments: {causal_effects: [1.1012, 1.1012, 1.1012], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g64, function: spaced_index_effect, arguments: {causal_effects: [1.1012, 1.1012, 1.1012], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [1.1796, 1.1796, 1.1796], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [1.1796, 1.1796, 1.1796], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: mc3_r1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.2772, 0.2772, 0.2772], gap: 8, base_index: 3}, intercept: 0.0000}
               - {label: mc3_r1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.2772, 0.2772, 0.2772], gap: 64, base_index: 3}, intercept: 0.0000}
               - {label: mc3_r1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.3409, 0.3409, 0.3409], gap: 8, base_index: 3}, intercept: 0.0000}
@@ -457,6 +536,17 @@ supercollections:
               - {label: mc3_r0p01_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [2.4371, 2.4371, 2.4371], gap: 8, base_index: 3}, intercept: -4.6052}
               - {label: mc3_r0p01_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [2.4371, 2.4371, 2.4371], gap: 64, base_index: 3}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: mc3_r0p1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.7496, 0.7496, 0.7496], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.7496, 0.7496, 0.7496], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.8969, 0.8969, 0.8969], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T12_g64, function: spaced_index_effect, arguments: {causal_effects: [0.8969, 0.8969, 0.8969], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [1.0082, 1.0082, 1.0082], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [1.0082, 1.0082, 1.0082], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g8, function: spaced_index_effect, arguments: {causal_effects: [1.1012, 1.1012, 1.1012], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T20_g64, function: spaced_index_effect, arguments: {causal_effects: [1.1012, 1.1012, 1.1012], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g8, function: spaced_index_effect, arguments: {causal_effects: [1.1796, 1.1796, 1.1796], gap: 8, base_index: 3}, intercept: -2.3026}
+              - {label: mc3_r0p1_T24_g64, function: spaced_index_effect, arguments: {causal_effects: [1.1796, 1.1796, 1.1796], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: mc3_r1_T8_g8, function: spaced_index_effect, arguments: {causal_effects: [0.2772, 0.2772, 0.2772], gap: 8, base_index: 3}, intercept: 0.0000}
               - {label: mc3_r1_T8_g64, function: spaced_index_effect, arguments: {causal_effects: [0.2772, 0.2772, 0.2772], gap: 64, base_index: 3}, intercept: 0.0000}
               - {label: mc3_r1_T12_g8, function: spaced_index_effect, arguments: {causal_effects: [0.3409, 0.3409, 0.3409], gap: 8, base_index: 3}, intercept: 0.0000}
@@ -495,7 +585,7 @@ supercollections:
     outputs:
       - {name: 025_rate_block_pilot, method_filter: [poisson_q2_L5_cavi, poisson_q2_L5_gibss, poisson_q2_L5_gibss_laplace, poisson_q2_L5_score], analyses: [pip, cs]}
 
-  # block single effect: 24 cells x 4 L=1 SER arms.
+  # block single effect: 30 cells x 4 L=1 SER arms.
   025-rate-block-ser:
     replicates_per_batch: 10
     n_batches: 20
@@ -509,6 +599,12 @@ supercollections:
               - {label: ser_r0p01_T20, function: spaced_index_effect, arguments: {causal_effects: [2.3134], gap: 64, base_index: 3}, intercept: -4.6052}
               - {label: ser_r0p01_T24, function: spaced_index_effect, arguments: {causal_effects: [2.4371], gap: 64, base_index: 3}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: ser_r0p1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.7496], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: ser_r0p1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.8969], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: ser_r0p1_T16, function: spaced_index_effect, arguments: {causal_effects: [1.0082], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: ser_r0p1_T20, function: spaced_index_effect, arguments: {causal_effects: [1.1012], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: ser_r0p1_T24, function: spaced_index_effect, arguments: {causal_effects: [1.1796], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: ser_r1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.2772], gap: 64, base_index: 3}, intercept: 0.0000}
               - {label: ser_r1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.3409], gap: 64, base_index: 3}, intercept: 0.0000}
               - {label: ser_r1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.3915], gap: 64, base_index: 3}, intercept: 0.0000}
@@ -545,6 +641,12 @@ supercollections:
               - {label: ser_r0p01_T20, function: spaced_index_effect, arguments: {causal_effects: [2.3134], gap: 64, base_index: 3}, intercept: -4.6052}
               - {label: ser_r0p01_T24, function: spaced_index_effect, arguments: {causal_effects: [2.4371], gap: 64, base_index: 3}, intercept: -4.6052}
               - {label: null_r0p01, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -4.6052}
+              - {label: ser_r0p1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.7496], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: ser_r0p1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.8969], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: ser_r0p1_T16, function: spaced_index_effect, arguments: {causal_effects: [1.0082], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: ser_r0p1_T20, function: spaced_index_effect, arguments: {causal_effects: [1.1012], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: ser_r0p1_T24, function: spaced_index_effect, arguments: {causal_effects: [1.1796], gap: 64, base_index: 3}, intercept: -2.3026}
+              - {label: null_r0p1, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.3026}
               - {label: ser_r1_T8, function: spaced_index_effect, arguments: {causal_effects: [0.2772], gap: 64, base_index: 3}, intercept: 0.0000}
               - {label: ser_r1_T12, function: spaced_index_effect, arguments: {causal_effects: [0.3409], gap: 64, base_index: 3}, intercept: 0.0000}
               - {label: ser_r1_T16, function: spaced_index_effect, arguments: {causal_effects: [0.3915], gap: 64, base_index: 3}, intercept: 0.0000}

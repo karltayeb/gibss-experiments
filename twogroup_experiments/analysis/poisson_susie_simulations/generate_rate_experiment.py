@@ -7,7 +7,7 @@ rate. Arms (all Q2, EB prior capped at 100): CAVI-Q2 (exact closed-form offset f
 (plug-in mean offset), gIBSS-Laplace (order-1 quadrature SER, plug-in offset, reduced to Q2),
 score (one Newton step from the intercept-only null).
 
-Grid per design: lambda0 in {0.01, 1, 10, 100} (intercept b0 = log lambda0) x T = E[LRT] in
+Grid per design: lambda0 in {0.01, 0.1, 1, 10, 100} (intercept b0 = log lambda0) x T = E[LRT] in
 {8, 12, 16, 20, 24} x gap in {8, 64}, L* = 3 equal causals, fit L = 5; plus one null per lambda0.
 beta per (design, lambda0, T) from betas_rate.json (calibrate_rate.py, one causal column).
 
