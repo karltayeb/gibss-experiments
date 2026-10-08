@@ -10,9 +10,10 @@ is the posterior over which feature carries the effect. Three distances, arm vs 
 Poisson fits store alpha but not feature_log_bf, so log alpha is log(alpha) floored at 1e-300
 (alpha underflows to 0 only for features with no mass on either side, which add nothing to TV
 and nothing to KL unless CAVI puts mass there). At L=1 alpha IS the PIP vector. At L=5
-components are unordered, so the arm's are matched to CAVI's by minimum total TV (Hungarian),
-keeping pairs where EITHER side is declared (component log BF >= 2). Per fit, max_j |PIP_arm -
-PIP_CAVI| over the combined PIPs needs no matching.
+components are unordered, so the arm's are matched to CAVI's by minimum total TV (Hungarian).
+Every matched pair is kept with the smaller of its two component log BFs, so figures can bar on
+it (both sides must clear the bar). Per fit, max_j |PIP_arm - PIP_CAVI| over the combined PIPs
+needs no matching.
 """
 from __future__ import annotations
 
@@ -56,9 +57,9 @@ def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict]:
     _, cols = linear_sum_assignment(tv)
     pairs = []
     for i, k in enumerate(cols):
-        dr, da = bool(lbf_a[i] >= MIN_LOG_BF), bool(lbf_b[k] >= MIN_LOG_BF)
-        if dr or da:
-            pairs.append({**_dist(a[i], b[k]), "declared_ref": dr, "declared_arm": da})
+        pairs.append({**_dist(a[i], b[k]), "declared_ref": bool(lbf_a[i] >= MIN_LOG_BF),
+                      "declared_arm": bool(lbf_b[k] >= MIN_LOG_BF),
+                      "min_log_bf": float(min(lbf_a[i], lbf_b[k]))})
     return pairs, {"max_pip": float(np.abs(pa - pb).max()),
                    "n_decl_ref": int((lbf_a >= MIN_LOG_BF).sum()),
                    "n_decl_arm": int((lbf_b >= MIN_LOG_BF).sum())}
@@ -69,7 +70,7 @@ def load(sc: str) -> tuple[pl.DataFrame, pl.DataFrame]:
     fits.parquet files present."""
     pairs = list(RC._pairs(sc))   # (bh, mh, arm, meta); arm in cavi/gibss/laplace/score
     present = [p for p in pairs if os.path.exists(f"{RC.RESULTS}/by_batch/{p[0]}/fits/{p[1]}/fits.parquet")]
-    stem = os.path.join(RC.CACHE, f"rate_pip_{sc}_{len(present)}")
+    stem = os.path.join(RC.CACHE, f"rate_pip_v2_{sc}_{len(present)}")
     if os.path.exists(stem + "_fit.parquet"):
         return pl.read_parquet(stem + "_comp.parquet"), pl.read_parquet(stem + "_fit.parquet")
     by_batch: dict[str, dict] = {}
@@ -212,3 +213,56 @@ def share_table() -> pl.DataFrame:
     return (pl.DataFrame(rows)
             .with_columns(pl.col("arm").replace_strict(order, return_dtype=pl.Int8).alias("_o"))
             .sort("design", "L", "_o", "lambda0").drop("_o"))
+
+
+BARS = [0.0, 1.0, 2.0]
+
+
+def tv_survival_figure(design: str, L: int = 5, bars=BARS, floor: float = 1e-4):
+    """Rows = all matched pairs, then pairs whose smaller component log BF exceeds each bar;
+    columns = lambda0. Share of matched pairs with TV(arm, CAVI-Q2) > x, one line per arm,
+    log-log, non-null cells pooled over T and gap. Values below `floor` are drawn at the floor."""
+    import matplotlib.pyplot as plt
+    comp, _ = load(f"025-rate-{design}" + ("" if L == 5 else "-ser"))
+    comp = comp.filter(~pl.col("null"))
+    lams = sorted(comp["lambda0"].unique().to_list())
+    rows = [("all pairs", pl.lit(True))] + [(f"min log BF > {t:g}", pl.col("min_log_bf") > t) for t in bars]
+    fig, axes = plt.subplots(len(rows), len(lams), figsize=(6.5, 1.55 * len(rows) + 0.7),
+                             sharex=True, sharey=True, squeeze=False)
+    for i, (label, keep) in enumerate(rows):
+        for j, lam in enumerate(lams):
+            ax = axes[i, j]
+            sub = comp.filter((pl.col("lambda0") == lam) & keep)
+            for m in ARMS:
+                x = sub.filter(pl.col("method") == m)["tv"].to_numpy()
+                x = np.sort(np.maximum(x[~np.isnan(x)], floor))
+                if x.size == 0:
+                    continue
+                surv = 1.0 - np.arange(1, x.size + 1) / x.size
+                ax.step(x[:-1], surv[:-1], where="post", color=COLOR[m], lw=1.1, label=LABEL[m])
+            for v in (0.01, 0.1):
+                ax.axvline(v, color="0.6", lw=0.6, ls=":")
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+            ax.set_xlim(floor, 1)
+            ax.set_ylim(1e-3, 1.05)
+            ax.grid(True, which="major", alpha=0.25)
+            ax.tick_params(labelsize=6.5)
+            if i == 0:
+                ax.set_title(rf"$\lambda_0 = {lam:g}$", fontsize=8)
+            if i == len(rows) - 1:
+                ax.set_xlabel("TV, matched pair", fontsize=7)
+            if j == 0:
+                ax.set_ylabel(f"{label}\nshare above x", fontsize=7.5)
+    handles = {}
+    for ax in axes.flat:
+        for h, lab in zip(*ax.get_legend_handles_labels()):
+            handles.setdefault(lab, h)
+    fig.legend(handles.values(), handles.keys(), loc="upper center", ncol=len(handles), fontsize=7,
+               frameon=False)
+    fig_h = fig.get_size_inches()[1]
+    fig.tight_layout(rect=(0, 0, 1, 1 - 0.5 / fig_h))
+    top = max(ax.get_position().y1 for ax in axes[0])
+    fig.suptitle(f"{DESIGN_SHORT[design]}, " + ("3 causals, L = 5" if L == 5 else "one causal, L = 1"),
+                 fontsize=8, y=top + 0.25 / fig_h, va="bottom")
+    return fig

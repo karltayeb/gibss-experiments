@@ -1,6 +1,6 @@
 ---
 title: "Poisson SuSiE across the background rate"
-subtitle: "gIBSS-Q2 and score against CAVI-Q2 as the baseline rate runs from 0.01 to 100, on Gaussian, binary and nested block designs (experiment 025)."
+subtitle: "gIBSS-Q2, gIBSS-Laplace and score against CAVI-Q2 as the baseline rate runs from 0.01 to 100, on Gaussian, binary and nested block designs (experiment 025)."
 engine: jupyter
 jupyter: python3
 execute:
@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 plt.rcParams["figure.dpi"] = 110
 import polars as pl
 import rate_cs as RC
+import rate_pip as RP
 
 pl.Config.set_tbl_hide_dataframe_shape(True)
 pl.Config.set_tbl_hide_column_data_types(True)
@@ -33,7 +34,7 @@ Each causal effect is calibrated to $E[\text{LRT}] = T \in \{8, 12, 16, 20, 24\}
 
 - Multi-effect: 3 equal causals, `gap` 8 (correlated) or 64 (independent) columns apart, fit $L = 5$.
 - Single effect (`-ser`): one causal at column 64, fit $L = 1$.
-- Arms, all scored in Q2 with an EB prior variance: CAVI-Q2 (exact closed-form offset), gIBSS-Q2 (plug-in mean offset), score (one Newton step from the intercept-only null).
+- Arms, all scored in Q2 with an EB prior variance: CAVI-Q2 (exact closed-form offset), gIBSS-Q2 (plug-in mean offset), gIBSS-Laplace (order-1 quadrature SER, plug-in offset, reduced to Q2), score (one Newton step from the intercept-only null).
 - 200 replicates per cell. Declared = 95% CS of a component with SER log BF $\geq 2$.
 
 | design | $X$ | causal set size |
@@ -46,8 +47,12 @@ Figure rows, each relative to CAVI-Q2 on the same simulated data:
 **coverage** = arm minus CAVI fraction of declared CSs containing a causal;
 **power** = arm minus CAVI fraction of causals inside some declared CS;
 **CS size ratio** = mean declared-CS size, arm over CAVI;
-**ELBO** = gIBSS minus CAVI common Q2 ELBO, mean per fit (score omitted: its Q2 ELBO reaches about $-10^{15}$ at $\lambda_0 = 0.01$).
+**ELBO** = gIBSS arm minus CAVI common Q2 ELBO, mean per fit (score omitted: its Q2 ELBO reaches about $-10^{15}$ at $\lambda_0 = 0.01$).
 Bands are 95% CIs from resampling replicates jointly for both arms.
+
+PIP agreement figures: each arm's components are matched to CAVI-Q2's on the same replicate by minimum total TV (Hungarian; identity at $L = 1$).
+x = TV between a matched pair's $\alpha$ vectors; y = share of matched pairs with TV above x.
+Rows bar on the pair's smaller component log BF (both sides must clear it). Non-null cells, pooled over $T$ and gap; TV below $10^{-4}$ is drawn at $10^{-4}$.
 
 Table columns, CAVI-Q2's own values pooled over $T$:
 **coverage** = covering / declared CSs;
@@ -71,6 +76,18 @@ fig = RC.figure("gaussian", ser=True); plt.show()
 ```
 
 ```{python}
+#| label: fig-tv-gaussian
+#| fig-cap: "AR1 Gaussian, 3 causals, L = 5: TV between matched components, arm vs CAVI-Q2."
+fig = RP.tv_survival_figure("gaussian", 5); plt.show()
+```
+
+```{python}
+#| label: fig-tv-gaussian-ser
+#| fig-cap: "AR1 Gaussian, one causal, L = 1: TV between alpha vectors, arm vs CAVI-Q2."
+fig = RP.tv_survival_figure("gaussian", 1); plt.show()
+```
+
+```{python}
 #| label: tbl-gaussian
 #| tbl-cap: "CAVI-Q2 absolute values, Gaussian design, L = 5."
 RC.absolute_table("025-rate-gaussian")
@@ -91,6 +108,18 @@ fig = RC.figure("binary", ser=True); plt.show()
 ```
 
 ```{python}
+#| label: fig-tv-binary
+#| fig-cap: "Binary Markov, 3 causals, L = 5: TV between matched components, arm vs CAVI-Q2."
+fig = RP.tv_survival_figure("binary", 5); plt.show()
+```
+
+```{python}
+#| label: fig-tv-binary-ser
+#| fig-cap: "Binary Markov, one causal, L = 1: TV between alpha vectors, arm vs CAVI-Q2."
+fig = RP.tv_survival_figure("binary", 1); plt.show()
+```
+
+```{python}
 #| label: tbl-binary
 #| tbl-cap: "CAVI-Q2 absolute values, binary design, L = 5."
 RC.absolute_table("025-rate-binary")
@@ -108,6 +137,18 @@ fig = RC.figure("block"); plt.show()
 #| label: fig-block-ser
 #| fig-cap: "Nested block design, one causal, L = 1."
 fig = RC.figure("block", ser=True); plt.show()
+```
+
+```{python}
+#| label: fig-tv-block
+#| fig-cap: "Nested block design, 3 causals, L = 5: TV between matched components, arm vs CAVI-Q2."
+fig = RP.tv_survival_figure("block", 5); plt.show()
+```
+
+```{python}
+#| label: fig-tv-block-ser
+#| fig-cap: "Nested block design, one causal, L = 1: TV between alpha vectors, arm vs CAVI-Q2."
+fig = RP.tv_survival_figure("block", 1); plt.show()
 ```
 
 ```{python}
