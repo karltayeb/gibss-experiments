@@ -3,14 +3,17 @@
 Three blocks, every dataset fit by every arm:
 
   exo_ser   exogenous known V, L=1 SER.  family x structure(homo/hetero) x V x b0 x signal
-            (signal / null mean) x seed; arms gibss / adjusted / adjusted_nr / exact.
+            (signal / null mean) x seed; arms gibss / taylor2 / adjusted / adjusted_nr / exact.
   exo_multi exogenous known V, L=3 (3 causal columns), homoskedastic V in {0, 1, 4}.
   endo      endogenous V, L=5 front-door fits. family x n x rho x seed; arms gibss /
-            adjusted / cavi (cf_cavi_q1). Realized message variance recorded per fit.
+            taylor2 / adjusted / cavi (cf_cavi_q1). Realized message variance recorded per fit.
 
-Per-dataset content-addressed cache under data/cache/adjusted/ (a rerun resumes); the
-artifact collects per-arm gap metrics for every dataset plus the full per-fit summaries of
-seed 0 of every cell (for the worked examples). Bump VERSION on a logic change.
+Per-dataset content-addressed cache under data/cache/adjusted/ (a rerun resumes). The cache
+record holds one summary per arm, and a rerun fits only the arms missing from it: adding an
+arm to adjusted_lib.EXO_ARMS / ENDO_ARMS costs that arm's fits alone (the dataset is
+re-simulated, which is deterministic in the cell). The artifact collects per-arm gap metrics
+for every dataset plus the full per-fit summaries of seed 0 of every cell (for the worked
+examples). Bump VERSION on a logic change to an existing arm.
 
     uv run python analysis/gibss_vs_cavi/generate_adjusted.py --workers 8
     uv run python analysis/gibss_vs_cavi/generate_adjusted.py --smoke     # 1 seed, tiny grid
@@ -109,41 +112,49 @@ def smoke_cells():
 
 # --------------------------------------------------------------------------- one cell
 def _run_cell(job):
+    """The cell's record {block, cell, recs, gaps, times}, fitting only the arms the cached
+    record (same content key) does not hold yet."""
     block, cell = job
-    from simcache import cached
+    from simcache import key_of
     import adjusted_lib as al
 
-    def compute():
-        t0 = time.time()
+    key = key_of(dict(VERSION=VERSION, block=block, **cell))
+    path = os.path.join(CACHE_DIR, f"{block}_{key}.pkl")
+    recs, times = {}, {}
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            blob = pickle.load(f)
+        if blob.get("key") == key:
+            recs, times = dict(blob["value"]["recs"]), dict(blob["value"]["times"])
+
+    arms = al.ENDO_ARMS if block == "endo" else al.EXO_ARMS
+    ref = "cavi" if block == "endo" else "exact"
+    missing = [arm for arm in arms if arm not in recs]
+    if missing:
         if block == "endo":
             X, y = al.simulate_endo(cell["family"], cell["n"], cell["rho"], cell["b0"],
                                     cell["beta"], cell["causal"], cell["p"], cell["seed"])
-            recs, times = {}, {}
-            for arm in al.ENDO_ARMS:
+            for arm in missing:
                 t = time.time()
                 st = al.fit_endo(X, y, cell["family"], arm, L=cell["L"], pv=cell["pv"],
                                  n_sweeps=cell["n_sweeps"])
                 recs[arm], times[arm] = al.summarize(st), time.time() - t
-            ref = "cavi"
         else:
             X, y, v = al.simulate_exo(cell["family"], cell["structure"], cell["V"], cell["b0"],
                                       cell["beta"], cell["causal"], cell["n"], cell["p"],
                                       cell["seed"])
-            recs, times = {}, {}
-            for arm in al.EXO_ARMS:
+            for arm in missing:
                 t = time.time()
                 st = al.fit_exo(X, y, v, cell["family"], arm, L=cell["L"], pv=cell["pv"],
                                 n_sweeps=cell["n_sweeps"])
                 recs[arm], times[arm] = al.summarize(st), time.time() - t
-            ref = "exact"
-        gaps = {arm: al.gap(recs[arm], recs[ref]) for arm in recs if arm != ref}
-        return dict(block=block, cell=cell, recs=recs, gaps=gaps, times=times,
-                    wall=time.time() - t0)
-
-    from simcache import key_of
-    key = key_of(dict(VERSION=VERSION, block=block, **cell))
-    return cached(dict(VERSION=VERSION, block=block, **cell), compute,
-                  os.path.join(CACHE_DIR, f"{block}_{key}.pkl"))
+        gaps = {arm: al.gap(recs[arm], recs[ref]) for arm in arms if arm != ref}
+        value = dict(block=block, cell=cell, recs=recs, gaps=gaps, times=times)
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(path, "wb") as f:
+            pickle.dump({"key": key, "value": value}, f)
+        return value
+    return blob["value"]
 
 
 # --------------------------------------------------------------------------- driver
@@ -179,6 +190,7 @@ def build(workers: int, smoke: bool):
                              msg_var_mean=r["recs"][arm]["msg_var_mean"],
                              msg_var_p95=r["recs"][arm]["msg_var_p95"],
                              msg_var_max=r["recs"][arm]["msg_var_max"],
+                             failed=bool(r["recs"][arm].get("failed", False)),
                              secs=r["times"][arm]))
         ref = "cavi" if r["block"] == "endo" else "exact"
         rows.append(dict(block=r["block"], arm=ref, **c, alpha_gap=0.0, pip_gap=0.0,
@@ -188,7 +200,8 @@ def build(workers: int, smoke: bool):
                          logbf_ref=float(r["recs"][ref]["ser_log_bf"].sum()),
                          msg_var_mean=r["recs"][ref]["msg_var_mean"],
                          msg_var_p95=r["recs"][ref]["msg_var_p95"],
-                         msg_var_max=r["recs"][ref]["msg_var_max"], secs=r["times"][ref]))
+                         msg_var_max=r["recs"][ref]["msg_var_max"],
+                         failed=bool(r["recs"][ref].get("failed", False)), secs=r["times"][ref]))
         if c["seed"] == 0:
             examples.append(dict(block=r["block"], cell=c, recs=r["recs"]))
     art = dict(version=VERSION, grids=dict(EXO=EXO, EXO_MULTI=EXO_MULTI, ENDO=ENDO),

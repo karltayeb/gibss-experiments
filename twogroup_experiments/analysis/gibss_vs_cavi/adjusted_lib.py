@@ -16,9 +16,11 @@ Two ways V enters, and we run both:
     the offset variance `ov` the kernel sees; the plain base ignores it. The exact reference
     is `Smoothed(base, GH(21))`: for a Gaussian offset of known variance the GH fold IS the
     exact offset-integrated SER (this is what CAVI computes when the offset law is that
-    Gaussian). Three arms, all free-form Q1 in the quad kernel, same intercept treatment:
+    Gaussian). Four arms, all free-form Q1 in the quad kernel, same intercept treatment:
         gibss     = base                       (plug-in; ignores V)
-        adjusted  = Smoothed(base, Adjusted())
+        taylor2   = Smoothed(base, Taylor())   (A + 1/2 V A'' at every eta; no anchor)
+        adjusted  = Smoothed(base, Adjusted()) (Taylor2's value/score/curvature at the
+                                                anchor, carried by the family's own cumulant)
         exact     = Smoothed(base, GH(21))
     V is swept directly, so we see each approximation's error as a function of V alone.
 
@@ -27,6 +29,7 @@ Two ways V enters, and we run both:
     variance. We sweep sample size and design correlation (which set how unresolved the
     other components stay), measure the realized V per row at convergence, and compare
         gibss     = method="logistic" / "poisson"   (plug-in)
+        taylor2   = the same, offset_integration="taylor2"
         adjusted  = method="adjusted"
         cavi      = method="cf_cavi_q1"             (exact free-form CAVI in Q1)
     through the front door `fit_glm_susie`, fixed sweep count so the arms are compared at
@@ -47,15 +50,17 @@ import jax.numpy as jnp
 from gibss import glm
 from gibss.engine import fit_ibss
 from gibss.methods import fit_glm_susie
-from gibss.response import GH, Adjusted, Bernoulli, Poisson, Smoothed
+from gibss.response import GH, Adjusted, Bernoulli, Poisson, Smoothed, Taylor
 
 import gvc
 
 # ------------------------------------------------------------------ palette / labels
 # gIBSS orange and CAVI/exact blue follow gvc; adjusted takes the third Okabe-Ito hue used
-# across the twogroup method palette (bluish green).
-COLOR = {"gibss": gvc.C_GIBSS, "adjusted": "#009E73", "exact": gvc.C_CAVI, "cavi": gvc.C_CAVI}
-LABEL = {"gibss": "gIBSS", "adjusted": "adjusted", "exact": "exact (GH)", "cavi": "CAVI (exact Q1)"}
+# across the twogroup method palette (bluish green); Taylor2 the reddish purple.
+COLOR = {"gibss": gvc.C_GIBSS, "taylor2": "#CC79A7", "adjusted": "#009E73",
+         "exact": gvc.C_CAVI, "cavi": gvc.C_CAVI}
+LABEL = {"gibss": "gIBSS", "taylor2": "Taylor2", "adjusted": "adjusted", "exact": "exact (GH)",
+         "cavi": "CAVI (exact Q1)"}
 FAMILY_LABEL = {"logistic": "logistic", "poisson": "Poisson"}
 BASES = {"logistic": Bernoulli, "poisson": Poisson}
 
@@ -67,11 +72,19 @@ BASES = {"logistic": Bernoulli, "poisson": Poisson}
 # alternative leaks sum_i [C_i(z_alt) - C_i(z_null)] into the log BF (Poisson: C_i(z) =
 # -y_i V/2 + e^z (e^{V/2} - 1 - V/2), with the eta-shape exact). This arm keeps the kernel's
 # own baseline (same aux for null and alternative), the fix the notebook argues for.
-EXO_ARMS = ("gibss", "adjusted", "adjusted_nr", "exact")
-ENDO_ARMS = ("gibss", "adjusted", "cavi")
+# taylor2: `Smoothed(base, Taylor())`, the closed-form second-order smoothing Atilde = A +
+# 1/2 V A'' applied at EVERY eta (no anchor, no row parameter). Its Newton weight is
+# A'' + 1/2 V A'''', which for logistic is p(1-p)[1 + V/2 (1 - 6p(1-p))]: zero at p = 1/2
+# when V = 4 and negative beyond, so the fit can lose convexity and return NaN. The
+# shipped Adjusted takes its value/score/curvature targets from this same function at
+# the anchor, so the two agree there and differ only in the shape away from it.
+EXO_ARMS = ("gibss", "taylor2", "adjusted", "adjusted_nr", "exact")
+ENDO_ARMS = ("gibss", "taylor2", "adjusted", "cavi")
 ENDO_METHOD = {"gibss": {"logistic": "logistic", "poisson": "poisson"},
+               "taylor2": {"logistic": "logistic", "poisson": "poisson"},
                "adjusted": {"logistic": "adjusted", "poisson": "adjusted"},
                "cavi": {"logistic": "cf_cavi_q1", "poisson": "cf_cavi_q1"}}
+ENDO_EXTRA = {"taylor2": dict(offset_integration="taylor2")}  # front-door kwargs per arm
 
 _QUAD_ORDER = 15
 _GH_EXACT = 21
@@ -147,6 +160,8 @@ def exo_response(family: str, arm: str):
     base = BASES[family]()
     if arm == "gibss":
         return base
+    if arm == "taylor2":
+        return Smoothed(base, Taylor())
     if arm in ("adjusted", "adjusted_nr"):
         return Smoothed(base, Adjusted())
     if arm == "exact":
@@ -190,7 +205,7 @@ def fit_endo(X, y, family: str, arm: str, L: int = 5, pv: float = 1.0, n_sweeps:
     return fit_glm_susie(
         np.asarray(X), np.asarray(y), L=L, method=ENDO_METHOD[arm][family], family=family,
         prior_variance=pv, estimate_prior_variance=False, center=True,
-        max_iter=n_sweeps, schedule=SCHED_ENDO,
+        max_iter=n_sweeps, schedule=SCHED_ENDO, **ENDO_EXTRA.get(arm, {}),
     )
 
 
@@ -202,7 +217,8 @@ def pip_of(state) -> np.ndarray:
 def summarize(state) -> dict:
     """Compact per-fit record: per-component alpha / mu / sd / log BF / feature log BF, the
     PIP, total posterior mean per feature, the intercept, and the realized offset variance
-    distribution (message variance at convergence, the V the endogenous arms see)."""
+    distribution (message variance at convergence, the V the endogenous arms see).
+    `failed` flags a fit that returned a non-finite alpha (Taylor2 losing convexity)."""
     eff = state.single_effects
     alpha = np.stack([np.asarray(e.alpha) for e in eff])
     mu = np.stack([np.asarray(e.mu) for e in eff])
@@ -215,7 +231,7 @@ def summarize(state) -> dict:
         pip=pip_of(state), eb=np.sum(alpha * mu, 0),
         intercept=float(state.family_state.intercept_value),
         msg_var_mean=float(mv.mean()), msg_var_p95=float(np.quantile(mv, 0.95)),
-        msg_var_max=float(mv.max()),
+        msg_var_max=float(mv.max()), failed=bool(not np.all(np.isfinite(alpha))),
     )
 
 

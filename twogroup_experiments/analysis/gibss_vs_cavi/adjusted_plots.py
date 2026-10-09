@@ -14,7 +14,7 @@ import adjusted_lib as al
 INK = "#16202E"
 COLOR = dict(al.COLOR, adjusted_nr="#005A42")  # darker green, dashed
 LABEL = dict(al.LABEL, adjusted_nr="adjusted, null not re-anchored")
-LS = {"gibss": "-", "adjusted": "-", "adjusted_nr": "--", "exact": "-", "cavi": "-"}
+LS = {"gibss": "-", "taylor2": "-", "adjusted": "-", "adjusted_nr": "--", "exact": "-", "cavi": "-"}
 METRIC_LABEL = {
     "alpha_gap": r"max$_j\,|\alpha_j - \alpha_j^{\rm exact}|$",
     "pip_gap": r"max$_j\,|{\rm PIP}_j - {\rm PIP}_j^{\rm ref}|$",
@@ -39,11 +39,24 @@ def load(path: str) -> dict:
 
 
 def _band(ax, x, ys, color, ls, label, q=(0.1, 0.9)):
-    """Mean over seeds with a 10-90% band. `ys` is (n_x, n_seeds)."""
-    m = np.array([np.mean(v) for v in ys])
-    lo = np.array([np.quantile(v, q[0]) for v in ys])
-    hi = np.array([np.quantile(v, q[1]) for v in ys])
-    ax.plot(x, m, color=color, ls=ls, marker="o", ms=3.5, lw=1.4, label=label)
+    """Mean over the seeds that produced a finite value, with a 10-90% band. `ys` is
+    (n_x, n_seeds). A point where every seed failed (NaN fit) is left out, so the line
+    stops; a point where some seeds failed gets a hollow marker."""
+    fin = [v[np.isfinite(v)] for v in ys]
+    keep = np.array([len(v) > 0 for v in fin])
+    if not keep.any():
+        return
+    x = np.asarray(x)[keep]
+    fin = [v for v, k in zip(fin, keep) if k]
+    partial = np.array([len(v) < len(w) for v, w in zip(fin, [u for u, k in zip(ys, keep) if k])])
+    m = np.array([np.mean(v) for v in fin])
+    lo = np.array([np.quantile(v, q[0]) for v in fin])
+    hi = np.array([np.quantile(v, q[1]) for v in fin])
+    ax.plot(x, m, color=color, ls=ls, marker="o", ms=3.5, lw=1.4, label=label,
+            markerfacecolor=color)
+    if partial.any():
+        ax.plot(x[partial], m[partial], ls="none", marker="o", ms=3.5, markerfacecolor="white",
+                markeredgecolor=color)
     ax.fill_between(x, lo, hi, color=color, alpha=0.15, lw=0)
 
 
@@ -56,10 +69,12 @@ def _series(df: pl.DataFrame, arm: str, metric: str, xcol: str = "V"):
 
 def plot_metrics_vs_v(art, block: str, structure: str, signal: str, b0: dict,
                       metrics=("alpha_gap", "eb_gap", "icpt_gap", "logbf_gap"),
-                      arms=("gibss", "adjusted"), logbf_arms=("gibss", "adjusted", "adjusted_nr"),
+                      arms=("gibss", "taylor2", "adjusted"),
+                      logbf_arms=("gibss", "taylor2", "adjusted", "adjusted_nr"),
                       figsize=(6.5, 4.6)):
     """Rows = family, columns = metric, x = V, one line per arm (mean over seeds, 10-90%
-    band). `b0` picks one baseline per family. The reference arm is the zero line."""
+    band). `b0` picks one baseline per family. The reference arm is the zero line. A line
+    that stops early is an arm whose every seed failed (NaN) beyond that V."""
     df = art["df"].filter((pl.col("block") == block) & (pl.col("structure") == structure)
                           & (pl.col("signal") == signal))
     fams = ("logistic", "poisson")
@@ -86,7 +101,7 @@ def plot_metrics_vs_v(art, block: str, structure: str, signal: str, b0: dict,
             ax.tick_params(labelsize=8)
             ax.spines[["top", "right"]].set_visible(False)
     h, l = axes[0][-1].get_legend_handles_labels()
-    fig.legend(h, l, loc="lower center", ncol=3, frameon=False, fontsize=8,
+    fig.legend(h, l, loc="lower center", ncol=4, frameon=False, fontsize=8,
                bbox_to_anchor=(0.5, -0.03))
     fig.tight_layout(rect=(0, 0.05, 1, 1))
     return fig
@@ -106,7 +121,8 @@ def plot_b0_sweep(art, family: str, arm: str = "adjusted", structure: str = "hom
         ax = axes[c]
         for i, b0 in enumerate(b0s):
             x, ys = _series(df.filter(pl.col("b0") == b0), arm, met)
-            m = np.array([np.mean(v) for v in ys])
+            m = np.array([np.mean(v[np.isfinite(v)]) if np.isfinite(v).any() else np.nan
+                          for v in ys])
             ax.plot(x, m, color=cmap(i / max(len(b0s) - 1, 1)), marker="o", ms=3, lw=1.3,
                     label=f"$b_0={b0:g}$")
         ax.axhline(0.0, color="0.6", lw=0.8, ls=":")
@@ -122,7 +138,7 @@ def plot_b0_sweep(art, family: str, arm: str = "adjusted", structure: str = "hom
     return fig
 
 
-def plot_false_cs(art, b0: dict, arms=("gibss", "adjusted", "adjusted_nr", "exact"),
+def plot_false_cs(art, b0: dict, arms=("gibss", "taylor2", "adjusted", "adjusted_nr", "exact"),
                   figsize=(6.5, 2.6)):
     """Null-mean, heteroskedastic V (on half the rows): rate of a declared credible set
     (SER log BF > LOGBF_CS) over seeds vs V, per arm. Any declared set is a false positive."""
@@ -137,7 +153,8 @@ def plot_false_cs(art, b0: dict, arms=("gibss", "adjusted", "adjusted_nr", "exac
             x, ys = _series(d, arm, "logbf")
             if len(x) == 0:
                 continue
-            rate = np.array([np.mean(v > LOGBF_CS) for v in ys])
+            rate = np.array([np.mean(v[np.isfinite(v)] > LOGBF_CS) if np.isfinite(v).any()
+                             else np.nan for v in ys])
             ax.plot(x, rate, color=COLOR[arm], ls=LS[arm], marker="o", ms=3.5, lw=1.4,
                     label=LABEL[arm])
         ax.set_ylim(-0.03, 1.03)
@@ -151,7 +168,8 @@ def plot_false_cs(art, b0: dict, arms=("gibss", "adjusted", "adjusted_nr", "exac
     return fig
 
 
-def plot_pip_example(art, block: str, family: str, V: float, arms=("gibss", "adjusted", "exact"),
+def plot_pip_example(art, block: str, family: str, V: float,
+                     arms=("gibss", "taylor2", "adjusted", "exact"),
                      figsize=(6.5, 3.4)):
     """PIP stems of the seed-0 example of one cell, one row per arm. Causal columns in
     vermillion; the band spans +-2 columns (corr >= 0.81)."""
@@ -167,6 +185,13 @@ def plot_pip_example(art, block: str, family: str, V: float, arms=("gibss", "adj
         rec = ex["recs"][arm]
         pip = rec["pip"]
         x = np.arange(p)
+        if not np.all(np.isfinite(pip)):
+            ax.set_title(f"{LABEL[arm]}:  fit failed (non-finite posterior)", loc="left",
+                         fontsize=8, color=COLOR[arm], pad=3)
+            ax.set_ylim(-0.02, 1.08)
+            ax.set_ylabel("PIP", fontsize=8.5)
+            ax.spines[["top", "right"]].set_visible(False)
+            continue
         for cc in causal:
             ax.axvspan(cc - 2.5, cc + 2.5, color="#D55E00", alpha=0.08, lw=0)
         is_c = np.zeros(p, bool)
@@ -198,7 +223,7 @@ def plot_endo(art, metric: str = "pip_gap", figsize=(6.5, 2.8)):
     for c, fam in enumerate(fams):
         ax = axes[c]
         d = df.filter(pl.col("family") == fam)
-        for arm in ("gibss", "adjusted"):
+        for arm in ("gibss", "taylor2", "adjusted"):
             s = d.filter(pl.col("arm") == arm)
             yv = s[metric].to_numpy()
             if metric in ("pip_gap", "alpha_gap"):
@@ -230,19 +255,21 @@ def endo_table(art) -> str:
     g = (df.filter(pl.col("arm") == "cavi")
          .group_by(["family", "n", "rho"]).agg(pl.col("msg_var_mean").mean().alias("V_mean"),
                                                pl.col("msg_var_p95").mean().alias("V_p95")))
-    lines = ["| family | n | rho | mean V | p95 V | gIBSS PIP gap | adjusted PIP gap | "
-             "gIBSS logBF gap | adjusted logBF gap | gIBSS s | adjusted s | CAVI s |",
-             "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"]
+    arms = ("gibss", "taylor2", "adjusted")
+    lines = ["| family | n | rho | mean V | p95 V | PIP gap: gIBSS | Taylor2 | adjusted | "
+             "logBF gap: gIBSS | Taylor2 | adjusted | s: gIBSS / Taylor2 / adjusted / CAVI |",
+             "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|"]
     for row in g.sort(["family", "n", "rho"]).iter_rows(named=True):
         sel = df.filter((pl.col("family") == row["family"]) & (pl.col("n") == row["n"])
                         & (pl.col("rho") == row["rho"]))
         def m(arm, col):
             return float(sel.filter(pl.col("arm") == arm)[col].mean())
+        pip = " | ".join(f"{m(a, 'pip_gap'):.4f}" for a in arms)
+        lbf = " | ".join(f"{m(a, 'logbf_gap'):+.2f}" for a in arms)
+        secs = " / ".join(f"{m(a, 'secs'):.1f}" for a in arms + ("cavi",))
         lines.append(
             f"| {row['family']} | {row['n']} | {row['rho']:g} | {row['V_mean']:.3f} | "
-            f"{row['V_p95']:.3f} | {m('gibss','pip_gap'):.4f} | {m('adjusted','pip_gap'):.4f} | "
-            f"{m('gibss','logbf_gap'):+.2f} | {m('adjusted','logbf_gap'):+.2f} | "
-            f"{m('gibss','secs'):.1f} | {m('adjusted','secs'):.1f} | {m('cavi','secs'):.1f} |")
+            f"{row['V_p95']:.3f} | {pip} | {lbf} | {secs} |")
     return "\n".join(lines)
 
 
@@ -256,13 +283,39 @@ def exo_table(art, structure: str, signal: str, b0: dict, L: int = 1) -> str:
     for fam in ("logistic", "poisson"):
         d = df.filter((pl.col("family") == fam) & (pl.col("b0") == b0[fam]))
         for V in sorted(d["V"].unique().to_list()):
-            for arm in ("gibss", "adjusted", "adjusted_nr", "exact"):
+            for arm in ("gibss", "taylor2", "adjusted", "adjusted_nr", "exact"):
                 s = d.filter((pl.col("V") == V) & (pl.col("arm") == arm))
                 if s.height == 0:
                     continue
+                nfail = int(s["failed"].sum())
+                if nfail == s.height:
+                    lines.append(f"| {fam} | {V:g} | {LABEL[arm]} | failed {nfail}/{s.height} "
+                                 f"(non-finite fit) | | | | | | |")
+                    continue
+                if nfail:
+                    s = s.filter(~pl.col("failed"))
                 lines.append(
                     f"| {fam} | {V:g} | {LABEL[arm]} | {float(s['alpha_gap'].mean()):.4f} | "
                     f"{float(s['pip_gap'].mean()):.4f} | {float(s['eb_gap'].mean()):+.3f} | "
                     f"{float(s['sd_ratio'].mean()):.3f} | {float(s['icpt_gap'].mean()):+.3f} | "
-                    f"{float(s['logbf_gap'].mean()):+.2f} | {float(s['logbf'].mean()):.1f} |")
+                    f"{float(s['logbf_gap'].mean()):+.2f} | {float(s['logbf'].mean()):.1f}"
+                    + (f" ({nfail}/{nfail + s.height} failed, excluded) |" if nfail else " |"))
+    return "\n".join(lines)
+
+
+def failure_table(art) -> str:
+    """Markdown: every (block, family, structure, b0, V, arm) with at least one failed
+    (non-finite) fit, with the failed count over seeds. Empty string if none failed."""
+    df = art["df"].filter(pl.col("block") != "endo")
+    g = (df.group_by(["block", "family", "structure", "signal", "b0", "V", "arm"])
+           .agg(pl.col("failed").sum().alias("nfail"), pl.len().alias("n"))
+           .filter(pl.col("nfail") > 0)
+           .sort(["block", "family", "structure", "signal", "b0", "V", "arm"]))
+    if g.height == 0:
+        return ""
+    lines = ["| block | family | V structure | signal | b0 | V | arm | failed fits |",
+             "|---|---|---|---|---:|---:|---|---:|"]
+    for r in g.iter_rows(named=True):
+        lines.append(f"| {r['block']} | {r['family']} | {r['structure']} | {r['signal']} | "
+                     f"{r['b0']:g} | {r['V']:g} | {LABEL[r['arm']]} | {r['nfail']}/{r['n']} |")
     return "\n".join(lines)

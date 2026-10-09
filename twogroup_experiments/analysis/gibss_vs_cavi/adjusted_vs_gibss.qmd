@@ -1,6 +1,6 @@
 ---
-title: "Adjusted gIBSS vs gIBSS vs exact, as the offset variance varies"
-subtitle: "Smoothed(base, Adjusted()) (gibss-mono 96cc7d7) against plain gIBSS and the exact offset integration, with the offset variance V set directly (known random offset, L=1 and L=3) and arising from the other effects (L=5, vs exact Q1 CAVI). Logistic and Poisson."
+title: "Adjusted gIBSS vs Taylor2 vs gIBSS vs exact, as the offset variance varies"
+subtitle: "Smoothed(base, Adjusted()) (gibss-mono 96cc7d7) against the closed-form Taylor2 smoothing, plain gIBSS and the exact offset integration, with the offset variance V set directly (known random offset, L=1 and L=3) and arising from the other effects (L=5, vs exact Q1 CAVI). Logistic and Poisson."
 engine: jupyter
 jupyter: python3
 ---
@@ -31,15 +31,25 @@ B0 = {"logistic": -1.0, "poisson": -0.5}   # the baseline shown in the headline 
 Every single-effect update integrates the other effects' uncertainty through a per-row
 Gaussian offset $o_i \sim N(0, V_i)$. The exact update uses the smoothed cumulant
 $\tilde A(\eta) = \mathbb{E}_o A(\eta + o)$; plain gIBSS plugs in the offset mean ($V_i = 0$).
-The adjusted scheme keeps the family's own cumulant and moves the data instead,
+Taylor2 (`Smoothed(base, Taylor())`, `offset_integration="taylor2"`) is the closed-form
+second-order smoothing applied at every $\eta$,
+
+$$ \tilde A(\eta) \approx A(\eta) + \tfrac{1}{2} V A''(\eta), $$
+
+with no anchor and no per-row state. Its Newton weight is $A'' + \tfrac12 V A''''$, for
+logistic $p(1-p)\,[1 + \tfrac{V}{2}(1 - 6p(1-p))]$, which is zero at $p = 1/2$ when $V = 4$
+and negative beyond: the fit loses convexity and returns NaN. The adjusted scheme takes its
+targets from this same Taylor-smoothed function but keeps the family's own cumulant and
+moves the data instead,
 
 $$ y\eta - \tilde A(\eta) \;\approx\; (y + \delta)\,\eta - A(\eta + \nu) + C, \qquad
 \nu = \tfrac{1}{2} V \frac{A''''(z)}{A'''(z)},\quad \delta = A''(z)\,\nu - \tfrac{1}{2} V A'''(z), $$
 
-with $(\delta, \nu, C)$ tuned per row so the surrogate matches the second-order Taylor
-smoothing in value, score and curvature at the anchor $z$ = the current full predictor
-(re-anchored before every effect update). For Poisson $\nu = V/2$, $\delta = 0$ and the
-$\eta$-shape is exact. For logistic $\nu$ is clipped to $|\nu| \le 2|A'''/A''''|$ through
+with $(\delta, \nu, C)$ tuned per row so the surrogate matches Taylor2 in value, score and
+curvature at the anchor $z$ = the current full predictor (re-anchored before every effect
+update). At the anchor the two agree; away from it adjusted follows a shifted copy of $A$,
+which stays convex at any $V$, while Taylor2 follows the Taylor shape. For Poisson
+$\nu = V/2$, $\delta = 0$ and the $\eta$-shape is exact. For logistic $\nu$ is clipped to $|\nu| \le 2|A'''/A''''|$ through
 the pole of $A''''/A'''$ at $p = 1/2$.
 
 Arms, all free-form Q1 (quad kernel), centered design, estimated shared intercept, prior
@@ -48,6 +58,7 @@ variance 1, fixed sweep count:
 | arm | response | offset variance it sees |
 |---|---|---|
 | gIBSS | `base` | none (plug-in mean) |
+| Taylor2 | `Smoothed(base, Taylor())` | $V_i$, through $A + \tfrac12 V_i A''$ at every $\eta$ |
 | adjusted | `Smoothed(base, Adjusted())` | $V_i$ |
 | adjusted, null not re-anchored | same fit; the SER's $b=0$ null scored with the alternative's aux | $V_i$ |
 | exact (GH) | `Smoothed(base, GH(21))` | $V_i$ (the exact smoothed update for a Gaussian offset of known variance, i.e. what CAVI computes when the offset law is that Gaussian) |
@@ -97,10 +108,21 @@ Numbers are means over 20 seeds at $b_0 = -1$ (logistic) / $-0.5$ (Poisson) unle
   and absent at $b_0 \le -2$.
 - **Logistic, L=3, V=4**: adjusted is overconfident (mean PIP gap 0.29 vs 0.09 for gIBSS,
   $\mathbb{E}[b]$ $+0.42$ vs $-0.42$); at V=1 both are at 0.03.
+- **Taylor2** agrees with adjusted at the anchor and is at least as close to exact up to
+  V=2 (logistic L=1, $b_0=-1$: $\mathbb{E}[b]$ $+0.06$ vs $+0.13$, log BF $+1.7$ vs $+1.6$;
+  at $b_0 = 0$ both are $+14$ nats at V=2), then fails: at V=4 every logistic seed at
+  $b_0 \in \{0, -1\}$ and at L=3 returns NaN, and half the seeds at $b_0=-2$, because the
+  smoothed weight $\tfrac14(1 - V/4)$ reaches zero at $p = 1/2$. Where it survives at V=4
+  ($b_0 = -3$) it attenuates like gIBSS ($\mathbb{E}[b]$ $-0.29$ vs $-0.33$). For Poisson it is
+  exact on alpha, $\mathbb{E}[b]$ and log BF with a homoskedastic V (intercept off by
+  $\log(1 + V/2) - V/2$, no log BF leak) and halves gIBSS's heteroskedastic error (alpha gap
+  0.045 vs 0.096, log BF $-10$ vs $-27$ at V=4) without removing it.
 - **Endogenous V (L=5, vs exact Q1 CAVI)**: the realized offset variance stays below
-  1.3 (logistic) / 0.12 (Poisson) at the 95th row percentile, and there adjusted's PIP gap
-  is 3-10x smaller than gIBSS's in 17 of 18 cells (log BF gap $-0.02$ to $-0.36$ nats vs
-  $-0.4$ to $-6.7$), at the same cost as gIBSS and 10-100x cheaper than CAVI.
+  1.3 (logistic) / 0.12 (Poisson) at the 95th row percentile. There both smoothers beat
+  gIBSS, and Taylor2 is the closer of the two: PIP gap 0.0001-0.005 (Taylor2) vs 0.0002-0.044
+  (adjusted) vs 0.001-0.08 (gIBSS); log BF gap $-0.01$ to $-0.55$ (Taylor2) vs $-0.02$ to
+  $+2.9$ (adjusted) vs $-0.4$ to $-6.7$ (gIBSS). Both cost the same as gIBSS and are
+  10-100x cheaper than CAVI.
 - The null-mean heteroskedastic panel does not separate the arms: with $q(o_i)$ frozen at
   the prior the smoothed Poisson likelihood is a Poisson with an offset, so every arm, the
   exact fold included, reads the overdispersion as signal (exact with $\hat b_0$ fixed at
@@ -113,7 +135,7 @@ Numbers are means over 20 seeds at $b_0 = -1$ (logistic) / $-0.5$ (Poisson) unle
 
 ```{python}
 #| label: fig-exo-homo
-#| fig-cap: "L=1, signal, homoskedastic V. Mean over seeds (band 10-90%) of each arm's gap to the exact GH fit, vs V. Rows: logistic (b0=-1), Poisson (b0=-0.5). gIBSS orange, adjusted green; the dashed green line in the log BF panel is the adjusted fit with the null scored under the alternative's anchor. The log BF axis is symlog."
+#| fig-cap: "L=1, signal, homoskedastic V. Mean over seeds (band 10-90%) of each arm's gap to the exact GH fit, vs V. Rows: logistic (b0=-1), Poisson (b0=-0.5). gIBSS orange, Taylor2 reddish purple, adjusted green; the dashed green line in the log BF panel is the adjusted fit with the null scored under the alternative's anchor. The Taylor2 line stops at V=2 for logistic because every seed at V=4 returns NaN. The log BF axis is symlog."
 ap.plot_metrics_vs_v(art, "exo_ser", "homo", "signal", B0)
 plt.show()
 ```
@@ -128,6 +150,19 @@ BF (next section).
 #| echo: false
 #| output: asis
 print(ap.exo_table(art, "homo", "signal", B0))
+```
+
+### Where Taylor2 fails
+
+Every exogenous cell with at least one non-finite fit. All are Taylor2 at $V = 4$ with the
+baseline near $p = 1/2$, where the Taylor-smoothed weight $A'' + \tfrac12 V A''''$ is zero or
+negative on the rows that matter; no other arm failed anywhere.
+
+```{python}
+#| label: tbl-failures
+#| echo: false
+#| output: asis
+print(ap.failure_table(art) or "No failed fits.")
 ```
 
 ### The adjusted log BF and the re-anchored null
@@ -148,6 +183,13 @@ null is the better of the two.
 #| label: fig-b0-logistic
 #| fig-cap: "Logistic, adjusted arm, L=1 homoskedastic V: mean gap to exact vs V, one line per baseline b0. b0 = 0 puts the anchor at the pole p = 1/2 where nu is clipped to 0."
 ap.plot_b0_sweep(art, "logistic", "adjusted")
+plt.show()
+```
+
+```{python}
+#| label: fig-b0-taylor2
+#| fig-cap: "Same, Taylor2 arm. The b0 = 0 and -1 lines stop at V=2 (all seeds NaN at V=4); the b0 = -2 point at V=4 averages the 10 seeds that survived."
+ap.plot_b0_sweep(art, "logistic", "taylor2")
 plt.show()
 ```
 
@@ -192,7 +234,7 @@ plt.show()
 
 ```{python}
 #| label: fig-exo-multi
-#| fig-cap: "L=3 (causal columns 3, 10, 17), homoskedastic V in {0, 1, 4}: gaps to the exact GH fit. PIP gap replaces alpha gap (component order can differ between arms)."
+#| fig-cap: "L=3 (causal columns 3, 10, 17), homoskedastic V in {0, 1, 4}: gaps to the exact GH fit. PIP gap replaces alpha gap (component order can differ between arms). Taylor2 (reddish purple) fails on every logistic seed at V=4, so its line stops at V=1."
 ap.plot_metrics_vs_v(art, "exo_multi", "homo", "signal", G["EXO_MULTI"]["b0"],
                      metrics=("pip_gap", "eb_gap", "icpt_gap", "logbf_gap"))
 plt.show()
@@ -207,7 +249,7 @@ print(ap.exo_table(art, "homo", "signal", G["EXO_MULTI"]["b0"], L=3))
 
 ```{python}
 #| label: fig-example-logistic
-#| fig-cap: "Logistic L=3, V=4, seed 0: PIP per column for gIBSS, adjusted and exact. Vermillion = causal columns; shaded band = +-2 columns (corr >= 0.81)."
+#| fig-cap: "Logistic L=3, V=4, seed 0: PIP per column for gIBSS, Taylor2 (failed on this dataset), adjusted and exact. Vermillion = causal columns; shaded band = +-2 columns (corr >= 0.81)."
 ap.plot_pip_example(art, "exo_multi", "logistic", 4.0)
 plt.show()
 ```
@@ -223,7 +265,7 @@ plt.show()
 
 ```{python}
 #| label: fig-endo-pip
-#| fig-cap: "Each point is one dataset. x = the realized offset variance the SERs saw (95th percentile over rows of the message variance at convergence); y = max PIP gap to exact Q1 CAVI. gIBSS orange, adjusted green."
+#| fig-cap: "Each point is one dataset. x = the realized offset variance the SERs saw (95th percentile over rows of the message variance at convergence); y = max PIP gap to exact Q1 CAVI. gIBSS orange, Taylor2 reddish purple, adjusted green."
 ap.plot_endo(art, "pip_gap")
 plt.show()
 ```
@@ -243,5 +285,6 @@ print(ap.endo_table(art))
 ```
 
 *mean V / p95 V* = mean over datasets of the row-mean / row-95th-percentile message variance
-at CAVI's convergence; *PIP gap*, *logBF gap* as in the legend above, averaged over seeds;
-*s* = seconds per fit (`{python} G["ENDO"]["n_sweeps"]` sweeps, one CPU thread).
+at CAVI's convergence; *PIP gap*, *logBF gap* as in the legend above, averaged over seeds,
+one column per arm (gIBSS, Taylor2, adjusted); *s* = seconds per fit
+(`{python} G["ENDO"]["n_sweeps"]` sweeps, one CPU thread) for gIBSS / Taylor2 / adjusted / CAVI.
