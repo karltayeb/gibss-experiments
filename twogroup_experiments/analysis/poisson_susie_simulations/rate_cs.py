@@ -211,7 +211,8 @@ def draw(df: pl.DataFrame, title: str):
                 ax.set_yticklabels(["0.5", "0.71", "1", "1.41", "2"])
             ax.set_xscale("log")
             ax.set_xticks(lams)
-            ax.set_xticklabels([f"{v:g}" for v in lams], fontsize=6.5)
+            ax.set_xticklabels([rf"$10^{{{k}}}$" if k % 2 == 0 else "" for k in (round(math.log10(v)) for v in lams)],
+                               fontsize=6.5)
             ax.minorticks_off()
             ax.tick_params(axis="y", labelsize=6.5)
             ax.spines[["top", "right"]].set_visible(False)

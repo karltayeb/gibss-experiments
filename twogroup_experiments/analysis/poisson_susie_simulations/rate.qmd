@@ -29,7 +29,7 @@ pl.Config.set_tbl_rows(20)
 
 ## Design
 
-Counts $y_i \sim \text{Poisson}(\exp(b_0 + x_i^\top \beta))$ with background rate $\lambda_0 = e^{b_0} \in \{0.01, 1, 10, 100\}$.
+Counts $y_i \sim \text{Poisson}(\exp(b_0 + x_i^\top \beta))$ with background rate $\lambda_0 = e^{b_0} \in \{0.01, 0.1, 1, 10, 100\}$.
 Each causal effect is calibrated to $E[\text{LRT}] = T \in \{8, 12, 16, 20, 24\}$ for its own column at that rate (`calibrate_rate.py`), so detectability is matched along $\lambda_0$.
 
 - Multi-effect: 3 equal causals, `gap` 8 (correlated) or 64 (independent) columns apart, fit $L = 5$.

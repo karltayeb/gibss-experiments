@@ -168,7 +168,7 @@ def survival_figure(floor: float = 1e-4):
             _, fits = load(f"025-rate-{d}" + ("" if L == 5 else "-ser"))
             fits = fits.filter(~pl.col("null"))
             for m in ARMS:
-                for grp, filt in (("low", pl.col("lambda0") < 0.1), ("high", pl.col("lambda0") >= 1)):
+                for grp, filt in (("low", pl.col("lambda0") < 1), ("high", pl.col("lambda0") >= 1)):
                     x = np.sort(np.maximum(fits.filter((pl.col("method") == m) & filt)["max_pip"].to_numpy(), floor))
                     if x.size == 0:
                         continue
@@ -190,7 +190,7 @@ def survival_figure(floor: float = 1e-4):
                 ax.set_ylabel(f"L = {L}\nshare of fits above x", fontsize=8)
     from matplotlib.lines import Line2D
     handles = [Line2D([], [], color=COLOR[m], lw=1.2, label=LABEL[m]) for m in ARMS]
-    handles += [Line2D([], [], color="0.3", ls="-", lw=1.2, label=r"$\lambda_0 = 0.01$"),
+    handles += [Line2D([], [], color="0.3", ls="-", lw=1.2, label=r"$\lambda_0 < 1$"),
                 Line2D([], [], color="0.3", ls="--", lw=1.2, label=r"$\lambda_0 \geq 1$")]
     fig.legend(handles=handles, loc="upper center", ncol=len(handles), fontsize=7, frameon=False)
     fig.tight_layout(rect=(0, 0, 1, 0.94))
@@ -204,7 +204,7 @@ def share_table() -> pl.DataFrame:
         for L in (1, 5):
             _, fits = load(f"025-rate-{d}" + ("" if L == 5 else "-ser"))
             fits = fits.filter(~pl.col("null")).with_columns(
-                pl.when(pl.col("lambda0") < 0.1).then(pl.lit("0.01")).otherwise(pl.lit(">= 1")).alias("lambda0"))
+                pl.when(pl.col("lambda0") < 1).then(pl.lit("< 1")).otherwise(pl.lit(">= 1")).alias("lambda0"))
             for (m, g), h in fits.group_by("method", "lambda0"):
                 rows.append({"design": DESIGN_SHORT[d], "L": L, "arm": LABEL[m], "lambda0": g,
                              "fits": h.height, "≤ 0.01": float((h["max_pip"] <= 0.01).mean()),
@@ -245,6 +245,7 @@ def tv_survival_figure(design: str, L: int = 5, bars=BARS, floor: float = 1e-4):
             ax.set_xscale("log")
             ax.set_yscale("log")
             ax.set_xlim(floor, 1)
+            ax.set_xticks([1e-4, 1e-2, 1.0])
             ax.set_ylim(1e-3, 1.05)
             ax.grid(True, which="major", alpha=0.25)
             ax.tick_params(labelsize=6.5)
