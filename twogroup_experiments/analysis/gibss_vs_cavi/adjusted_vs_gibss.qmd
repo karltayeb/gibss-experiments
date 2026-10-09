@@ -1,0 +1,247 @@
+---
+title: "Adjusted gIBSS vs gIBSS vs exact, as the offset variance varies"
+subtitle: "Smoothed(base, Adjusted()) (gibss-mono 96cc7d7) against plain gIBSS and the exact offset integration, with the offset variance V set directly (known random offset, L=1 and L=3) and arising from the other effects (L=5, vs exact Q1 CAVI). Logistic and Poisson."
+engine: jupyter
+jupyter: python3
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os, sys
+_root = os.getcwd()
+while not os.path.isdir(os.path.join(_root, "analysis", "gibss_vs_cavi")) and _root != "/":
+    _root = os.path.dirname(_root)
+os.chdir(_root)
+sys.path.insert(0, "analysis/gibss_vs_cavi")
+import numpy as np
+import matplotlib.pyplot as plt
+import adjusted_lib as al
+import adjusted_plots as ap
+
+plt.rcParams.update({"figure.dpi": 110, "axes.grid": True, "grid.alpha": 0.3,
+                     "axes.spines.top": False, "axes.spines.right": False})
+art = ap.load("analysis/gibss_vs_cavi/data/adjusted_artifact.pkl")
+G = art["grids"]
+B0 = {"logistic": -1.0, "poisson": -0.5}   # the baseline shown in the headline figures
+```
+
+## What is compared
+
+Every single-effect update integrates the other effects' uncertainty through a per-row
+Gaussian offset $o_i \sim N(0, V_i)$. The exact update uses the smoothed cumulant
+$\tilde A(\eta) = \mathbb{E}_o A(\eta + o)$; plain gIBSS plugs in the offset mean ($V_i = 0$).
+The adjusted scheme keeps the family's own cumulant and moves the data instead,
+
+$$ y\eta - \tilde A(\eta) \;\approx\; (y + \delta)\,\eta - A(\eta + \nu) + C, \qquad
+\nu = \tfrac{1}{2} V \frac{A''''(z)}{A'''(z)},\quad \delta = A''(z)\,\nu - \tfrac{1}{2} V A'''(z), $$
+
+with $(\delta, \nu, C)$ tuned per row so the surrogate matches the second-order Taylor
+smoothing in value, score and curvature at the anchor $z$ = the current full predictor
+(re-anchored before every effect update). For Poisson $\nu = V/2$, $\delta = 0$ and the
+$\eta$-shape is exact. For logistic $\nu$ is clipped to $|\nu| \le 2|A'''/A''''|$ through
+the pole of $A''''/A'''$ at $p = 1/2$.
+
+Arms, all free-form Q1 (quad kernel), centered design, estimated shared intercept, prior
+variance 1, fixed sweep count:
+
+| arm | response | offset variance it sees |
+|---|---|---|
+| gIBSS | `base` | none (plug-in mean) |
+| adjusted | `Smoothed(base, Adjusted())` | $V_i$ |
+| adjusted, null not re-anchored | same fit; the SER's $b=0$ null scored with the alternative's aux | $V_i$ |
+| exact (GH) | `Smoothed(base, GH(21))` | $V_i$ (the exact smoothed update for a Gaussian offset of known variance, i.e. what CAVI computes when the offset law is that Gaussian) |
+| CAVI (exact Q1) | `method="cf_cavi_q1"` | the other effects' true posteriors |
+
+**Exogenous $V$.** A known offset $o_i \sim N(0, V_i)$ is added when simulating
+($\eta = b_0 + X_{\cdot c}\beta + o$) and handed to the fit as the state's random-intercept
+variance with the per-sweep random-intercept update removed, so every `Smoothed` arm folds
+$V_i$ into its offset variance and gIBSS ignores it. $V \in \{`{python} ", ".join(f"{v:g}" for v in G["EXO"]["V"])`\}$,
+$n = `{python} G["EXO"]["n"]`$, $p = `{python} G["EXO"]["p"]`$, Gaussian AR(1) design
+($\rho = `{python} al._GAUSS_RHO`$), `{python} len(G["EXO"]["seeds"])` seeds (design and
+response redrawn per seed). Homoskedastic ($V_i = V$) and heteroskedastic ($V_i = V$ on
+the first half of the rows, 0 elsewhere) structures; $L=1$ with one causal column
+($\beta_{\rm logistic} = `{python} G["EXO"]["beta"]["logistic"]`$,
+$\beta_{\rm Poisson} = `{python} G["EXO"]["beta"]["poisson"]`$) and $L=3$ with three.
+
+**Endogenous $V$.** Ordinary $L=`{python} G["ENDO"]["L"]`$ fits with three causal columns,
+$n \in \{`{python} ", ".join(str(v) for v in G["ENDO"]["n"])`\}$,
+$\rho \in \{`{python} ", ".join(f"{v:g}" for v in G["ENDO"]["rho"])`\}$,
+`{python} len(G["ENDO"]["seeds"])` seeds; the reference is exact free-form CAVI. The
+realized message variance at convergence is recorded per row.
+
+Metric legend (every gap is arm minus reference, reference = exact GH or CAVI):
+*alpha gap* = $\max_{l,j}|\alpha_{lj} - \alpha^{\rm ref}_{lj}|$; *PIP gap* =
+$\max_j |{\rm PIP}_j - {\rm PIP}^{\rm ref}_j|$; *E[b] gap* = total posterior mean at the
+reference's top feature, minus the reference's; *sd ratio* = posterior sd of $b$ at that
+feature over the reference's; *b0 gap* = intercept difference; *logBF gap* = sum over
+components of the SER log BF, minus the reference's; *logBF* = the arm's own value.
+
+## Summary
+
+Numbers are means over 20 seeds at $b_0 = -1$ (logistic) / $-0.5$ (Poisson) unless stated.
+
+- **Poisson, homoskedastic V**: gIBSS equals the exact fit on alpha, $\mathbb{E}[b]$ and
+  log BF ($\hat b_0$ off by exactly $V/2$). Adjusted equals the exact fit on everything
+  except the log BF, which it inflates by +14 (V=1), +75 (V=2), +537 (V=4) nats; scoring the
+  null under the alternative's anchor removes the leak to $\le 0.03$ nats at every V.
+- **Poisson, heteroskedastic V**: gIBSS misreads the subgroup's extra variance as signal
+  (alpha gap 0.25 at V=2, log BF -27 and $\hat b_0$ +1.4 at V=4); adjusted matches the
+  exact fit (alpha gap $\le 0.006$), log BF leak aside.
+- **Logistic, L=1**: alpha is within 0.03 of exact for both arms at every V. The effect
+  estimate errs in opposite directions: gIBSS attenuates ($-0.16$ at V=1, $-0.38$ at V=4
+  for $\beta=1$), adjusted inflates ($+0.04$ at V=1, $+0.30$ at V=4) and its intercept
+  drifts further ($-0.70$ at V=4 vs $+0.40$ for gIBSS). The log BF is where adjusted wins:
+  within 1.6 nats of exact up to V=2 (gIBSS: $-9.7$ at V=1, $-19.6$ at V=4), then $-9.4$
+  at V=4. The inflation of $\mathbb{E}[b]$ is largest at the pole $b_0 = 0$ ($+0.7$ at V=4)
+  and absent at $b_0 \le -2$.
+- **Logistic, L=3, V=4**: adjusted is overconfident (mean PIP gap 0.29 vs 0.09 for gIBSS,
+  $\mathbb{E}[b]$ $+0.42$ vs $-0.42$); at V=1 both are at 0.03.
+- **Endogenous V (L=5, vs exact Q1 CAVI)**: the realized offset variance stays below
+  1.3 (logistic) / 0.12 (Poisson) at the 95th row percentile, and there adjusted's PIP gap
+  is 3-10x smaller than gIBSS's in 17 of 18 cells (log BF gap $-0.02$ to $-0.36$ nats vs
+  $-0.4$ to $-6.7$), at the same cost as gIBSS and 10-100x cheaper than CAVI.
+- The null-mean heteroskedastic panel does not separate the arms: with $q(o_i)$ frozen at
+  the prior the smoothed Poisson likelihood is a Poisson with an offset, so every arm, the
+  exact fold included, reads the overdispersion as signal (exact with $\hat b_0$ fixed at
+  the truth still gives log BF 171 at V=4, seed 0). The random-intercept comparison with
+  $q(o_i)$ updated is `gibss_vs_cavi_random_intercept.qmd`.
+
+## Exogenous V, single effect (L = 1)
+
+### Homoskedastic V, with signal
+
+```{python}
+#| label: fig-exo-homo
+#| fig-cap: "L=1, signal, homoskedastic V. Mean over seeds (band 10-90%) of each arm's gap to the exact GH fit, vs V. Rows: logistic (b0=-1), Poisson (b0=-0.5). gIBSS orange, adjusted green; the dashed green line in the log BF panel is the adjusted fit with the null scored under the alternative's anchor. The log BF axis is symlog."
+ap.plot_metrics_vs_v(art, "exo_ser", "homo", "signal", B0)
+plt.show()
+```
+
+For Poisson a homoskedastic $V$ is a pure intercept shift ($\mathbb{E}_o e^{\eta+o} =
+e^{\eta + V/2}$): gIBSS's alpha, $\mathbb{E}[b]$ and log BF equal the exact fit, with
+$\hat b_0$ off by exactly $V/2$. Adjusted equals the exact fit on everything but the log
+BF (next section).
+
+```{python}
+#| label: tbl-exo-homo
+#| echo: false
+#| output: asis
+print(ap.exo_table(art, "homo", "signal", B0))
+```
+
+### The adjusted log BF and the re-anchored null
+
+For a row-parameterized scheme `glm._fit_effect` re-scores the $b=0$ null with the row
+parameter tuned at the leave-one-out predictor (tight at the null, which is right for the
+quadratic `TaylorFixed`/`JJFixed` surrogates). The adjusted surrogate's constant
+$C_i(z)$ pins its value to the Taylor value at the anchor, so with the null anchored at
+$z_{\rm null}$ and the alternative at $z_{\rm alt}$ the difference
+$\sum_i [C_i(z_{\rm alt}) - C_i(z_{\rm null})]$ leaks into the log BF while alpha,
+$\mathbb{E}[b]$ and $\hat b_0$ are untouched. For Poisson,
+$C_i(z) = -y_i V/2 + e^{z}(e^{V/2} - 1 - V/2)$, and scoring the null with the same aux as
+the alternative (dashed) restores the exact log BF to $10^{-2}$ nats at every $V$. For
+logistic the shape of the surrogate in $\eta$ is itself approximate, and the re-anchored
+null is the better of the two.
+
+```{python}
+#| label: fig-b0-logistic
+#| fig-cap: "Logistic, adjusted arm, L=1 homoskedastic V: mean gap to exact vs V, one line per baseline b0. b0 = 0 puts the anchor at the pole p = 1/2 where nu is clipped to 0."
+ap.plot_b0_sweep(art, "logistic", "adjusted")
+plt.show()
+```
+
+```{python}
+#| label: fig-b0-gibss
+#| fig-cap: "Same, gIBSS arm, for scale."
+ap.plot_b0_sweep(art, "logistic", "gibss")
+plt.show()
+```
+
+```{python}
+#| label: fig-b0-poisson
+#| fig-cap: "Poisson, adjusted arm, L=1 homoskedastic V, per baseline b0."
+ap.plot_b0_sweep(art, "poisson", "adjusted")
+plt.show()
+```
+
+### Heteroskedastic V (on half the rows)
+
+```{python}
+#| label: fig-exo-hetero
+#| fig-cap: "L=1, signal, V on the first half of the rows only. Same layout as the homoskedastic figure."
+ap.plot_metrics_vs_v(art, "exo_ser", "hetero", "signal", B0)
+plt.show()
+```
+
+```{python}
+#| label: tbl-exo-hetero
+#| echo: false
+#| output: asis
+print(ap.exo_table(art, "hetero", "signal", B0))
+```
+
+```{python}
+#| label: fig-false-cs
+#| fig-cap: "Null mean (no covariate effect), V on half the rows: rate over seeds of a declared credible set (SER log BF > 2) vs V, per arm. Any declared set is a false positive. See the summary: with q(o_i) frozen at the prior no arm models the overdispersion, so this panel only shows that adjusted tracks the exact fold."
+ap.plot_false_cs(art, B0)
+plt.show()
+```
+
+## Exogenous V, three effects (L = 3)
+
+```{python}
+#| label: fig-exo-multi
+#| fig-cap: "L=3 (causal columns 3, 10, 17), homoskedastic V in {0, 1, 4}: gaps to the exact GH fit. PIP gap replaces alpha gap (component order can differ between arms)."
+ap.plot_metrics_vs_v(art, "exo_multi", "homo", "signal", G["EXO_MULTI"]["b0"],
+                     metrics=("pip_gap", "eb_gap", "icpt_gap", "logbf_gap"))
+plt.show()
+```
+
+```{python}
+#| label: tbl-exo-multi
+#| echo: false
+#| output: asis
+print(ap.exo_table(art, "homo", "signal", G["EXO_MULTI"]["b0"], L=3))
+```
+
+```{python}
+#| label: fig-example-logistic
+#| fig-cap: "Logistic L=3, V=4, seed 0: PIP per column for gIBSS, adjusted and exact. Vermillion = causal columns; shaded band = +-2 columns (corr >= 0.81)."
+ap.plot_pip_example(art, "exo_multi", "logistic", 4.0)
+plt.show()
+```
+
+```{python}
+#| label: fig-example-poisson
+#| fig-cap: "Poisson L=3, V=4, seed 0, same layout."
+ap.plot_pip_example(art, "exo_multi", "poisson", 4.0)
+plt.show()
+```
+
+## Endogenous V (L = 5, vs exact Q1 CAVI)
+
+```{python}
+#| label: fig-endo-pip
+#| fig-cap: "Each point is one dataset. x = the realized offset variance the SERs saw (95th percentile over rows of the message variance at convergence); y = max PIP gap to exact Q1 CAVI. gIBSS orange, adjusted green."
+ap.plot_endo(art, "pip_gap")
+plt.show()
+```
+
+```{python}
+#| label: fig-endo-logbf
+#| fig-cap: "Same datasets, y = summed SER log BF minus CAVI's (symlog)."
+ap.plot_endo(art, "logbf_gap")
+plt.show()
+```
+
+```{python}
+#| label: tbl-endo
+#| echo: false
+#| output: asis
+print(ap.endo_table(art))
+```
+
+*mean V / p95 V* = mean over datasets of the row-mean / row-95th-percentile message variance
+at CAVI's convergence; *PIP gap*, *logBF gap* as in the legend above, averaged over seeds;
+*s* = seconds per fit (`{python} G["ENDO"]["n_sweeps"]` sweeps, one CPU thread).
