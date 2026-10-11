@@ -5,7 +5,9 @@ Question: does the background rate lambda0 separate gIBSS from exact CAVI? gIBSS
 offset, so it drops the Jensen term sum_i lambda_i (E e^{o_i} - e^{E o_i}), which scales with the
 rate. Arms (all Q2, EB prior capped at 100): CAVI-Q2 (exact closed-form offset fold), gIBSS-Q2
 (plug-in mean offset), gIBSS-Laplace (order-1 quadrature SER, plug-in offset, reduced to Q2),
-score (one Newton step from the intercept-only null).
+Smoothed (L=5 only: offset integrated over a moment-matched Gaussian in closed form, mu_i + v_i/2 for
+Poisson, so it misses only the offset's cumulants of order >= 3), score (one Newton step from the
+intercept-only null).
 
 Grid per design: lambda0 in {0.01, 0.1, 1, 10, 100} (intercept b0 = log lambda0) x T = E[LRT] in
 {8, 12, 16, 20, 24} x gap in {8, 64}, L* = 3 equal causals, fit L = 5; plus one null per lambda0.
@@ -35,7 +37,7 @@ BATCHES = 20                    # 200 reps
 LSTAR = 3
 GAPS = [8, 64]
 SER_GAP = 64
-METHODS = ["poisson_q2_L5_cavi", "poisson_q2_L5_gibss", "poisson_q2_L5_gibss_laplace", "poisson_q2_L5_score"]
+METHODS = ["poisson_q2_L5_cavi", "poisson_q2_L5_gibss", "poisson_q2_L5_gibss_laplace", "poisson_q2_L5_smoothed", "poisson_q2_L5_score"]
 SER_METHODS = ["poisson_q2_ser_cavi", "poisson_q2_ser_gibss", "poisson_q2_ser_gibss_laplace", "poisson_q2_ser_score"]
 
 

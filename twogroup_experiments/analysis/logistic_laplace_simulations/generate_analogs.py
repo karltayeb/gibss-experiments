@@ -41,7 +41,7 @@ TARGETS = [8, 16]
 LSTAR = 3
 GAPS = [8, 64]
 METHODS = ["logistic_q2_L5_cavi", "logistic_q2_L5_gibss", "logistic_q2_L5_gibss_laplace",
-           "logistic_q2_L5_globaljj", "logistic_q2_L5_localjj", "logistic_q2_L5_score"]
+           "logistic_q2_L5_globaljj", "logistic_q2_L5_localjj", "logistic_q2_L5_smoothed", "logistic_q2_L5_score"]
 NOCAVI = [m for m in METHODS if not m.endswith("_cavi")]
 SER_METHODS = ["logistic_q2_ser_cavi", "logistic_q2_ser_gibss", "logistic_q2_ser_gibss_laplace",
                "logistic_q2_ser_globaljj", "logistic_q2_ser_localjj", "logistic_q2_ser_score"]
