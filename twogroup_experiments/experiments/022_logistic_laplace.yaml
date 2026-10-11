@@ -233,10 +233,10 @@ supercollections:
               - {label: mc3_m400_T16_g8, function: spaced_index_effect, arguments: {causal_effects: [0.6797, 0.6797, 0.6797], gap: 8}, intercept: -2.0}
               - {label: mc3_m400_T16_g64, function: spaced_index_effect, arguments: {causal_effects: [0.6797, 0.6797, 0.6797], gap: 64}, intercept: -2.0}
               - {label: null_m400, function: uniform_single_effect, arguments: {causal_effect: 0.0}, intercept: -2.0}
-    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_smoothed, logistic_q2_L5_score]
+    methods: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score]
     default_args: *default_args
     outputs:
-      - {name: laplace_timing, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_smoothed, logistic_q2_L5_score], analyses: [pip, cs]}
+      - {name: laplace_timing, method_filter: [logistic_q2_L5_cavi, logistic_q2_L5_gibss, logistic_q2_L5_gibss_laplace, logistic_q2_L5_globaljj, logistic_q2_L5_localjj, logistic_q2_L5_score], analyses: [pip, cs]}
 
   022-laplace-ser-timing:
     replicates_per_batch: 10

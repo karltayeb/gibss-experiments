@@ -53,6 +53,7 @@ FULL_METHODS = [
     "logistic_q2_L5_globaljj", "logistic_q2_L5_localjj", "logistic_q2_L5_smoothed", "logistic_q2_L5_score",
 ]
 NOCAVI_METHODS = [m for m in FULL_METHODS if not m.endswith("_cavi")]
+TIMING_METHODS = [m for m in FULL_METHODS if not m.endswith("_smoothed")]
 SER_METHODS = [
     "logistic_q2_ser_cavi", "logistic_q2_ser_gibss", "logistic_q2_ser_gibss_laplace",
     "logistic_q2_ser_globaljj", "logistic_q2_ser_localjj", "logistic_q2_ser_score",
@@ -202,10 +203,10 @@ supercollections:
     n_batches: 1
     collections:
 {_collections(FULL_N, FULL_SET_SIZES, full_rows, ind)}
-    methods: {_yaml_list(FULL_METHODS)}
+    methods: {_yaml_list(TIMING_METHODS)}
     default_args: *default_args
     outputs:
-      - {{name: laplace_timing, method_filter: {_yaml_list(FULL_METHODS)}, analyses: [pip, cs]}}
+      - {{name: laplace_timing, method_filter: {_yaml_list(TIMING_METHODS)}, analyses: [pip, cs]}}
 
   022-laplace-ser-timing:
     replicates_per_batch: 10
