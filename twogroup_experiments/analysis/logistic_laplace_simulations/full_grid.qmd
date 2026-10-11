@@ -1,6 +1,6 @@
 ---
 title: "Logistic-SuSiE approximations along the set-size axis: full grid"
-subtitle: "CAVI-Q2 vs gIBSS-Q2 vs gIBSS-Laplace vs global-JJ vs score (experiment 022, n=1000, L=5, 200 reps)"
+subtitle: "CAVI-Q2 vs gIBSS-Q2 vs gIBSS-Laplace vs Smoothed vs global-JJ vs local-JJ vs score (experiment 022, n=1000, L=5, 200 reps)"
 engine: jupyter
 jupyter: python3
 execute:
@@ -28,8 +28,9 @@ d = C.declared(C.load(SC))
 sig = d.filter(~pl.col("null"))
 ```
 
-Five logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$ (see the
-[pilot](results.qmd) for the arm definitions). Design: sparse 0/1 columns ($n = 1000$,
+Seven logistic-SuSiE arms, all in the Gaussian family $\mathcal{Q}_2$ (see the
+[pilot](results.qmd) for the arm definitions). Smoothed is gIBSS-Q2 with each leave-one-out offset integrated over its moment-matched
+Gaussian (5-component probit-mixture smoother); it runs at $L = 5$ only. Design: sparse 0/1 columns ($n = 1000$,
 $p = 256$, adjacent-column $\phi = 0.8$), $b_0 = -2$, $L^* = 3$ causals at gap 8 (binary
 $\phi \approx 0.47$ between causals) or 64 ($\phi \approx 0.05$), fit with $L = 5$. Axis:
 expected set size $m$, with $\beta$ calibrated per $m$ to $E[\text{LRT}] = T$ so detectability

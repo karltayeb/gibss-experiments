@@ -1,6 +1,6 @@
 ---
 title: "Logistic-SuSiE approximations: the 022 protocol on a Gaussian and on a nested design"
-subtitle: "CAVI-Q2 vs gIBSS-Q2 vs gIBSS-Laplace vs global-JJ vs score (experiments 023 and 024, L=5, 200 reps)"
+subtitle: "CAVI-Q2 vs gIBSS-Q2 vs gIBSS-Laplace vs Smoothed vs global-JJ vs local-JJ vs score (experiments 023 and 024, L=5, 200 reps)"
 engine: jupyter
 jupyter: python3
 execute:
@@ -30,7 +30,9 @@ dn = C.declared(C.load(SC_N)); sn = dn.filter(~pl.col("null"))
 
 Two analogs of the [022 full grid](full_grid.qmd). The protocol is 022's: $p = 256$,
 $b_0 = -2$, $L^* = 3$ equal causals at gap 8 (correlated) or 64 (independent), fit with
-$L = 5$, EB prior variance, the same five arms in $\mathcal{Q}_2$, 200 replicates per cell.
+$L = 5$, EB prior variance, the same seven arms in $\mathcal{Q}_2$, 200 replicates per cell.
+Smoothed is gIBSS-Q2 with each leave-one-out offset integrated over its moment-matched
+Gaussian (5-component probit-mixture smoother); it runs at $L = 5$ only.
 Only the design and its sweep change.
 
 - **023, Gaussian.** AR(1) Gaussian columns, $n = 500$, adjacent $\rho = 0.9$ (causal-causal

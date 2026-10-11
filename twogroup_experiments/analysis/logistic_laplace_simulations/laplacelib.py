@@ -246,7 +246,8 @@ def mean_se(df: pl.DataFrame, value: str, by: list[str]) -> pl.DataFrame:
 # ------------------------------------------------------------------------------ figures
 # Multiplicative x-dodge on the log-m axis so coincident arms (gIBSS-Q2 ~ CAVI-Q2 at L=1) stay
 # visible side by side instead of stacking.
-_DODGE = {"cavi": 0.875, "gibss": 0.925, "laplace": 0.975, "localjj": 1.025, "globaljj": 1.075, "score": 1.125}
+_DODGE = {"cavi": 0.85, "smoothed": 0.9, "gibss": 0.95, "laplace": 1.0, "localjj": 1.05, "globaljj": 1.1,
+          "score": 1.15}
 
 
 def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks, symlog=None):
