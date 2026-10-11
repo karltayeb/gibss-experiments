@@ -3,7 +3,7 @@
 Per design (gaussian / binary / block), one figure: rows = coverage of declared CSs (arm minus
 CAVI), power (fraction of causals captured by a declared CS, arm minus CAVI), CS size (ratio of
 mean declared-CS size, arm over CAVI, log axis) and ELBO (arm minus CAVI, nats, common Q2 ELBO).
-Columns = signal T. x = lambda0 (log). The ELBO row shows the gIBSS arms only: score's Q2 ELBO collapses
+Columns = signal T. x = lambda0 (log). The ELBO row omits score: score's Q2 ELBO collapses
 at low rate (~-1e15 nats at lambda0 = 0.01), which the per-cell parquet still records. Colour = arm; solid = gap 8 (correlated causals), dashed =
 gap 64. The -ser variant (one causal, L=1) has no gap and no ELBO row (gIBSS-Q2 == CAVI-Q2 at L=1).
 Declared = 95% CS of a component with SER log BF >= 2. Bands = 95% CI from resampling replicates
@@ -181,7 +181,7 @@ def delta_frame(rep: pl.DataFrame, elbo: pl.DataFrame | None, seed: int = 0) -> 
     return pl.DataFrame(rows).sort("metric", "method", "gap", "T", "lambda0", nulls_last=True)
 
 
-ROW_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size ratio", "elbo": "ELBO, gIBSS\narms (nats)"}
+ROW_LABEL = {"coverage": "coverage", "power": "power", "size": "CS size ratio", "elbo": "ELBO vs\nCAVI (nats)"}
 ROW_REF = {"coverage": 0.0, "power": 0.0, "size": 1.0, "elbo": 0.0}
 
 

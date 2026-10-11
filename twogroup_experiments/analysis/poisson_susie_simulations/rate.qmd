@@ -1,6 +1,6 @@
 ---
 title: "Poisson SuSiE across the background rate"
-subtitle: "gIBSS-Q2, gIBSS-Laplace and score against CAVI-Q2 as the baseline rate runs from 0.01 to 100, on Gaussian, binary and nested block designs (experiment 025)."
+subtitle: "Smoothed, gIBSS-Q2, gIBSS-Laplace and score against CAVI-Q2 as the baseline rate runs from 0.01 to 100, on Gaussian, binary and nested block designs (experiment 025)."
 engine: jupyter
 jupyter: python3
 execute:
@@ -34,7 +34,7 @@ Each causal effect is calibrated to $E[\text{LRT}] = T \in \{8, 12, 16, 20, 24\}
 
 - Multi-effect: 3 equal causals, `gap` 8 (correlated) or 64 (independent) columns apart, fit $L = 5$.
 - Single effect (`-ser`): one causal at column 64, fit $L = 1$.
-- Arms, all scored in Q2 with an EB prior variance: CAVI-Q2 (exact closed-form offset), gIBSS-Q2 (plug-in mean offset), gIBSS-Laplace (order-1 quadrature SER, plug-in offset, reduced to Q2), score (one Newton step from the intercept-only null).
+- Arms, all scored in Q2 with an EB prior variance: CAVI-Q2 (exact closed-form offset, up to 500 sweeps), Smoothed (gIBSS-Q2 with the leave-one-out offset integrated over its moment-matched Gaussian, exact lognormal smoother; $L = 5$ only), gIBSS-Q2 (plug-in mean offset), gIBSS-Laplace (order-1 quadrature SER, plug-in offset, reduced to Q2), score (one Newton step from the intercept-only null).
 - 200 replicates per cell. Declared = 95% CS of a component with SER log BF $\geq 2$.
 
 | design | $X$ | causal set size |
@@ -47,8 +47,9 @@ Figure rows, each relative to CAVI-Q2 on the same simulated data:
 **coverage** = arm minus CAVI fraction of declared CSs containing a causal;
 **power** = arm minus CAVI fraction of causals inside some declared CS;
 **CS size ratio** = mean declared-CS size, arm over CAVI;
-**ELBO** = gIBSS arm minus CAVI common Q2 ELBO, mean per fit (score omitted: its Q2 ELBO reaches about $-10^{15}$ at $\lambda_0 = 0.01$).
+**ELBO** = arm minus CAVI common Q2 ELBO, mean per fit (score omitted: its Q2 ELBO reaches about $-10^{15}$ at $\lambda_0 = 0.01$).
 Bands are 95% CIs from resampling replicates jointly for both arms.
+Smoothed runs away on 3 of the 22,000 binary and block signal fits (8,600 to 39,000 nats below CAVI; several components stacked on one column with effects in the hundreds, prior variance at its cap). These three fits cause the ELBO dips at binary $T = 16$ gap 64 $\lambda_0 = 0.01$ and block $T = 24$.
 
 PIP agreement figures: each arm's components are matched to CAVI-Q2's on the same replicate by minimum total TV (Hungarian; identity at $L = 1$).
 x = TV between a matched pair's $\alpha$ vectors; y = share of matched pairs with TV above x.
