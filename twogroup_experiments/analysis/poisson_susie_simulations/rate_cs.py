@@ -31,11 +31,11 @@ import experiments.loader as loader  # noqa: E402
 RESULTS = os.path.join(_TG, "results")
 CACHE = os.path.join(_HERE, ".cache")
 REF = "cavi"
-ARMS = ["gibss", "laplace", "score"]
-LABEL = {"cavi": "CAVI-Q2", "gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "score": "score"}
-COLOR = {"gibss": "#0072B2", "laplace": "#009E73", "score": "#CC79A7"}
+ARMS = ["smoothed", "gibss", "laplace", "score"]
+LABEL = {"cavi": "CAVI-Q2", "gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "smoothed": "Smoothed", "score": "score"}
+COLOR = {"smoothed": "#000000", "gibss": "#0072B2", "laplace": "#009E73", "score": "#CC79A7"}
 GAP_STYLE = {8: "-", 64: "--", None: "-"}
-DODGE = {"gibss": 0.9, "laplace": 1.0, "score": 1.1}
+DODGE = {"smoothed": 0.85, "gibss": 0.95, "laplace": 1.05, "score": 1.15}
 MIN_LOG_BF = 2.0
 IDX95 = 94                                              # CS_BETA_GRID index of 0.95
 DESIGN_TITLE = {"gaussian": "AR1 Gaussian (n=500, rho=0.9)",
@@ -131,13 +131,15 @@ def delta_frame(rep: pl.DataFrame, elbo: pl.DataFrame | None, seed: int = 0) -> 
     """Arm minus CAVI per (lambda0, T, gap) with paired rep-resampled 95% CIs."""
     rng = np.random.default_rng(seed)
     rows = []
+    # arms fit in this supercollection (Smoothed is L=5 only, so the -ser SCs lack it)
+    arms = [m for m in ARMS if m in set(rep["method"].unique().to_list())]
     sig = rep.filter(~pl.col("null"))
     for (lam0, T, gap), g in sig.group_by("lambda0", "T", "gap"):
-        w = {m: g.filter(pl.col("method") == m).sort("batch_hash", "sample_id") for m in ARMS + [REF]}
+        w = {m: g.filter(pl.col("method") == m).sort("batch_hash", "sample_id") for m in arms + [REF]}
         keys = w[REF].select("batch_hash", "sample_id")
         w = {m: keys.join(h, on=["batch_hash", "sample_id"], how="inner") for m, h in w.items()}
         common = w[REF].select("batch_hash", "sample_id")
-        for m in ARMS:
+        for m in arms:
             common = common.join(w[m].select("batch_hash", "sample_id"), on=["batch_hash", "sample_id"])
         w = {m: common.join(h, on=["batch_hash", "sample_id"], how="left") for m, h in w.items()}
         n = common.height
@@ -155,7 +157,7 @@ def delta_frame(rep: pl.DataFrame, elbo: pl.DataFrame | None, seed: int = 0) -> 
             return s(num) / np.maximum(s(x["n_decl"]), 1)
 
         for metric in ("coverage", "power", "size"):
-            for m in ARMS:
+            for m in arms:
                 op = np.divide if metric == "size" else np.subtract
                 pt = op(est(a[m], metric), est(a[REF], metric))
                 bs = op(est(a[m], metric, idx), est(a[REF], metric, idx))
@@ -167,10 +169,10 @@ def delta_frame(rep: pl.DataFrame, elbo: pl.DataFrame | None, seed: int = 0) -> 
     if elbo is not None and not elbo.is_empty():
         e = elbo.filter(~pl.col("null"))
         wide = (e.pivot(on="method", index=["lambda0", "T", "gap", "batch_hash", "replicate"], values="q2_elbo")
-                 .drop_nulls(ARMS + [REF]))
+                 .drop_nulls(arms + [REF]))
         for (lam0, T, gap), g in wide.group_by("lambda0", "T", "gap"):
             idx = _boot(rng, g.height)
-            for m in ARMS:
+            for m in arms:
                 d = (g[m] - g[REF]).to_numpy()
                 lo, hi = np.percentile(d[idx].mean(1), [2.5, 97.5])
                 rows.append({"lambda0": lam0, "T": T, "gap": gap, "metric": "elbo", "method": m,

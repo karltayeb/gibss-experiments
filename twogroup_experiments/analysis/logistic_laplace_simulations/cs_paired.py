@@ -85,11 +85,12 @@ def main(sc="022-laplace", ref="gibss"):
     print("\n**coverage, rep-cluster bootstrap 95% CI** (pooled over m within T x gap; resampling "
           "reps, not CSs, since CSs within a fit are not independent)\n")
     rng = np.random.default_rng(0)
-    hdr = ["T", "gap"] + [R.METHOD_LABEL[m] for m in R.METHODS if m in d["method"].unique().to_list()]
+    present = [m for m in R.METHODS if m in d["method"].unique().to_list()]
+    hdr = ["T", "gap"] + [R.METHOD_LABEL[m] for m in present]
     print("| " + " | ".join(hdr) + " |\n|" + "---|" * len(hdr))
     for T, gap in d.select("T", "gap").unique().sort(["T", "gap"]).iter_rows():
         cells = []
-        for mth in R.METHODS:
+        for mth in present:
             g = d.filter(pl.col("T") == T, pl.col("gap") == gap, pl.col("method") == mth)
             if g.height == 0:
                 cells.append("-"); continue

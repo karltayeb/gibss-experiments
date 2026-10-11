@@ -40,16 +40,17 @@ _BETAS_NESTED = json.load(open(os.path.join(_HERE, "betas_nested_n1000.json")))
 B0_TRUE = -2.0
 MIN_LOG_BF = 2.0          # declared-CS threshold (the experiment's default_args min_log_bf)
 
-METHODS = ["cavi", "gibss", "laplace", "localjj", "globaljj", "score"]   # most to least accurate
+METHODS = ["cavi", "smoothed", "gibss", "laplace", "localjj", "globaljj", "score"]   # most to least accurate
 METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "globaljj": "global-JJ", "localjj": "local-JJ",
-                "cavi": "CAVI-Q2", "score": "score"}
+                "cavi": "CAVI-Q2", "smoothed": "Smoothed", "score": "score"}
 # The 019 logistic palette (resultslib.METHOD_COLOR): gIBSS blue, CAVI vermillion, global-JJ
-# green, score reddish purple; gIBSS-Laplace sky blue (a gIBSS variant, as gibss_profiled in 019).
+# green, score reddish purple; gIBSS-Laplace sky blue (a gIBSS variant, as gibss_profiled in 019);
+# Smoothed black (the last Okabe-Ito colour).
 # Validated with the dataviz validate_palette.js, light mode, all pairs: score/global-JJ is
 # deutan dE 7.6 (floor band), so the markers + legend + x-dodge carry identity too.
 METHOD_COLOR = {"laplace": "#56B4E9", "gibss": "#0072B2", "globaljj": "#009E73", "localjj": "#E69F00",
-                "cavi": "#D55E00", "score": "#CC79A7"}
-METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "localjj": "^", "cavi": "o", "score": "P"}
+                "cavi": "#D55E00", "smoothed": "#000000", "score": "#CC79A7"}
+METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "localjj": "^", "cavi": "o", "smoothed": "X", "score": "P"}
 
 
 def _method_key(mname: str) -> str:
@@ -61,6 +62,8 @@ def _method_key(mname: str) -> str:
         return "score"
     if mname.endswith("_gibss_laplace"):
         return "laplace"
+    if mname.endswith("_smoothed"):
+        return "smoothed"
     if mname.endswith("_gibss"):
         return "gibss"
     if mname.endswith("_cavi"):
