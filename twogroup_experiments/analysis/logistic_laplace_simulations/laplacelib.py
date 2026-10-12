@@ -27,30 +27,39 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _TG_ROOT = os.path.dirname(os.path.dirname(_HERE))
 if _TG_ROOT not in sys.path:
     sys.path.insert(0, _TG_ROOT)
-import experiments.loader as loader  # noqa: E402
+from experiments import loader
+
 
 # calibrated beta tables, keyed by design n: betas.json (n=10000 pilot), betas_n1000.json (full grid)
+def _read_json(name: str) -> dict:
+    with open(os.path.join(_HERE, name)) as fh:
+        return json.load(fh)
+
+
 _BETAS = {}
 for _f in ("betas.json", "betas_n1000.json"):
-    _j = json.load(open(os.path.join(_HERE, _f)))
+    _j = _read_json(_f)
     _BETAS[int(_j["_meta"]["n"])] = _j["betas"]
 # the 022 analogs: 023 Gaussian (one beta per T, rho-free) and 024 nested (beta per depth x T)
-_BETAS_GAUSS = json.load(open(os.path.join(_HERE, "betas_gaussian_n500.json")))["betas"]
-_BETAS_NESTED = json.load(open(os.path.join(_HERE, "betas_nested_n1000.json")))
+_BETAS_GAUSS = _read_json("betas_gaussian_n500.json")["betas"]
+_BETAS_NESTED = _read_json("betas_nested_n1000.json")
 B0_TRUE = -2.0
 MIN_LOG_BF = 2.0          # declared-CS threshold (the experiment's default_args min_log_bf)
 
-METHODS = ["cavi", "smoothed", "gibss", "laplace", "localjj", "globaljj", "score"]   # most to least accurate
+METHODS = ["cavi", "smoothed", "taylor2", "gibss", "laplace", "localjj", "globaljj", "score"]   # most to least accurate
 METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "globaljj": "global-JJ", "localjj": "local-JJ",
-                "cavi": "CAVI-Q2", "smoothed": "gIBSS-GO", "score": "score"}
+                "cavi": "CAVI-Q2", "smoothed": "gIBSS-GO", "taylor2": "Taylor2",
+                "score": "score"}
 # The 019 logistic palette (resultslib.METHOD_COLOR): gIBSS blue, CAVI vermillion, global-JJ
 # green, score reddish purple; gIBSS-Laplace sky blue (a gIBSS variant, as gibss_profiled in 019);
-# gIBSS-GO black (the last Okabe-Ito colour).
+# gIBSS-GO black (the last usable Okabe-Ito colour); Taylor2, its cheap approximation, neutral grey
+# with its own marker (Okabe-Ito yellow is illegible on white).
 # Validated with the dataviz validate_palette.js, light mode, all pairs: score/global-JJ is
 # deutan dE 7.6 (floor band), so the markers + legend + x-dodge carry identity too.
 METHOD_COLOR = {"laplace": "#56B4E9", "gibss": "#0072B2", "globaljj": "#009E73", "localjj": "#E69F00",
-                "cavi": "#D55E00", "smoothed": "#000000", "score": "#CC79A7"}
-METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "localjj": "^", "cavi": "o", "smoothed": "X", "score": "P"}
+                "cavi": "#D55E00", "smoothed": "#000000", "taylor2": "#7F7F7F", "score": "#CC79A7"}
+METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "localjj": "^", "cavi": "o", "smoothed": "X", "taylor2": "*",
+                 "score": "P"}
 
 
 def _method_key(mname: str) -> str:
@@ -64,6 +73,8 @@ def _method_key(mname: str) -> str:
         return "laplace"
     if mname.endswith("_smoothed"):
         return "smoothed"
+    if mname.endswith("_taylor2"):
+        return "taylor2"
     if mname.endswith("_gibss"):
         return "gibss"
     if mname.endswith("_cavi"):
@@ -92,11 +103,11 @@ def cell_meta(scoord: dict) -> dict:
         design, m, row, corr = "gaussian", None, _BETAS_GAUSS, float(dargs["rho"])
     elif fn == "binary_attrition_X":
         depth = int(a.get("base_index", 0)) if lstar else None
-        m = (int(round(n * float(dargs["density"]) * (1.0 - float(dargs["drop"])) ** depth))
+        m = (round(n * float(dargs["density"]) * (1.0 - float(dargs["drop"])) ** depth)
              if depth is not None else None)
         design, row, corr = "nested", (_BETAS_NESTED["betas"][str(depth)] if depth is not None else None), float(dargs["corr"])
     else:
-        design, m, corr = "binary", int(round(float(dargs["density"]) * n)), float(dargs.get("corr"))
+        design, m, corr = "binary", round(float(dargs["density"]) * n), float(dargs.get("corr"))
         row = _BETAS[n][str(m)]
     T = None
     if beta != 0.0:
@@ -246,8 +257,8 @@ def mean_se(df: pl.DataFrame, value: str, by: list[str]) -> pl.DataFrame:
 # ------------------------------------------------------------------------------ figures
 # Multiplicative x-dodge on the log-m axis so coincident arms (gIBSS-Q2 ~ CAVI-Q2 at L=1) stay
 # visible side by side instead of stacking.
-_DODGE = {"cavi": 0.85, "smoothed": 0.9, "gibss": 0.95, "laplace": 1.0, "localjj": 1.05, "globaljj": 1.1,
-          "score": 1.15}
+_DODGE = {"cavi": 0.84, "smoothed": 0.88, "taylor2": 0.92, "gibss": 0.96, "laplace": 1.0, "localjj": 1.04,
+          "globaljj": 1.08, "score": 1.12}
 
 
 def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks, symlog=None):

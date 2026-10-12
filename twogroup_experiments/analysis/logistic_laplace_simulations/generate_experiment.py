@@ -50,10 +50,10 @@ FULL_LSTAR = 3
 FULL_GAPS = [8, 64]                   # binary phi between causals ~0.47 / ~0.05
 FULL_METHODS = [
     "logistic_q2_L5_cavi", "logistic_q2_L5_gibss", "logistic_q2_L5_gibss_laplace",
-    "logistic_q2_L5_globaljj", "logistic_q2_L5_localjj", "logistic_q2_L5_smoothed", "logistic_q2_L5_score",
+    "logistic_q2_L5_globaljj", "logistic_q2_L5_localjj", "logistic_q2_L5_smoothed", "logistic_q2_L5_taylor2", "logistic_q2_L5_score",
 ]
 NOCAVI_METHODS = [m for m in FULL_METHODS if not m.endswith("_cavi")]
-TIMING_METHODS = [m for m in FULL_METHODS if not m.endswith("_smoothed")]
+TIMING_METHODS = [m for m in FULL_METHODS if not m.endswith(("_smoothed", "_taylor2"))]
 SER_METHODS = [
     "logistic_q2_ser_cavi", "logistic_q2_ser_gibss", "logistic_q2_ser_gibss_laplace",
     "logistic_q2_ser_globaljj", "logistic_q2_ser_localjj", "logistic_q2_ser_score",

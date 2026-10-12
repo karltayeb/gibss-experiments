@@ -1898,6 +1898,13 @@ methods:
   logistic_q2_L5_smoothed:
     function: run_logistic_method
     template: {response_source: z, L: 5, offset_integration: probit_mixture, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  # Taylor2: gIBSS SER with the leave-one-out offset N(mu_i, v_i) handled by a second-order
+  # Taylor expansion of the cumulant, Ahat = A(eta) + v_i A''(eta)/2 (gibss Taylor()). The cheap
+  # approximation to gIBSS-GO's exact Gaussian integral; can lose convexity at large v_i. L=5 only
+  # (at L=1 v_i = 0, so it IS gIBSS).
+  logistic_q2_L5_taylor2:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: taylor2, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   logistic_q2_L5_score:
     function: run_logistic_method
     template: {response_source: z, L: 5, method: score, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
@@ -1996,6 +2003,11 @@ methods:
   poisson_q2_L5_smoothed:
     function: run_poisson_method
     template: {L: 5, variational_family: gaussian, offset_integration: lognormal, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  # Taylor2: as logistic_q2_L5_taylor2, for Poisson: Ahat = e^{eta}(1 + v_i/2) in place of
+  # gIBSS-GO's exact e^{eta + v_i/2}. L=5 only.
+  poisson_q2_L5_taylor2:
+    function: run_poisson_method
+    template: {L: 5, variational_family: gaussian, offset_integration: taylor2, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   # max_iter 500 (was 50): at lambda0 = 0.01 the 50-sweep cap truncated slow CAVI fits by up to
   # 21 nats / 0.99 in PIP; uncapped they converge (Poisson CAVI is ~gIBSS cost since gibss 97309c4).
   poisson_q2_L5_cavi:

@@ -26,16 +26,16 @@ import polars as pl
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _TG = os.path.dirname(os.path.dirname(_HERE))
 sys.path.insert(0, _TG)
-import experiments.loader as loader  # noqa: E402
+from experiments import loader
 
 RESULTS = os.path.join(_TG, "results")
 CACHE = os.path.join(_HERE, ".cache")
 REF = "cavi"
-ARMS = ["smoothed", "gibss", "laplace", "score"]
-LABEL = {"cavi": "CAVI-Q2", "gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "smoothed": "gIBSS-GO", "score": "score"}
-COLOR = {"smoothed": "#000000", "gibss": "#0072B2", "laplace": "#009E73", "score": "#CC79A7"}
+ARMS = ["smoothed", "taylor2", "gibss", "laplace", "score"]
+LABEL = {"cavi": "CAVI-Q2", "gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "smoothed": "gIBSS-GO", "taylor2": "Taylor2", "score": "score"}
+COLOR = {"smoothed": "#000000", "taylor2": "#7F7F7F", "gibss": "#0072B2", "laplace": "#009E73", "score": "#CC79A7"}
 GAP_STYLE = {8: "-", 64: "--", None: "-"}
-DODGE = {"smoothed": 0.85, "gibss": 0.95, "laplace": 1.05, "score": 1.15}
+DODGE = {"smoothed": 0.84, "taylor2": 0.92, "gibss": 1.0, "laplace": 1.08, "score": 1.16}
 MIN_LOG_BF = 2.0
 IDX95 = 94                                              # CS_BETA_GRID index of 0.95
 DESIGN_TITLE = {"gaussian": "AR1 Gaussian (n=500, rho=0.9)",
@@ -50,7 +50,8 @@ def _meta(design: str, scoord: dict) -> dict:
     global _BETAS
     if _BETAS is None:
         import json
-        _BETAS = json.load(open(os.path.join(_HERE, "betas_rate.json")))["betas"]
+        with open(os.path.join(_HERE, "betas_rate.json")) as fh:
+            _BETAS = json.load(fh)["betas"]
     e = scoord["enrichment"]
     lam0 = float(f"{math.exp(float(e['intercept'])):.4g}")
     args = e.get("arguments") or {}
@@ -131,7 +132,7 @@ def delta_frame(rep: pl.DataFrame, elbo: pl.DataFrame | None, seed: int = 0) -> 
     """Arm minus CAVI per (lambda0, T, gap) with paired rep-resampled 95% CIs."""
     rng = np.random.default_rng(seed)
     rows = []
-    # arms fit in this supercollection (gIBSS-GO is L=5 only, so the -ser SCs lack it)
+    # arms fit in this supercollection (gIBSS-GO and Taylor2 are L=5 only, so the -ser SCs lack them)
     arms = [m for m in ARMS if m in set(rep["method"].unique().to_list())]
     sig = rep.filter(~pl.col("null"))
     for (lam0, T, gap), g in sig.group_by("lambda0", "T", "gap"):

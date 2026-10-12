@@ -30,12 +30,12 @@ from scipy.optimize import linear_sum_assignment
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
-import rate_cs as RC  # noqa: E402
+import rate_cs as RC
 
 MIN_LOG_BF = RC.MIN_LOG_BF
-ARMS = ["smoothed", "gibss", "laplace", "score"]
-LABEL = {"gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "smoothed": "gIBSS-GO", "score": "score"}
-COLOR = {"smoothed": "#000000", "gibss": "#0072B2", "laplace": "#009E73", "score": "#CC79A7"}
+ARMS = ["smoothed", "taylor2", "gibss", "laplace", "score"]
+LABEL = {"gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "smoothed": "gIBSS-GO", "taylor2": "Taylor2", "score": "score"}
+COLOR = {"smoothed": "#000000", "taylor2": "#7F7F7F", "gibss": "#0072B2", "laplace": "#009E73", "score": "#CC79A7"}
 METRICS = {"tv": "TV", "kl": "KL", "max_alpha": "max |Δα|"}
 DESIGNS = ["gaussian", "binary", "block"]
 DESIGN_SHORT = {"gaussian": "Gaussian AR1", "binary": "binary Markov", "block": "nested block"}
