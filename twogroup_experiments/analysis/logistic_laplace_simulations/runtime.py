@@ -6,7 +6,8 @@ simulation, no ELBO scoring, no reduction. Three rules make the arms comparable:
 * ONE MACHINE. Every timing here comes from Midway caslake, one core per SLURM job (the profile
   sets no --cpus-per-task). The 022 full-grid fits ran on a laptop under parallel load, except
   local-JJ, so 022 reads the `-timing` supercollections (batch 0 rerun on Midway) from a mirror
-  directory instead of results/.
+  directory instead of results/. gIBSS-GO came later and all its fits ran on Midway (gibss
+  a3471c3), so its 022 timings are read from results/, restricted to the same batches.
 * STEADY STATE. Each fit job is a fresh process, so the first replicate of a batch also pays JAX
   compilation. Position 0 is dropped from the ratios and reported on its own (`compile_overhead`).
   Positions 1..9 are flat (no per-replicate recompile).
@@ -27,8 +28,9 @@ if _TG_ROOT not in sys.path:
     sys.path.insert(0, _TG_ROOT)
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-import experiments.loader as loader  # noqa: E402
-import laplacelib as R  # noqa: E402
+import laplacelib as R
+
+from experiments import loader
 
 RESULTS = os.path.join(_TG_ROOT, "results")
 # Midway copies of the 022 -timing fits (same hashes as the laptop-run fits in results/, which
@@ -43,6 +45,12 @@ SOURCES = [
     ("023", "gaussian", 1, "023-laplace-gaussian-ser", RESULTS),
     ("024", "nested", 5, "024-laplace-nested", RESULTS),
     ("024", "nested", 1, "024-laplace-nested-ser", RESULTS),
+]
+# Arms whose 022 timings come from the full grid in results/ rather than the -timing mirror:
+# (experiment, design, L, full-grid supercollection, method key, -timing supercollection whose
+# batches it is restricted to).
+SUPPLEMENTS = [
+    ("022", "binary", 5, "022-laplace", "smoothed", "022-laplace-timing"),
 ]
 ARMS = [m for m in R.METHODS if m != "cavi"]
 _PAIR = ["exp", "L", "batch_hash", "rep"]
@@ -67,20 +75,27 @@ def load(cache: str | None = None) -> pl.DataFrame:
     fit_seconds and IBSS sweep count. Missing fits are skipped (and counted in `n_missing`)."""
     if cache and os.path.exists(cache):
         return pl.read_parquet(cache)
+    jobs = [(exp, design, L, sc, path, bh, method, meta)
+            for exp, design, L, sc, root in SOURCES
+            for path, bh, method, meta in fit_paths(sc, root)]
+    for exp, design, L, sc, arm, timing_sc in SUPPLEMENTS:
+        keep = {bh for _, bh, _, _ in fit_paths(timing_sc, MIRROR)}
+        jobs += [(exp, design, L, sc, path, bh, method, meta)
+                 for path, bh, method, meta in fit_paths(sc, RESULTS)
+                 if method == arm and bh in keep]
     rows, missing = [], 0
-    for exp, design, L, sc, root in SOURCES:
-        for path, bh, method, meta in fit_paths(sc, root):
-            if not os.path.exists(path):
-                missing += 1
-                continue
-            d = pl.read_parquet(path, columns=["replicate", "fit_seconds", "fit_summary"])
-            for pos, r in enumerate(d.iter_rows(named=True)):
-                rows.append({"exp": exp, "design": design, "L": L, "sc": sc, "method": method,
-                             "m": meta["m"], "T": meta["T"], "depth": meta["depth"],
-                             "gap": meta["gap"], "null": meta["null"], "batch_hash": bh,
-                             "rep": int(r["replicate"]), "pos": pos,
-                             "secs": float(r["fit_seconds"]),
-                             "n_iter": int(r["fit_summary"]["n_iter"])})
+    for exp, design, L, sc, path, bh, method, meta in jobs:
+        if not os.path.exists(path):
+            missing += 1
+            continue
+        d = pl.read_parquet(path, columns=["replicate", "fit_seconds", "fit_summary"])
+        for pos, r in enumerate(d.iter_rows(named=True)):
+            rows.append({"exp": exp, "design": design, "L": L, "sc": sc, "method": method,
+                         "m": meta["m"], "T": meta["T"], "depth": meta["depth"],
+                         "gap": meta["gap"], "null": meta["null"], "batch_hash": bh,
+                         "rep": int(r["replicate"]), "pos": pos,
+                         "secs": float(r["fit_seconds"]),
+                         "n_iter": int(r["fit_summary"]["n_iter"])})
     df = pl.DataFrame(rows, infer_schema_length=None)
     if missing:
         print(f"runtime.load: {missing} fits missing", file=sys.stderr)

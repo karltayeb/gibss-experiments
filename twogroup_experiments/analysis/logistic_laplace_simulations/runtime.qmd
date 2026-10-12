@@ -1,6 +1,6 @@
 ---
 title: "Runtime relative to CAVI-Q2"
-subtitle: "Wall-clock speedup of gIBSS-Q2, gIBSS-Laplace, local-JJ, global-JJ and score over CAVI-Q2 in experiments 022-024, at L=5 and L=1"
+subtitle: "Wall-clock speedup of gIBSS-Q2, gIBSS-Laplace, gIBSS-GO, local-JJ, global-JJ and score over CAVI-Q2 in experiments 022-024, at L=5 and L=1"
 engine: jupyter
 jupyter: python3
 execute:
@@ -28,8 +28,9 @@ pf = RT.paired(df)
 `fit_seconds` times the `fit_glm_susie` call alone. Simulation, ELBO scoring and reductions
 are not included. Every timing comes from one machine: Midway caslake, one core per SLURM job.
 The 022 grid ran on a laptop under parallel load, so 022 uses batch 0 of each cell rerun on
-Midway (`022-laplace-timing`, `022-laplace-ser-timing`, 10 replicates per cell). 023 and 024
-use all 200 replicates.
+Midway (`022-laplace-timing`, `022-laplace-ser-timing`, 10 replicates per cell). gIBSS-GO was
+added later and ran only on Midway, so its 022 timings come from the same batches of the full
+grid. 023 and 024 use all 200 replicates. gIBSS-GO is L=5 only: at L=1 it is gIBSS-Q2.
 
 The first replicate of every batch also pays JAX compilation, because each fit job is a fresh
 process. Ratios use replicates 2-10 of each batch; compilation is in its own table below. An
