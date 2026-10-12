@@ -55,6 +55,11 @@ PIP agreement figures: each arm's components are matched to CAVI-Q2's on the sam
 x = TV between a matched pair's $\alpha$ vectors; y = share of matched pairs with TV above x.
 Rows bar on the pair's smaller component log BF (both sides must clear it). Non-null cells, pooled over $T$ and gap; TV below $10^{-4}$ is drawn at $10^{-4}$.
 
+Conditional figures compare the effect size given its feature, $q(b \mid \gamma = j) = N(\mu_j, \sigma_j^2)$, on the same matched pairs, averaged over CAVI-Q2's $\alpha$:
+$|\Delta\mu| / \sigma = \sum_j \alpha_j |\mu'_j - \mu_j| / \sigma_j$ (shift in CAVI-Q2 posterior SDs) and $|\log \sigma'/\sigma|$ with $\log \sigma'/\sigma = \sum_j \alpha_j \log(\sigma'_j/\sigma_j)$.
+Pairs whose smaller component log BF exceeds 2 only; below that the conditionals sit near the prior.
+An arm that matches CAVI-Q2's $\alpha$ and these conditionals reproduces the whole single-effect posterior.
+
 Table columns, CAVI-Q2's own values pooled over $T$:
 **coverage** = covering / declared CSs;
 **power** = captured causals / causals;
@@ -86,6 +91,18 @@ fig = RP.tv_survival_figure("gaussian", 5); plt.show()
 #| label: fig-tv-gaussian-ser
 #| fig-cap: "AR1 Gaussian, one causal, L = 1: TV between alpha vectors, arm vs CAVI-Q2."
 fig = RP.tv_survival_figure("gaussian", 1); plt.show()
+```
+
+```{python}
+#| label: fig-cond-gaussian
+#| fig-cap: "AR1 Gaussian, 3 causals, L = 5: conditional posterior mean shift and SD ratio, arm vs CAVI-Q2."
+fig = RP.cond_survival_figure("gaussian", 5); plt.show()
+```
+
+```{python}
+#| label: fig-cond-gaussian-ser
+#| fig-cap: "AR1 Gaussian, one causal, L = 1: conditional posterior mean shift and SD ratio, arm vs CAVI-Q2."
+fig = RP.cond_survival_figure("gaussian", 1); plt.show()
 ```
 
 ```{python}
@@ -121,6 +138,18 @@ fig = RP.tv_survival_figure("binary", 1); plt.show()
 ```
 
 ```{python}
+#| label: fig-cond-binary
+#| fig-cap: "Binary Markov, 3 causals, L = 5: conditional posterior mean shift and SD ratio, arm vs CAVI-Q2."
+fig = RP.cond_survival_figure("binary", 5); plt.show()
+```
+
+```{python}
+#| label: fig-cond-binary-ser
+#| fig-cap: "Binary Markov, one causal, L = 1: conditional posterior mean shift and SD ratio, arm vs CAVI-Q2."
+fig = RP.cond_survival_figure("binary", 1); plt.show()
+```
+
+```{python}
 #| label: tbl-binary
 #| tbl-cap: "CAVI-Q2 absolute values, binary design, L = 5."
 RC.absolute_table("025-rate-binary")
@@ -150,6 +179,18 @@ fig = RP.tv_survival_figure("block", 5); plt.show()
 #| label: fig-tv-block-ser
 #| fig-cap: "Nested block design, one causal, L = 1: TV between alpha vectors, arm vs CAVI-Q2."
 fig = RP.tv_survival_figure("block", 1); plt.show()
+```
+
+```{python}
+#| label: fig-cond-block
+#| fig-cap: "Nested block design, 3 causals, L = 5: conditional posterior mean shift and SD ratio, arm vs CAVI-Q2."
+fig = RP.cond_survival_figure("block", 5); plt.show()
+```
+
+```{python}
+#| label: fig-cond-block-ser
+#| fig-cap: "Nested block design, one causal, L = 1: conditional posterior mean shift and SD ratio, arm vs CAVI-Q2."
+fig = RP.cond_survival_figure("block", 1); plt.show()
 ```
 
 ```{python}

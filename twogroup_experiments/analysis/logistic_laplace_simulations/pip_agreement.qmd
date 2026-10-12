@@ -1,6 +1,6 @@
 ---
 title: "Variable-selection agreement with CAVI-Q2"
-subtitle: "How close each arm's PIPs and single-effect posteriors are to CAVI-Q2's on the same replicate, in the Binary, Binary-Block and Gaussian designs at L=5 and L=1: per-replicate distributions first, then means"
+subtitle: "How close each arm's PIPs, alphas and conditional posterior means and variances are to CAVI-Q2's on the same replicate, in the Binary, Binary-Block and Gaussian designs at L=5 and L=1: per-replicate distributions first, then means"
 engine: jupyter
 jupyter: python3
 execute:
@@ -141,6 +141,66 @@ P.survival_figure(cn, rows=P.bar_rows(5), xlabel="TV, matched pair", unit="pairs
 P.survival_figure(cn, rows=P.bar_rows(1), xlabel="TV, single effect", unit="pairs");
 ```
 
+### Conditional means and variances {#sec-cond}
+
+Alpha is half of a single effect's posterior. The other half is the effect size given its
+feature, $q(b \mid \gamma = j) = N(\mu_j, \sigma_j^2)$. An arm that matches CAVI-Q2's alpha
+and these conditionals reproduces the whole single-effect posterior. For each matched pair,
+averaging over CAVI-Q2's $\alpha$:
+
+- $|\Delta\mu| / \sigma = \sum_j \alpha_j |\mu'_j - \mu_j| / \sigma_j$, the shift in the
+  conditional mean in units of CAVI-Q2's posterior SD.
+- $\log \sigma' / \sigma = \sum_j \alpha_j \log(\sigma'_j / \sigma_j)$, signed: positive when
+  the arm's conditional is wider. The figure uses its absolute value.
+- $\text{KL}_{b \mid \gamma} = \sum_j \alpha_j \text{KL}(N(\mu_j, \sigma^2_j) \,\|\, N(\mu'_j,
+  \sigma'^2_j))$. By the chain rule, $\text{KL}(\alpha \| \alpha') + \text{KL}_{b \mid \gamma}$
+  is the KL between the two single-effect posteriors over $(\gamma, b)$, which the last figure
+  shows.
+
+Rows as in the TV figures: every matched pair, then pairs whose smaller component log BF
+clears 0, 1, 2. Under the bar, both sides are close to the prior and the conditionals are
+prior-dominated.
+
+```{python}
+#| label: fig-dmu-l5
+#| echo: false
+#| fig-cap: "L = 5: share of matched pairs whose alpha-weighted conditional mean shift, in CAVI-Q2 posterior SDs, exceeds x (non-null cells)."
+P.survival_figure(cn, rows=P.bar_rows(5, col="dmu"), xlabel="|Δμ| / σ, matched pair",
+                  unit="pairs", xmax=10);
+```
+
+```{python}
+#| label: fig-lsd-l5
+#| echo: false
+#| fig-cap: "L = 5: share of matched pairs whose alpha-weighted |log SD ratio| (arm over CAVI-Q2) exceeds x."
+P.survival_figure(cn, rows=P.bar_rows(5, col="abs_lsd"), xlabel="|log σ′/σ|, matched pair",
+                  unit="pairs", xmax=10);
+```
+
+```{python}
+#| label: fig-kljoint-l5
+#| echo: false
+#| fig-cap: "L = 5: share of matched pairs whose KL between single-effect posteriors over (γ, b), CAVI-Q2 to arm, exceeds x nats."
+P.survival_figure(cn, rows=P.bar_rows(5, col="kl_joint"), xlabel="KL(q ‖ q′), nats, matched pair",
+                  unit="pairs", xmax=1e4);
+```
+
+```{python}
+#| label: fig-dmu-l1
+#| echo: false
+#| fig-cap: "L = 1: conditional mean shift, as above, one component per fit."
+P.survival_figure(cn, rows=P.bar_rows(1, col="dmu"), xlabel="|Δμ| / σ, single effect",
+                  unit="pairs", xmax=10);
+```
+
+```{python}
+#| label: fig-lsd-l1
+#| echo: false
+#| fig-cap: "L = 1: |log SD ratio|, as above."
+P.survival_figure(cn, rows=P.bar_rows(1, col="abs_lsd"), xlabel="|log σ′/σ|, single effect",
+                  unit="pairs", xmax=10);
+```
+
 ### When gIBSS and CAVI-Q2 disagree {#sec-tail}
 
 The fits in the tail are mostly different optima of the same objective. The table splits fits by
@@ -202,6 +262,39 @@ table(cd, "kl", COMMON.format(unit="matched declared component pairs") +
 #| output: asis
 table(cd, "max_alpha", COMMON.format(unit="matched declared component pairs") +
       " Value: the largest absolute difference in alpha over features, in [0, 1].")
+```
+
+### Conditional mean shift {#sec-dmu}
+
+```{python}
+#| label: tab-dmu
+#| echo: false
+#| output: asis
+table(cd, "dmu", COMMON.format(unit="matched declared component pairs") +
+      " Value: sum over features of alpha_CAVI x |mu_arm - mu_CAVI| / sd_CAVI, the conditional "
+      "posterior mean shift in CAVI-Q2 posterior SDs.")
+```
+
+### Conditional SD ratio {#sec-lsd}
+
+```{python}
+#| label: tab-lsd
+#| echo: false
+#| output: asis
+table(cd, "lsd", COMMON.format(unit="matched declared component pairs") +
+      " Value: sum over features of alpha_CAVI x log(sd_arm / sd_CAVI), signed; negative means "
+      "the arm's conditional posteriors are narrower than CAVI-Q2's.")
+```
+
+### Joint KL {#sec-kl-joint}
+
+```{python}
+#| label: tab-kl-joint
+#| echo: false
+#| output: asis
+table(cd, "kl_joint", COMMON.format(unit="matched declared component pairs") +
+      " Value: KL(q_CAVI || q_arm) over (gamma, b) in nats, the alpha KL plus the "
+      "alpha-weighted KL between conditional normals.")
 ```
 
 ### Max |ΔPIP| per fit {#sec-max-pip}

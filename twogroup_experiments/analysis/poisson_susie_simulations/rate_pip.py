@@ -14,6 +14,10 @@ components are unordered, so the arm's are matched to CAVI's by minimum total TV
 Every matched pair is kept with the smaller of its two component log BFs, so figures can bar on
 it (both sides must clear the bar). Per fit, max_j |PIP_arm - PIP_CAVI| over the combined PIPs
 needs no matching.
+
+Conditionals q(b | gamma = j) = N(mu_j, var_j), arm vs CAVI-Q2, averaged over CAVI-Q2's alpha:
+dmu = sum_j alpha_j |mu'_j - mu_j| / sd_j (shift in CAVI-Q2 posterior SDs) and
+lsd = sum_j alpha_j log(sd'_j / sd_j) (signed, > 0 when the arm is wider).
 """
 from __future__ import annotations
 
@@ -49,15 +53,28 @@ def _dist(a: np.ndarray, b: np.ndarray) -> dict:
     return {"tv": 0.5 * float(d.sum()), "kl": float(np.sum(a * (la - lb))), "max_alpha": float(d.max())}
 
 
+def _moments(se: list[dict]) -> tuple[np.ndarray, np.ndarray]:
+    """(conditional mean [L, p], conditional variance [L, p])."""
+    return (np.stack([np.asarray(e["mu"], dtype=float) for e in se]),
+            np.stack([np.asarray(e["var"], dtype=float) for e in se]))
+
+
+def _cond(a: np.ndarray, mu: np.ndarray, var: np.ndarray, mu_b: np.ndarray, var_b: np.ndarray) -> dict:
+    lsd = float(np.sum(a * 0.5 * np.log(var_b / var)))
+    return {"dmu": float(np.sum(a * np.abs(mu_b - mu) / np.sqrt(var))), "lsd": lsd, "abs_lsd": abs(lsd)}
+
+
 def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict]:
     a, lbf_a = _components(ref_se)
     b, lbf_b = _components(arm_se)
+    (mu_a, var_a), (mu_b, var_b) = _moments(ref_se), _moments(arm_se)
     pa, pb = 1 - np.prod(1 - a, axis=0), 1 - np.prod(1 - b, axis=0)
     tv = 0.5 * np.abs(a[:, None, :] - b[None, :, :]).sum(-1)
     _, cols = linear_sum_assignment(tv)
     pairs = []
     for i, k in enumerate(cols):
-        pairs.append({**_dist(a[i], b[k]), "declared_ref": bool(lbf_a[i] >= MIN_LOG_BF),
+        pairs.append({**_dist(a[i], b[k]), **_cond(a[i], mu_a[i], var_a[i], mu_b[k], var_b[k]),
+                      "declared_ref": bool(lbf_a[i] >= MIN_LOG_BF),
                       "declared_arm": bool(lbf_b[k] >= MIN_LOG_BF),
                       "min_log_bf": float(min(lbf_a[i], lbf_b[k]))})
     return pairs, {"max_pip": float(np.abs(pa - pb).max()),
@@ -70,7 +87,7 @@ def load(sc: str) -> tuple[pl.DataFrame, pl.DataFrame]:
     fits.parquet files present."""
     pairs = list(RC._pairs(sc))   # (bh, mh, arm, meta); arm in cavi/gibss/laplace/score
     present = [p for p in pairs if os.path.exists(f"{RC.RESULTS}/by_batch/{p[0]}/fits/{p[1]}/fits.parquet")]
-    stem = os.path.join(RC.CACHE, f"rate_pip_v2_{sc}_{len(present)}")
+    stem = os.path.join(RC.CACHE, f"rate_pip_v3_{sc}_{len(present)}")
     if os.path.exists(stem + "_fit.parquet"):
         return pl.read_parquet(stem + "_comp.parquet"), pl.read_parquet(stem + "_fit.parquet")
     by_batch: dict[str, dict] = {}
@@ -266,4 +283,58 @@ def tv_survival_figure(design: str, L: int = 5, bars=BARS, floor: float = 1e-4):
     top = max(ax.get_position().y1 for ax in axes[0])
     fig.suptitle(f"{DESIGN_SHORT[design]}, " + ("3 causals, L = 5" if L == 5 else "one causal, L = 1"),
                  fontsize=8, y=top + 0.25 / fig_h, va="bottom")
+    return fig
+
+
+COND = {"dmu": "|Δμ| / σ", "abs_lsd": "|log σ′/σ|"}
+
+
+def cond_survival_figure(design: str, L: int = 5, bar: float = 2.0, floor: float = 1e-4,
+                         xmax: float = 10.0):
+    """Rows = conditional mean shift and |log SD ratio| (COND), columns = lambda0: share of
+    matched pairs whose smaller component log BF exceeds `bar` with the metric > x, one line per
+    arm, log-log, non-null cells pooled over T and gap. Values below `floor` are drawn at it."""
+    import matplotlib.pyplot as plt
+    comp, _ = load(f"025-rate-{design}" + ("" if L == 5 else "-ser"))
+    comp = comp.filter(~pl.col("null") & (pl.col("min_log_bf") > bar))
+    lams = sorted(comp["lambda0"].unique().to_list())
+    fig, axes = plt.subplots(len(COND), len(lams), figsize=(6.5, 1.55 * len(COND) + 0.7),
+                             sharex=True, sharey=True, squeeze=False)
+    for i, (col, label) in enumerate(COND.items()):
+        for j, lam in enumerate(lams):
+            ax = axes[i, j]
+            sub = comp.filter(pl.col("lambda0") == lam)
+            for m in ARMS:
+                x = sub.filter(pl.col("method") == m)[col].to_numpy()
+                x = np.sort(np.maximum(x[~np.isnan(x)], floor))
+                if x.size == 0:
+                    continue
+                surv = 1.0 - np.arange(1, x.size + 1) / x.size
+                ax.step(x[:-1], surv[:-1], where="post", color=COLOR[m], lw=1.1, label=LABEL[m])
+            for v in (0.01, 0.1, 1.0):
+                ax.axvline(v, color="0.6", lw=0.6, ls=":")
+            ax.set_xscale("log")
+            ax.set_yscale("log")
+            ax.set_xlim(floor, xmax)
+            ax.set_xticks([1e-4, 1e-2, 1.0])
+            ax.set_ylim(1e-3, 1.05)
+            ax.grid(True, which="major", alpha=0.25)
+            ax.tick_params(labelsize=6.5)
+            if i == 0:
+                ax.set_title(rf"$\lambda_0 = {lam:g}$", fontsize=8)
+            if i == len(COND) - 1:
+                ax.set_xlabel("value, matched pair", fontsize=7)
+            if j == 0:
+                ax.set_ylabel(f"{label}\nshare above x", fontsize=7.5)
+    handles = {}
+    for ax in axes.flat:
+        for h, lab in zip(*ax.get_legend_handles_labels()):
+            handles.setdefault(lab, h)
+    fig.legend(handles.values(), handles.keys(), loc="upper center", ncol=len(handles), fontsize=7,
+               frameon=False)
+    fig_h = fig.get_size_inches()[1]
+    fig.tight_layout(rect=(0, 0, 1, 1 - 0.5 / fig_h))
+    top = max(ax.get_position().y1 for ax in axes[0])
+    fig.suptitle(f"{DESIGN_SHORT[design]}, " + ("3 causals, L = 5" if L == 5 else "one causal, L = 1")
+                 + f", min log BF > {bar:g}", fontsize=8, y=top + 0.25 / fig_h, va="bottom")
     return fig

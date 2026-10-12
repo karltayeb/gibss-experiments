@@ -9,6 +9,15 @@ comes from a log-softmax and KL needs no floor. Three distances, arm vs CAVI-Q2:
         arm puts little mass where CAVI puts mass (an overconfident arm).
 * max = max_j |alpha_j - alpha'_j|, the largest single-feature change (TV over singletons).
 
+Each single effect is q(gamma) q(b | gamma), with q(b | gamma = j) = N(mu_j, var_j) (the stored
+mu/var are these conditional moments). Conditionals, arm vs CAVI-Q2, averaged over CAVI-Q2's
+alpha:
+
+* dmu     = sum_j alpha_j |mu'_j - mu_j| / sd_j, the mean shift in CAVI-Q2 posterior SDs.
+* lsd     = sum_j alpha_j log(sd'_j / sd_j), signed: > 0 when the arm is wider.
+* kl_cond = sum_j alpha_j KL(N(mu_j, var_j) || N(mu'_j, var'_j)).
+* kl_joint = kl + kl_cond = KL(q_CAVI || q_arm) over (gamma, b), by the chain rule.
+
 At L=1 alpha IS the PIP vector. At L=5 the components are unordered, so the arm's components are
 matched to CAVI's by minimum total TV (Hungarian). At both L, only pairs where EITHER side's component is
 declared (component log BF >= MIN_LOG_BF) are kept: a null component's diffuse alpha is noise.
@@ -52,10 +61,27 @@ def _dist(la: np.ndarray, lb: np.ndarray) -> dict:
     return {"tv": 0.5 * d.sum(), "kl": float(np.sum(a * (la - lb))), "max_alpha": float(d.max())}
 
 
+def _cond(la: np.ndarray, mu: np.ndarray, var: np.ndarray, mu_b: np.ndarray,
+          var_b: np.ndarray) -> dict:
+    """Conditional-posterior distances, reference N(mu, var) to arm N(mu_b, var_b) per feature,
+    averaged over the reference alpha (exp la)."""
+    a = np.exp(la)
+    kl_j = 0.5 * (var / var_b + (mu - mu_b) ** 2 / var_b - 1.0 - np.log(var / var_b))
+    return {"dmu": float(np.sum(a * np.abs(mu_b - mu) / np.sqrt(var))),
+            "lsd": float(np.sum(a * 0.5 * np.log(var_b / var))),
+            "kl_cond": float(np.sum(a * kl_j))}
+
+
 def _components(se: list[dict]) -> tuple[np.ndarray, np.ndarray]:
     """(log alpha [L, p], component log BF [L])."""
     la = np.stack([log_softmax(np.asarray(e["feature_log_bf"], dtype=float)) for e in se])
     return la, np.array([e["ser_log_bf"] for e in se], dtype=float)
+
+
+def _moments(se: list[dict]) -> tuple[np.ndarray, np.ndarray]:
+    """(conditional mean [L, p], conditional variance [L, p])."""
+    return (np.stack([np.asarray(e["mu"], dtype=float) for e in se]),
+            np.stack([np.asarray(e["var"], dtype=float) for e in se]))
 
 
 def _pip(la: np.ndarray) -> np.ndarray:
@@ -74,12 +100,15 @@ def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict, n
     two PIP vectors (reference, arm)."""
     la, lbf_a = _components(ref_se)
     lb, lbf_b = _components(arm_se)
+    (mu_a, var_a), (mu_b, var_b) = _moments(ref_se), _moments(arm_se)
     pa, pb = _pip(la), _pip(lb)
     dpip = np.abs(pa - pb)
     out = []
     for i, k in enumerate(match(la, lb)):
         dr, da = bool(lbf_a[i] >= R.MIN_LOG_BF), bool(lbf_b[k] >= R.MIN_LOG_BF)
-        out.append({**_dist(la[i], lb[k]), "declared_ref": dr, "declared_arm": da,
+        d = {**_dist(la[i], lb[k]), **_cond(la[i], mu_a[i], var_a[i], mu_b[k], var_b[k])}
+        out.append({**d, "kl_joint": d["kl"] + d["kl_cond"], "abs_lsd": abs(d["lsd"]),
+                    "declared_ref": dr, "declared_arm": da,
                     "min_log_bf": float(min(lbf_a[i], lbf_b[k]))})
     fit = {"max_pip": float(dpip.max()), "argmax_pip": int(dpip.argmax()),
            "n_decl_ref": int((lbf_a >= R.MIN_LOG_BF).sum()),
@@ -302,7 +331,7 @@ def md_frame(df: pl.DataFrame, fmts: dict[str, str], legend: str = "") -> str:
 
 
 def survival_figure(fits: pl.DataFrame, rows=None, xlabel: str = "max |ΔPIP| in the fit",
-                    unit: str = "fits", floor: float = 1e-4):
+                    unit: str = "fits", floor: float = 1e-4, xmax: float = 1.0):
     """Rows = (L, column, label[, filter expr]) (default: max_pip at L = 1 and L = 5), columns =
     experiments: share of fits with the column's value > x, one line per arm, log-log. Values
     below `floor` are drawn at the floor."""
@@ -329,7 +358,7 @@ def survival_figure(fits: pl.DataFrame, rows=None, xlabel: str = "max |ΔPIP| in
                 ax.axvline(v, color="0.6", lw=0.6, ls=":")
             ax.set_xscale("log")
             ax.set_yscale("log")
-            ax.set_xlim(floor, 1)
+            ax.set_xlim(floor, xmax)
             ax.set_ylim(1e-3, 1.05)
             ax.grid(True, which="major", alpha=0.25)
             ax.tick_params(labelsize=7)
@@ -348,11 +377,11 @@ def survival_figure(fits: pl.DataFrame, rows=None, xlabel: str = "max |ΔPIP| in
 BARS = [0.0, 1.0, 2.0]
 
 
-def bar_rows(L: int, bars=BARS) -> list:
+def bar_rows(L: int, bars=BARS, col: str = "tv") -> list:
     """survival_figure rows: all matched pairs, then pairs whose smaller component log BF
     exceeds each bar (both sides must clear it)."""
-    return [(L, "tv", "all pairs")] + [(L, "tv", f"min log BF > {t:g}", pl.col("min_log_bf") > t)
-                                       for t in bars]
+    return [(L, col, "all pairs")] + [(L, col, f"min log BF > {t:g}", pl.col("min_log_bf") > t)
+                                      for t in bars]
 
 def scatter_figure(feat: pl.DataFrame, L: int = 5):
     """Rows = experiments, columns = arms: per-feature PIP, arm vs CAVI-Q2, pooled over
