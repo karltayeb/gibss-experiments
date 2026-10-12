@@ -5,7 +5,7 @@ Question: does the background rate lambda0 separate gIBSS from exact CAVI? gIBSS
 offset, so it drops the Jensen term sum_i lambda_i (E e^{o_i} - e^{E o_i}), which scales with the
 rate. Arms (all Q2, EB prior capped at 100): CAVI-Q2 (exact closed-form offset fold), gIBSS-Q2
 (plug-in mean offset), gIBSS-Laplace (order-1 quadrature SER, plug-in offset, reduced to Q2),
-Smoothed (L=5 only: offset integrated over a moment-matched Gaussian in closed form, mu_i + v_i/2 for
+gIBSS-GO (Gaussian offset; L=5 only: offset integrated over a moment-matched Gaussian in closed form, mu_i + v_i/2 for
 Poisson, so it misses only the offset's cumulants of order >= 3), score (one Newton step from the
 intercept-only null).
 

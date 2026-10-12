@@ -30,7 +30,7 @@ import rate_cs as RC  # noqa: E402
 
 MIN_LOG_BF = RC.MIN_LOG_BF
 ARMS = ["smoothed", "gibss", "laplace", "score"]
-LABEL = {"gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "smoothed": "Smoothed", "score": "score"}
+LABEL = {"gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "smoothed": "gIBSS-GO", "score": "score"}
 COLOR = {"smoothed": "#000000", "gibss": "#0072B2", "laplace": "#009E73", "score": "#CC79A7"}
 METRICS = {"tv": "TV", "kl": "KL", "max_alpha": "max |Δα|"}
 DESIGNS = ["gaussian", "binary", "block"]

@@ -42,10 +42,10 @@ MIN_LOG_BF = 2.0          # declared-CS threshold (the experiment's default_args
 
 METHODS = ["cavi", "smoothed", "gibss", "laplace", "localjj", "globaljj", "score"]   # most to least accurate
 METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "globaljj": "global-JJ", "localjj": "local-JJ",
-                "cavi": "CAVI-Q2", "smoothed": "Smoothed", "score": "score"}
+                "cavi": "CAVI-Q2", "smoothed": "gIBSS-GO", "score": "score"}
 # The 019 logistic palette (resultslib.METHOD_COLOR): gIBSS blue, CAVI vermillion, global-JJ
 # green, score reddish purple; gIBSS-Laplace sky blue (a gIBSS variant, as gibss_profiled in 019);
-# Smoothed black (the last Okabe-Ito colour).
+# gIBSS-GO black (the last Okabe-Ito colour).
 # Validated with the dataviz validate_palette.js, light mode, all pairs: score/global-JJ is
 # deutan dE 7.6 (floor band), so the markers + legend + x-dodge carry identity too.
 METHOD_COLOR = {"laplace": "#56B4E9", "gibss": "#0072B2", "globaljj": "#009E73", "localjj": "#E69F00",

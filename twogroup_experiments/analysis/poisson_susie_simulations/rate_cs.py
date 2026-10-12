@@ -32,7 +32,7 @@ RESULTS = os.path.join(_TG, "results")
 CACHE = os.path.join(_HERE, ".cache")
 REF = "cavi"
 ARMS = ["smoothed", "gibss", "laplace", "score"]
-LABEL = {"cavi": "CAVI-Q2", "gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "smoothed": "Smoothed", "score": "score"}
+LABEL = {"cavi": "CAVI-Q2", "gibss": "gIBSS-Q2", "laplace": "gIBSS-Laplace", "smoothed": "gIBSS-GO", "score": "score"}
 COLOR = {"smoothed": "#000000", "gibss": "#0072B2", "laplace": "#009E73", "score": "#CC79A7"}
 GAP_STYLE = {8: "-", 64: "--", None: "-"}
 DODGE = {"smoothed": 0.85, "gibss": 0.95, "laplace": 1.05, "score": 1.15}
@@ -131,7 +131,7 @@ def delta_frame(rep: pl.DataFrame, elbo: pl.DataFrame | None, seed: int = 0) -> 
     """Arm minus CAVI per (lambda0, T, gap) with paired rep-resampled 95% CIs."""
     rng = np.random.default_rng(seed)
     rows = []
-    # arms fit in this supercollection (Smoothed is L=5 only, so the -ser SCs lack it)
+    # arms fit in this supercollection (gIBSS-GO is L=5 only, so the -ser SCs lack it)
     arms = [m for m in ARMS if m in set(rep["method"].unique().to_list())]
     sig = rep.filter(~pl.col("null"))
     for (lam0, T, gap), g in sig.group_by("lambda0", "T", "gap"):
