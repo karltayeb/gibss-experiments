@@ -1,6 +1,6 @@
 ---
-title: "Adjusted gIBSS vs Taylor2 vs gIBSS vs exact, as the offset variance varies"
-subtitle: "Smoothed(base, Adjusted()) (gibss-mono 96cc7d7) against the closed-form Taylor2 smoothing, plain gIBSS and the exact offset integration, with the offset variance V set directly (known random offset, L=1 and L=3) and arising from the other effects (L=5, vs exact Q1 CAVI). Logistic and Poisson."
+title: "Adjusted gIBSS vs Taylor2 vs gIBSS vs exact, as the offset varies"
+subtitle: "A single-effect regression with a known random offset: the six Adjusted(data, offset, ridge) cases (gibss-mono 735749e), the closed-form Taylor2 smoothing and plain gIBSS against the exact offset integration, on a grid of offset variance V, offset skewness and baseline b0. Logistic and Poisson."
 engine: jupyter
 jupyter: python3
 ---
@@ -23,13 +23,15 @@ plt.rcParams.update({"figure.dpi": 110, "axes.grid": True, "grid.alpha": 0.3,
                      "axes.spines.top": False, "axes.spines.right": False})
 art = ap.load("analysis/gibss_vs_cavi/data/adjusted_artifact.pkl")
 G = art["grids"]
-B0 = {"logistic": -1.0, "poisson": -0.5}   # the baseline shown in the headline figures
+B0 = {"logistic": -1.0, "poisson": -0.5}   # the baseline shown in the two-family overviews
+MAIN = ("gibss", "taylor2", "adjusted", "adjusted_dor")
+SKEW = ("gibss", "taylor2", "adjusted", "adjusted_dor", "exact")
 ```
 
 ## What is compared
 
 Every single-effect update integrates the other effects' uncertainty through a per-row
-Gaussian offset $o_i \sim N(0, V_i)$. The exact update uses the smoothed cumulant
+offset $o_i$ with variance $V_i$. The exact update uses the smoothed cumulant
 $\tilde A(\eta) = \mathbb{E}_o A(\eta + o)$; plain gIBSS plugs in the offset mean ($V_i = 0$).
 Taylor2 (`Smoothed(base, Taylor())`, `offset_integration="taylor2"`) is the closed-form
 second-order smoothing applied at every $\eta$,
@@ -38,132 +40,159 @@ $$ \tilde A(\eta) \approx A(\eta) + \tfrac{1}{2} V A''(\eta), $$
 
 with no anchor and no per-row state. Its Newton weight is $A'' + \tfrac12 V A''''$, for
 logistic $p(1-p)\,[1 + \tfrac{V}{2}(1 - 6p(1-p))]$, which is zero at $p = 1/2$ when $V = 4$
-and negative beyond: the fit loses convexity and returns NaN. The adjusted scheme takes its
-targets from this same Taylor-smoothed function but keeps the family's own cumulant and
-moves the data instead,
+and negative beyond: the fit loses convexity and returns NaN.
 
-$$ y\eta - \tilde A(\eta) \;\approx\; (y + \delta)\,\eta - A(\eta + \nu) + C, \qquad
-\nu = \tfrac{1}{2} V \frac{A''''(z)}{A'''(z)},\quad \delta = A''(z)\,\nu - \tfrac{1}{2} V A'''(z), $$
+The adjusted schemes take their targets from this same Taylor-smoothed function at a per-row
+anchor $z$ (the current full predictor, re-tuned before every effect update) but keep the
+family's own cumulant and move the data, the offset and a ridge instead:
 
-with $(\delta, \nu, C)$ tuned per row so the surrogate matches Taylor2 in value, score and
-curvature at the anchor $z$ = the current full predictor (re-anchored before every effect
-update). At the anchor the two agree; away from it adjusted follows a shifted copy of $A$,
-which stays convex at any $V$, while Taylor2 follows the Taylor shape. For Poisson
-$\nu = V/2$, $\delta = 0$ and the $\eta$-shape is exact. For logistic $\nu$ is clipped to $|\nu| \le 2|A'''/A''''|$ through
-the pole of $A''''/A'''$ at $p = 1/2$.
+$$ y\eta - \tilde A(\eta) \;\approx\; (y + \delta)\,\eta - A(\eta + \nu) - \kappa\,(\eta - z)^2 + C. $$
+
+`Adjusted(data, offset, ridge)` switches $\delta$, $\nu$, $\kappa$ on. Each switched-on
+parameter takes one matching condition, lowest order first: $\delta$ the score, $\kappa$ the
+curvature, and $\nu$ the lowest condition left (the score without $\delta$, the curvature
+without $\kappa$, else the third derivative, which needs $A^{(5)}$). Matching derivative $k$
+with $\nu$ is $A^{(k+1)}(z)\,\nu = \tfrac12 V A^{(k+2)}(z)$, clipped to
+$|\nu| \le 2|A^{(k+1)}/A^{(k+2)}|$ through the pole where $A^{(k+1)}$ changes sign.
+
+| case | $\nu$ matches | pole of $\nu$ (logistic) | convex |
+|---|---|---|---|
+| d | (none) | | yes |
+| o | score | none | yes |
+| do (= `adjusted`) | curvature | $A''' = 0$ at $p = 1/2$ | yes |
+| dr | (none) | | no |
+| or | score | none | no |
+| dor | third derivative | $A'''' = 0$ at $p \approx 0.21, 0.79$ | no |
+
+For Poisson every derivative is $e^z$, so $\nu = V/2$ and $\delta = \kappa = 0$ in every case
+with the offset on, and the $\eta$-shape is exact. The data-only case d gives Poisson a
+response $y - \tfrac12 V e^z$ that can go negative, which has no posterior mode. The ridge
+cases carry a weight $A'' + 2\kappa$ that, like Taylor2's, can turn negative at large $V$.
 
 Arms, all free-form Q1 (quad kernel), centered design, estimated shared intercept, prior
 variance 1, fixed sweep count:
 
-| arm | response | offset variance it sees |
+| arm | response | offset it sees |
 |---|---|---|
 | gIBSS | `base` | none (plug-in mean) |
 | Taylor2 | `Smoothed(base, Taylor())` | $V_i$, through $A + \tfrac12 V_i A''$ at every $\eta$ |
-| adjusted | `Smoothed(base, Adjusted())` | $V_i$ |
-| adjusted, null not re-anchored | same fit; the SER's $b=0$ null scored with the alternative's aux | $V_i$ |
-| exact (GH) | `Smoothed(base, GH(21))` | $V_i$ (the exact smoothed update for a Gaussian offset of known variance, i.e. what CAVI computes when the offset law is that Gaussian) |
-| CAVI (exact Q1) | `method="cf_cavi_q1"` | the other effects' true posteriors |
+| adjusted d / o / do / dr / or / dor | `Smoothed(base, Adjusted(data, offset, ridge))` | $V_i$ |
+| adjusted, null not re-anchored | the do fit, the SER's $b=0$ null scored with the alternative's aux | $V_i$ |
+| exact (GH) | `Smoothed(base, GH(21))` | the Gaussian $N(0, V_i)$: exact when the offset is Gaussian, and otherwise the best any variance-only scheme can do |
+| exact (true law) | `Smoothed(base, ExoMixtureGH)` | the true skewed law (skew block only; the reference there) |
 
-**Exogenous $V$.** A known offset $o_i \sim N(0, V_i)$ is added when simulating
-($\eta = b_0 + X_{\cdot c}\beta + o$) and handed to the fit as the state's random-intercept
-variance with the per-sweep random-intercept update removed, so every `Smoothed` arm folds
-$V_i$ into its offset variance and gIBSS ignores it. $V \in \{`{python} ", ".join(f"{v:g}" for v in G["EXO"]["V"])`\}$,
+**Exogenous offset.** A known offset $o_i$ is added when simulating
+($\eta = b_0 + X_{\cdot c}\beta + o$) and its variance $V_i$ is handed to the fit as the
+state's random-intercept variance with the per-sweep random-intercept update removed, so
+every `Smoothed` arm folds $V_i$ into its offset variance and gIBSS ignores it.
 $n = `{python} G["EXO"]["n"]`$, $p = `{python} G["EXO"]["p"]`$, Gaussian AR(1) design
 ($\rho = `{python} al._GAUSS_RHO`$), `{python} len(G["EXO"]["seeds"])` seeds (design and
-response redrawn per seed). Homoskedastic ($V_i = V$) and heteroskedastic ($V_i = V$ on
-the first half of the rows, 0 elsewhere) structures; $L=1$ with one causal column
+response redrawn per seed), $L=1$ with one causal column
 ($\beta_{\rm logistic} = `{python} G["EXO"]["beta"]["logistic"]`$,
-$\beta_{\rm Poisson} = `{python} G["EXO"]["beta"]["poisson"]`$) and $L=3$ with three.
+$\beta_{\rm Poisson} = `{python} G["EXO"]["beta"]["poisson"]`$).
+Homoskedastic ($V_i = V$ on every row) and heteroskedastic ($V_i = V$ on the first half of
+the rows, 0 elsewhere). Baselines $b_0 \in \{`{python} ", ".join(f"{v:g}" for v in G["EXO"]["b0"]["logistic"])`\}$
+(logistic; $b_0 = 0$ is the pole $p = 1/2$) and $\{`{python} ", ".join(f"{v:g}" for v in G["EXO"]["b0"]["poisson"])`\}$
+(Poisson).
 
-**Endogenous $V$.** Ordinary $L=`{python} G["ENDO"]["L"]`$ fits with three causal columns,
-$n \in \{`{python} ", ".join(str(v) for v in G["ENDO"]["n"])`\}$,
-$\rho \in \{`{python} ", ".join(f"{v:g}" for v in G["ENDO"]["rho"])`\}$,
-`{python} len(G["ENDO"]["seeds"])` seeds; the reference is exact free-form CAVI. The
-realized message variance at convergence is recorded per row.
+- *Variance block*: Gaussian offset, $V \in \{`{python} ", ".join(f"{v:g}" for v in G["EXO"]["V"])`\}$.
+- *Skew block*: the offset is the two-component Gaussian mixture
+  $\pi N(m_1, s^2) + (1-\pi) N(m_2, s^2)$ with mean 0, variance $V$ and skewness $\gamma$
+  (half the variance within the components, half between; $\gamma$ sets $\pi$:
+  $\gamma = 0$ is $\pi = 1/2$, $|\gamma| = 1$ is $\pi = 0.09$, $|\gamma| = 2$ is $\pi = 0.03$,
+  i.e. 3% of the rows sit $4\sqrt{V}$ from the rest; excess kurtosis $-0.5$, $1.5$, $7.5$).
+  Negative $\gamma$ puts the small component far below zero, positive far above.
+  $V \in \{`{python} ", ".join(f"{v:g}" for v in G["EXO_SKEW"]["V"])`\}$,
+  $\gamma \in \{`{python} ", ".join(f"{v:g}" for v in G["EXO_SKEW"]["gamma"])`\}$. The fit is told
+  $V_i$ only; the reference folds the true law.
 
-Metric legend (every gap is arm minus reference, reference = exact GH or CAVI):
+Metric legend (every gap is arm minus reference):
 *alpha gap* = $\max_{l,j}|\alpha_{lj} - \alpha^{\rm ref}_{lj}|$; *PIP gap* =
 $\max_j |{\rm PIP}_j - {\rm PIP}^{\rm ref}_j|$; *E[b] gap* = total posterior mean at the
 reference's top feature, minus the reference's; *sd ratio* = posterior sd of $b$ at that
 feature over the reference's; *b0 gap* = intercept difference; *logBF gap* = sum over
 components of the SER log BF, minus the reference's; *logBF* = the arm's own value.
+In every figure the mean is over the seeds whose fit was finite, with a 10-90% band; a
+line that stops early is an arm whose every seed failed beyond that point, a hollow marker
+one where some seeds failed.
 
 ## Summary
 
-Numbers are means over 20 seeds at $b_0 = -1$ (logistic) / $-0.5$ (Poisson) unless stated.
+SUMMARY_PLACEHOLDER
 
-- **Poisson, homoskedastic V**: gIBSS equals the exact fit on alpha, $\mathbb{E}[b]$ and
-  log BF ($\hat b_0$ off by exactly $V/2$). Adjusted equals the exact fit on everything
-  except the log BF, which it inflates by +14 (V=1), +75 (V=2), +537 (V=4) nats; scoring the
-  null under the alternative's anchor removes the leak to $\le 0.03$ nats at every V.
-- **Poisson, heteroskedastic V**: gIBSS misreads the subgroup's extra variance as signal
-  (alpha gap 0.25 at V=2, log BF -27 and $\hat b_0$ +1.4 at V=4); adjusted matches the
-  exact fit (alpha gap $\le 0.006$), log BF leak aside.
-- **Logistic, L=1**: alpha is within 0.03 of exact for both arms at every V. The effect
-  estimate errs in opposite directions: gIBSS attenuates ($-0.16$ at V=1, $-0.38$ at V=4
-  for $\beta=1$), adjusted inflates ($+0.04$ at V=1, $+0.30$ at V=4) and its intercept
-  drifts further ($-0.70$ at V=4 vs $+0.40$ for gIBSS). The log BF is where adjusted wins:
-  within 1.6 nats of exact up to V=2 (gIBSS: $-9.7$ at V=1, $-19.6$ at V=4), then $-9.4$
-  at V=4. The inflation of $\mathbb{E}[b]$ is largest at the pole $b_0 = 0$ ($+0.7$ at V=4)
-  and absent at $b_0 \le -2$.
-- **Logistic, L=3, V=4**: adjusted is overconfident (mean PIP gap 0.29 vs 0.09 for gIBSS,
-  $\mathbb{E}[b]$ $+0.42$ vs $-0.42$); at V=1 both are at 0.03.
-- **Taylor2** agrees with adjusted at the anchor and is at least as close to exact up to
-  V=2 (logistic L=1, $b_0=-1$: $\mathbb{E}[b]$ $+0.06$ vs $+0.13$, log BF $+1.7$ vs $+1.6$;
-  at $b_0 = 0$ both are $+14$ nats at V=2), then fails: at V=4 every logistic seed at
-  $b_0 \in \{0, -1\}$ and at L=3 returns NaN, and half the seeds at $b_0=-2$, because the
-  smoothed weight $\tfrac14(1 - V/4)$ reaches zero at $p = 1/2$. Where it survives at V=4
-  ($b_0 = -3$) it attenuates like gIBSS ($\mathbb{E}[b]$ $-0.29$ vs $-0.33$). For Poisson it is
-  exact on alpha, $\mathbb{E}[b]$ and log BF with a homoskedastic V (intercept off by
-  $\log(1 + V/2) - V/2$, no log BF leak) and halves gIBSS's heteroskedastic error (alpha gap
-  0.045 vs 0.096, log BF $-10$ vs $-27$ at V=4) without removing it.
-- **Endogenous V (L=5, vs exact Q1 CAVI)**: the realized offset variance stays below
-  1.3 (logistic) / 0.12 (Poisson) at the 95th row percentile. There both smoothers beat
-  gIBSS, and Taylor2 is the closer of the two: PIP gap 0.0001-0.005 (Taylor2) vs 0.0002-0.044
-  (adjusted) vs 0.001-0.08 (gIBSS); log BF gap $-0.01$ to $-0.55$ (Taylor2) vs $-0.02$ to
-  $+2.9$ (adjusted) vs $-0.4$ to $-6.7$ (gIBSS). Both cost the same as gIBSS and are
-  10-100x cheaper than CAVI.
-- The null-mean heteroskedastic panel does not separate the arms: with $q(o_i)$ frozen at
-  the prior the smoothed Poisson likelihood is a Poisson with an offset, so every arm, the
-  exact fold included, reads the overdispersion as signal (exact with $\hat b_0$ fixed at
-  the truth still gives log BF 171 at V=4, seed 0). The random-intercept comparison with
-  $q(o_i)$ updated is `gibss_vs_cavi_random_intercept.qmd`.
+## Gaussian offset
 
-## Exogenous V, single effect (L = 1)
-
-### Homoskedastic V, with signal
+### Homoskedastic V
 
 ```{python}
 #| label: fig-exo-homo
-#| fig-cap: "L=1, signal, homoskedastic V. Mean over seeds (band 10-90%) of each arm's gap to the exact GH fit, vs V. Rows: logistic (b0=-1), Poisson (b0=-0.5). gIBSS orange, Taylor2 reddish purple, adjusted green; the dashed green line in the log BF panel is the adjusted fit with the null scored under the alternative's anchor. The Taylor2 line stops at V=2 for logistic because every seed at V=4 returns NaN. The log BF axis is symlog."
-ap.plot_metrics_vs_v(art, "exo_ser", "homo", "signal", B0)
+#| fig-cap: "L=1, homoskedastic Gaussian V, gaps to the exact GH fit vs V. Rows: logistic (b0=-1), Poisson (b0=-0.5). gIBSS orange, Taylor2 reddish purple, adjusted do green, adjusted dor dark purple (dashed = non-convex surrogate). The log BF axis is symlog."
+ap.plot_metrics_vs_v(art, "exo_ser", "homo", "signal", B0, arms=MAIN, logbf_arms=MAIN)
 plt.show()
 ```
 
 For Poisson a homoskedastic $V$ is a pure intercept shift ($\mathbb{E}_o e^{\eta+o} =
 e^{\eta + V/2}$): gIBSS's alpha, $\mathbb{E}[b]$ and log BF equal the exact fit, with
-$\hat b_0$ off by exactly $V/2$. Adjusted equals the exact fit on everything but the log
-BF (next section).
+$\hat b_0$ off by exactly $V/2$ (Taylor2: by $\log(1 + V/2) - V/2$). Every offset-shift
+case equals the exact fit on everything but the log BF (see the re-anchored null below).
+
+```{python}
+#| label: fig-exo-homo-b0-logistic
+#| fig-cap: "Logistic, L=1, homoskedastic Gaussian V: one row per baseline b0, gaps to the exact GH fit vs V. b0 = 0 is the pole p = 1/2."
+ap.plot_by_b0(art, "exo_ser", "logistic", "homo", arms=MAIN)
+plt.show()
+```
+
+```{python}
+#| label: fig-exo-homo-b0-poisson
+#| fig-cap: "Poisson, same layout."
+ap.plot_by_b0(art, "exo_ser", "poisson", "homo", arms=MAIN)
+plt.show()
+```
+
+```{python}
+#| label: fig-exo-homo-cases
+#| fig-cap: "Logistic, L=1, homoskedastic Gaussian V: the six Adjusted(data, offset, ridge) cases, one row per b0. Dashed = ridge cases (non-convex)."
+ap.plot_by_b0(art, "exo_ser", "logistic", "homo", arms=ap.CASES)
+plt.show()
+```
 
 ```{python}
 #| label: tbl-exo-homo
 #| echo: false
 #| output: asis
-print(ap.exo_table(art, "homo", "signal", B0))
+print(ap.exo_table(art, "homo", "signal", B0,
+                   arms=("gibss", "taylor2") + ap.CASES + ("adjusted_nr", "exact")))
 ```
 
-### Where Taylor2 fails
+### Where fits fail
 
-Every exogenous cell with at least one non-finite fit. All are Taylor2 at $V = 4$ with the
-baseline near $p = 1/2$, where the Taylor-smoothed weight $A'' + \tfrac12 V A''''$ is zero or
-negative on the rows that matter; no other arm failed anywhere.
+Fits that returned a non-finite posterior, counted over seeds, baselines, structures and
+(skew block) skewness. Taylor2 and the ridge cases lose convexity at large $V$ near
+$p = 1/2$; the data-only case has no Poisson posterior mode once $y - \tfrac12 V e^z < 0$.
+No other arm failed anywhere.
 
 ```{python}
 #| label: tbl-failures
 #| echo: false
 #| output: asis
+for block, title in (("exo_ser", "Gaussian offset"), ("exo_skew", "skewed offset")):
+    for fam in ("logistic", "poisson"):
+        print(f"\n**{title}, {al.FAMILY_LABEL[fam]}**\n")
+        print(ap.failure_summary(art, block, fam))
+        print()
+```
+
+<details><summary>Every failed cell</summary>
+
+```{python}
+#| label: tbl-failures-full
+#| echo: false
+#| output: asis
 print(ap.failure_table(art) or "No failed fits.")
 ```
+
+</details>
 
 ### The adjusted log BF and the re-anchored null
 
@@ -175,35 +204,16 @@ $z_{\rm null}$ and the alternative at $z_{\rm alt}$ the difference
 $\sum_i [C_i(z_{\rm alt}) - C_i(z_{\rm null})]$ leaks into the log BF while alpha,
 $\mathbb{E}[b]$ and $\hat b_0$ are untouched. For Poisson,
 $C_i(z) = -y_i V/2 + e^{z}(e^{V/2} - 1 - V/2)$, and scoring the null with the same aux as
-the alternative (dashed) restores the exact log BF to $10^{-2}$ nats at every $V$. For
-logistic the shape of the surrogate in $\eta$ is itself approximate, and the re-anchored
-null is the better of the two.
+the alternative restores the exact log BF to $10^{-2}$ nats at every $V$. For logistic the
+shape of the surrogate in $\eta$ is itself approximate, and the re-anchored null is the
+better of the two.
 
 ```{python}
-#| label: fig-b0-logistic
-#| fig-cap: "Logistic, adjusted arm, L=1 homoskedastic V: mean gap to exact vs V, one line per baseline b0. b0 = 0 puts the anchor at the pole p = 1/2 where nu is clipped to 0."
-ap.plot_b0_sweep(art, "logistic", "adjusted")
-plt.show()
-```
-
-```{python}
-#| label: fig-b0-taylor2
-#| fig-cap: "Same, Taylor2 arm. The b0 = 0 and -1 lines stop at V=2 (all seeds NaN at V=4); the b0 = -2 point at V=4 averages the 10 seeds that survived."
-ap.plot_b0_sweep(art, "logistic", "taylor2")
-plt.show()
-```
-
-```{python}
-#| label: fig-b0-gibss
-#| fig-cap: "Same, gIBSS arm, for scale."
-ap.plot_b0_sweep(art, "logistic", "gibss")
-plt.show()
-```
-
-```{python}
-#| label: fig-b0-poisson
-#| fig-cap: "Poisson, adjusted arm, L=1 homoskedastic V, per baseline b0."
-ap.plot_b0_sweep(art, "poisson", "adjusted")
+#| label: fig-exo-logbf-null
+#| fig-cap: "L=1, homoskedastic V, log BF gap only: adjusted do with the re-anchored null (solid green) and with the kernel's own baseline (dashed dark green), next to Taylor2 and gIBSS. Rows: logistic (b0=-1), Poisson (b0=-0.5)."
+ap.plot_metrics_vs_v(art, "exo_ser", "homo", "signal", B0, metrics=("logbf_gap",),
+                     arms=("gibss", "taylor2", "adjusted", "adjusted_nr"),
+                     logbf_arms=("gibss", "taylor2", "adjusted", "adjusted_nr"), figsize=(4.0, 4.2))
 plt.show()
 ```
 
@@ -211,8 +221,15 @@ plt.show()
 
 ```{python}
 #| label: fig-exo-hetero
-#| fig-cap: "L=1, signal, V on the first half of the rows only. Same layout as the homoskedastic figure."
-ap.plot_metrics_vs_v(art, "exo_ser", "hetero", "signal", B0)
+#| fig-cap: "L=1, V on the first half of the rows only. Same layout as the homoskedastic overview."
+ap.plot_metrics_vs_v(art, "exo_ser", "hetero", "signal", B0, arms=MAIN, logbf_arms=MAIN)
+plt.show()
+```
+
+```{python}
+#| label: fig-exo-hetero-b0-poisson
+#| fig-cap: "Poisson, L=1, heteroskedastic V: one row per b0."
+ap.plot_by_b0(art, "exo_ser", "poisson", "hetero", arms=MAIN)
 plt.show()
 ```
 
@@ -220,71 +237,68 @@ plt.show()
 #| label: tbl-exo-hetero
 #| echo: false
 #| output: asis
-print(ap.exo_table(art, "hetero", "signal", B0))
+print(ap.exo_table(art, "hetero", "signal", B0, arms=("gibss", "taylor2") + ap.CASES + ("exact",)))
 ```
 
 ```{python}
 #| label: fig-false-cs
-#| fig-cap: "Null mean (no covariate effect), V on half the rows: rate over seeds of a declared credible set (SER log BF > 2) vs V, per arm. Any declared set is a false positive. See the summary: with q(o_i) frozen at the prior no arm models the overdispersion, so this panel only shows that adjusted tracks the exact fold."
-ap.plot_false_cs(art, B0)
+#| fig-cap: "Null mean (no covariate effect), V on half the rows: rate over seeds of a declared credible set (SER log BF > 2) vs V, per arm. Any declared set is a false positive. With q(o_i) frozen at the prior no arm models the overdispersion, so this panel only shows which arms track the exact fold."
+ap.plot_false_cs(art, B0, arms=MAIN + ("exact",))
 plt.show()
 ```
 
-## Exogenous V, three effects (L = 3)
+## Skewed offset
+
+The fit is told $V_i$; the offset is the mixture above. *exact (GH)* folds the Gaussian with
+that variance, so its gap to the true-law reference is the floor for every variance-only
+scheme, and the other arms' distance from it is their own approximation error on top.
 
 ```{python}
-#| label: fig-exo-multi
-#| fig-cap: "L=3 (causal columns 3, 10, 17), homoskedastic V in {0, 1, 4}: gaps to the exact GH fit. PIP gap replaces alpha gap (component order can differ between arms). Taylor2 (reddish purple) fails on every logistic seed at V=4, so its line stops at V=1."
-ap.plot_metrics_vs_v(art, "exo_multi", "homo", "signal", G["EXO_MULTI"]["b0"],
-                     metrics=("pip_gap", "eb_gap", "icpt_gap", "logbf_gap"))
+#| label: fig-skew-logistic-gamma
+#| fig-cap: "Logistic, homoskedastic, V = 2: gaps to the exact fold of the true law vs skewness, one row per b0. exact (GH) is the Gaussian fold at the same V."
+ap.plot_by_b0(art, "exo_skew", "logistic", "homo", xcol="gamma", fixed={"V": 2.0}, arms=SKEW)
 plt.show()
 ```
 
 ```{python}
-#| label: tbl-exo-multi
+#| label: fig-skew-logistic-v
+#| fig-cap: "Logistic, homoskedastic, b0 = -1: gaps vs V, one row per skewness."
+ap.plot_by_b0(art, "exo_skew", "logistic", "homo", xcol="V", fixed={"b0": -1.0}, rows_by="gamma", arms=SKEW)
+plt.show()
+```
+
+```{python}
+#| label: fig-skew-logistic-cases
+#| fig-cap: "Logistic, homoskedastic, V = 2: the six adjusted cases vs skewness, one row per b0."
+ap.plot_by_b0(art, "exo_skew", "logistic", "homo", xcol="gamma", fixed={"V": 2.0}, arms=ap.CASES)
+plt.show()
+```
+
+For Poisson a homoskedastic skewed offset is still a pure intercept shift
+($\mathbb{E}\,e^{o}$ is a constant), so only the heteroskedastic design separates the arms.
+
+```{python}
+#| label: fig-skew-poisson-gamma
+#| fig-cap: "Poisson, heteroskedastic (the skewed law on half the rows), V = 2: gaps vs skewness, one row per b0."
+ap.plot_by_b0(art, "exo_skew", "poisson", "hetero", xcol="gamma", fixed={"V": 2.0}, arms=SKEW)
+plt.show()
+```
+
+```{python}
+#| label: fig-skew-poisson-v
+#| fig-cap: "Poisson, heteroskedastic, b0 = -0.5: gaps vs V, one row per skewness."
+ap.plot_by_b0(art, "exo_skew", "poisson", "hetero", xcol="V", fixed={"b0": -0.5}, rows_by="gamma", arms=SKEW)
+plt.show()
+```
+
+```{python}
+#| label: tbl-skew
 #| echo: false
 #| output: asis
-print(ap.exo_table(art, "homo", "signal", G["EXO_MULTI"]["b0"], L=3))
+print("**Homoskedastic, V = 2**\n")
+print(ap.exo_table(art, "homo", "signal", B0, block="exo_skew", xcol="gamma", fixed={"V": 2.0},
+                   arms=("gibss", "taylor2") + ap.CASES + ("exact", "exact_mix")))
+print("\n**Heteroskedastic, V = 2**\n")
+print(ap.exo_table(art, "hetero", "signal", B0, block="exo_skew", xcol="gamma", fixed={"V": 2.0},
+                   arms=("gibss", "taylor2") + ap.CASES + ("exact", "exact_mix")))
 ```
-
-```{python}
-#| label: fig-example-logistic
-#| fig-cap: "Logistic L=3, V=4, seed 0: PIP per column for gIBSS, Taylor2 (failed on this dataset), adjusted and exact. Vermillion = causal columns; shaded band = +-2 columns (corr >= 0.81)."
-ap.plot_pip_example(art, "exo_multi", "logistic", 4.0)
-plt.show()
-```
-
-```{python}
-#| label: fig-example-poisson
-#| fig-cap: "Poisson L=3, V=4, seed 0, same layout."
-ap.plot_pip_example(art, "exo_multi", "poisson", 4.0)
-plt.show()
-```
-
-## Endogenous V (L = 5, vs exact Q1 CAVI)
-
-```{python}
-#| label: fig-endo-pip
-#| fig-cap: "Each point is one dataset. x = the realized offset variance the SERs saw (95th percentile over rows of the message variance at convergence); y = max PIP gap to exact Q1 CAVI. gIBSS orange, Taylor2 reddish purple, adjusted green."
-ap.plot_endo(art, "pip_gap")
-plt.show()
-```
-
-```{python}
-#| label: fig-endo-logbf
-#| fig-cap: "Same datasets, y = summed SER log BF minus CAVI's (symlog)."
-ap.plot_endo(art, "logbf_gap")
-plt.show()
-```
-
-```{python}
-#| label: tbl-endo
-#| echo: false
-#| output: asis
-print(ap.endo_table(art))
-```
-
-*mean V / p95 V* = mean over datasets of the row-mean / row-95th-percentile message variance
-at CAVI's convergence; *PIP gap*, *logBF gap* as in the legend above, averaged over seeds,
-one column per arm (gIBSS, Taylor2, adjusted); *s* = seconds per fit
-(`{python} G["ENDO"]["n_sweeps"]` sweeps, one CPU thread) for gIBSS / Taylor2 / adjusted / CAVI.

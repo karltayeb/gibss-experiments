@@ -14,7 +14,12 @@ import adjusted_lib as al
 INK = "#16202E"
 COLOR = dict(al.COLOR, adjusted_nr="#005A42")  # darker green, dashed
 LABEL = dict(al.LABEL, adjusted_nr="adjusted, null not re-anchored")
-LS = {"gibss": "-", "taylor2": "-", "adjusted": "-", "adjusted_nr": "--", "exact": "-", "cavi": "-"}
+LS = {"gibss": "-", "taylor2": "-", "adjusted": "-", "adjusted_nr": "--", "exact": "-", "cavi": "-",
+      "adjusted_d": "-", "adjusted_o": "-", "adjusted_dr": "--", "adjusted_or": "--",
+      "adjusted_dor": "--", "exact_mix": "-"}  # dashed = non-convex surrogate
+LABEL["exact_mix"] = "exact (true law)"
+CASES = ("adjusted_d", "adjusted_o", "adjusted", "adjusted_dr", "adjusted_or", "adjusted_dor")
+XLABEL = {"V": "offset variance $V$", "gamma": r"offset skewness $\gamma$"}
 METRIC_LABEL = {
     "alpha_gap": r"max$_j\,|\alpha_j - \alpha_j^{\rm exact}|$",
     "pip_gap": r"max$_j\,|{\rm PIP}_j - {\rm PIP}_j^{\rm ref}|$",
@@ -31,7 +36,7 @@ def load(path: str) -> dict:
         art = pickle.load(f)
     rows = art["rows"]
     for r in rows:
-        for k in ("structure", "V", "signal", "rho", "n"):
+        for k in ("structure", "V", "gamma", "signal", "rho", "n"):
             r.setdefault(k, None)
         r["causal"] = str(r["causal"])
     art["df"] = pl.DataFrame(rows, infer_schema_length=None)
@@ -101,9 +106,54 @@ def plot_metrics_vs_v(art, block: str, structure: str, signal: str, b0: dict,
             ax.tick_params(labelsize=8)
             ax.spines[["top", "right"]].set_visible(False)
     h, l = axes[0][-1].get_legend_handles_labels()
-    fig.legend(h, l, loc="lower center", ncol=4, frameon=False, fontsize=8,
+    fig.legend(h, l, loc="lower center", ncol=min(4, len(l)), frameon=False, fontsize=8,
                bbox_to_anchor=(0.5, -0.03))
     fig.tight_layout(rect=(0, 0.05, 1, 1))
+    return fig
+
+
+def plot_by_b0(art, block: str, family: str, structure: str, xcol: str = "V",
+               fixed: dict | None = None, rows_by: str = "b0",
+               metrics=("alpha_gap", "eb_gap", "icpt_gap", "logbf_gap"),
+               arms=("gibss", "taylor2", "adjusted", "adjusted_dor"), width=6.5):
+    """One family: rows = values of `rows_by` (b0, or gamma), columns = metrics, x = `xcol`
+    (V or gamma), one line per arm (mean over the finite seeds, 10-90% band). `fixed`
+    filters further (e.g. {"gamma": 2.0} or {"V": 2.0}). The block's reference arm is the
+    zero line; a line that stops early is an arm whose every seed failed beyond that x."""
+    df = art["df"].filter((pl.col("block") == block) & (pl.col("family") == family)
+                          & (pl.col("structure") == structure) & (pl.col("signal") == "signal"))
+    for k, v in (fixed or {}).items():
+        df = df.filter(pl.col(k) == v)
+    levels = sorted(df[rows_by].unique().to_list(), reverse=(rows_by == "b0"))
+    fig, axes = plt.subplots(len(levels), len(metrics), figsize=(width, 1.45 * len(levels) + 0.9),
+                             sharex=True, squeeze=False)
+    for r, lev in enumerate(levels):
+        d = df.filter(pl.col(rows_by) == lev)
+        for c, met in enumerate(metrics):
+            ax = axes[r][c]
+            for arm in arms:
+                x, ys = _series(d, arm, met, xcol)
+                if len(x):
+                    _band(ax, x, ys, COLOR[arm], LS[arm], LABEL[arm])
+            ax.axhline(1.0 if met == "sd_ratio" else 0.0, color="0.6", lw=0.8, ls=":")
+            if met == "logbf_gap":
+                ax.set_yscale("symlog", linthresh=1.0)
+            if r == 0:
+                ax.set_title(METRIC_LABEL[met], fontsize=8, color=INK)
+            if r == len(levels) - 1:
+                ax.set_xlabel(XLABEL[xcol], fontsize=8.5)
+            if c == 0:
+                lab = "$b_0$" if rows_by == "b0" else r"$\gamma$"
+                ax.set_ylabel(f"{lab} = {lev:g}", fontsize=9)
+            ax.tick_params(labelsize=7.5)
+            ax.spines[["top", "right"]].set_visible(False)
+    h, l = axes[0][-1].get_legend_handles_labels()
+    fig.legend(h, l, loc="lower center", ncol=min(4, len(l)), frameon=False, fontsize=8,
+               bbox_to_anchor=(0.5, -0.02))
+    fix = ", ".join(f"{XLABEL[k].split('$')[0].strip()} {v:g}" for k, v in (fixed or {}).items())
+    fig.suptitle(f"{al.FAMILY_LABEL[family]}, {structure}skedastic" + (f", {fix}" if fix else ""),
+                 fontsize=9.5, color=INK)
+    fig.tight_layout(rect=(0, 0.04, 1, 0.98))
     return fig
 
 
@@ -213,7 +263,8 @@ def plot_pip_example(art, block: str, family: str, V: float,
     return fig
 
 
-def plot_endo(art, metric: str = "pip_gap", figsize=(6.5, 2.8)):
+def plot_endo(art, metric: str = "pip_gap", figsize=(6.5, 2.8),
+              arms=("gibss", "taylor2", "adjusted", "adjusted_dor")):
     """Endogenous V: each dataset is a point, x = realized 95th-percentile message variance
     at convergence (the V the SERs actually saw), y = the metric vs exact Q1 CAVI; colour =
     arm. One panel per family."""
@@ -223,7 +274,7 @@ def plot_endo(art, metric: str = "pip_gap", figsize=(6.5, 2.8)):
     for c, fam in enumerate(fams):
         ax = axes[c]
         d = df.filter(pl.col("family") == fam)
-        for arm in ("gibss", "taylor2", "adjusted"):
+        for arm in arms:
             s = d.filter(pl.col("arm") == arm)
             yv = s[metric].to_numpy()
             if metric in ("pip_gap", "alpha_gap"):
@@ -249,16 +300,16 @@ def plot_endo(art, metric: str = "pip_gap", figsize=(6.5, 2.8)):
     return fig
 
 
-def endo_table(art) -> str:
+def endo_table(art, arms=("gibss", "taylor2", "adjusted", "adjusted_dor")) -> str:
     """Markdown: per (family, n, rho) the realized V and each arm's mean gaps vs CAVI."""
     df = art["df"].filter(pl.col("block") == "endo")
     g = (df.filter(pl.col("arm") == "cavi")
          .group_by(["family", "n", "rho"]).agg(pl.col("msg_var_mean").mean().alias("V_mean"),
                                                pl.col("msg_var_p95").mean().alias("V_p95")))
-    arms = ("gibss", "taylor2", "adjusted")
-    lines = ["| family | n | rho | mean V | p95 V | PIP gap: gIBSS | Taylor2 | adjusted | "
-             "logBF gap: gIBSS | Taylor2 | adjusted | s: gIBSS / Taylor2 / adjusted / CAVI |",
-             "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---|"]
+    names = " | ".join(LABEL[a] for a in arms)
+    lines = [f"| family | n | rho | mean V | p95 V | PIP gap: {names} | logBF gap: {names} | "
+             f"s: {' / '.join(LABEL[a] for a in arms)} / CAVI |",
+             "|---|---:|---:|---:|---:|" + "---:|" * (2 * len(arms)) + "---|"]
     for row in g.sort(["family", "n", "rho"]).iter_rows(named=True):
         sel = df.filter((pl.col("family") == row["family"]) & (pl.col("n") == row["n"])
                         & (pl.col("rho") == row["rho"]))
@@ -273,18 +324,24 @@ def endo_table(art) -> str:
     return "\n".join(lines)
 
 
-def exo_table(art, structure: str, signal: str, b0: dict, L: int = 1) -> str:
-    """Markdown: per (family, V) the mean gaps of each arm vs the exact GH fit."""
-    block = "exo_ser" if L == 1 else "exo_multi"
+def exo_table(art, structure: str, signal: str, b0: dict, L: int = 1, arms=None,
+              block: str | None = None, xcol: str = "V", fixed: dict | None = None) -> str:
+    """Markdown: per (family, x) the mean gaps of each arm vs the block's reference. `b0`
+    picks one baseline per family; `fixed` filters further (skew block: {"V": 2.0})."""
+    block = block or ("exo_ser" if L == 1 else "exo_multi")
+    arms = arms or ("gibss", "taylor2", "adjusted", "adjusted_nr", "exact")
     df = art["df"].filter((pl.col("block") == block) & (pl.col("structure") == structure)
                           & (pl.col("signal") == signal))
-    lines = ["| family | V | arm | alpha gap | PIP gap | E[b] gap | sd ratio | b0 gap | logBF gap | logBF |",
+    for k, v in (fixed or {}).items():
+        df = df.filter(pl.col(k) == v)
+    xl = "V" if xcol == "V" else "gamma"
+    lines = [f"| family | {xl} | arm | alpha gap | PIP gap | E[b] gap | sd ratio | b0 gap | logBF gap | logBF |",
              "|---|---:|---|---:|---:|---:|---:|---:|---:|---:|"]
     for fam in ("logistic", "poisson"):
         d = df.filter((pl.col("family") == fam) & (pl.col("b0") == b0[fam]))
-        for V in sorted(d["V"].unique().to_list()):
-            for arm in ("gibss", "taylor2", "adjusted", "adjusted_nr", "exact"):
-                s = d.filter((pl.col("V") == V) & (pl.col("arm") == arm))
+        for V in sorted(d[xcol].unique().to_list()):
+            for arm in arms:
+                s = d.filter((pl.col(xcol) == V) & (pl.col("arm") == arm))
                 if s.height == 0:
                     continue
                 nfail = int(s["failed"].sum())
@@ -306,16 +363,39 @@ def exo_table(art, structure: str, signal: str, b0: dict, L: int = 1) -> str:
 def failure_table(art) -> str:
     """Markdown: every (block, family, structure, b0, V, arm) with at least one failed
     (non-finite) fit, with the failed count over seeds. Empty string if none failed."""
-    df = art["df"].filter(pl.col("block") != "endo")
-    g = (df.group_by(["block", "family", "structure", "signal", "b0", "V", "arm"])
+    df = art["df"].filter(~pl.col("block").is_in(["endo", "exo_multi"]))
+    keys = ["block", "family", "structure", "signal", "b0", "V", "gamma", "arm"]
+    g = (df.group_by(keys)
            .agg(pl.col("failed").sum().alias("nfail"), pl.len().alias("n"))
            .filter(pl.col("nfail") > 0)
-           .sort(["block", "family", "structure", "signal", "b0", "V", "arm"]))
+           .sort(keys, nulls_last=True))
     if g.height == 0:
         return ""
-    lines = ["| block | family | V structure | signal | b0 | V | arm | failed fits |",
-             "|---|---|---|---|---:|---:|---|---:|"]
+    lines = ["| block | family | V structure | signal | b0 | V | gamma | arm | failed fits |",
+             "|---|---|---|---|---:|---:|---:|---|---:|"]
     for r in g.iter_rows(named=True):
+        gam = "" if r["gamma"] is None else f"{r['gamma']:g}"
         lines.append(f"| {r['block']} | {r['family']} | {r['structure']} | {r['signal']} | "
-                     f"{r['b0']:g} | {r['V']:g} | {LABEL[r['arm']]} | {r['nfail']}/{r['n']} |")
+                     f"{r['b0']:g} | {r['V']:g} | {gam} | {LABEL[r['arm']]} | {r['nfail']}/{r['n']} |")
+    return "\n".join(lines)
+
+
+def failure_summary(art, block: str, family: str) -> str:
+    """Markdown: per (arm, V) the number of failed fits over all seeds, b0 and (skew block)
+    gamma and structure, for the arms that failed at least once. Compact companion to
+    `failure_table`."""
+    df = art["df"].filter((pl.col("block") == block) & (pl.col("family") == family))
+    g = (df.group_by(["arm", "V"]).agg(pl.col("failed").sum().alias("nfail"), pl.len().alias("n")))
+    bad = sorted(g.filter(pl.col("nfail") > 0)["arm"].unique().to_list(),
+                 key=lambda a: list(LABEL).index(a) if a in LABEL else 99)
+    if not bad:
+        return "No failed fits."
+    Vs = sorted(g["V"].unique().to_list())
+    lines = ["| arm | " + " | ".join(f"V = {v:g}" for v in Vs) + " |", "|---|" + "---:|" * len(Vs)]
+    for arm in bad:
+        cells = []
+        for v in Vs:
+            r = g.filter((pl.col("arm") == arm) & (pl.col("V") == v))
+            cells.append(f"{int(r['nfail'][0])}/{int(r['n'][0])}" if r.height else "")
+        lines.append(f"| {LABEL[arm]} | " + " | ".join(cells) + " |")
     return "\n".join(lines)

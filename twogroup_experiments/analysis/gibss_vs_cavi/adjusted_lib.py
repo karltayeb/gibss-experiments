@@ -42,7 +42,7 @@ part has a subgroup design (V_i = V on half the rows, 0 elsewhere) next to the h
 """
 from __future__ import annotations
 
-from dataclasses import replace
+from dataclasses import dataclass, replace
 
 import numpy as np
 import jax.numpy as jnp
@@ -50,7 +50,7 @@ import jax.numpy as jnp
 from gibss import glm
 from gibss.engine import fit_ibss
 from gibss.methods import fit_glm_susie
-from gibss.response import GH, Adjusted, Bernoulli, Poisson, Smoothed, Taylor
+from gibss.response import GH, Adjusted, Bernoulli, Poisson, Smoothed, Smoother, Taylor
 
 import gvc
 
@@ -58,9 +58,20 @@ import gvc
 # gIBSS orange and CAVI/exact blue follow gvc; adjusted takes the third Okabe-Ito hue used
 # across the twogroup method palette (bluish green); Taylor2 the reddish purple.
 COLOR = {"gibss": gvc.C_GIBSS, "taylor2": "#CC79A7", "adjusted": "#009E73",
-         "exact": gvc.C_CAVI, "cavi": gvc.C_CAVI}
-LABEL = {"gibss": "gIBSS", "taylor2": "Taylor2", "adjusted": "adjusted", "exact": "exact (GH)",
-         "cavi": "CAVI (exact Q1)"}
+         "exact": gvc.C_CAVI, "cavi": gvc.C_CAVI,
+         # the other five Adjusted(data, offset, ridge) cases (adjusted = do)
+         "adjusted_d": "#56B4E9", "adjusted_o": "#7F7F7F", "adjusted_dr": "#D55E00",
+         "adjusted_or": "#000000", "adjusted_dor": "#5E3C99"}
+LABEL = {"gibss": "gIBSS", "taylor2": "Taylor2", "adjusted": "adjusted (do)", "exact": "exact (GH)",
+         "cavi": "CAVI (exact Q1)",
+         "adjusted_d": "adjusted d", "adjusted_o": "adjusted o", "adjusted_dr": "adjusted dr",
+         "adjusted_or": "adjusted or", "adjusted_dor": "adjusted dor"}
+# Adjusted(data, offset, ridge) switches per case name (735749e): d = data shift delta,
+# o = offset shift nu, r = ridge kappa. nu matches the lowest condition left over: the
+# score (o, or), the curvature (do), or the third derivative via A^(5) (dor).
+ADJ_CASES = {"adjusted_d": (True, False, False), "adjusted_o": (False, True, False),
+             "adjusted": (True, True, False), "adjusted_dr": (True, False, True),
+             "adjusted_or": (False, True, True), "adjusted_dor": (True, True, True)}
 FAMILY_LABEL = {"logistic": "logistic", "poisson": "Poisson"}
 BASES = {"logistic": Bernoulli, "poisson": Poisson}
 
@@ -78,12 +89,15 @@ BASES = {"logistic": Bernoulli, "poisson": Poisson}
 # when V = 4 and negative beyond, so the fit can lose convexity and return NaN. The
 # shipped Adjusted takes its value/score/curvature targets from this same function at
 # the anchor, so the two agree there and differ only in the shape away from it.
-EXO_ARMS = ("gibss", "taylor2", "adjusted", "adjusted_nr", "exact")
-ENDO_ARMS = ("gibss", "taylor2", "adjusted", "cavi")
+EXO_ARMS = ("gibss", "taylor2", "adjusted", "adjusted_nr", "exact",
+            "adjusted_d", "adjusted_o", "adjusted_dr", "adjusted_or", "adjusted_dor")
+ENDO_ARMS = ("gibss", "taylor2", "adjusted", "cavi",
+             "adjusted_d", "adjusted_o", "adjusted_dr", "adjusted_or", "adjusted_dor")
 ENDO_METHOD = {"gibss": {"logistic": "logistic", "poisson": "poisson"},
                "taylor2": {"logistic": "logistic", "poisson": "poisson"},
                "adjusted": {"logistic": "adjusted", "poisson": "adjusted"},
-               "cavi": {"logistic": "cf_cavi_q1", "poisson": "cf_cavi_q1"}}
+               "cavi": {"logistic": "cf_cavi_q1", "poisson": "cf_cavi_q1"},
+               **{a: {"logistic": a, "poisson": a} for a in ADJ_CASES if a != "adjusted"}}
 ENDO_EXTRA = {"taylor2": dict(offset_integration="taylor2")}  # front-door kwargs per arm
 
 _QUAD_ORDER = 15
@@ -156,28 +170,113 @@ def simulate_endo(family: str, n: int, rho: float, b0: float, beta: float, causa
 
 
 # ------------------------------------------------------------------ fits
-def exo_response(family: str, arm: str):
+# ------------------------------------------------------------------ skewed offset law
+def skew_law(V: float, gamma: float) -> dict:
+    """The two-component Gaussian mixture pi N(m1, s2) + (1 - pi) N(m2, s2) with mean 0,
+    variance V and skewness gamma. Half the variance is within-component (s2 = V/2) and half
+    between (pi (1-pi) d^2 = V/2, m1 = -(1-pi) d, m2 = pi d), which makes the skewness
+    (2 pi - 1) / (2 sqrt(2 pi (1-pi))), monotone in pi: gamma = 0 is pi = 1/2 (symmetric
+    bimodal, excess kurtosis -0.5), |gamma| = 1 is pi = 0.09 / 0.91 (excess kurtosis 1.5),
+    |gamma| = 2 is pi = 0.03 / 0.97 (3% of the rows sit 4 sd away; excess kurtosis 7.5).
+    Negative gamma puts the small component far below zero, positive far above."""
+    lo, hi = 1e-6, 1.0 - 1e-6
+    for _ in range(200):
+        mid = 0.5 * (lo + hi)
+        if (2.0 * mid - 1.0) / (2.0 * np.sqrt(2.0 * mid * (1.0 - mid))) < gamma:
+            lo = mid
+        else:
+            hi = mid
+    pi = 0.5 * (lo + hi)
+    d = np.sqrt(V / (2.0 * pi * (1.0 - pi)))
+    return dict(pi=float(pi), m1=float(-(1.0 - pi) * d), m2=float(pi * d), s2=float(V / 2.0),
+                V=float(V))
+
+
+def simulate_exo_skew(family: str, structure: str, V: float, gamma: float, b0: float,
+                      beta: float, causal, n: int, p: int, seed: int):
+    """One exogenous dataset with the SKEWED offset law `skew_law(V, gamma)` on the rows the
+    structure selects (every row, or the first half) and no offset elsewhere. Returns
+    X, y, V_i (what the fit is told) and the law (what the exact reference folds)."""
+    rng = np.random.default_rng(seed)
+    X = design(n, p, _GAUSS_RHO, seed=30_000 + seed)
+    b = np.zeros(p)
+    b[list(causal)] = beta
+    law = skew_law(V, gamma)
+    v = offset_variance(structure, V, n)
+    z = rng.random(n) < law["pi"]
+    o = np.where(z, law["m1"], law["m2"]) + np.sqrt(law["s2"]) * rng.standard_normal(n)
+    o = np.where(v > 0, o, 0.0)
+    eta = b0 + X @ b + o
+    return X, draw_response(family, eta, rng), v, law
+
+
+@dataclass(frozen=True)
+class ExoMixtureGH(Smoother):
+    """Exact fold of the exogenous mixture law `skew_law` for the rows that carry it: on
+    a row whose offset variance `ov` is at least V/2 the smoothed terms are
+    pi GH_{s2 + e}(eta + m1) + (1 - pi) GH_{s2 + e}(eta + m2), with e = ov - V the variance
+    the engine adds on top of the injected V (the shared intercept's factor); on any other
+    row (the offset-free half of a heteroskedastic design) the plain Gaussian GH fold at
+    `ov`. Scalar fields keep the smoother hashable, so JAX compiles once per law."""
+
+    pi: float
+    m1: float
+    m2: float
+    s2: float
+    V: float
+    order: int = 21
+
+    def terms(self, base, eta, aux):
+        y, ov = aux[0], aux[1]
+        ov = jnp.maximum(jnp.asarray(ov), 0.0)
+        extra = jnp.maximum(ov - self.V, 0.0)
+        gh = GH(order=self.order)
+        ll1, g1, w1 = gh.terms(base, eta + self.m1, (y, self.s2 + extra))
+        ll2, g2, w2 = gh.terms(base, eta + self.m2, (y, self.s2 + extra))
+        ll0, g0, w0 = gh.terms(base, eta, (y, ov))
+        on = ov >= 0.5 * self.V
+
+        def mix(a, b, c):
+            return jnp.where(on, self.pi * a + (1.0 - self.pi) * b, c)
+
+        return mix(ll1, ll2, ll0), mix(g1, g2, g0), mix(w1, w2, w0)
+
+
+# exo_skew block arms: every Gaussian-moment arm sees V_i only; `exact` is the GH fold of
+# the Gaussian with that variance (the best any variance-only scheme can do) and
+# `exact_mix` the fold of the true law, the reference.
+SKEW_ARMS = ("gibss", "taylor2", "adjusted", "adjusted_d", "adjusted_o", "adjusted_dr",
+             "adjusted_or", "adjusted_dor", "exact", "exact_mix")
+
+
+def exo_response(family: str, arm: str, law: dict | None = None):
     base = BASES[family]()
     if arm == "gibss":
         return base
     if arm == "taylor2":
         return Smoothed(base, Taylor())
-    if arm in ("adjusted", "adjusted_nr"):
+    if arm == "adjusted_nr":
         return Smoothed(base, Adjusted())
+    if arm in ADJ_CASES:
+        return Smoothed(base, Adjusted(*ADJ_CASES[arm]))
     if arm == "exact":
         return Smoothed(base, GH(order=_GH_EXACT))
+    if arm == "exact_mix":
+        return Smoothed(base, ExoMixtureGH(order=_GH_EXACT, **law))
     raise ValueError(arm)
 
 
-def fit_exo(X, y, v, family: str, arm: str, L: int = 1, pv: float = 1.0, n_sweeps: int = 20):
+def fit_exo(X, y, v, family: str, arm: str, L: int = 1, pv: float = 1.0, n_sweeps: int = 20,
+            law: dict | None = None):
     """Fit one exogenous arm with the known per-row offset variance `v` injected through the
     state's random-intercept factor (mean 0, variance v, never updated). Centered design,
-    estimated shared (point) intercept, fixed prior variance, free-form Q1 quad kernel."""
+    estimated shared (point) intercept, fixed prior variance, free-form Q1 quad kernel.
+    `law` is the skewed offset law for the `exact_mix` arm (ignored by every other arm)."""
     data = glm.prep_data(X, y, center=True)
     n = X.shape[0]
     v = np.asarray(v, dtype=float)
     state = glm.initialize_state(
-        data, L=L, response=exo_response(family, arm), prior_variance=pv,
+        data, L=L, response=exo_response(family, arm, law), prior_variance=pv,
         family_state_kwargs=dict(
             kernel="quad", intercept="shared", estimate_intercept=True,
             estimate_prior_variance=False, quadrature_order=_QUAD_ORDER,

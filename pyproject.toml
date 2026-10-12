@@ -21,8 +21,8 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-# adjusted-gibss branch (96cc7d7 = main 7c7e462 + Adjusted()); local clone until pushed
-gibss-mono = { git = "file:///Users/ktayeb/py/gibss-mono", rev = "96cc7d7" }
+# adjusted-gibss branch (735749e = main 7c7e462 + Adjusted() six cases); local clone until pushed
+gibss-mono = { git = "file:///Users/ktayeb/py/gibss-mono", rev = "735749e" }
 
 [dependency-groups]
 dev = [
