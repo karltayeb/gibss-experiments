@@ -1,5 +1,11 @@
 """Adjusted gIBSS vs gIBSS vs exact offset integration, as the offset variance V varies.
 
+PARKED (2026-10-12): Adjusted() exists only on the unpushed gibss-mono branch adjusted-gibss
+(735749e = main 7c7e462 + Adjusted). The repo pins main a3471c3, so this module, and everything
+that imports it (generate_adjusted.py, adjusted_plots.py, adjusted_vs_gibss.qmd), fails at
+import. The cached artifact and the frozen page stay valid. To revive: rebase adjusted-gibss
+onto main, pin that rev, rerun generate_adjusted.py and re-render.
+
 `Smoothed(base, Adjusted())` (gibss-mono 96cc7d7, branch adjusted-gibss) replaces the
 offset-smoothed loglik `y*eta - E_o A(eta + o)` by the family's own GLM at a per-row adjusted
 response y + delta and offset shift nu, tuned to match the Taylor-smoothed value, score and
