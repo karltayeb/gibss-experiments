@@ -6,8 +6,8 @@ simulation, no ELBO scoring, no reduction. Three rules make the arms comparable:
 * ONE MACHINE. Every timing here comes from Midway caslake, one core per SLURM job (the profile
   sets no --cpus-per-task). The 022 full-grid fits ran on a laptop under parallel load, except
   local-JJ, so 022 reads the `-timing` supercollections (batch 0 rerun on Midway) from a mirror
-  directory instead of results/. gIBSS-GO and Taylor2 came later and all their fits ran on Midway
-  (gibss a3471c3), so their 022 timings are read from results/, restricted to the same batches.
+  directory instead of results/. gIBSS-GO, Taylor2 and MacKay came later and all their fits ran on
+  Midway (gibss a3471c3; MacKay b8f5a7b), so their 022 timings are read from results/, restricted to the same batches.
 * STEADY STATE. Each fit job is a fresh process, so the first replicate of a batch also pays JAX
   compilation. Position 0 is dropped from the ratios and reported on its own (`compile_overhead`).
   Positions 1..9 are flat (no per-replicate recompile).
@@ -52,6 +52,7 @@ SOURCES = [
 SUPPLEMENTS = [
     ("022", "binary", 5, "022-laplace", "smoothed", "022-laplace-timing"),
     ("022", "binary", 5, "022-laplace", "taylor2", "022-laplace-timing"),
+    ("022", "binary", 5, "022-laplace", "mackay", "022-laplace-timing"),
 ]
 ARMS = [m for m in R.METHODS if m != "cavi"]
 _PAIR = ["exp", "L", "batch_hash", "rep"]

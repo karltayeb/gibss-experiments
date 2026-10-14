@@ -46,19 +46,19 @@ _BETAS_NESTED = _read_json("betas_nested_n1000.json")
 B0_TRUE = -2.0
 MIN_LOG_BF = 2.0          # declared-CS threshold (the experiment's default_args min_log_bf)
 
-METHODS = ["cavi", "smoothed", "taylor2", "gibss", "laplace", "localjj", "globaljj", "score"]   # most to least accurate
+METHODS = ["cavi", "smoothed", "taylor2", "mackay", "gibss", "laplace", "localjj", "globaljj", "score"]   # most to least accurate
 METHOD_LABEL = {"laplace": "gIBSS-Laplace", "gibss": "gIBSS-Q2", "globaljj": "global-JJ", "localjj": "local-JJ",
-                "cavi": "CAVI-Q2", "smoothed": "gIBSS-GO", "taylor2": "Taylor2",
+                "cavi": "CAVI-Q2", "smoothed": "gIBSS-GO", "taylor2": "Taylor2", "mackay": "MacKay",
                 "score": "score"}
 # The 019 logistic palette (resultslib.METHOD_COLOR): gIBSS blue, CAVI vermillion, global-JJ
 # green, score reddish purple; gIBSS-Laplace sky blue (a gIBSS variant, as gibss_profiled in 019);
 # gIBSS-GO black (the last usable Okabe-Ito colour); Taylor2, its cheap approximation, neutral grey
-# with its own marker (Okabe-Ito yellow is illegible on white).
+# with its own marker (Okabe-Ito yellow is illegible on white); MacKay brown, hexagon.
 # Validated with the dataviz validate_palette.js, light mode, all pairs: score/global-JJ is
 # deutan dE 7.6 (floor band), so the markers + legend + x-dodge carry identity too.
 METHOD_COLOR = {"laplace": "#56B4E9", "gibss": "#0072B2", "globaljj": "#009E73", "localjj": "#E69F00",
-                "cavi": "#D55E00", "smoothed": "#000000", "taylor2": "#7F7F7F", "score": "#CC79A7"}
-METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "localjj": "^", "cavi": "o", "smoothed": "X", "taylor2": "*",
+                "cavi": "#D55E00", "smoothed": "#000000", "taylor2": "#7F7F7F", "mackay": "#8C564B", "score": "#CC79A7"}
+METHOD_MARKER = {"laplace": "v", "gibss": "s", "globaljj": "D", "localjj": "^", "cavi": "o", "smoothed": "X", "taylor2": "*", "mackay": "h",
                  "score": "P"}
 
 
@@ -75,6 +75,8 @@ def _method_key(mname: str) -> str:
         return "smoothed"
     if mname.endswith("_taylor2"):
         return "taylor2"
+    if mname.endswith("_mackay"):
+        return "mackay"
     if mname.endswith("_gibss"):
         return "gibss"
     if mname.endswith("_cavi"):
@@ -257,8 +259,8 @@ def mean_se(df: pl.DataFrame, value: str, by: list[str]) -> pl.DataFrame:
 # ------------------------------------------------------------------------------ figures
 # Multiplicative x-dodge on the log-m axis so coincident arms (gIBSS-Q2 ~ CAVI-Q2 at L=1) stay
 # visible side by side instead of stacking.
-_DODGE = {"cavi": 0.84, "smoothed": 0.88, "taylor2": 0.92, "gibss": 0.96, "laplace": 1.0, "localjj": 1.04,
-          "globaljj": 1.08, "score": 1.12}
+_DODGE = {"cavi": 0.84, "smoothed": 0.87, "taylor2": 0.9, "mackay": 0.93, "gibss": 0.96, "laplace": 1.0,
+          "localjj": 1.04, "globaljj": 1.08, "score": 1.12}
 
 
 def _draw_vs_m(ax, tab: pl.DataFrame, *, methods, ref, m_ticks, symlog=None):

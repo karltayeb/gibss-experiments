@@ -21,9 +21,9 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-# main a3471c3 (ProbitMixture/PGMixture/LogNormal offset smoothers); same rev as the Midway fits.
-# Adjusted() lives on the unpushed adjusted-gibss branch (735749e), not here; see 9cfe0010.
-gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "a3471c3" }
+# main b8f5a7b (MacKay offset smoother; Adjusted() with its three rules). Refits of every
+# 022/024 L=5 arm match a3471c3 to 1e-13 (the 022-025 fits ran at a3471c3).
+gibss-mono = { git = "https://github.com/karltayeb/gibss-mono", rev = "b8f5a7b" }
 
 [dependency-groups]
 dev = [

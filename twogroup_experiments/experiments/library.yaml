@@ -1905,6 +1905,13 @@ methods:
   logistic_q2_L5_taylor2:
     function: run_logistic_method
     template: {response_source: z, L: 5, offset_integration: taylor2, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
+  # MacKay: gIBSS SER with the leave-one-out offset N(mu_i, v_i) handled by MacKay's moderated
+  # output, Ahat = kappa softplus(eta/kappa), kappa = sqrt(1 + pi v_i/8) (gibss MacKay()). Each
+  # row is the logistic loglik reweighted by kappa at predictor eta/kappa; convex at every v_i.
+  # Logistic only. L=5 only (a reference arm next to gIBSS-GO and Taylor2).
+  logistic_q2_L5_mackay:
+    function: run_logistic_method
+    template: {response_source: z, L: 5, offset_integration: mackay, variational_family: gaussian, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
   logistic_q2_L5_score:
     function: run_logistic_method
     template: {response_source: z, L: 5, method: score, center: true, estimate_prior_variance: true, max_prior_variance: 100.0, freeze_prior_variance: 0.01}
