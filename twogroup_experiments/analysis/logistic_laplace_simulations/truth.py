@@ -364,27 +364,30 @@ _SCEN = ["exp", "design", "L"] + [c for c in CELL if c != "null"]
 
 
 def scenario_frame(reps: pl.DataFrame) -> pl.DataFrame:
-    """One row per (signal scenario, arm): coverage, power and mean size of declared 95% CSs, and
-    each as a difference from CAVI-Q2 in the same scenario (size as a ratio). A scenario is one
+    """One row per (signal scenario, arm): coverage, power, mean size and number per fit of declared
+    95% CSs, and each as a difference from CAVI-Q2 in the same scenario (size as a ratio). A scenario is one
     cell of the grid (design, L, sweep value, T, gap); every arm sees the same simulated
     replicates."""
     df = (reps.filter(~pl.col("null")).group_by(_SCEN + ["method"])
           .agg((pl.col("n_covering").sum() / pl.col("n_declared").sum()).alias("coverage"),
                (pl.col("n_captured").sum() / pl.col("n_causal").sum()).alias("power"),
-               (pl.col("size_sum").sum() / pl.col("n_declared").sum()).alias("size"))
+               (pl.col("size_sum").sum() / pl.col("n_declared").sum()).alias("size"),
+               pl.col("n_declared").mean().alias("n_cs"))
           .with_columns(pl.col(c).fill_nan(None) for c in ("coverage", "size")))
     ref = df.filter(pl.col("method") == "cavi").select(
-        _SCEN + [pl.col(c).alias(f"{c}_cavi") for c in ("coverage", "power", "size")])
+        _SCEN + [pl.col(c).alias(f"{c}_cavi") for c in ("coverage", "power", "size", "n_cs")])
     return (df.filter(pl.col("method") != "cavi").join(ref, on=_SCEN, how="inner", nulls_equal=True)
             .with_columns((pl.col("coverage") - pl.col("coverage_cavi")).alias("d_coverage"),
                           (pl.col("power") - pl.col("power_cavi")).alias("d_power"),
-                          (pl.col("size") / pl.col("size_cavi")).alias("r_size")))
+                          (pl.col("size") / pl.col("size_cavi")).alias("r_size"),
+                          (pl.col("n_cs") - pl.col("n_cs_cavi")).alias("d_n_cs")))
 
 
 VS_CAVI = [
     ("d_coverage", "coverage\n− CAVI-Q2", False),
     ("d_power", "power\n− CAVI-Q2", False),
     ("r_size", "mean CS size\n÷ CAVI-Q2", True),
+    ("d_n_cs", "declared CSs per fit\n− CAVI-Q2", False),
 ]
 
 
@@ -478,12 +481,12 @@ DESIGN_MARKER = {"022": "o", "024": "s", "023": "^"}
 
 
 VS_CAVI_ABS = [("coverage_cavi", "coverage", False), ("power_cavi", "power", False),
-               ("size_cavi", "mean CS size", True)]   # CAVI-Q2's own value, row-aligned with VS_CAVI
+               ("size_cavi", "mean CS size", True), ("n_cs_cavi", "declared CSs per fit", False)]   # CAVI-Q2's own value, row-aligned with VS_CAVI
 
 
 def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
-    """All designs pooled. For each L (5, then 1) two columns: CAVI-Q2's own coverage, power and
-    mean CS size per scenario, then each arm minus CAVI-Q2 (size: over). One point per scenario;
+    """All designs pooled. For each L (5, then 1) two columns: CAVI-Q2's own coverage, power,
+    mean CS size and declared CSs per fit per scenario, then each arm minus CAVI-Q2 (size: over). One point per scenario;
     colour = arm, marker = design (offset, jittered). Rows are aligned; CAVI columns share y, as do the arm
     columns."""
     import matplotlib.pyplot as plt

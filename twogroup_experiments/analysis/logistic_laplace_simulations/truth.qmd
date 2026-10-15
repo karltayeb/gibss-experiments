@@ -58,8 +58,8 @@ Pooled metrics mostly reflect which scenarios are easy. Here each scenario (one 
 design, $L$, sweep value, $T$, gap; signal cells only) gives one number per arm, the arm's
 metric minus CAVI-Q2's in the same scenario, on the same replicates. Size is a ratio.
 
-Coverage, power and mean size of declared 95% CSs (component log BF $\geq 2$), as in
-@sec-cs.
+Coverage, power, mean size and number per fit of declared 95% CSs (each arm's own component
+log BF $\geq 2$), as in @sec-cs.
 
 Scenarios with few declared CSs give noisy coverage differences.
 
@@ -72,7 +72,7 @@ sf = T.scenario_frame(reps)
 ```{python}
 #| label: fig-vs-cavi
 #| echo: false
-#| fig-cap: "For L = 5 and then L = 1: CAVI-Q2's own coverage (dashed: nominal 0.95), power and mean CS size, then each arm against CAVI-Q2 in the same scenario (dashed: no difference). One point per scenario; colour = arm, marker = design (Binary, Binary-Block, Gaussian). The two CAVI-Q2 columns share y per row, as do the two arm columns."
+#| fig-cap: "For L = 5 and then L = 1: CAVI-Q2's own coverage (dashed: nominal 0.95), power, mean CS size and declared CSs per fit, then each arm against CAVI-Q2 in the same scenario (dashed: no difference). One point per scenario; colour = arm, marker = design (Binary, Binary-Block, Gaussian). The two CAVI-Q2 columns share y per row, as do the two arm columns."
 T.vs_cavi_figure(sf);
 ```
 
@@ -84,6 +84,7 @@ for col, ratio, head, leg in [
     ("d_coverage", False, "Coverage minus CAVI-Q2", "declared 95% CS coverage, arm minus CAVI-Q2"),
     ("d_power", False, "Power minus CAVI-Q2", "declared 95% CS power, arm minus CAVI-Q2"),
     ("r_size", True, "Mean CS size over CAVI-Q2", "mean declared 95% CS size, arm over CAVI-Q2 (geometric median)"),
+    ("d_n_cs", False, "Declared CSs per fit minus CAVI-Q2", "mean number of declared 95% CSs per signal fit, arm minus CAVI-Q2"),
 ]:
     print(f"**{head}**\n")
     print(T.md(T.vs_cavi_table(sf, col, ratio), "cell", "{}",
