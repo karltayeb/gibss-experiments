@@ -145,10 +145,23 @@ def _coarse(counts: np.ndarray, causal: np.ndarray, k: int = 10):
         return mid, np.where(n > 0, c / n, np.nan), n
 
 
+def _calibration_ci(cnt: np.ndarray, cau: np.ndarray, k: int = 10, n_boot: int = 1000, seed: int = 0):
+    """95% interval of each coarse bin's causal share from resampling batches (rows of `cnt`/`cau`,
+    10 replicates each), so features from one fit move together."""
+    rng = np.random.default_rng(seed)
+    n = cnt.reshape(len(cnt), -1, k).sum(2)
+    c = cau.reshape(len(cau), -1, k).sum(2)
+    idx = rng.integers(0, len(n), size=(n_boot, len(n)))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        b = c[idx].sum(1) / n[idx].sum(1)
+    return np.nanquantile(b, 0.025, axis=0), np.nanquantile(b, 0.975, axis=0)
+
+
 def calibration_figure(bins: pl.DataFrame, L: int, panel: float = 1.45):
     """Rows = arms, columns = designs: share of features that are causal per PIP bin (20 bins)
     against the bin's PIP, non-null cells pooled. Dot area grows with the bin's feature count
-    (square root, relative to the panel's largest bin)."""
+    (square root, relative to the panel's largest bin). Bars: 95% intervals from resampling
+    batches of 10 replicates."""
     import matplotlib.pyplot as plt
     d = bins.filter((pl.col("L") == L) & ~pl.col("null"))
     ms = arms(d)
@@ -160,10 +173,12 @@ def calibration_figure(bins: pl.DataFrame, L: int, panel: float = 1.45):
             g = d.filter((pl.col("method") == m) & (pl.col("exp") == exp))
             ax.plot([0, 1], [0, 1], ls=":", c="0.5", lw=0.8, zorder=0)
             if g.height:
-                cnt = np.array(g["counts"].to_list()).sum(0).astype(float)
-                cau = np.array(g["causal"].to_list()).sum(0).astype(float)
-                mid, rate, n = _coarse(cnt, cau)
+                cnt = np.array(g["counts"].to_list()).astype(float)
+                cau = np.array(g["causal"].to_list()).astype(float)
+                mid, rate, n = _coarse(cnt.sum(0), cau.sum(0))
+                lo, hi = _calibration_ci(cnt, cau)
                 ok = n > 0
+                ax.vlines(mid[ok], lo[ok], hi[ok], color=R.METHOD_COLOR[m], lw=0.8, alpha=0.7, zorder=2)
                 ax.scatter(mid[ok], rate[ok], s=4 + 36 * np.sqrt(n[ok] / n[ok].max()),
                            color=R.METHOD_COLOR[m], edgecolor="white", linewidth=0.3, zorder=3)
             ax.set_xlim(0, 1)

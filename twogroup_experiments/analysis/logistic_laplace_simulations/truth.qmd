@@ -97,7 +97,7 @@ for col, ratio, head, leg in [
 ```{python}
 #| label: fig-calibration-l5
 #| echo: false
-#| fig-cap: "L = 5: share of features that are causal (y) per PIP bin (x, 20 bins), signal cells pooled. Dot area grows with the bin's feature count. Dotted line: calibrated."
+#| fig-cap: "L = 5: share of features that are causal (y) per PIP bin (x, 20 bins), signal cells pooled. Dot area grows with the bin's feature count. Bars: 95% intervals from resampling batches of 10 replicates. Dotted line: calibrated."
 T.calibration_figure(bins, 5);
 ```
 
