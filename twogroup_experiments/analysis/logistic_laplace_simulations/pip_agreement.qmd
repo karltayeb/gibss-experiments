@@ -124,14 +124,29 @@ assignments) lets the two fits be compared component by component. For each matc
 total variation $\text{TV} = \tfrac12\sum_j |\alpha_{lj} - \alpha'_{s(l)j}|$ is the largest
 change in the mass of any feature set, so it bounds how much a credible set's mass can move.
 The matching minimizes total TV, so these are the smallest TVs any one-to-one pairing gives.
-The first row uses every matched pair, with no log BF threshold; the others keep pairs whose
-smaller component log BF exceeds a bar (both sides must clear it).
+The first figure at each $L$ uses every matched pair, with no log BF threshold. The second
+repeats it, then keeps pairs whose smaller component log BF exceeds a bar (both sides must
+clear it).
+
+```{python}
+#| label: fig-tv-all-l5
+#| echo: false
+#| fig-cap: "L = 5: share of matched pairs whose TV exceeds x (1 - CDF), every matched pair (non-null cells). Dotted lines at 0.01 and 0.1."
+P.survival_figure(cn, rows=[(5, "tv", "all pairs")], xlabel="TV, matched pair", unit="pairs");
+```
 
 ```{python}
 #| label: fig-bar-l5
 #| echo: false
 #| fig-cap: "L = 5: share of matched pairs whose TV exceeds x (1 - CDF), for all pairs and for pairs whose smaller component log BF exceeds 0, 1, 2 (non-null cells). Dotted lines at 0.01 and 0.1."
 P.survival_figure(cn, rows=P.bar_rows(5), xlabel="TV, matched pair", unit="pairs");
+```
+
+```{python}
+#| label: fig-tv-all-l1
+#| echo: false
+#| fig-cap: "L = 1: as above, one component per fit, every fit."
+P.survival_figure(cn, rows=[(1, "tv", "all pairs")], xlabel="TV, single effect", unit="pairs");
 ```
 
 ```{python}
@@ -157,9 +172,16 @@ averaging over CAVI-Q2's $\alpha$:
   is the KL between the two single-effect posteriors over $(\gamma, b)$, which the last figure
   shows.
 
-Rows as in the TV figures: every matched pair, then pairs whose smaller component log BF
-clears 0, 1, 2. Under the bar, both sides are close to the prior and the conditionals are
+As for TV, each distance has an every-pair figure, then one with rows for every matched pair
+and for pairs whose smaller component log BF clears 0, 1, 2. Under the bar, both sides are close to the prior and the conditionals are
 prior-dominated.
+
+```{python}
+#| label: fig-all-dmu-l5
+#| echo: false
+#| fig-cap: "L = 5: share of matched pairs whose alpha-weighted conditional mean shift, in CAVI-Q2 posterior SDs, exceeds x, every matched pair (non-null cells)."
+P.survival_figure(cn, rows=[(5, "dmu", "all pairs")], xlabel="|Δμ| / σ, matched pair", unit="pairs", xmax=10);
+```
 
 ```{python}
 #| label: fig-dmu-l5
@@ -167,6 +189,13 @@ prior-dominated.
 #| fig-cap: "L = 5: share of matched pairs whose alpha-weighted conditional mean shift, in CAVI-Q2 posterior SDs, exceeds x (non-null cells)."
 P.survival_figure(cn, rows=P.bar_rows(5, col="dmu"), xlabel="|Δμ| / σ, matched pair",
                   unit="pairs", xmax=10);
+```
+
+```{python}
+#| label: fig-all-lsd-l5
+#| echo: false
+#| fig-cap: "L = 5: share of matched pairs whose alpha-weighted |log SD ratio| (arm over CAVI-Q2) exceeds x, every matched pair."
+P.survival_figure(cn, rows=[(5, "abs_lsd", "all pairs")], xlabel="|log σ′/σ|, matched pair", unit="pairs", xmax=10);
 ```
 
 ```{python}
@@ -178,6 +207,13 @@ P.survival_figure(cn, rows=P.bar_rows(5, col="abs_lsd"), xlabel="|log σ′/σ|,
 ```
 
 ```{python}
+#| label: fig-all-kljoint-l5
+#| echo: false
+#| fig-cap: "L = 5: share of matched pairs whose KL between single-effect posteriors over (γ, b), CAVI-Q2 to arm, exceeds x nats, every matched pair."
+P.survival_figure(cn, rows=[(5, "kl_joint", "all pairs")], xlabel="KL(q ‖ q′), nats, matched pair", unit="pairs", xmax=1e4);
+```
+
+```{python}
 #| label: fig-kljoint-l5
 #| echo: false
 #| fig-cap: "L = 5: share of matched pairs whose KL between single-effect posteriors over (γ, b), CAVI-Q2 to arm, exceeds x nats."
@@ -186,11 +222,25 @@ P.survival_figure(cn, rows=P.bar_rows(5, col="kl_joint"), xlabel="KL(q ‖ q′)
 ```
 
 ```{python}
+#| label: fig-all-dmu-l1
+#| echo: false
+#| fig-cap: "L = 1: conditional mean shift, one component per fit, every fit."
+P.survival_figure(cn, rows=[(1, "dmu", "all pairs")], xlabel="|Δμ| / σ, single effect", unit="pairs", xmax=10);
+```
+
+```{python}
 #| label: fig-dmu-l1
 #| echo: false
 #| fig-cap: "L = 1: conditional mean shift, as above, one component per fit."
 P.survival_figure(cn, rows=P.bar_rows(1, col="dmu"), xlabel="|Δμ| / σ, single effect",
                   unit="pairs", xmax=10);
+```
+
+```{python}
+#| label: fig-all-lsd-l1
+#| echo: false
+#| fig-cap: "L = 1: |log SD ratio|, one component per fit, every fit."
+P.survival_figure(cn, rows=[(1, "abs_lsd", "all pairs")], xlabel="|log σ′/σ|, single effect", unit="pairs", xmax=10);
 ```
 
 ```{python}
@@ -313,7 +363,7 @@ table(fn, "max_pip", COMMON.format(unit="fits") +
 ```{python}
 #| label: fig-cells-L5
 #| echo: false
-#| fig-cap: "L = 5: mean distance to CAVI-Q2 per cell against each experiment's sweep axis (non-null cells, matched declared component pairs). 95% intervals resample replicates."
+#| fig-cap: "L = 5: mean distance to CAVI-Q2 per cell against each experiment's sweep axis (non-null cells, matched declared component pairs): TV between alphas (top) and the alpha-weighted conditional mean shift in CAVI-Q2 posterior SDs (bottom). 95% intervals resample replicates."
 P.by_axis_figure(comp.filter(pl.col("declared_ref") | pl.col("declared_arm")), 5);
 ```
 

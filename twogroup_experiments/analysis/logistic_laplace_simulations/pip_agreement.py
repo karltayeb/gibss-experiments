@@ -39,9 +39,9 @@ if _TG_ROOT not in sys.path:
     sys.path.insert(0, _TG_ROOT)
 if _HERE not in sys.path:
     sys.path.insert(0, _HERE)
-import laplacelib as R
-
 from experiments import loader
+
+import laplacelib as R
 
 RESULTS = os.path.join(_TG_ROOT, "results")
 # (experiment, L, supercollection). Accuracy, not timing, so the full 022 grids are fine here.
@@ -52,6 +52,8 @@ SOURCES = [
 ]
 ARMS = [m for m in R.METHODS if m != "cavi"]
 METRICS = {"tv": "TV", "kl": "KL", "max_alpha": "max |Δα|"}
+# The per-cell figure: one distance for alpha, one for the conditional effect sizes.
+BY_AXIS_METRICS = {"tv": "TV, alpha", "dmu": "|Δμ| / σ, conditional mean"}
 
 
 def _dist(la: np.ndarray, lb: np.ndarray) -> dict:
@@ -229,14 +231,34 @@ def with_design(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(pl.col("exp").replace_strict(DESIGN).alias("design"))
 
 
-def by_axis_figure(comp: pl.DataFrame, L: int):
-    """Rows = metrics (TV, KL, max |dalpha|), columns = experiments; mean per cell vs the sweep
-    axis with a replicate-bootstrap 95% interval, one line per arm; non-null cells, log y."""
+def figure_legend(fig, axes, rect_bottom: float = 0.0, height: float = 1.0):
+    """One legend above the panels with every arm drawn in ANY panel, in R.METHODS order (an
+    arm missing from the first panel, e.g. an L=5-only arm in an L=1 row, still gets an
+    entry); then tight_layout below it. `height` is the figure height in inches."""
+    handles = {}
+    for ax in axes.flat:
+        for h, lab in zip(*ax.get_legend_handles_labels()):
+            handles.setdefault(lab, h)
+    order = [R.METHOD_LABEL[m] for m in ARMS if R.METHOD_LABEL[m] in handles]
+    ncol = min(len(order), 5) or 1
+    nrow = -(-len(order) // ncol)
+    fig.legend([handles[k] for k in order], order, loc="upper center", ncol=ncol, fontsize=7,
+               frameon=False)
+    fig.tight_layout(rect=(0, rect_bottom, 1, 1 - (0.08 + 0.17 * nrow) / height))
+
+
+def by_axis_figure(comp: pl.DataFrame, L: int, metrics: dict | None = None):
+    """Rows = metrics (default BY_AXIS_METRICS: TV for alpha, |dmu|/sd for the conditional
+    means), columns = experiments; mean per cell vs the sweep axis with a replicate-bootstrap
+    95% interval, one line per arm; non-null cells, log y."""
     import matplotlib.pyplot as plt
     exps = EXPS
-    fig, axes = plt.subplots(3, 3, figsize=(6.5, 6.2), sharex="col", sharey="row")
+    metrics = metrics or BY_AXIS_METRICS
+    height = 0.6 + 2.0 * len(metrics)
+    fig, axes = plt.subplots(len(metrics), 3, figsize=(6.5, height), sharex="col", sharey="row",
+                             squeeze=False)
     sub_l = comp.filter((pl.col("L") == L) & ~pl.col("null"))
-    for i, (metric, label) in enumerate(METRICS.items()):
+    for i, (metric, label) in enumerate(metrics.items()):
         for j, exp in enumerate(exps):
             ax, col = axes[i, j], axis_col(exp)
             sub = sub_l.filter(pl.col("exp") == exp)
@@ -258,17 +280,11 @@ def by_axis_figure(comp: pl.DataFrame, L: int):
             ax.tick_params(labelsize=7)
             if i == 0:
                 ax.set_title(DESIGN[exp], fontsize=8)
-            if i == 2:
+            if i == len(metrics) - 1:
                 ax.set_xlabel(_AXIS_LABEL[exp], fontsize=7.5)
             if j == 0:
                 ax.set_ylabel(label, fontsize=8)
-    handles = {}
-    for ax in axes.flat:
-        for h, lab in zip(*ax.get_legend_handles_labels()):
-            handles.setdefault(lab, h)
-    fig.legend(handles.values(), handles.keys(), loc="upper center", ncol=max(len(handles), 1),
-               fontsize=7, frameon=False)
-    fig.tight_layout(rect=(0, 0, 1, 0.95))
+    figure_legend(fig, axes, height=height)
     return fig
 
 
@@ -338,7 +354,8 @@ def survival_figure(fits: pl.DataFrame, rows=None, xlabel: str = "max |ΔPIP| in
     import matplotlib.pyplot as plt
     exps = EXPS
     rows = rows or [(1, "max_pip", "L = 1"), (5, "max_pip", "L = 5")]
-    fig, axes = plt.subplots(len(rows), 3, figsize=(6.5, 2.2 * len(rows)), sharex=True,
+    height = 0.5 + 2.2 * len(rows)
+    fig, axes = plt.subplots(len(rows), 3, figsize=(6.5, height), sharex=True,
                              sharey=True, squeeze=False)
     for i, row in enumerate(rows):
         L, col, label = row[:3]
@@ -368,9 +385,7 @@ def survival_figure(fits: pl.DataFrame, rows=None, xlabel: str = "max |ΔPIP| in
                 ax.set_xlabel(xlabel, fontsize=7.5)
             if j == 0:
                 ax.set_ylabel(f"{label}\nshare of {unit} above x", fontsize=8)
-    h, lab = axes[0, 0].get_legend_handles_labels()
-    fig.legend(h, lab, loc="upper center", ncol=len(lab), fontsize=7, frameon=False)
-    fig.tight_layout(rect=(0, 0, 1, 1 - 0.1 / len(rows)))
+    figure_legend(fig, axes, height=height)
     return fig
 
 
@@ -382,6 +397,7 @@ def bar_rows(L: int, bars=BARS, col: str = "tv") -> list:
     exceeds each bar (both sides must clear it)."""
     return [(L, col, "all pairs")] + [(L, col, f"min log BF > {t:g}", pl.col("min_log_bf") > t)
                                       for t in bars]
+
 
 def scatter_figure(feat: pl.DataFrame, L: int = 5):
     """Rows = experiments, columns = arms: per-feature PIP, arm vs CAVI-Q2, pooled over
