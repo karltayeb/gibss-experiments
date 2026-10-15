@@ -109,7 +109,10 @@ def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict, n
     for i, k in enumerate(match(la, lb)):
         dr, da = bool(lbf_a[i] >= R.MIN_LOG_BF), bool(lbf_b[k] >= R.MIN_LOG_BF)
         d = {**_dist(la[i], lb[k]), **_cond(la[i], mu_a[i], var_a[i], mu_b[k], var_b[k])}
+        j = int(la[i].argmax())   # CAVI-Q2's top feature for this component
         out.append({**d, "kl_joint": d["kl"] + d["kl_cond"], "abs_lsd": abs(d["lsd"]),
+                    "mu_ref": float(mu_a[i, j]), "mu_arm": float(mu_b[k, j]),
+                    "sd_ref": float(np.sqrt(var_a[i, j])), "sd_arm": float(np.sqrt(var_b[k, j])),
                     "declared_ref": dr, "declared_arm": da,
                     "min_log_bf": float(min(lbf_a[i], lbf_b[k]))})
     fit = {"max_pip": float(dpip.max()), "argmax_pip": int(dpip.argmax()),
@@ -427,6 +430,53 @@ def scatter_figure(feat: pl.DataFrame, L: int = 5):
             if k == 0:
                 ax.set_ylabel(f"{DESIGN[exp]}\nPIP, arm", fontsize=7)
     fig.tight_layout()
+    return fig
+
+
+def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu"):
+    """Rows = experiments, columns = arms: the conditional posterior mean (`moment="mu"`) or SD
+    (`"sd"`) of b at CAVI-Q2's top feature of each matched pair, arm against CAVI-Q2, as a hexbin
+    with log counts. Pairs that BOTH sides declare, non-null cells. Mean axes are linear and
+    shared within a row (the designs use different effect scales); SD axes are log."""
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm
+    exps = EXPS
+    sub_l = comp.filter((pl.col("L") == L) & ~pl.col("null") & pl.col("declared_ref")
+                        & pl.col("declared_arm"))
+    fig, axes = plt.subplots(3, len(ARMS), figsize=(6.5, 3.0), squeeze=False)
+    ref, arm = f"{moment}_ref", f"{moment}_arm"
+    for i, exp in enumerate(exps):
+        row = sub_l.filter(pl.col("exp") == exp)
+        both = np.concatenate([row[ref].to_numpy(), row[arm].to_numpy()])
+        if moment == "sd":
+            lo, hi = np.log10(np.quantile(both, [0.0005, 0.9995]))
+            lo, hi = lo - 0.1 * (hi - lo), hi + 0.1 * (hi - lo)
+        else:
+            lo, hi = np.quantile(both, [0.001, 0.999])
+            pad = 0.05 * (hi - lo)
+            lo, hi = lo - pad, hi + pad
+        for k, m in enumerate(ARMS):
+            ax = axes[i, k]
+            d = row.filter(pl.col("method") == m)
+            x, y = d[ref].to_numpy(), d[arm].to_numpy()
+            if moment == "sd":
+                x, y = np.log10(x), np.log10(y)
+            ax.hexbin(x, y, gridsize=25, extent=(lo, hi, lo, hi), norm=LogNorm(vmin=1, vmax=1e3),
+                      cmap="Blues", mincnt=1, linewidths=0)
+            ax.plot([lo, hi], [lo, hi], color="0.5", lw=0.5)
+            ax.set_xlim(lo, hi)
+            ax.set_ylim(lo, hi)
+            ax.set_aspect("equal")
+            ax.tick_params(labelsize=5, length=2, pad=1)
+            if k:
+                ax.set_yticklabels([])
+            if i == 0:
+                ax.set_title(R.METHOD_LABEL[m], fontsize=6.5, color=R.METHOD_COLOR[m])
+            if k == 0:
+                ax.set_ylabel(f"{DESIGN[exp]}\narm", fontsize=6.5)
+    what = "posterior mean" if moment == "mu" else "log10 posterior SD"
+    fig.tight_layout(rect=(0, 0.04, 1, 1), w_pad=0.2, h_pad=0.3)
+    fig.text(0.5, 0.01, f"conditional {what}, CAVI-Q2", ha="center", fontsize=7)
     return fig
 
 

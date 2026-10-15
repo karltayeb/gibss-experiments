@@ -177,6 +177,20 @@ and for pairs whose smaller component log BF clears 0, 1, 2. Under the bar, both
 prior-dominated.
 
 ```{python}
+#| label: fig-mu-scatter
+#| echo: false
+#| fig-cap: "L = 5: conditional posterior mean of the effect at CAVI-Q2's top feature of each matched pair, arm against CAVI-Q2; colour is the log count per hexagon. Pairs both sides declare, non-null cells, pooled over replicates. Axes are shared within a row; the grey line is y = x."
+P.moment_scatter_figure(cn, 5, "mu");
+```
+
+```{python}
+#| label: fig-sd-scatter
+#| echo: false
+#| fig-cap: "L = 5: conditional posterior SD (log10) at the same feature, as above. Points below the line are arm SDs narrower than CAVI-Q2's."
+P.moment_scatter_figure(cn, 5, "sd");
+```
+
+```{python}
 #| label: fig-all-dmu-l5
 #| echo: false
 #| fig-cap: "L = 5: share of matched pairs whose alpha-weighted conditional mean shift, in CAVI-Q2 posterior SDs, exceeds x, every matched pair (non-null cells)."
