@@ -482,20 +482,23 @@ VS_CAVI_ABS = [("coverage_cavi", "coverage", False), ("power_cavi", "power", Fal
 
 
 def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
-    """All designs pooled. Left column: CAVI-Q2's own coverage, power and mean CS size per
-    scenario, L = 5 and L = 1 as two x positions. Then one column per L: each arm minus CAVI-Q2
-    (size: over), one point per scenario. Colour = arm, marker = design (offset, jittered); black
-    bar = median over all scenarios of all designs (geometric for size)."""
+    """All designs pooled. For each L (5, then 1) two columns: CAVI-Q2's own coverage, power and
+    mean CS size per scenario, then each arm minus CAVI-Q2 (size: over). One point per scenario;
+    colour = arm, marker = design (offset, jittered); black bar = median over all scenarios of
+    all designs (geometric for sizes). Rows are aligned; CAVI columns share y, as do the arm
+    columns."""
     import matplotlib.pyplot as plt
     rng = np.random.default_rng(seed)
     ms_by_L = {L: arms(sf.filter(pl.col("L") == L)) for L in (5, 1)}
     Ls = [L for L in (5, 1) if ms_by_L[L]]
-    fig = plt.figure(figsize=(6.5, 1.75 * len(VS_CAVI) + 1.3), layout="constrained")
-    left, right = fig.subfigures(1, 2, width_ratios=[1.0, 4.6], wspace=0.02)
-    ax_l = left.subplots(len(VS_CAVI), 1, squeeze=False)
-    ax_r = right.subplots(len(VS_CAVI), len(Ls), squeeze=False, sharey="row",
-                          gridspec_kw={"width_ratios": [len(ms_by_L[L]) + 0.6 for L in Ls]})
-    axes = np.concatenate([ax_l, ax_r], axis=1)
+    widths = []
+    for L in Ls:
+        widths += [1.25, len(ms_by_L[L]) + 0.6]
+    fig, axes = plt.subplots(len(VS_CAVI), 2 * len(Ls), figsize=(6.5, 1.7 * len(VS_CAVI) + 1.4),
+                             squeeze=False, layout="constrained", gridspec_kw={"width_ratios": widths})
+    for i in range(len(VS_CAVI)):
+        for c in range(2, 2 * len(Ls)):
+            axes[i, c].sharey(axes[i, c % 2])
     offs = {e: o for e, o in zip(EXPS, (-0.24, 0.0, 0.24))}
 
     def strip(ax, x, ys_by_exp, color, ratio):
@@ -512,49 +515,44 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
             med = np.exp(np.median(np.log(y))) if ratio else np.median(y)
             ax.plot([x - 0.36, x + 0.36], [med, med], color="k", lw=1.4, zorder=1)
 
-    # CAVI-Q2 absolute: one row per scenario
-    ref = sf.unique(subset=_SCEN, keep="first")
-    for i, (col, label, log) in enumerate(VS_CAVI_ABS):
-        ax = axes[i, 0]
-        for x, L in enumerate(Ls):
-            d = ref.filter(pl.col("L") == L)
-            strip(ax, x, {e: d.filter(pl.col("exp") == e)[col].drop_nulls().to_numpy() for e in EXPS},
-                  R.METHOD_COLOR["cavi"], log)
-        if log:
-            _log_axis(ax)
-        if col == "coverage_cavi":
-            ax.axhline(0.95, color="0.5", lw=0.7, ls="--", zorder=0)
-        ax.set_xlim(-0.6, len(Ls) - 0.4)
-        ax.set_xticks(range(len(Ls)))
-        ax.set_xticklabels([f"L = {L}" for L in Ls] if i == len(VS_CAVI) - 1 else [], fontsize=6.5)
-        ax.set_ylabel(label, fontsize=7.5)
-        ax.grid(True, axis="y", alpha=0.25)
-        ax.tick_params(labelsize=6.5)
-        if i == 0:
-            ax.set_title("CAVI-Q2", fontsize=8, color=R.METHOD_COLOR["cavi"])
-    # arms relative to CAVI-Q2
-    for j, L in enumerate(Ls, start=1):
-        d = sf.filter(pl.col("L") == L)
-        ms = ms_by_L[L]
-        for i, (col, label, ratio) in enumerate(VS_CAVI):
-            ax = axes[i, j]
+    ref = sf.unique(subset=_SCEN, keep="first")   # one row per scenario carries CAVI-Q2's values
+    last = len(VS_CAVI) - 1
+    for b, L in enumerate(Ls):
+        ca, cr = 2 * b, 2 * b + 1
+        dref, d, ms = ref.filter(pl.col("L") == L), sf.filter(pl.col("L") == L), ms_by_L[L]
+        for i, ((acol, alabel, alog), (col, label, ratio)) in enumerate(zip(VS_CAVI_ABS, VS_CAVI)):
+            ax = axes[i, ca]
+            strip(ax, 0, {e: dref.filter(pl.col("exp") == e)[acol].drop_nulls().to_numpy() for e in EXPS},
+                  R.METHOD_COLOR["cavi"], alog)
+            if alog and b == 0:
+                _log_axis(ax)
+            if acol == "coverage_cavi":
+                ax.axhline(0.95, color="0.5", lw=0.7, ls="--", zorder=0)
+            ax.set_xlim(-0.55, 0.55)
+            ax.set_xticks([0])
+            ax.set_xticklabels(["CAVI-Q2"] if i == last else [], rotation=60, ha="right", fontsize=6.5)
+            if i == 0:
+                ax.set_title("CAVI-Q2", fontsize=7.5, color=R.METHOD_COLOR["cavi"])
+            ax = axes[i, cr]
             ax.axhline(1.0 if ratio else 0.0, color="0.5", lw=0.7, ls="--", zorder=0)
             for k, m in enumerate(ms):
                 g = d.filter(pl.col("method") == m)
                 strip(ax, k, {e: g.filter(pl.col("exp") == e)[col].drop_nulls().to_numpy() for e in EXPS},
                       R.METHOD_COLOR[m], ratio)
-            if ratio and j == 1:
+            if ratio and b == 0:
                 _log_axis(ax)
             ax.set_xlim(-0.6, len(ms) - 0.4)
             ax.set_xticks(range(len(ms)))
-            ax.set_xticklabels([R.METHOD_LABEL[m] for m in ms] if i == len(VS_CAVI) - 1 else [],
+            ax.set_xticklabels([R.METHOD_LABEL[m] for m in ms] if i == last else [],
                                rotation=60, ha="right", fontsize=6.5)
-            ax.grid(True, axis="y", alpha=0.25)
-            ax.tick_params(labelsize=6.5)
-            if j == 1:
-                ax.set_ylabel(label, fontsize=7.5)
             if i == 0:
-                ax.set_title(f"L = {L}, arm vs CAVI-Q2", fontsize=8)
+                ax.set_title(f"L = {L}: arm vs CAVI-Q2", fontsize=7.5)
+            for a_, lab in ((axes[i, ca], alabel), (axes[i, cr], label.split("\n")[-1])):
+                a_.grid(True, axis="y", alpha=0.25)
+                a_.tick_params(labelsize=6.5)
+                a_.tick_params(labelleft=True)   # every column: its neighbour is on another scale
+                if b == 0:
+                    a_.set_ylabel(lab, fontsize=7.5)
     from matplotlib.lines import Line2D
     h = [Line2D([], [], color="0.3", marker=DESIGN_MARKER[e], mfc="none", ls="", ms=5, label=DESIGN[e])
          for e in EXPS] + [Line2D([], [], color="k", lw=1.4, label="median, all scenarios")]
