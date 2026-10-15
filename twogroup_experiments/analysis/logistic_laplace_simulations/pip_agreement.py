@@ -97,17 +97,27 @@ def match(la: np.ndarray, lb: np.ndarray) -> np.ndarray:
     return cols
 
 
-def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict, np.ndarray, np.ndarray]:
-    """Component-pair distances (matched, declared-on-either-side), per-fit summaries, and the
-    two PIP vectors (reference, arm)."""
+PIP_FLOOR = 0.05   # feature frames keep features with PIP (alpha) >= this on either side
+
+
+def compare(ref_se: list[dict], arm_se: list[dict]
+            ) -> tuple[list[dict], dict, np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray]]:
+    """Component-pair distances (matched, declared-on-either-side), per-fit summaries, the
+    two PIP vectors (reference, arm), and the matched alphas (reference, arm) of the pairs
+    either side declares, at the features where either alpha is >= PIP_FLOOR."""
     la, lbf_a = _components(ref_se)
     lb, lbf_b = _components(arm_se)
     (mu_a, var_a), (mu_b, var_b) = _moments(ref_se), _moments(arm_se)
     pa, pb = _pip(la), _pip(lb)
     dpip = np.abs(pa - pb)
-    out = []
+    out, a_ref, a_arm = [], [], []
     for i, k in enumerate(match(la, lb)):
         dr, da = bool(lbf_a[i] >= R.MIN_LOG_BF), bool(lbf_b[k] >= R.MIN_LOG_BF)
+        if dr or da:
+            ai, ak = np.exp(la[i]), np.exp(lb[k])
+            keep = np.maximum(ai, ak) >= PIP_FLOOR
+            a_ref.append(ai[keep])
+            a_arm.append(ak[keep])
         d = {**_dist(la[i], lb[k]), **_cond(la[i], mu_a[i], var_a[i], mu_b[k], var_b[k])}
         j = int(la[i].argmax())   # CAVI-Q2's top feature for this component
         out.append({**d, "kl_joint": d["kl"] + d["kl_cond"], "abs_lsd": abs(d["lsd"]),
@@ -118,15 +128,15 @@ def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict, n
     fit = {"max_pip": float(dpip.max()), "argmax_pip": int(dpip.argmax()),
            "n_decl_ref": int((lbf_a >= R.MIN_LOG_BF).sum()),
            "n_decl_arm": int((lbf_b >= R.MIN_LOG_BF).sum())}
-    return out, fit, pa, pb
+    alphas = (np.concatenate(a_ref), np.concatenate(a_arm)) if a_ref else (np.empty(0), np.empty(0))
+    return out, fit, pa, pb, alphas
 
 
-PIP_FLOOR = 0.05   # feature frame keeps features with PIP >= this on either side
 
 
 def load(sources=SOURCES, results_root: str = RESULTS
-         ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    """(component-pair frame, per-fit frame, feature frame).
+         ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """(component-pair frame, per-fit frame, feature frame, matched-alpha frame).
 
     * component pairs: one row per matched component pair (all L), with each side's
       declaration and the smaller of the two component log BFs.
@@ -135,10 +145,12 @@ def load(sources=SOURCES, results_root: str = RESULTS
       paths so a single replicate can be re-read (``replicate_pair``).
     * features: one row per (arm, replicate, feature) with PIP >= PIP_FLOOR on either side;
       every other feature has both PIPs below the floor.
+    * matched alphas: one row per (arm, replicate, matched pair either side declares, feature)
+      with alpha >= PIP_FLOOR on either side, columns alpha_ref / alpha_arm.
 
     Cells carry exp, L, m, T, depth, gap, null."""
     cfg = loader.load_config()
-    comp_rows, fit_rows, feat_parts = [], [], []
+    comp_rows, fit_rows, feat_parts, alpha_parts = [], [], [], []
     for exp, L, sc in sources:
         by_batch: dict[str, dict] = {}
         for coll in loader.collection_method_pairs(cfg, sc).values():
@@ -162,7 +174,7 @@ def load(sources=SOURCES, results_root: str = RESULTS
                     rep = r["replicate"]
                     if rep not in ref:
                         continue
-                    pairs, fit, pa, pb = compare(ref[rep]["single_effects"], r["single_effects"])
+                    pairs, fit, pa, pb, (ar, aa) = compare(ref[rep]["single_effects"], r["single_effects"])
                     key = {"exp": exp, "L": L, "method": method, "batch_hash": bh, "rep": rep, **meta}
                     fit_rows.append({**key, **fit, "n_pairs": sum(p["declared_ref"] or p["declared_arm"] for p in pairs),
                                      "d_elbo": r["q2_elbo"] - ref[rep]["q2_elbo"],
@@ -172,9 +184,12 @@ def load(sources=SOURCES, results_root: str = RESULTS
                     feat_parts.append(pl.DataFrame({
                         "exp": exp, "L": L, "method": method, "null": meta["null"],
                         "j": keep.astype(np.int32), "pip_ref": pa[keep], "pip_arm": pb[keep]}))
+                    alpha_parts.append(pl.DataFrame({
+                        "exp": exp, "L": L, "method": method, "null": meta["null"],
+                        "alpha_ref": ar, "alpha_arm": aa}))
     return (pl.DataFrame(comp_rows, infer_schema_length=None),
             pl.DataFrame(fit_rows, infer_schema_length=None),
-            pl.concat(feat_parts))
+            pl.concat(feat_parts), pl.concat(alpha_parts))
 
 
 def replicate_pair(row: dict) -> tuple[list[dict], list[dict], list[int]]:
@@ -402,34 +417,38 @@ def bar_rows(L: int, bars=BARS, col: str = "tv") -> list:
                                       for t in bars]
 
 
-def scatter_figure(feat: pl.DataFrame, L: int = 5):
-    """Rows = experiments, columns = arms: per-feature PIP, arm vs CAVI-Q2, pooled over
-    replicates and non-null cells, as a hexbin with log counts. Only features with PIP >=
+def scatter_figure(feat: pl.DataFrame, L: int = 5, quantity: str = "pip"):
+    """Rows = experiments, columns = arms: per-feature PIP (`quantity="pip"`, the feature
+    frame) or matched alpha (`"alpha"`, the matched-alpha frame), arm vs CAVI-Q2, pooled over
+    replicates and non-null cells, as a hexbin with log counts. Only features with a value >=
     PIP_FLOOR on either side (every other feature sits in the corner below it)."""
+    name = {"pip": "PIP", "alpha": "α"}[quantity]
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm
     exps = EXPS
-    fig, axes = plt.subplots(3, len(ARMS), figsize=(6.5, 4.3), sharex=True, sharey=True)
+    fig, axes = plt.subplots(3, len(ARMS), figsize=(6.5, 3.1), sharex=True, sharey=True)
     sub_l = feat.filter((pl.col("L") == L) & ~pl.col("null"))
     for i, exp in enumerate(exps):
         for k, m in enumerate(ARMS):
             ax = axes[i, k]
             d = sub_l.filter((pl.col("exp") == exp) & (pl.col("method") == m))
-            ax.hexbin(d["pip_ref"].to_numpy(), d["pip_arm"].to_numpy(), gridsize=30,
+            ax.hexbin(d[f"{quantity}_ref"].to_numpy(), d[f"{quantity}_arm"].to_numpy(), gridsize=30,
                       extent=(0, 1, 0, 1), norm=LogNorm(vmin=1, vmax=1e5), cmap="Blues",
                       mincnt=1, linewidths=0)
             ax.plot([0, 1], [0, 1], color="0.5", lw=0.5)
             ax.set_xlim(0, 1)
             ax.set_ylim(0, 1)
             ax.set_aspect("equal")
-            ax.tick_params(labelsize=6)
+            ax.set_xticks([0, 0.5, 1], ["0", "0.5", "1"])
+            ax.set_yticks([0, 0.5, 1], ["0", "0.5", "1"])
+            ax.tick_params(labelsize=5, length=2, pad=1)
             if i == 0:
-                ax.set_title(R.METHOD_LABEL[m], fontsize=7.5, color=R.METHOD_COLOR[m])
+                ax.set_title(R.METHOD_LABEL[m], fontsize=6.5, color=R.METHOD_COLOR[m])
             if i == 2:
-                ax.set_xlabel("PIP, CAVI-Q2", fontsize=7)
+                ax.set_xlabel(f"{name}, CAVI-Q2", fontsize=6)
             if k == 0:
-                ax.set_ylabel(f"{DESIGN[exp]}\nPIP, arm", fontsize=7)
-    fig.tight_layout()
+                ax.set_ylabel(f"{DESIGN[exp]}\n{name}, arm", fontsize=6.5)
+    fig.tight_layout(w_pad=0.2, h_pad=0.3)
     return fig
 
 

@@ -21,7 +21,7 @@ import polars as pl
 import laplacelib as R
 import pip_agreement as P
 
-comp, fits, feat = P.load()
+comp, fits, feat, afeat = P.load()
 cn, fn = comp.filter(~pl.col("null")), fits.filter(~pl.col("null"))
 cd = cn.filter(pl.col("declared_ref") | pl.col("declared_arm"))   # pairs at least one side declares (Means section)
 ```
@@ -114,6 +114,13 @@ P.survival_figure(fn);
 #| echo: false
 #| fig-cap: "L = 5: each feature's PIP under the arm against CAVI-Q2, pooled over replicates and non-null cells; colour is the log count per hexagon. Features with both PIPs below 0.05 (most of them) are left out."
 P.scatter_figure(feat, 5);
+```
+
+```{python}
+#| label: fig-alpha-scatter
+#| echo: false
+#| fig-cap: "L = 5: each feature's alpha in a matched component pair, arm against CAVI-Q2 (components matched by minimum total TV, pairs either side declares), pooled over replicates and non-null cells; colour is the log count per hexagon. Features with both alphas below 0.05 are left out."
+P.scatter_figure(afeat, 5, "alpha");
 ```
 
 
