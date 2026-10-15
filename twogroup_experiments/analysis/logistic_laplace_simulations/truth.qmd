@@ -58,17 +58,15 @@ Pooled metrics mostly reflect which scenarios are easy. Here each scenario (one 
 design, $L$, sweep value, $T$, gap; signal cells only) gives one number per arm, the arm's
 metric minus CAVI-Q2's in the same scenario, on the same replicates. Size is a ratio.
 
-- *coverage*, *power*, *mean CS size*: declared 95% CSs (component log BF $\geq 2$), as in
-  @sec-cs.
-- *overconfidence*: among features with PIP $\geq 0.5$, mean PIP minus the share that are
-  causal. Positive = PIPs higher than the share causal.
+Coverage, power and mean size of declared 95% CSs (component log BF $\geq 2$), as in
+@sec-cs.
 
 Scenarios with few declared CSs give noisy coverage differences.
 
 ```{python}
 #| label: setup-vs-cavi
 #| include: false
-sf = T.scenario_frame(bins, reps)
+sf = T.scenario_frame(reps)
 ```
 
 ```{python}
@@ -100,7 +98,6 @@ for col, ratio, head, leg in [
     ("d_coverage", False, "Coverage minus CAVI-Q2", "declared 95% CS coverage, arm minus CAVI-Q2"),
     ("d_power", False, "Power minus CAVI-Q2", "declared 95% CS power, arm minus CAVI-Q2"),
     ("r_size", True, "Mean CS size over CAVI-Q2", "mean declared 95% CS size, arm over CAVI-Q2 (geometric median)"),
-    ("d_overconf", False, "Overconfidence minus CAVI-Q2", "mean PIP minus share causal at PIP ≥ 0.5, arm minus CAVI-Q2"),
 ]:
     print(f"**{head}**\n")
     print(T.md(T.vs_cavi_table(sf, col, ratio), "cell", "{}",

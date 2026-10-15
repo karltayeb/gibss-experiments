@@ -363,42 +363,28 @@ def _boot(num: np.ndarray, den: np.ndarray | None, n_boot: int = 1000, seed: int
 _SCEN = ["exp", "design", "L"] + [c for c in CELL if c != "null"]
 
 
-def scenario_frame(bins: pl.DataFrame, reps: pl.DataFrame, lo: float = 0.5) -> pl.DataFrame:
-    """One row per (signal scenario, arm): coverage, power and mean size of declared 95% CSs,
-    overconfidence = mean PIP minus share causal among features with PIP >= lo, and each as a
-    difference from CAVI-Q2 in the same scenario (size as a ratio). A scenario is one cell of the
-    grid (design, L, sweep value, T, gap); every arm sees the same simulated replicates."""
-    r = (reps.filter(~pl.col("null")).group_by(_SCEN + ["method"])
-         .agg((pl.col("n_covering").sum() / pl.col("n_declared").sum()).alias("coverage"),
-              (pl.col("n_captured").sum() / pl.col("n_causal").sum()).alias("power"),
-              (pl.col("size_sum").sum() / pl.col("n_declared").sum()).alias("size")))
-    k = int(round(lo * NBIN))
-    mids = (np.arange(NBIN) + 0.5) / NBIN
-    rows = []
-    for key, g in bins.filter(~pl.col("null")).group_by(_SCEN + ["method"]):   # one bins row per batch
-        cnt = np.array(g["counts"].to_list(), dtype=float).sum(0)[k:]
-        cau = np.array(g["causal"].to_list(), dtype=float).sum(0)[k:]
-        n = cnt.sum()
-        rows.append(dict(zip(_SCEN + ["method"], key)) |
-                    {"overconf": float((cnt * mids[k:]).sum() / n - cau.sum() / n) if n else None,
-                     "n_hi": n})
-    df = r.join(pl.DataFrame(rows, infer_schema_length=None), on=_SCEN + ["method"], how="left",
-                nulls_equal=True)
-    df = df.with_columns(pl.col(c).fill_nan(None) for c in ("coverage", "size", "overconf"))
+def scenario_frame(reps: pl.DataFrame) -> pl.DataFrame:
+    """One row per (signal scenario, arm): coverage, power and mean size of declared 95% CSs, and
+    each as a difference from CAVI-Q2 in the same scenario (size as a ratio). A scenario is one
+    cell of the grid (design, L, sweep value, T, gap); every arm sees the same simulated
+    replicates."""
+    df = (reps.filter(~pl.col("null")).group_by(_SCEN + ["method"])
+          .agg((pl.col("n_covering").sum() / pl.col("n_declared").sum()).alias("coverage"),
+               (pl.col("n_captured").sum() / pl.col("n_causal").sum()).alias("power"),
+               (pl.col("size_sum").sum() / pl.col("n_declared").sum()).alias("size"))
+          .with_columns(pl.col(c).fill_nan(None) for c in ("coverage", "size")))
     ref = df.filter(pl.col("method") == "cavi").select(
-        _SCEN + [pl.col(c).alias(f"{c}_cavi") for c in ("coverage", "power", "size", "overconf")])
+        _SCEN + [pl.col(c).alias(f"{c}_cavi") for c in ("coverage", "power", "size")])
     return (df.filter(pl.col("method") != "cavi").join(ref, on=_SCEN, how="inner", nulls_equal=True)
             .with_columns((pl.col("coverage") - pl.col("coverage_cavi")).alias("d_coverage"),
                           (pl.col("power") - pl.col("power_cavi")).alias("d_power"),
-                          (pl.col("size") / pl.col("size_cavi")).alias("r_size"),
-                          (pl.col("overconf") - pl.col("overconf_cavi")).alias("d_overconf")))
+                          (pl.col("size") / pl.col("size_cavi")).alias("r_size")))
 
 
 VS_CAVI = [
     ("d_coverage", "coverage\n− CAVI-Q2", False),
     ("d_power", "power\n− CAVI-Q2", False),
     ("r_size", "mean CS size\n÷ CAVI-Q2", True),
-    ("d_overconf", "overconfidence\n− CAVI-Q2", False),
 ]
 
 
