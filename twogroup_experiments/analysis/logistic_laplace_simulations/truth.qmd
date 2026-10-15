@@ -70,24 +70,10 @@ sf = T.scenario_frame(reps)
 ```
 
 ```{python}
-#| label: fig-vs-cavi-022
+#| label: fig-vs-cavi
 #| echo: false
-#| fig-cap: "Binary: each arm against CAVI-Q2, one point per scenario (jittered), L = 5 and L = 1 side by side; black bar: median over scenarios (geometric median for the size ratio). Dashed: no difference."
-T.vs_cavi_figure(sf, "022");
-```
-
-```{python}
-#| label: fig-vs-cavi-024
-#| echo: false
-#| fig-cap: "Binary-Block: each arm against CAVI-Q2, one point per scenario (jittered), L = 5 and L = 1 side by side; black bar: median over scenarios (geometric median for the size ratio). Dashed: no difference."
-T.vs_cavi_figure(sf, "024");
-```
-
-```{python}
-#| label: fig-vs-cavi-023
-#| echo: false
-#| fig-cap: "Gaussian: each arm against CAVI-Q2, one point per scenario (jittered), L = 5 and L = 1 side by side; black bar: median over scenarios (geometric median for the size ratio). Dashed: no difference."
-T.vs_cavi_figure(sf, "023");
+#| fig-cap: "Each arm against CAVI-Q2, one point per scenario: colour = arm, marker = design (Binary, Binary-Block, Gaussian), L = 5 and L = 1 side by side. Black bar: median over all scenarios of all three designs (geometric median for the size ratio). Dashed: no difference."
+T.vs_cavi_figure(sf);
 ```
 
 ```{python}

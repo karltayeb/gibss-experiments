@@ -436,7 +436,8 @@ def _arm_grid(rows: list[tuple[str, bool]], ms_by_L: dict[int, list[str]], title
                 ax.set_title(f"L = {L}", fontsize=8)
             if j == 0:
                 ax.set_ylabel(label, fontsize=7.5)
-    fig.suptitle(title, fontsize=8.5)
+    if title:
+        fig.suptitle(title, fontsize=8.5)
     return fig, axes, Ls
 
 
@@ -473,27 +474,42 @@ def cs_dot_figure(reps: pl.DataFrame, exp: str):
     return fig
 
 
-def vs_cavi_figure(sf: pl.DataFrame, exp: str, seed: int = 0):
-    """One design. Rows = VS_CAVI metrics, columns = L = 5 and L = 1, x = arm: one point per
-    scenario (jittered) and a black bar at the median over scenarios (geometric for the size
-    ratio). Dashed: no difference from CAVI-Q2."""
+DESIGN_MARKER = {"022": "o", "024": "s", "023": "^"}
+
+
+def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
+    """All designs pooled. Rows = VS_CAVI metrics, columns = L = 5 and L = 1, x = arm: one point
+    per scenario, colour = arm, marker = design (offset within the arm, jittered); black bar =
+    median over all scenarios of all designs (geometric for the size ratio). Dashed: no
+    difference from CAVI-Q2."""
     rng = np.random.default_rng(seed)
-    d = sf.filter(pl.col("exp") == exp)
-    ms_by_L = {L: arms(d.filter(pl.col("L") == L)) for L in (5, 1)}
-    fig, axes, Ls = _arm_grid([(label, ratio) for _, label, ratio in VS_CAVI], ms_by_L, DESIGN[exp])
+    ms_by_L = {L: arms(sf.filter(pl.col("L") == L)) for L in (5, 1)}
+    fig, axes, Ls = _arm_grid([(label, ratio) for _, label, ratio in VS_CAVI], ms_by_L, "")
+    offs = {e: o for e, o in zip(EXPS, (-0.24, 0.0, 0.24))}
     for j, L in enumerate(Ls):
+        d = sf.filter(pl.col("L") == L)
         for i, (col, _label, ratio) in enumerate(VS_CAVI):
             ax = axes[i, j]
             ax.axhline(1.0 if ratio else 0.0, color="0.5", lw=0.7, ls="--", zorder=0)
             for k, m in enumerate(ms_by_L[L]):
-                y = d.filter((pl.col("method") == m) & (pl.col("L") == L))[col].drop_nulls().to_numpy()
-                y = y[np.isfinite(y)]
-                if y.size == 0:
-                    continue
-                c = R.METHOD_COLOR[m]
-                ax.scatter(k + rng.uniform(-0.18, 0.18, y.size), y, s=8, marker=R.METHOD_MARKER[m],
-                           color=c, linewidth=0, alpha=0.7, zorder=2)
-                med = np.exp(np.median(np.log(y))) if ratio else np.median(y)
-                ax.plot([k - 0.3, k + 0.3], [med, med], color="k", lw=1.4, zorder=3)
-    fig.tight_layout()
+                pooled = []
+                for exp in EXPS:
+                    y = d.filter((pl.col("method") == m) & (pl.col("exp") == exp))[col].drop_nulls().to_numpy()
+                    y = y[np.isfinite(y)]
+                    if y.size == 0:
+                        continue
+                    pooled.append(y)
+                    ax.scatter(k + offs[exp] + rng.uniform(-0.06, 0.06, y.size), y, s=9,
+                               marker=DESIGN_MARKER[exp], facecolor="none", edgecolor=R.METHOD_COLOR[m],
+                               linewidth=0.6, alpha=0.8, zorder=2)
+                if pooled:
+                    y = np.concatenate(pooled)
+                    med = np.exp(np.median(np.log(y))) if ratio else np.median(y)
+                    ax.plot([k - 0.36, k + 0.36], [med, med], color="k", lw=1.4, zorder=1)
+    from matplotlib.lines import Line2D
+    h = [Line2D([], [], color="0.3", marker=DESIGN_MARKER[e], mfc="none", ls="", ms=5, label=DESIGN[e])
+         for e in EXPS] + [Line2D([], [], color="k", lw=1.4, label="median, all scenarios")]
+    fig.legend(handles=h, loc="upper center", bbox_to_anchor=(0.5, 0.965), ncol=4, fontsize=7,
+               frameon=False)
+    fig.tight_layout(rect=(0, 0, 1, 0.94))
     return fig
