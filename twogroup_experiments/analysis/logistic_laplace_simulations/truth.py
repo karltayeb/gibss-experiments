@@ -484,8 +484,7 @@ VS_CAVI_ABS = [("coverage_cavi", "coverage", False), ("power_cavi", "power", Fal
 def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
     """All designs pooled. For each L (5, then 1) two columns: CAVI-Q2's own coverage, power and
     mean CS size per scenario, then each arm minus CAVI-Q2 (size: over). One point per scenario;
-    colour = arm, marker = design (offset, jittered); black bar = median over all scenarios of
-    all designs (geometric for sizes). Rows are aligned; CAVI columns share y, as do the arm
+    colour = arm, marker = design (offset, jittered). Rows are aligned; CAVI columns share y, as do the arm
     columns."""
     import matplotlib.pyplot as plt
     rng = np.random.default_rng(seed)
@@ -501,19 +500,11 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
             axes[i, c].sharey(axes[i, c % 2])
     offs = {e: o for e, o in zip(EXPS, (-0.24, 0.0, 0.24))}
 
-    def strip(ax, x, ys_by_exp, color, ratio):
-        pooled = []
+    def strip(ax, x, ys_by_exp, color):
         for exp, y in ys_by_exp.items():
             y = y[np.isfinite(y)]
-            if y.size == 0:
-                continue
-            pooled.append(y)
             ax.scatter(x + offs[exp] + rng.uniform(-0.06, 0.06, y.size), y, s=9, marker=DESIGN_MARKER[exp],
                        facecolor="none", edgecolor=color, linewidth=0.6, alpha=0.8, zorder=2)
-        if pooled:
-            y = np.concatenate(pooled)
-            med = np.exp(np.median(np.log(y))) if ratio else np.median(y)
-            ax.plot([x - 0.36, x + 0.36], [med, med], color="k", lw=1.4, zorder=1)
 
     ref = sf.unique(subset=_SCEN, keep="first")   # one row per scenario carries CAVI-Q2's values
     last = len(VS_CAVI) - 1
@@ -523,7 +514,7 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
         for i, ((acol, alabel, alog), (col, label, ratio)) in enumerate(zip(VS_CAVI_ABS, VS_CAVI)):
             ax = axes[i, ca]
             strip(ax, 0, {e: dref.filter(pl.col("exp") == e)[acol].drop_nulls().to_numpy() for e in EXPS},
-                  R.METHOD_COLOR["cavi"], alog)
+                  R.METHOD_COLOR["cavi"])
             if alog and b == 0:
                 _log_axis(ax)
             if acol == "coverage_cavi":
@@ -538,7 +529,7 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
             for k, m in enumerate(ms):
                 g = d.filter(pl.col("method") == m)
                 strip(ax, k, {e: g.filter(pl.col("exp") == e)[col].drop_nulls().to_numpy() for e in EXPS},
-                      R.METHOD_COLOR[m], ratio)
+                      R.METHOD_COLOR[m])
             if ratio and b == 0:
                 _log_axis(ax)
             ax.set_xlim(-0.6, len(ms) - 0.4)
@@ -555,6 +546,6 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
                     a_.set_ylabel(lab, fontsize=7.5)
     from matplotlib.lines import Line2D
     h = [Line2D([], [], color="0.3", marker=DESIGN_MARKER[e], mfc="none", ls="", ms=5, label=DESIGN[e])
-         for e in EXPS] + [Line2D([], [], color="k", lw=1.4, label="median, all scenarios")]
-    fig.legend(handles=h, loc="outside upper center", ncol=4, fontsize=7, frameon=False)
+         for e in EXPS]
+    fig.legend(handles=h, loc="outside upper center", ncol=3, fontsize=7, frameon=False)
     return fig
