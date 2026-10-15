@@ -123,6 +123,13 @@ P.scatter_figure(feat, 5);
 P.scatter_figure(afeat, 5, "alpha");
 ```
 
+```{python}
+#| label: fig-lbf-scatter
+#| echo: false
+#| fig-cap: "L = 5: component log BF of each matched pair, arm against CAVI-Q2, every matched pair (declared or not), pooled over replicates and non-null cells; colour is the log count per hexagon. Axes are sign(x) log10(1 + |x|); dashed lines at the declaration bar, log BF = 2."
+P.lbf_scatter_figure(cn, 5);
+```
+
 
 ### Matched alphas {#sec-matched}
 
