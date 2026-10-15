@@ -72,7 +72,7 @@ sf = T.scenario_frame(reps)
 ```{python}
 #| label: fig-vs-cavi
 #| echo: false
-#| fig-cap: "Each arm against CAVI-Q2, one point per scenario: colour = arm, marker = design (Binary, Binary-Block, Gaussian), L = 5 and L = 1 side by side. Black bar: median over all scenarios of all three designs (geometric median for the size ratio). Dashed: no difference."
+#| fig-cap: "Left: CAVI-Q2's own coverage (dashed: nominal 0.95), power and mean CS size, one point per scenario. Right, L = 5 and L = 1: each arm against CAVI-Q2 in the same scenario (dashed: no difference). Colour = arm, marker = design (Binary, Binary-Block, Gaussian). Black bar: median over all scenarios of all three designs (geometric median for sizes and size ratios)."
 T.vs_cavi_figure(sf);
 ```
 
