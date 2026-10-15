@@ -125,6 +125,8 @@ def compare(ref_se: list[dict], arm_se: list[dict]
                     "sd_ref": float(np.sqrt(var_a[i, j])), "sd_arm": float(np.sqrt(var_b[k, j])),
                     "declared_ref": dr, "declared_arm": da,
                     "lbf_ref": float(lbf_a[i]), "lbf_arm": float(lbf_b[k]),
+                    "pv_ref": float(ref_se[i]["prior_variance"]),
+                    "pv_arm": float(arm_se[k]["prior_variance"]),
                     "min_log_bf": float(min(lbf_a[i], lbf_b[k]))})
     fit = {"max_pip": float(dpip.max()), "argmax_pip": int(dpip.argmax()),
            "n_decl_ref": int((lbf_a >= R.MIN_LOG_BF).sum()),
@@ -505,43 +507,62 @@ def _slog(x):
     return np.sign(x) * np.log10(1.0 + np.abs(x))
 
 
-def lbf_scatter_figure(comp: pl.DataFrame, L: int = 5):
-    """Rows = experiments, columns = arms: component log BF of every matched pair, arm against
-    CAVI-Q2, hexbin with log counts on a sign-log scale (sign(x) log10(1 + |x|)); dashed lines
-    at the declaration bar R.MIN_LOG_BF. Every matched pair, declared or not, non-null cells."""
+def _pair_scatter(comp: pl.DataFrame, L: int, col: str, transform, lim: tuple[float, float],
+                  ticks: list[float], label: str, guides: list[float]):
+    """Rows = experiments, columns = arms: per matched pair, `{col}_arm` against `{col}_ref`
+    on the `transform`ed scale, hexbin with log counts; grey y = x, dashed lines at `guides`
+    (raw units). Every matched pair, declared or not, non-null cells."""
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm
     sub_l = comp.filter((pl.col("L") == L) & ~pl.col("null"))
-    lo, hi = _slog(-10.0), _slog(np.quantile(np.concatenate(
-        [sub_l["lbf_ref"].to_numpy(), sub_l["lbf_arm"].to_numpy()]), 0.999))
-    hi = max(hi, _slog(100.0))
-    ticks = [t for t in (-10, 0, 2, 10, 100, 1000) if _slog(t) <= hi]
+    lo, hi = lim
     fig, axes = plt.subplots(3, len(ARMS), figsize=(6.5, 3.1), sharex=True, sharey=True)
     for i, exp in enumerate(EXPS):
         for k, m in enumerate(ARMS):
             ax = axes[i, k]
             d = sub_l.filter((pl.col("exp") == exp) & (pl.col("method") == m))
-            ax.hexbin(_slog(d["lbf_ref"].to_numpy()), _slog(d["lbf_arm"].to_numpy()), gridsize=30,
-                      extent=(lo, hi, lo, hi), norm=LogNorm(vmin=1, vmax=1e4), cmap="Blues",
-                      mincnt=1, linewidths=0)
+            ax.hexbin(transform(d[f"{col}_ref"].to_numpy()), transform(d[f"{col}_arm"].to_numpy()),
+                      gridsize=30, extent=(lo, hi, lo, hi), norm=LogNorm(vmin=1, vmax=1e4),
+                      cmap="Blues", mincnt=1, linewidths=0)
             ax.plot([lo, hi], [lo, hi], color="0.5", lw=0.5)
-            bar = _slog(R.MIN_LOG_BF)
-            ax.axvline(bar, color="0.6", lw=0.5, ls="--")
-            ax.axhline(bar, color="0.6", lw=0.5, ls="--")
+            for g in guides:
+                ax.axvline(transform(g), color="0.6", lw=0.5, ls="--")
+                ax.axhline(transform(g), color="0.6", lw=0.5, ls="--")
             ax.set_xlim(lo, hi)
             ax.set_ylim(lo, hi)
             ax.set_aspect("equal")
-            ax.set_xticks([_slog(t) for t in ticks], [f"{t:g}" for t in ticks])
-            ax.set_yticks([_slog(t) for t in ticks], [f"{t:g}" for t in ticks])
+            ax.set_xticks([transform(t) for t in ticks], [f"{t:g}" for t in ticks])
+            ax.set_yticks([transform(t) for t in ticks], [f"{t:g}" for t in ticks])
             ax.tick_params(labelsize=4.5, length=2, pad=1)
             if i == 0:
                 ax.set_title(R.METHOD_LABEL[m], fontsize=6.5, color=R.METHOD_COLOR[m])
-            if i == 2:
-                ax.set_xlabel("log BF, CAVI-Q2", fontsize=6)
             if k == 0:
-                ax.set_ylabel(f"{DESIGN[exp]}\nlog BF, arm", fontsize=6.5)
-    fig.tight_layout(w_pad=0.2, h_pad=0.3)
+                ax.set_ylabel(DESIGN[exp], fontsize=6.5)
+    fig.tight_layout(rect=(0.025, 0.035, 1, 1), w_pad=0.2, h_pad=0.3)
+    fig.text(0.5, 0.008, f"{label}, CAVI-Q2", ha="center", fontsize=7)
+    fig.text(0.005, 0.5, f"{label}, arm", va="center", rotation="vertical", fontsize=7)
     return fig
+
+
+def lbf_scatter_figure(comp: pl.DataFrame, L: int = 5):
+    """Component log BF of every matched pair, arm against CAVI-Q2, on a sign-log scale
+    (sign(x) log10(1 + |x|)); dashed lines at the declaration bar R.MIN_LOG_BF."""
+    sub_l = comp.filter((pl.col("L") == L) & ~pl.col("null"))
+    top = np.quantile(np.concatenate([sub_l["lbf_ref"].to_numpy(), sub_l["lbf_arm"].to_numpy()]), 0.999)
+    hi = max(_slog(top), _slog(100.0))
+    ticks = [t for t in (-10, 0, 2, 10, 100, 1000) if _slog(t) <= hi]
+    return _pair_scatter(comp, L, "lbf", _slog, (_slog(-10.0), hi), ticks, "log BF", [R.MIN_LOG_BF])
+
+
+PV_FLOOR, PV_CAP = 0.01, 100.0   # freeze_prior_variance and max_prior_variance of every L=5 arm
+
+
+def pv_scatter_figure(comp: pl.DataFrame, L: int = 5):
+    """Estimated prior variance of every matched pair's component, arm against CAVI-Q2, log10
+    scale; dashed lines at the freeze floor (0.01) and the cap (100)."""
+    lo, hi = np.log10(PV_FLOOR) - 0.3, np.log10(PV_CAP) + 0.3
+    return _pair_scatter(comp, L, "pv", np.log10, (lo, hi), [0.01, 1, 100], "prior variance",
+                         [PV_FLOOR, PV_CAP])
 
 
 def _cs(alpha: np.ndarray, coverage: float = 0.95) -> np.ndarray:

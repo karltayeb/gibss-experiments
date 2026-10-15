@@ -130,6 +130,13 @@ P.scatter_figure(afeat, 5, "alpha");
 P.lbf_scatter_figure(cn, 5);
 ```
 
+```{python}
+#| label: fig-pv-scatter
+#| echo: false
+#| fig-cap: "L = 5: estimated prior variance of each matched pair's components, arm against CAVI-Q2, every matched pair (declared or not), pooled over replicates and non-null cells; log scale. Dashed lines at the freeze floor 0.01 (a component whose estimate falls below it is frozen there) and the cap 100."
+P.pv_scatter_figure(cn, 5);
+```
+
 
 ### Matched alphas {#sec-matched}
 
