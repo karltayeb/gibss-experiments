@@ -23,6 +23,17 @@ matched to CAVI's by minimum total TV (Hungarian). At both L, only pairs where E
 declared (component log BF >= MIN_LOG_BF) are kept: a null component's diffuse alpha is noise.
 Separately, per fit, max_j |PIP_arm - PIP_CAVI| over the combined PIPs (no matching needed).
 
+Linear predictor: eta_i = b0 + sum_l x~_i . b_l with x~ the centered design (the fits' center=True
+convention; it reproduces mean(sigmoid(eta)) = ybar). Under the mean-field posterior,
+E[eta_i] = m0 + sum_l sum_j alpha_lj mu_lj x~_ij and
+Var[eta_i] = v0 + sum_l (sum_j alpha_lj (mu_lj^2 + var_lj) x~_ij^2 - (sum_j alpha_lj mu_lj x~_ij)^2),
+with (m0, v0) the intercept's posterior mean and variance. This needs no matching, integrates
+over alpha (two fits that split mass differently over correlated features but predict the
+same agree), and is computed per observation, arm vs CAVI-Q2 on the same replicate:
+
+* eta_dm   = mean_i |E'[eta_i] - E[eta_i]| / sd[eta_i], the mean shift in CAVI-Q2 SDs.
+* eta_lvar = mean_i log(Var'[eta_i] / Var[eta_i]), signed: > 0 when the arm is wider.
+
 Separation: a feature separates y when every row with x_j != 0, or every row with x_j == 0, has
 the same y. Its likelihood has no maximum, so its conditional mean and variance are set by the
 prior (the EB prior variance runs to its cap). A pair is flagged `sep` when either side's top
@@ -105,6 +116,7 @@ def match(la: np.ndarray, lb: np.ndarray) -> np.ndarray:
 
 
 PIP_FLOOR = 0.05   # feature frames keep features with PIP (alpha) >= this on either side
+ETA_ROWS = 10      # observations per replicate kept for the linear-predictor scatters (same rows for every arm)
 
 
 def separated(X: np.ndarray, y: np.ndarray) -> np.ndarray:
@@ -114,6 +126,18 @@ def separated(X: np.ndarray, y: np.ndarray) -> np.ndarray:
     n_on, y_on = on.sum(0), y @ on
     n_off, y_off = len(y) - n_on, y.sum() - y_on
     return (y_on == 0) | (y_on == n_on) | ((n_off > 0) & ((y_off == 0) | (y_off == n_off)))
+
+
+def predict(fit: dict, Xc: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Posterior mean and variance of each observation's linear predictor (see module doc)."""
+    se, fs = fit["single_effects"], fit["family_state"]
+    A = np.array([e["alpha"] for e in se])
+    M = np.array([e["mu"] for e in se])
+    V = np.array([e["var"] for e in se])
+    Eb = A * M                                   # [L, p]
+    m = fs["intercept_value"] + Xc @ Eb.sum(0)
+    v = fs["intercept_var"] + (Xc ** 2) @ (A * (M ** 2 + V)).sum(0) - ((Xc @ Eb.T) ** 2).sum(1)
+    return m, v
 
 
 def compare(ref_se: list[dict], arm_se: list[dict], sep: np.ndarray | None = None
@@ -157,8 +181,8 @@ def compare(ref_se: list[dict], arm_se: list[dict], sep: np.ndarray | None = Non
 
 
 def load(sources=SOURCES, results_root: str = RESULTS
-         ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
-    """(component-pair frame, per-fit frame, feature frame, matched-alpha frame).
+         ) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame, pl.DataFrame]:
+    """(component-pair frame, per-fit frame, feature frame, matched-alpha frame, eta frame).
 
     * component pairs: one row per matched component pair (all L), with each side's
       declaration and the smaller of the two component log BFs.
@@ -169,10 +193,13 @@ def load(sources=SOURCES, results_root: str = RESULTS
       every other feature has both PIPs below the floor.
     * matched alphas: one row per (arm, replicate, matched pair either side declares, feature)
       with alpha >= PIP_FLOOR on either side, columns alpha_ref / alpha_arm.
+    * eta: ETA_ROWS observations per (arm, replicate), the same rows for every arm, with the
+      linear predictor's posterior mean (eta_m_ref / eta_m_arm) and variance (eta_v_*). Signal
+      cells only (the design is regenerated); the per-fit frame carries eta_dm and eta_lvar.
 
     Cells carry exp, L, m, T, depth, gap, null."""
     cfg = loader.load_config()
-    comp_rows, fit_rows, feat_parts, alpha_parts = [], [], [], []
+    comp_rows, fit_rows, feat_parts, alpha_parts, eta_parts = [], [], [], [], []
     for exp, L, sc in sources:
         by_batch: dict[str, dict] = {}
         for coll in loader.collection_method_pairs(cfg, sc).values():
@@ -187,15 +214,18 @@ def load(sources=SOURCES, results_root: str = RESULTS
             if "cavi" not in cell["fits"]:
                 continue
             meta = {k: cell["meta"][k] for k in ("m", "T", "depth", "gap", "null")}
-            cols = ["replicate", "single_effects", "q2_elbo"]
+            cols = ["replicate", "single_effects", "family_state", "q2_elbo"]
             ref = {r["replicate"]: r for r in
                    pl.read_parquet(cell["fits"]["cavi"], columns=cols).iter_rows(named=True)}
-            sep = {}
+            sep, xc, pref, rows = {}, {}, {}, {}
             if not meta["null"]:
                 spec = loader.resolve_simulation_from_coord(cell["scoord"])
                 for rep in ref:
                     sim = PF.simulate_dense(spec, rep)
                     sep[rep] = separated(sim.X, np.asarray(sim.z, dtype=float))
+                    xc[rep] = sim.X - sim.X.mean(0)
+                    pref[rep] = predict(ref[rep], xc[rep])
+                    rows[rep] = np.random.default_rng(rep).choice(len(xc[rep]), ETA_ROWS, replace=False)
             for method, f in cell["fits"].items():
                 if method == "cavi":
                     continue
@@ -206,6 +236,14 @@ def load(sources=SOURCES, results_root: str = RESULTS
                     pairs, fit, pa, pb, (ar, aa) = compare(ref[rep]["single_effects"], r["single_effects"],
                                                            sep.get(rep))
                     key = {"exp": exp, "L": L, "method": method, "batch_hash": bh, "rep": rep, **meta}
+                    if rep in xc:
+                        (m0, v0), (m1, v1) = pref[rep], predict(r, xc[rep])
+                        fit["eta_dm"] = float(np.mean(np.abs(m1 - m0) / np.sqrt(v0)))
+                        fit["eta_lvar"] = float(np.mean(np.log(v1 / v0)))
+                        k = rows[rep]
+                        eta_parts.append(pl.DataFrame({
+                            "exp": exp, "L": L, "method": method, "eta_m_ref": m0[k], "eta_m_arm": m1[k],
+                            "eta_v_ref": v0[k], "eta_v_arm": v1[k]}))
                     fit_rows.append({**key, **fit, "n_pairs": sum(p["declared_ref"] or p["declared_arm"] for p in pairs),
                                      "d_elbo": r["q2_elbo"] - ref[rep]["q2_elbo"],
                                      "ref_file": cell["fits"]["cavi"], "arm_file": f})
@@ -219,7 +257,7 @@ def load(sources=SOURCES, results_root: str = RESULTS
                         "alpha_ref": ar, "alpha_arm": aa}))
     return (pl.DataFrame(comp_rows, infer_schema_length=None),
             pl.DataFrame(fit_rows, infer_schema_length=None),
-            pl.concat(feat_parts), pl.concat(alpha_parts))
+            pl.concat(feat_parts), pl.concat(alpha_parts), pl.concat(eta_parts))
 
 
 def replicate_pair(row: dict) -> tuple[list[dict], list[dict], list[int]]:
@@ -482,23 +520,27 @@ def scatter_figure(feat: pl.DataFrame, L: int = 5, quantity: str = "pip"):
     return fig
 
 
-def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu"):
-    """Rows = experiments, columns = arms: the conditional posterior mean (`moment="mu"`) or
-    variance (`"var"`) of b at CAVI-Q2's top feature of each matched pair, arm against CAVI-Q2, as
-    a hexbin with log counts. Pairs that BOTH sides declare, non-null cells, of the frame passed in
-    (the caller drops separated pairs). Mean axes are linear and shared within a row (the designs
-    use different effect scales); variance axes are log10."""
+def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu", declared: bool = True,
+                          what: str | None = None):
+    """Rows = experiments, columns = arms: `{moment}_arm` against `{moment}_ref` as a hexbin with
+    log counts. On the component-pair frame, the conditional posterior mean (`moment="mu"`) or
+    variance (`"var"`) of b at CAVI-Q2's top feature of each matched pair, pairs that BOTH sides
+    declare, non-null cells (the caller drops separated pairs). With `declared=False` any frame
+    with those columns, e.g. the eta frame (`"eta_m"`, `"eta_v"`). Mean axes are linear and
+    shared within a row (the designs use different scales); variance axes are log10."""
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm
     exps = EXPS
-    sub_l = comp.filter((pl.col("L") == L) & ~pl.col("null") & pl.col("declared_ref")
-                        & pl.col("declared_arm"))
+    sub_l = comp.filter(pl.col("L") == L)
+    if declared:
+        sub_l = sub_l.filter(~pl.col("null") & pl.col("declared_ref") & pl.col("declared_arm"))
+    log = moment.endswith("var") or moment.endswith("_v")
     fig, axes = plt.subplots(3, len(ARMS), figsize=(6.5, 3.0), squeeze=False)
     ref, arm = f"{moment}_ref", f"{moment}_arm"
     for i, exp in enumerate(exps):
         row = sub_l.filter(pl.col("exp") == exp)
         both = np.concatenate([row[ref].to_numpy(), row[arm].to_numpy()])
-        if moment == "var":
+        if log:
             lo, hi = np.log10(np.quantile(both, [0.0005, 0.9995]))
             lo, hi = lo - 0.1 * (hi - lo), hi + 0.1 * (hi - lo)
         else:
@@ -509,7 +551,7 @@ def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu"):
             ax = axes[i, k]
             d = row.filter(pl.col("method") == m)
             x, y = d[ref].to_numpy(), d[arm].to_numpy()
-            if moment == "var":
+            if log:
                 x, y = np.log10(x), np.log10(y)
             ax.hexbin(x, y, gridsize=25, extent=(lo, hi, lo, hi), norm=LogNorm(vmin=1, vmax=1e3),
                       cmap="Blues", mincnt=1, linewidths=0)
@@ -524,9 +566,9 @@ def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu"):
                 ax.set_title(R.METHOD_LABEL[m], fontsize=6.5, color=R.METHOD_COLOR[m])
             if k == 0:
                 ax.set_ylabel(f"{DESIGN[exp]}\narm", fontsize=6.5)
-    what = "posterior mean" if moment == "mu" else "log10 posterior variance"
+    what = what or ("conditional posterior mean" if moment == "mu" else "conditional log10 posterior variance")
     fig.tight_layout(rect=(0, 0.04, 1, 1), w_pad=0.2, h_pad=0.3)
-    fig.text(0.5, 0.01, f"conditional {what}, CAVI-Q2", ha="center", fontsize=7)
+    fig.text(0.5, 0.01, f"{what}, CAVI-Q2", ha="center", fontsize=7)
     return fig
 
 

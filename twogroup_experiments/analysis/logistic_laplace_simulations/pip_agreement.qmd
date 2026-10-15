@@ -21,7 +21,7 @@ import polars as pl
 import laplacelib as R
 import pip_agreement as P
 
-comp, fits, feat, afeat = P.load()
+comp, fits, feat, afeat, eta = P.load()
 cn, fn = comp.filter(~pl.col("null")), fits.filter(~pl.col("null"))
 cd = cn.filter(pl.col("declared_ref") | pl.col("declared_arm"))   # pairs at least one side declares (Means section)
 cc, cdc = cn.filter(~pl.col("sep")), cd.filter(~pl.col("sep"))     # conditionals: separated pairs out
@@ -308,6 +308,61 @@ P.survival_figure(cc, rows=P.bar_rows(1, col="abs_lvar"), xlabel="|log σ′²/�
                   unit="pairs", xmax=10);
 ```
 
+### Linear predictor {#sec-eta}
+
+The comparisons above go through the matched components, one feature at a time. The linear
+predictor $\eta_i = b_0 + \tilde x_i^\top b$ ($\tilde x$ the centered design, as fitted) needs
+no matching and averages over $\alpha$: two fits that split an effect differently over
+correlated features, but predict the same, agree on it. Under each fit's posterior, per
+observation,
+
+$$E[\eta_i] = m_0 + \sum_l \sum_j \alpha_{lj} \mu_{lj} \tilde x_{ij}, \qquad
+\text{Var}[\eta_i] = v_0 + \sum_l \Big(\sum_j \alpha_{lj} (\mu_{lj}^2 + \sigma_{lj}^2) \tilde x_{ij}^2
+- \big(\textstyle\sum_j \alpha_{lj} \mu_{lj} \tilde x_{ij}\big)^2\Big),$$
+
+with $(m_0, v_0)$ the intercept's posterior mean and variance. Per fit, against CAVI-Q2 on the
+same replicate:
+
+- $|\Delta\eta| / \text{sd}$: the mean over observations of $|E'[\eta_i] - E[\eta_i]| /
+  \text{sd}[\eta_i]$, the shift in CAVI-Q2 posterior SDs.
+- $\log \text{Var}' / \text{Var}$: the mean over observations of
+  $\log(\text{Var}'[\eta_i] / \text{Var}[\eta_i])$, signed: positive when the arm is wider.
+
+Every fit counts, separated features included: they move only the handful of observations
+where the feature is on. Signal cells only.
+
+```{python}
+#| label: fig-eta-mean-scatter
+#| echo: false
+#| fig-cap: "L = 5: posterior mean of the linear predictor per observation, arm against CAVI-Q2; colour is the log count per hexagon. 10 observations per replicate (the same for every arm), signal cells, pooled over replicates. The grey line is y = x."
+P.moment_scatter_figure(eta, 5, "eta_m", declared=False, what="posterior mean of η");
+```
+
+```{python}
+#| label: fig-eta-var-scatter
+#| echo: false
+#| fig-cap: "L = 5: posterior variance of the linear predictor (log10), as above. Points below the line are arm variances smaller than CAVI-Q2's."
+P.moment_scatter_figure(eta, 5, "eta_v", declared=False, what="log10 posterior variance of η");
+```
+
+```{python}
+#| label: fig-eta-dm
+#| echo: false
+#| fig-cap: "Share of fits whose mean linear-predictor shift, in CAVI-Q2 posterior SDs, exceeds x (signal cells)."
+P.survival_figure(fn.filter(pl.col("eta_dm").is_not_null()),
+                  rows=[(5, "eta_dm", "L = 5"), (1, "eta_dm", "L = 1")],
+                  xlabel="mean |Δη| / sd per fit", xmax=10);
+```
+
+```{python}
+#| label: fig-eta-lvar
+#| echo: false
+#| fig-cap: "Share of fits whose mean |log variance ratio| of the linear predictor (arm over CAVI-Q2) exceeds x (signal cells)."
+P.survival_figure(fn.filter(pl.col("eta_lvar").is_not_null()).with_columns(pl.col("eta_lvar").abs()),
+                  rows=[(5, "eta_lvar", "L = 5"), (1, "eta_lvar", "L = 1")],
+                  xlabel="|mean log Var′/Var| per fit", xmax=10);
+```
+
 ### When gIBSS and CAVI-Q2 disagree {#sec-tail}
 
 The fits in the tail are mostly different optima of the same objective. The table splits fits by
@@ -402,6 +457,26 @@ table(cdc, "lvar", COMMON.format(unit="matched declared component pairs, separat
 table(cdc, "kl_joint", COMMON.format(unit="matched declared component pairs, separated pairs left out") +
       " Value: KL(q_CAVI || q_arm) over (gamma, b) in nats, the alpha KL plus the "
       "alpha-weighted KL between conditional normals.")
+```
+
+### Linear predictor {#sec-eta-tables}
+
+```{python}
+#| label: tab-eta-dm
+#| echo: false
+#| output: asis
+table(fn.filter(pl.col("eta_dm").is_not_null()), "eta_dm", COMMON.format(unit="signal fits") +
+      " Value: mean over observations of |E_arm[eta_i] - E_CAVI[eta_i]| / sd_CAVI[eta_i], the "
+      "linear-predictor shift in CAVI-Q2 posterior SDs.")
+```
+
+```{python}
+#| label: tab-eta-lvar
+#| echo: false
+#| output: asis
+table(fn.filter(pl.col("eta_lvar").is_not_null()), "eta_lvar", COMMON.format(unit="signal fits") +
+      " Value: mean over observations of log(Var_arm[eta_i] / Var_CAVI[eta_i]), signed; negative "
+      "means the arm's linear predictor is more certain than CAVI-Q2's.")
 ```
 
 ### Max |ΔPIP| per fit {#sec-max-pip}
