@@ -75,10 +75,10 @@ ABS_LOG = {"mean_ratio": [1, 2, 4, 8], "sd": [0.0625, 0.125, 0.25, 0.5, 1, 2, 4]
            "lp_rmse": [0.0625, 0.125, 0.25, 0.5, 1]}
 
 
-def truth(spec: core.SimulationSpec, replicate: int) -> tuple[np.ndarray, np.ndarray]:
-    """Regenerate one replicate's design (dense) and true coefficient vector b by re-running
-    the pipeline's deterministic simulation (seeded by spec + replicate), so no
-    simulations.parquet needs to be on disk. Works for every design function."""
+def simulate_dense(spec: core.SimulationSpec, replicate: int) -> core.TwoGroupSimulation:
+    """Re-run the pipeline's deterministic simulation (seeded by spec + replicate), so no
+    simulations.parquet needs to be on disk, with X as a dense array. Works for every design
+    function."""
     import jax.experimental.sparse as _jsp
 
     class _Dense:
@@ -99,7 +99,15 @@ def truth(spec: core.SimulationSpec, replicate: int) -> tuple[np.ndarray, np.nda
     finally:
         _jsp.BCOO = _orig
     X = sim.X
-    X = np.asarray(X.todense()) if hasattr(X, "todense") else np.asarray(X, dtype=float)
+    import dataclasses
+    return dataclasses.replace(sim, X=np.asarray(X.todense()) if hasattr(X, "todense")
+                               else np.asarray(X, dtype=float))
+
+
+def truth(spec: core.SimulationSpec, replicate: int) -> tuple[np.ndarray, np.ndarray]:
+    """One replicate's dense design and true coefficient vector b (see ``simulate_dense``)."""
+    sim = simulate_dense(spec, replicate)
+    X = sim.X
     b = np.zeros(X.shape[1], dtype=float)
     b[np.asarray(sim.causal_indices, dtype=int)] = np.asarray(sim.causal_effects, dtype=float)
     return X, b

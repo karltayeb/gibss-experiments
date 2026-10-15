@@ -14,7 +14,7 @@ mu/var are these conditional moments). Conditionals, arm vs CAVI-Q2, averaged ov
 alpha:
 
 * dmu     = sum_j alpha_j |mu'_j - mu_j| / sd_j, the mean shift in CAVI-Q2 posterior SDs.
-* lsd     = sum_j alpha_j log(sd'_j / sd_j), signed: > 0 when the arm is wider.
+* lvar    = sum_j alpha_j log(var'_j / var_j), signed: > 0 when the arm is wider.
 * kl_cond = sum_j alpha_j KL(N(mu_j, var_j) || N(mu'_j, var'_j)).
 * kl_joint = kl + kl_cond = KL(q_CAVI || q_arm) over (gamma, b), by the chain rule.
 
@@ -22,6 +22,12 @@ At L=1 alpha IS the PIP vector. At L=5 the components are unordered, so the arm'
 matched to CAVI's by minimum total TV (Hungarian). At both L, only pairs where EITHER side's component is
 declared (component log BF >= MIN_LOG_BF) are kept: a null component's diffuse alpha is noise.
 Separately, per fit, max_j |PIP_arm - PIP_CAVI| over the combined PIPs (no matching needed).
+
+Separation: a feature separates y when every row with x_j != 0, or every row with x_j == 0, has
+the same y. Its likelihood has no maximum, so its conditional mean and variance are set by the
+prior (the EB prior variance runs to its cap). A pair is flagged `sep` when either side's top
+feature separates y; the conditional comparisons leave these out. Found by re-running the
+pipeline's simulation for each replicate (``posterior_figure.simulate_dense``).
 """
 from __future__ import annotations
 
@@ -42,6 +48,7 @@ if _HERE not in sys.path:
 from experiments import loader
 
 import laplacelib as R
+import posterior_figure as PF
 
 RESULTS = os.path.join(_TG_ROOT, "results")
 # (experiment, L, supercollection). Accuracy, not timing, so the full 022 grids are fine here.
@@ -70,7 +77,7 @@ def _cond(la: np.ndarray, mu: np.ndarray, var: np.ndarray, mu_b: np.ndarray,
     a = np.exp(la)
     kl_j = 0.5 * (var / var_b + (mu - mu_b) ** 2 / var_b - 1.0 - np.log(var / var_b))
     return {"dmu": float(np.sum(a * np.abs(mu_b - mu) / np.sqrt(var))),
-            "lsd": float(np.sum(a * 0.5 * np.log(var_b / var))),
+            "lvar": float(np.sum(a * np.log(var_b / var))),
             "kl_cond": float(np.sum(a * kl_j))}
 
 
@@ -100,11 +107,21 @@ def match(la: np.ndarray, lb: np.ndarray) -> np.ndarray:
 PIP_FLOOR = 0.05   # feature frames keep features with PIP (alpha) >= this on either side
 
 
-def compare(ref_se: list[dict], arm_se: list[dict]
+def separated(X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Per feature: True when y is constant over the rows with x_j != 0, or over the (non-empty)
+    rows with x_j == 0. Never true for a dense continuous column unless y is constant."""
+    on = X != 0
+    n_on, y_on = on.sum(0), y @ on
+    n_off, y_off = len(y) - n_on, y.sum() - y_on
+    return (y_on == 0) | (y_on == n_on) | ((n_off > 0) & ((y_off == 0) | (y_off == n_off)))
+
+
+def compare(ref_se: list[dict], arm_se: list[dict], sep: np.ndarray | None = None
             ) -> tuple[list[dict], dict, np.ndarray, np.ndarray, tuple[np.ndarray, np.ndarray]]:
     """Component-pair distances (matched, declared-on-either-side), per-fit summaries, the
     two PIP vectors (reference, arm), and the matched alphas (reference, arm) of the pairs
-    either side declares, at the features where either alpha is >= PIP_FLOOR."""
+    either side declares, at the features where either alpha is >= PIP_FLOOR. `sep` marks the
+    features that separate y (``separated``); None for null cells."""
     la, lbf_a = _components(ref_se)
     lb, lbf_b = _components(arm_se)
     (mu_a, var_a), (mu_b, var_b) = _moments(ref_se), _moments(arm_se)
@@ -120,9 +137,11 @@ def compare(ref_se: list[dict], arm_se: list[dict]
             a_arm.append(ak[keep])
         d = {**_dist(la[i], lb[k]), **_cond(la[i], mu_a[i], var_a[i], mu_b[k], var_b[k])}
         j = int(la[i].argmax())   # CAVI-Q2's top feature for this component
-        out.append({**d, "kl_joint": d["kl"] + d["kl_cond"], "abs_lsd": abs(d["lsd"]),
+        jb = int(lb[k].argmax())
+        out.append({**d, "kl_joint": d["kl"] + d["kl_cond"], "abs_lvar": abs(d["lvar"]),
+                    "sep": bool(sep is not None and (sep[j] or sep[jb])),
                     "mu_ref": float(mu_a[i, j]), "mu_arm": float(mu_b[k, j]),
-                    "sd_ref": float(np.sqrt(var_a[i, j])), "sd_arm": float(np.sqrt(var_b[k, j])),
+                    "var_ref": float(var_a[i, j]), "var_arm": float(var_b[k, j]),
                     "declared_ref": dr, "declared_arm": da,
                     "lbf_ref": float(lbf_a[i]), "lbf_arm": float(lbf_b[k]),
                     "pv_ref": float(ref_se[i]["prior_variance"]),
@@ -161,7 +180,8 @@ def load(sources=SOURCES, results_root: str = RESULTS
                 f = f"{results_root}/by_batch/{bh}/fits/{mh}/fits.parquet"
                 if not os.path.exists(f):
                     continue
-                cell = by_batch.setdefault(bh, {"meta": R.cell_meta(scoord), "fits": {}})
+                cell = by_batch.setdefault(bh, {"meta": R.cell_meta(scoord), "scoord": scoord,
+                                                "fits": {}})
                 cell["fits"][R._method_key(mname)] = f
         for bh, cell in by_batch.items():
             if "cavi" not in cell["fits"]:
@@ -170,6 +190,12 @@ def load(sources=SOURCES, results_root: str = RESULTS
             cols = ["replicate", "single_effects", "q2_elbo"]
             ref = {r["replicate"]: r for r in
                    pl.read_parquet(cell["fits"]["cavi"], columns=cols).iter_rows(named=True)}
+            sep = {}
+            if not meta["null"]:
+                spec = loader.resolve_simulation_from_coord(cell["scoord"])
+                for rep in ref:
+                    sim = PF.simulate_dense(spec, rep)
+                    sep[rep] = separated(sim.X, np.asarray(sim.z, dtype=float))
             for method, f in cell["fits"].items():
                 if method == "cavi":
                     continue
@@ -177,7 +203,8 @@ def load(sources=SOURCES, results_root: str = RESULTS
                     rep = r["replicate"]
                     if rep not in ref:
                         continue
-                    pairs, fit, pa, pb, (ar, aa) = compare(ref[rep]["single_effects"], r["single_effects"])
+                    pairs, fit, pa, pb, (ar, aa) = compare(ref[rep]["single_effects"], r["single_effects"],
+                                                           sep.get(rep))
                     key = {"exp": exp, "L": L, "method": method, "batch_hash": bh, "rep": rep, **meta}
                     fit_rows.append({**key, **fit, "n_pairs": sum(p["declared_ref"] or p["declared_arm"] for p in pairs),
                                      "d_elbo": r["q2_elbo"] - ref[rep]["q2_elbo"],
@@ -456,10 +483,11 @@ def scatter_figure(feat: pl.DataFrame, L: int = 5, quantity: str = "pip"):
 
 
 def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu"):
-    """Rows = experiments, columns = arms: the conditional posterior mean (`moment="mu"`) or SD
-    (`"sd"`) of b at CAVI-Q2's top feature of each matched pair, arm against CAVI-Q2, as a hexbin
-    with log counts. Pairs that BOTH sides declare, non-null cells. Mean axes are linear and
-    shared within a row (the designs use different effect scales); SD axes are log."""
+    """Rows = experiments, columns = arms: the conditional posterior mean (`moment="mu"`) or
+    variance (`"var"`) of b at CAVI-Q2's top feature of each matched pair, arm against CAVI-Q2, as
+    a hexbin with log counts. Pairs that BOTH sides declare, non-null cells, of the frame passed in
+    (the caller drops separated pairs). Mean axes are linear and shared within a row (the designs
+    use different effect scales); variance axes are log10."""
     import matplotlib.pyplot as plt
     from matplotlib.colors import LogNorm
     exps = EXPS
@@ -470,7 +498,7 @@ def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu"):
     for i, exp in enumerate(exps):
         row = sub_l.filter(pl.col("exp") == exp)
         both = np.concatenate([row[ref].to_numpy(), row[arm].to_numpy()])
-        if moment == "sd":
+        if moment == "var":
             lo, hi = np.log10(np.quantile(both, [0.0005, 0.9995]))
             lo, hi = lo - 0.1 * (hi - lo), hi + 0.1 * (hi - lo)
         else:
@@ -481,7 +509,7 @@ def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu"):
             ax = axes[i, k]
             d = row.filter(pl.col("method") == m)
             x, y = d[ref].to_numpy(), d[arm].to_numpy()
-            if moment == "sd":
+            if moment == "var":
                 x, y = np.log10(x), np.log10(y)
             ax.hexbin(x, y, gridsize=25, extent=(lo, hi, lo, hi), norm=LogNorm(vmin=1, vmax=1e3),
                       cmap="Blues", mincnt=1, linewidths=0)
@@ -496,7 +524,7 @@ def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu"):
                 ax.set_title(R.METHOD_LABEL[m], fontsize=6.5, color=R.METHOD_COLOR[m])
             if k == 0:
                 ax.set_ylabel(f"{DESIGN[exp]}\narm", fontsize=6.5)
-    what = "posterior mean" if moment == "mu" else "log10 posterior SD"
+    what = "posterior mean" if moment == "mu" else "log10 posterior variance"
     fig.tight_layout(rect=(0, 0.04, 1, 1), w_pad=0.2, h_pad=0.3)
     fig.text(0.5, 0.01, f"conditional {what}, CAVI-Q2", ha="center", fontsize=7)
     return fig

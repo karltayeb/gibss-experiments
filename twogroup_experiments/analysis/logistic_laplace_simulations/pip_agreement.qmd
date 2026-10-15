@@ -24,6 +24,7 @@ import pip_agreement as P
 comp, fits, feat, afeat = P.load()
 cn, fn = comp.filter(~pl.col("null")), fits.filter(~pl.col("null"))
 cd = cn.filter(pl.col("declared_ref") | pl.col("declared_arm"))   # pairs at least one side declares (Means section)
+cc, cdc = cn.filter(~pl.col("sep")), cd.filter(~pl.col("sep"))     # conditionals: separated pairs out
 ```
 
 Every arm is compared with CAVI-Q2 on the same replicate. For single effect $l$,
@@ -186,8 +187,8 @@ averaging over CAVI-Q2's $\alpha$:
 
 - $|\Delta\mu| / \sigma = \sum_j \alpha_j |\mu'_j - \mu_j| / \sigma_j$, the shift in the
   conditional mean in units of CAVI-Q2's posterior SD.
-- $\log \sigma' / \sigma = \sum_j \alpha_j \log(\sigma'_j / \sigma_j)$, signed: positive when
-  the arm's conditional is wider. The figure uses its absolute value.
+- $\log \sigma'^2 / \sigma^2 = \sum_j \alpha_j \log(\sigma'^2_j / \sigma^2_j)$, signed:
+  positive when the arm's conditional is wider. The figure uses its absolute value.
 - $\text{KL}_{b \mid \gamma} = \sum_j \alpha_j \text{KL}(N(\mu_j, \sigma^2_j) \,\|\, N(\mu'_j,
   \sigma'^2_j))$. By the chain rule, $\text{KL}(\alpha \| \alpha') + \text{KL}_{b \mid \gamma}$
   is the KL between the two single-effect posteriors over $(\gamma, b)$, which the last figure
@@ -197,47 +198,68 @@ As for TV, each distance has an every-pair figure, then one with rows for every 
 and for pairs whose smaller component log BF clears 0, 1, 2. Under the bar, both sides are close to the prior and the conditionals are
 prior-dominated.
 
+Separated pairs are left out of every figure and table on the conditionals. A feature
+separates $y$ when all the rows with $x_j \neq 0$ (or all with $x_j = 0$) share one $y$; on
+the binary designs this is a rare feature that is on in a handful of rows, all cases. Its
+likelihood has no maximum, so the conditional mean and variance are whatever the prior allows
+(the EB prior variance usually runs to its cap of 100, giving a mean near 10 and SD near 3.5). A pair is separated
+when either side's top feature separates $y$, checked on the regenerated data. Arms then
+differ mostly in how they treat the cap, which says nothing about the approximation.
+
 ```{python}
-#| label: fig-mu-scatter
+#| label: sep-share
 #| echo: false
-#| fig-cap: "L = 5: conditional posterior mean of the effect at CAVI-Q2's top feature of each matched pair, arm against CAVI-Q2; colour is the log count per hexagon. Pairs both sides declare, non-null cells, pooled over replicates. Axes are shared within a row; the grey line is y = x."
-P.moment_scatter_figure(cn, 5, "mu");
+#| output: asis
+sh = (cd.filter(pl.col("declared_ref") & pl.col("declared_arm"))
+      .group_by("exp", "L").agg(pl.col("sep").mean().alias("share"), pl.col("sep").sum().alias("n"))
+      .with_columns(pl.col("exp").replace_strict({e: i for i, e in enumerate(P.EXPS)}).alias("o"))
+      .sort("o", "L", descending=[False, True]))
+for r in sh.iter_rows(named=True):
+    print(f"- {P.DESIGN[r['exp']]}, L={r['L']}: {r['n']} of the pairs both sides declare "
+          f"({100 * r['share']:.1f}%) are separated, pooled over arms")
 ```
 
 ```{python}
-#| label: fig-sd-scatter
+#| label: fig-mu-scatter
 #| echo: false
-#| fig-cap: "L = 5: conditional posterior SD (log10) at the same feature, as above. Points below the line are arm SDs narrower than CAVI-Q2's."
-P.moment_scatter_figure(cn, 5, "sd");
+#| fig-cap: "L = 5: conditional posterior mean of the effect at CAVI-Q2's top feature of each matched pair, arm against CAVI-Q2; colour is the log count per hexagon. Pairs both sides declare, non-null cells, separated pairs left out, pooled over replicates. Axes are shared within a row; the grey line is y = x."
+P.moment_scatter_figure(cc, 5, "mu");
+```
+
+```{python}
+#| label: fig-var-scatter
+#| echo: false
+#| fig-cap: "L = 5: conditional posterior variance (log10) at the same feature, as above. Points below the line are arm variances smaller than CAVI-Q2's."
+P.moment_scatter_figure(cc, 5, "var");
 ```
 
 ```{python}
 #| label: fig-all-dmu-l5
 #| echo: false
 #| fig-cap: "L = 5: share of matched pairs whose alpha-weighted conditional mean shift, in CAVI-Q2 posterior SDs, exceeds x, every matched pair (non-null cells)."
-P.survival_figure(cn, rows=[(5, "dmu", "all pairs")], xlabel="|Δμ| / σ, matched pair", unit="pairs", xmax=10);
+P.survival_figure(cc, rows=[(5, "dmu", "all pairs")], xlabel="|Δμ| / σ, matched pair", unit="pairs", xmax=10);
 ```
 
 ```{python}
 #| label: fig-dmu-l5
 #| echo: false
 #| fig-cap: "L = 5: share of matched pairs whose alpha-weighted conditional mean shift, in CAVI-Q2 posterior SDs, exceeds x (non-null cells)."
-P.survival_figure(cn, rows=P.bar_rows(5, col="dmu"), xlabel="|Δμ| / σ, matched pair",
+P.survival_figure(cc, rows=P.bar_rows(5, col="dmu"), xlabel="|Δμ| / σ, matched pair",
                   unit="pairs", xmax=10);
 ```
 
 ```{python}
-#| label: fig-all-lsd-l5
+#| label: fig-all-lvar-l5
 #| echo: false
-#| fig-cap: "L = 5: share of matched pairs whose alpha-weighted |log SD ratio| (arm over CAVI-Q2) exceeds x, every matched pair."
-P.survival_figure(cn, rows=[(5, "abs_lsd", "all pairs")], xlabel="|log σ′/σ|, matched pair", unit="pairs", xmax=10);
+#| fig-cap: "L = 5: share of matched pairs whose alpha-weighted |log variance ratio| (arm over CAVI-Q2) exceeds x, every matched pair."
+P.survival_figure(cc, rows=[(5, "abs_lvar", "all pairs")], xlabel="|log σ′²/σ²|, matched pair", unit="pairs", xmax=10);
 ```
 
 ```{python}
-#| label: fig-lsd-l5
+#| label: fig-lvar-l5
 #| echo: false
-#| fig-cap: "L = 5: share of matched pairs whose alpha-weighted |log SD ratio| (arm over CAVI-Q2) exceeds x."
-P.survival_figure(cn, rows=P.bar_rows(5, col="abs_lsd"), xlabel="|log σ′/σ|, matched pair",
+#| fig-cap: "L = 5: share of matched pairs whose alpha-weighted |log variance ratio| (arm over CAVI-Q2) exceeds x."
+P.survival_figure(cc, rows=P.bar_rows(5, col="abs_lvar"), xlabel="|log σ′²/σ²|, matched pair",
                   unit="pairs", xmax=10);
 ```
 
@@ -245,14 +267,14 @@ P.survival_figure(cn, rows=P.bar_rows(5, col="abs_lsd"), xlabel="|log σ′/σ|,
 #| label: fig-all-kljoint-l5
 #| echo: false
 #| fig-cap: "L = 5: share of matched pairs whose KL between single-effect posteriors over (γ, b), CAVI-Q2 to arm, exceeds x nats, every matched pair."
-P.survival_figure(cn, rows=[(5, "kl_joint", "all pairs")], xlabel="KL(q ‖ q′), nats, matched pair", unit="pairs", xmax=1e4);
+P.survival_figure(cc, rows=[(5, "kl_joint", "all pairs")], xlabel="KL(q ‖ q′), nats, matched pair", unit="pairs", xmax=1e4);
 ```
 
 ```{python}
 #| label: fig-kljoint-l5
 #| echo: false
 #| fig-cap: "L = 5: share of matched pairs whose KL between single-effect posteriors over (γ, b), CAVI-Q2 to arm, exceeds x nats."
-P.survival_figure(cn, rows=P.bar_rows(5, col="kl_joint"), xlabel="KL(q ‖ q′), nats, matched pair",
+P.survival_figure(cc, rows=P.bar_rows(5, col="kl_joint"), xlabel="KL(q ‖ q′), nats, matched pair",
                   unit="pairs", xmax=1e4);
 ```
 
@@ -260,29 +282,29 @@ P.survival_figure(cn, rows=P.bar_rows(5, col="kl_joint"), xlabel="KL(q ‖ q′)
 #| label: fig-all-dmu-l1
 #| echo: false
 #| fig-cap: "L = 1: conditional mean shift, one component per fit, every fit."
-P.survival_figure(cn, rows=[(1, "dmu", "all pairs")], xlabel="|Δμ| / σ, single effect", unit="pairs", xmax=10);
+P.survival_figure(cc, rows=[(1, "dmu", "all pairs")], xlabel="|Δμ| / σ, single effect", unit="pairs", xmax=10);
 ```
 
 ```{python}
 #| label: fig-dmu-l1
 #| echo: false
 #| fig-cap: "L = 1: conditional mean shift, as above, one component per fit."
-P.survival_figure(cn, rows=P.bar_rows(1, col="dmu"), xlabel="|Δμ| / σ, single effect",
+P.survival_figure(cc, rows=P.bar_rows(1, col="dmu"), xlabel="|Δμ| / σ, single effect",
                   unit="pairs", xmax=10);
 ```
 
 ```{python}
-#| label: fig-all-lsd-l1
+#| label: fig-all-lvar-l1
 #| echo: false
-#| fig-cap: "L = 1: |log SD ratio|, one component per fit, every fit."
-P.survival_figure(cn, rows=[(1, "abs_lsd", "all pairs")], xlabel="|log σ′/σ|, single effect", unit="pairs", xmax=10);
+#| fig-cap: "L = 1: |log variance ratio|, one component per fit, every fit."
+P.survival_figure(cc, rows=[(1, "abs_lvar", "all pairs")], xlabel="|log σ′²/σ²|, single effect", unit="pairs", xmax=10);
 ```
 
 ```{python}
-#| label: fig-lsd-l1
+#| label: fig-lvar-l1
 #| echo: false
-#| fig-cap: "L = 1: |log SD ratio|, as above."
-P.survival_figure(cn, rows=P.bar_rows(1, col="abs_lsd"), xlabel="|log σ′/σ|, single effect",
+#| fig-cap: "L = 1: |log variance ratio|, as above."
+P.survival_figure(cc, rows=P.bar_rows(1, col="abs_lvar"), xlabel="|log σ′²/σ²|, single effect",
                   unit="pairs", xmax=10);
 ```
 
@@ -355,19 +377,19 @@ table(cd, "max_alpha", COMMON.format(unit="matched declared component pairs") +
 #| label: tab-dmu
 #| echo: false
 #| output: asis
-table(cd, "dmu", COMMON.format(unit="matched declared component pairs") +
+table(cdc, "dmu", COMMON.format(unit="matched declared component pairs, separated pairs left out") +
       " Value: sum over features of alpha_CAVI x |mu_arm - mu_CAVI| / sd_CAVI, the conditional "
       "posterior mean shift in CAVI-Q2 posterior SDs.")
 ```
 
-### Conditional SD ratio {#sec-lsd}
+### Conditional variance ratio {#sec-lvar}
 
 ```{python}
-#| label: tab-lsd
+#| label: tab-lvar
 #| echo: false
 #| output: asis
-table(cd, "lsd", COMMON.format(unit="matched declared component pairs") +
-      " Value: sum over features of alpha_CAVI x log(sd_arm / sd_CAVI), signed; negative means "
+table(cdc, "lvar", COMMON.format(unit="matched declared component pairs, separated pairs left out") +
+      " Value: sum over features of alpha_CAVI x log(var_arm / var_CAVI), signed; negative means "
       "the arm's conditional posteriors are narrower than CAVI-Q2's.")
 ```
 
@@ -377,7 +399,7 @@ table(cd, "lsd", COMMON.format(unit="matched declared component pairs") +
 #| label: tab-kl-joint
 #| echo: false
 #| output: asis
-table(cd, "kl_joint", COMMON.format(unit="matched declared component pairs") +
+table(cdc, "kl_joint", COMMON.format(unit="matched declared component pairs, separated pairs left out") +
       " Value: KL(q_CAVI || q_arm) over (gamma, b) in nats, the alpha KL plus the "
       "alpha-weighted KL between conditional normals.")
 ```
@@ -398,13 +420,13 @@ table(fn, "max_pip", COMMON.format(unit="fits") +
 ```{python}
 #| label: fig-cells-L5
 #| echo: false
-#| fig-cap: "L = 5: mean distance to CAVI-Q2 per cell against each experiment's sweep axis (non-null cells, matched declared component pairs): TV between alphas (top) and the alpha-weighted conditional mean shift in CAVI-Q2 posterior SDs (bottom). 95% intervals resample replicates."
-P.by_axis_figure(comp.filter(pl.col("declared_ref") | pl.col("declared_arm")), 5);
+#| fig-cap: "L = 5: mean distance to CAVI-Q2 per cell against each experiment's sweep axis (non-null cells, matched declared component pairs): TV between alphas (top) and the alpha-weighted conditional mean shift in CAVI-Q2 posterior SDs (bottom). Separated pairs left out. 95% intervals resample replicates."
+P.by_axis_figure(comp.filter((pl.col("declared_ref") | pl.col("declared_arm")) & ~pl.col("sep")), 5);
 ```
 
 ```{python}
 #| label: fig-cells-L1
 #| echo: false
 #| fig-cap: "L = 1: as above, one component per fit."
-P.by_axis_figure(comp.filter(pl.col("declared_ref") | pl.col("declared_arm")), 1);
+P.by_axis_figure(comp.filter((pl.col("declared_ref") | pl.col("declared_arm")) & ~pl.col("sep")), 1);
 ```
