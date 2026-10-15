@@ -24,8 +24,9 @@ import truth as T
 bins, reps, comps = T.load()
 ```
 
-Every arm is scored against the simulated truth. The [agreement page](pip_agreement.qmd)
-compares arms with CAVI-Q2; this page compares them with the causal features.
+Every arm is scored against the simulated truth: first per scenario relative to CAVI-Q2
+(@sec-vs-cavi), then pooled over scenarios. The [agreement page](pip_agreement.qmd) compares
+arms with CAVI-Q2 directly, replicate by replicate.
 
 - Designs: *Binary* (binary Markov sets, 022), *Binary-Block* (nested binary blocks, 024),
   *Gaussian* (Gaussian AR(1), 023). $L^* = 3$ causals fit at $L = 5$; one causal fit at
@@ -49,6 +50,48 @@ for e in T.EXPS:
         if g.height:
             print(f"- {T.DESIGN[e]}, L={L}: {g['signal'].max()} signal and {g['null'].max()} null "
                   f"fits per arm, {g.height} arms")
+```
+
+## Relative to CAVI-Q2, per scenario {#sec-vs-cavi}
+
+Pooled metrics mostly reflect which scenarios are easy. Here each scenario (one grid cell:
+design, $L$, sweep value, $T$, gap; signal cells only) gives one number per arm, the arm's
+metric minus CAVI-Q2's in the same scenario, on the same replicates. Size is a ratio.
+
+- *coverage*, *power*, *mean CS size*: declared 95% CSs (component log BF $\geq 2$), as in
+  @sec-cs.
+- *overconfidence*: among features with PIP $\geq 0.5$, mean PIP minus the share that are
+  causal. Positive = PIPs higher than the share causal.
+
+Scenarios with few declared CSs give noisy coverage differences.
+
+```{python}
+#| label: setup-vs-cavi
+#| include: false
+sf = T.scenario_frame(bins, reps)
+```
+
+```{python}
+#| label: fig-vs-cavi
+#| echo: false
+#| fig-cap: "Each arm against CAVI-Q2, one point per scenario (filled L = 5, hollow L = 1, jittered); black bar: median over scenarios (geometric median for the size ratio). Dashed: no difference."
+T.vs_cavi_figure(sf);
+```
+
+```{python}
+#| label: tab-vs-cavi
+#| echo: false
+#| output: asis
+for col, ratio, head, leg in [
+    ("d_coverage", False, "Coverage minus CAVI-Q2", "declared 95% CS coverage, arm minus CAVI-Q2"),
+    ("d_power", False, "Power minus CAVI-Q2", "declared 95% CS power, arm minus CAVI-Q2"),
+    ("r_size", True, "Mean CS size over CAVI-Q2", "mean declared 95% CS size, arm over CAVI-Q2 (geometric median)"),
+    ("d_overconf", False, "Overconfidence minus CAVI-Q2", "mean PIP minus share causal at PIP ≥ 0.5, arm minus CAVI-Q2"),
+]:
+    print(f"**{head}**\n")
+    print(T.md(T.vs_cavi_table(sf, col, ratio), "cell", "{}",
+               legend=f"Each arm column: median [min, max] over scenarios of the {leg}."))
+    print()
 ```
 
 ## PIP calibration {#sec-calibration}

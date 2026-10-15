@@ -12,7 +12,7 @@ not fits.parquet:
 ``load`` reduces these on read to three frames, cached in analysis/.cache keyed on the reduction
 files' paths, sizes and mtimes:
 
-* bins: summed PIP bins per (exp, L, method, cell).
+* bins: summed PIP bins per (exp, L, method, cell, batch of replicates).
 * reps: one row per (exp, L, method, cell, replicate): causal count, features and causals at or
         above each PIP threshold in THRESHOLDS, declared components, declared components that
         cover a causal, causals captured by a declared 95% CS, summed declared 95% CS size.
@@ -404,3 +404,107 @@ def cs_dot_figure(reps: pl.DataFrame):
     fig.legend(handles=h, loc="upper center", ncol=2, fontsize=7, frameon=False)
     fig.tight_layout(rect=(0, 0, 1, 0.97))
     return fig
+
+
+# ------------------------------------------------------------------------------ vs CAVI-Q2, per scenario
+_SCEN = ["exp", "design", "L"] + [c for c in CELL if c != "null"]
+
+
+def scenario_frame(bins: pl.DataFrame, reps: pl.DataFrame, lo: float = 0.5) -> pl.DataFrame:
+    """One row per (signal scenario, arm): coverage, power and mean size of declared 95% CSs,
+    overconfidence = mean PIP minus share causal among features with PIP >= lo, and each as a
+    difference from CAVI-Q2 in the same scenario (size as a ratio). A scenario is one cell of the
+    grid (design, L, sweep value, T, gap); every arm sees the same simulated replicates."""
+    r = (reps.filter(~pl.col("null")).group_by(_SCEN + ["method"])
+         .agg((pl.col("n_covering").sum() / pl.col("n_declared").sum()).alias("coverage"),
+              (pl.col("n_captured").sum() / pl.col("n_causal").sum()).alias("power"),
+              (pl.col("size_sum").sum() / pl.col("n_declared").sum()).alias("size")))
+    k = int(round(lo * NBIN))
+    mids = (np.arange(NBIN) + 0.5) / NBIN
+    rows = []
+    for key, g in bins.filter(~pl.col("null")).group_by(_SCEN + ["method"]):   # one bins row per batch
+        cnt = np.array(g["counts"].to_list(), dtype=float).sum(0)[k:]
+        cau = np.array(g["causal"].to_list(), dtype=float).sum(0)[k:]
+        n = cnt.sum()
+        rows.append(dict(zip(_SCEN + ["method"], key)) |
+                    {"overconf": float((cnt * mids[k:]).sum() / n - cau.sum() / n) if n else None,
+                     "n_hi": n})
+    df = r.join(pl.DataFrame(rows, infer_schema_length=None), on=_SCEN + ["method"], how="left",
+                nulls_equal=True)
+    df = df.with_columns(pl.col(c).fill_nan(None) for c in ("coverage", "size", "overconf"))
+    ref = df.filter(pl.col("method") == "cavi").select(
+        _SCEN + [pl.col(c).alias(f"{c}_cavi") for c in ("coverage", "power", "size", "overconf")])
+    return (df.filter(pl.col("method") != "cavi").join(ref, on=_SCEN, how="inner", nulls_equal=True)
+            .with_columns((pl.col("coverage") - pl.col("coverage_cavi")).alias("d_coverage"),
+                          (pl.col("power") - pl.col("power_cavi")).alias("d_power"),
+                          (pl.col("size") / pl.col("size_cavi")).alias("r_size"),
+                          (pl.col("overconf") - pl.col("overconf_cavi")).alias("d_overconf")))
+
+
+VS_CAVI = [
+    ("d_coverage", "coverage\n− CAVI-Q2", False),
+    ("d_power", "power\n− CAVI-Q2", False),
+    ("r_size", "mean CS size\n÷ CAVI-Q2", True),
+    ("d_overconf", "overconfidence\n− CAVI-Q2", False),
+]
+
+
+def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
+    """Rows = VS_CAVI metrics, columns = designs, x = arm: one small point per scenario (jittered;
+    filled L = 5, hollow L = 1) and a bar at the median over scenarios. Dashed: no difference."""
+    import matplotlib.pyplot as plt
+    rng = np.random.default_rng(seed)
+    ms = arms(sf)
+    fig, axes = plt.subplots(len(VS_CAVI), len(EXPS), figsize=(6.5, 7.6), sharex=True, sharey="row",
+                             squeeze=False)
+    for j, exp in enumerate(EXPS):
+        d = sf.filter(pl.col("exp") == exp)
+        for i, (col, label, ratio) in enumerate(VS_CAVI):
+            ax = axes[i, j]
+            ax.axhline(1.0 if ratio else 0.0, color="0.5", lw=0.7, ls="--", zorder=0)
+            for k, m in enumerate(ms):
+                c = R.METHOD_COLOR[m]
+                for L, dx, hollow in ((5, -0.17, False), (1, 0.17, True)):
+                    y = d.filter((pl.col("method") == m) & (pl.col("L") == L))[col].drop_nulls().to_numpy()
+                    y = y[np.isfinite(y)]
+                    if y.size == 0:
+                        continue
+                    x = k + dx + rng.uniform(-0.07, 0.07, y.size)
+                    ax.scatter(x, y, s=7, marker=R.METHOD_MARKER[m], facecolor="white" if hollow else c,
+                               edgecolor=c, linewidth=0.5, alpha=0.75, zorder=2)
+                    med = np.exp(np.median(np.log(y))) if ratio else np.median(y)
+                    ax.plot([k + dx - 0.13, k + dx + 0.13], [med, med], color="k", lw=1.4, zorder=3)
+            if ratio:
+                ax.set_yscale("log")
+            ax.grid(True, axis="y", alpha=0.25)
+            ax.tick_params(labelsize=6.5)
+            if i == 0:
+                ax.set_title(DESIGN[exp], fontsize=8)
+            if j == 0:
+                ax.set_ylabel(label, fontsize=7.5)
+    for a in axes[-1]:
+        a.set_xticks(range(len(ms)))
+        a.set_xticklabels([R.METHOD_LABEL[m] for m in ms], rotation=60, ha="right", fontsize=6.5)
+        a.set_xlim(-0.6, len(ms) - 0.4)
+    from matplotlib.lines import Line2D
+    h = [Line2D([], [], color="0.3", marker="o", ls="", ms=4, label="L = 5 scenario"),
+         Line2D([], [], color="0.3", marker="o", mfc="white", ls="", ms=4, label="L = 1 scenario"),
+         Line2D([], [], color="k", lw=1.4, label="median over scenarios")]
+    fig.legend(handles=h, loc="upper center", ncol=3, fontsize=7, frameon=False)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    return fig
+
+
+def vs_cavi_table(sf: pl.DataFrame, col: str, ratio: bool = False, digits: int = 3) -> pl.DataFrame:
+    """Per (design, L, arm): 'median [min, max]' of `col` over scenarios."""
+    f = f"{{:.{digits}f}}"
+    out = []
+    for (design, L, m), g in sf.group_by("design", "L", "method"):
+        y = g[col].drop_nulls().to_numpy()
+        y = y[np.isfinite(y)]
+        if y.size == 0:
+            continue
+        med = float(np.exp(np.median(np.log(y)))) if ratio else float(np.median(y))
+        out.append({"design": design, "L": L, "method": m,
+                    "cell": f"{f.format(med)} [{f.format(y.min())}, {f.format(y.max())}]"})
+    return pl.DataFrame(out)
