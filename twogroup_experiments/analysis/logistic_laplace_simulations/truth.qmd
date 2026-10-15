@@ -1,0 +1,135 @@
+---
+title: "Logistic SuSiE against the truth"
+subtitle: "PIP calibration, FDP and power, and credible-set coverage, power and size for every logistic arm in the Binary, Binary-Block and Gaussian designs (022-024) at L=5 and L=1"
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))   # analysis/logistic_laplace_simulations -> analysis
+os.chdir("..")                                # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/logistic_laplace_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import laplacelib as R
+import truth as T
+
+bins, reps, comps = T.load()
+```
+
+Every arm is scored against the simulated truth. The [agreement page](pip_agreement.qmd)
+compares arms with CAVI-Q2; this page compares them with the causal features.
+
+- Designs: *Binary* (binary Markov sets, 022), *Binary-Block* (nested binary blocks, 024),
+  *Gaussian* (Gaussian AR(1), 023). $L^* = 3$ causals fit at $L = 5$; one causal fit at
+  $L = 1$ (the `-ser` grids). 200 replicates per cell, pooled over each design's sweep axis,
+  $T$ and gap.
+- Declared credible set: the 95% CS of a component with log BF $\geq 2$. A CS covers when it
+  contains a causal feature.
+- Signal cells only, except where a column says null. gIBSS-GO, Taylor2 and MacKay run at
+  $L = 5$ only.
+- Source: the pipeline's `pip` and `cs` reductions (`truth.py`).
+
+```{python}
+#| label: status
+#| echo: false
+#| output: asis
+st = (reps.group_by("design", "L", "method")
+      .agg((~pl.col("null")).sum().alias("signal"), pl.col("null").sum().alias("null")))
+for e in T.EXPS:
+    for L in (5, 1):
+        g = st.filter((pl.col("design") == T.DESIGN[e]) & (pl.col("L") == L))
+        if g.height:
+            print(f"- {T.DESIGN[e]}, L={L}: {g['signal'].max()} signal and {g['null'].max()} null "
+                  f"fits per arm, {g.height} arms")
+```
+
+## PIP calibration {#sec-calibration}
+
+```{python}
+#| label: fig-calibration-l5
+#| echo: false
+#| fig-cap: "L = 5: share of features that are causal (y) per PIP bin (x, 20 bins), signal cells pooled. Dot area grows with the bin's feature count. Dotted line: calibrated."
+T.calibration_figure(bins, 5);
+```
+
+```{python}
+#| label: fig-calibration-l1
+#| echo: false
+#| fig-cap: "L = 1: as above."
+T.calibration_figure(bins, 1);
+```
+
+```{python}
+#| label: tab-calibration
+#| echo: false
+#| output: asis
+cal = T.calibration_table(bins, 0.9)
+print(T.md(cal.with_columns(pl.format("{} / {}", pl.col("pip").round(3), pl.col("causal").round(3)).alias("cell")),
+           "cell", "{}",
+           legend="Features with PIP ≥ 0.9, signal cells. Each arm column: mean PIP / share causal. "
+                  "Share causal below mean PIP = PIPs too high."))
+```
+
+## FDP and power {#sec-fdp}
+
+Select every feature with PIP $\geq t$. FDP is the share of selected features that are not
+causal; power is the share of causal features selected.
+
+```{python}
+#| label: fig-fdp-power
+#| echo: false
+#| fig-cap: "Power against FDP as the PIP threshold t sweeps from 1 down to 0, signal cells pooled (so FDP here is pooled over fits). Dots: t = 0.95. Dotted line: FDP = 0.05."
+T.fdp_power_figure(bins);
+```
+
+```{python}
+#| label: tab-fdp
+#| echo: false
+#| output: asis
+for t in (0.95, 0.5):
+    tab = T.threshold_table(reps, t).with_columns(
+        pl.format("{} / {} / {}", pl.col("fdr").round(3), pl.col("power").round(3),
+                  pl.col("null_any").round(3)).alias("cell"))
+    print(f"**PIP ≥ {t:g}**\n")
+    print(T.md(tab, "cell", "{}",
+               legend=f"Each arm column: FDR / power / null. *FDR*: mean over signal fits of the fit's FDP "
+                      f"at PIP ≥ {t:g} (0 if nothing is selected). *power*: share of causal features with "
+                      f"PIP ≥ {t:g}. *null*: share of null fits that select any feature."))
+    print()
+```
+
+## Credible sets {#sec-cs}
+
+```{python}
+#| label: tab-cs
+#| echo: false
+#| output: asis
+cs = T.cs_table(reps, comps)
+specs = [
+    ("coverage", "{:.3f}", "Coverage", "share of declared 95% CSs that contain a causal feature (nominal 0.95)."),
+    ("power", "{:.3f}", "Power", "share of causal features inside some declared 95% CS."),
+    ("mean_size", "{:.1f}", "Mean CS size", "mean size of declared 95% CSs."),
+    ("median_size", "{:.0f}", "Median CS size", "median size of declared 95% CSs."),
+    ("cs_per_fit", "{:.2f}", "Declared CSs per fit", "declared CSs per signal fit (3 causals at L = 5, 1 at L = 1)."),
+    ("null_cs_per_fit", "{:.3f}", "Declared CSs per null fit", "declared CSs per null fit; every one is a false discovery."),
+]
+for col, fmt, head, leg in specs:
+    print(f"**{head}**\n")
+    print(T.md(cs, col, fmt, legend=f"Each arm column: {leg}"))
+    print()
+```
+
+```{python}
+#| label: fig-cs-reliability
+#| echo: false
+#| fig-cap: "Coverage of declared CSs at nominal level β: the share whose β-level CS contains a causal feature, signal cells. Dotted line: nominal. Below it = coverage short of nominal."
+T.cs_reliability_figure(comps);
+```
