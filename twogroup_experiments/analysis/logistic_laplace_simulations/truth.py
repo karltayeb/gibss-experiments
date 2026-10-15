@@ -15,7 +15,7 @@ files' paths, sizes and mtimes:
 * bins: summed PIP bins per (exp, L, method, cell).
 * reps: one row per (exp, L, method, cell, replicate): causal count, features and causals at or
         above each PIP threshold in THRESHOLDS, declared components, declared components that
-        cover a causal, causals captured by a declared 95% CS.
+        cover a causal, causals captured by a declared 95% CS, summed declared 95% CS size.
 * comps: one row per declared component (log BF >= MIN_LOG_BF): 95% CS size, whether it covers a
         causal, and the smallest mass above any causal (``best_mass``, for coverage at any level).
 """
@@ -101,15 +101,17 @@ def _reduce(files) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
             covers = best is not None and best < 0.95
             comp_rows.append({**key, "ser_log_bf": lbf, "size": sizes[IDX95], "covers": covers,
                               "best_mass": best})
-            per_rep.setdefault(sid, []).append((covers, {j for j, m in zip(ci, mass) if m < 0.95}))
-        n_decl, n_cov, n_cap = [], [], []
+            per_rep.setdefault(sid, []).append((covers, {j for j, m in zip(ci, mass) if m < 0.95},
+                                                sizes[IDX95]))
+        n_decl, n_cov, n_cap, size_sum = [], [], [], []
         for sid in reps["sample_id"]:
             comps = per_rep.get(sid, [])
             n_decl.append(len(comps))
-            n_cov.append(sum(c for c, _ in comps))
-            n_cap.append(len(set().union(*(s for _, s in comps))) if comps else 0)
+            n_cov.append(sum(c for c, _, _ in comps))
+            n_cap.append(len(set().union(*(s for _, s, _ in comps))) if comps else 0)
+            size_sum.append(sum(z for _, _, z in comps))
         rep_rows.append(pl.DataFrame({**reps, "n_declared": n_decl, "n_covering": n_cov,
-                                      "n_captured": n_cap}).with_columns(
+                                      "n_captured": n_cap, "size_sum": size_sum}).with_columns(
             *[pl.lit(v).alias(k) for k, v in key.items()]))
     bins = pl.DataFrame(bin_rows, infer_schema_length=None)
     return bins, pl.concat(rep_rows, how="diagonal_relaxed"), pl.DataFrame(comp_rows, infer_schema_length=None)
@@ -118,7 +120,7 @@ def _reduce(files) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
 def load(sources=SOURCES) -> tuple[pl.DataFrame, pl.DataFrame, pl.DataFrame]:
     """(bins, reps, comps); see the module docstring. Every frame carries a `design` column."""
     files = _files(sources)
-    stem = os.path.join(CACHE, f"truth_{_fingerprint(files)}")
+    stem = os.path.join(CACHE, f"truth_v2_{_fingerprint(files)}")
     if os.path.exists(stem + "_comps.parquet"):
         out = tuple(pl.read_parquet(f"{stem}_{n}.parquet") for n in ("bins", "reps", "comps"))
     else:
@@ -198,13 +200,15 @@ def calibration_table(bins: pl.DataFrame, lo: float = 0.9) -> pl.DataFrame:
 
 
 # ------------------------------------------------------------------------------ FDP / power
-def fdp_power_figure(bins: pl.DataFrame):
+def fdp_power_figure(bins: pl.DataFrame, max_fdp: float = 1.0):
     """Rows = L (5, 1), columns = designs: power (share of causals with PIP >= t) against FDP
     (share of features with PIP >= t that are not causal), sweeping t over the 200 bin edges,
-    non-null cells pooled. The dot marks t = 0.95."""
+    non-null cells pooled. The dot marks t = 0.95. x runs to `max_fdp`; below 1, y runs to the
+    largest power reached within it (shared across panels)."""
     import matplotlib.pyplot as plt
     fig, axes = plt.subplots(2, len(EXPS), figsize=(6.5, 4.6), sharex=True, sharey=True, squeeze=False)
     k95 = int(round(0.95 * NBIN))
+    top = 0.0
     for i, L in enumerate((5, 1)):
         d = bins.filter((pl.col("L") == L) & ~pl.col("null"))
         for j, exp in enumerate(EXPS):
@@ -219,11 +223,12 @@ def fdp_power_figure(bins: pl.DataFrame):
                 power = tp / max(cau.sum(), 1)
                 fdp = np.where(sel > 0, (sel - tp) / np.maximum(sel, 1), np.nan)
                 ax.plot(fdp, power, color=R.METHOD_COLOR[m], lw=1.1, label=R.METHOD_LABEL[m])
+                vis = power[fdp <= max_fdp]
+                top = max(top, float(vis.max()) if vis.size else 0.0)
                 ax.scatter([fdp[k95]], [power[k95]], s=14, color=R.METHOD_COLOR[m],
                            marker=R.METHOD_MARKER[m], edgecolor="white", linewidth=0.4, zorder=4)
             ax.axvline(0.05, color="0.6", lw=0.6, ls=":")
-            ax.set_xlim(0, 1)
-            ax.set_ylim(0, 1.02)
+            ax.set_xlim(0, max_fdp)
             ax.grid(True, alpha=0.25)
             ax.tick_params(labelsize=7)
             if i == 0:
@@ -232,6 +237,7 @@ def fdp_power_figure(bins: pl.DataFrame):
                 ax.set_xlabel("FDP", fontsize=7.5)
             if j == 0:
                 ax.set_ylabel(f"L = {L}\npower", fontsize=8)
+    axes[0, 0].set_ylim(0, 1.02 if max_fdp >= 1 else min(1.02, 1.08 * top))
     handles = {}
     for ax in axes.flat:
         for h, lab in zip(*ax.get_legend_handles_labels()):
@@ -329,3 +335,72 @@ def md(tab: pl.DataFrame, value: str, fmt: str, legend: str = "") -> str:
                 cells.append("-" if x.len() == 0 or x[0] is None else fmt.format(x[0]))
             lines.append(f"| {DESIGN[exp]} | {L} | " + " | ".join(cells) + " |")
     return "\n".join(lines) + (f"\n\n{legend}" if legend else "")
+
+
+# (key, row label, (numerator, denominator) reps columns, null fits?). Estimate = sum(num) / sum(den)
+# over replicates, or mean(num) when den is None.
+CS_DOTS = [
+    ("coverage", "coverage", ("n_covering", "n_declared"), False),
+    ("power", "power", ("n_captured", "n_causal"), False),
+    ("size", "mean CS size", ("size_sum", "n_declared"), False),
+    ("null_cs", "declared CSs\nper null fit", ("n_declared", None), True),
+]
+
+
+def _boot(num: np.ndarray, den: np.ndarray | None, n_boot: int = 1000, seed: int = 0):
+    """Estimate sum(num) / sum(den) (or mean(num)) and a 95% interval from resampling replicates."""
+    rng = np.random.default_rng(seed)
+    den = np.ones_like(num) if den is None else den
+    if den.sum() == 0:
+        return np.nan, np.nan, np.nan
+    idx = rng.integers(0, len(num), size=(n_boot, len(num)))
+    with np.errstate(invalid="ignore", divide="ignore"):
+        b = num[idx].sum(1) / den[idx].sum(1)
+    return float(num.sum() / den.sum()), float(np.nanquantile(b, 0.025)), float(np.nanquantile(b, 0.975))
+
+
+def cs_dot_figure(reps: pl.DataFrame):
+    """Rows = coverage, power, mean size of declared 95% CSs (signal fits) and declared CSs per
+    null fit; columns = designs; x = arm. Filled marker L = 5, hollow L = 1; bars are 95%
+    intervals from resampling replicates."""
+    import matplotlib.pyplot as plt
+    ms = arms(reps)
+    fig, axes = plt.subplots(len(CS_DOTS), len(EXPS), figsize=(6.5, 7.6), sharex=True, sharey="row",
+                             squeeze=False)
+    for j, exp in enumerate(EXPS):
+        d = reps.filter(pl.col("exp") == exp)
+        for i, (key, label, (num, den), null) in enumerate(CS_DOTS):
+            ax = axes[i, j]
+            for k, m in enumerate(ms):
+                for L, dx, hollow in ((5, -0.17, False), (1, 0.17, True)):
+                    g = d.filter((pl.col("method") == m) & (pl.col("L") == L) & (pl.col("null") == null))
+                    if g.height == 0:
+                        continue
+                    est, lo, hi = _boot(g[num].to_numpy().astype(float),
+                                        None if den is None else g[den].to_numpy().astype(float))
+                    if np.isnan(est):
+                        continue
+                    c = R.METHOD_COLOR[m]
+                    ax.errorbar([k + dx], [est], yerr=[[est - lo], [hi - est]], fmt=R.METHOD_MARKER[m],
+                                ms=4, color=c, mfc="white" if hollow else c, mec=c, lw=0.9, capsize=0)
+            if key == "coverage":
+                ax.axhline(0.95, color="0.5", lw=0.7, ls="--")
+            if key == "size":
+                ax.set_yscale("log")
+                ax.set_ylim(bottom=1)
+            ax.grid(True, axis="y", alpha=0.25)
+            ax.tick_params(labelsize=6.5)
+            if i == 0:
+                ax.set_title(DESIGN[exp], fontsize=8)
+            if j == 0:
+                ax.set_ylabel(label, fontsize=7.5)
+    for a in axes[-1]:
+        a.set_xticks(range(len(ms)))
+        a.set_xticklabels([R.METHOD_LABEL[m] for m in ms], rotation=60, ha="right", fontsize=6.5)
+        a.set_xlim(-0.6, len(ms) - 0.4)
+    from matplotlib.lines import Line2D
+    h = [Line2D([], [], color="0.3", marker="o", ls="", ms=4, label="L = 5"),
+         Line2D([], [], color="0.3", marker="o", mfc="white", ls="", ms=4, label="L = 1")]
+    fig.legend(handles=h, loc="upper center", ncol=2, fontsize=7, frameon=False)
+    fig.tight_layout(rect=(0, 0, 1, 0.97))
+    return fig

@@ -91,6 +91,13 @@ T.fdp_power_figure(bins);
 ```
 
 ```{python}
+#| label: fig-fdp-power-04
+#| echo: false
+#| fig-cap: "As above, FDP up to 0.4."
+T.fdp_power_figure(bins, max_fdp=0.4);
+```
+
+```{python}
 #| label: tab-fdp
 #| echo: false
 #| output: asis
@@ -107,6 +114,13 @@ for t in (0.95, 0.5):
 ```
 
 ## Credible sets {#sec-cs}
+
+```{python}
+#| label: fig-cs-dots
+#| echo: false
+#| fig-cap: "Declared 95% credible sets (component log BF ≥ 2). Rows: coverage (dashed: nominal 0.95), power and mean size (log axis) over signal fits, and declared CSs per null fit. Filled markers L = 5, hollow L = 1 (gIBSS-GO, Taylor2 and MacKay run at L = 5 only). Bars: 95% intervals from resampling replicates."
+T.cs_dot_figure(reps);
+```
 
 ```{python}
 #| label: tab-cs
