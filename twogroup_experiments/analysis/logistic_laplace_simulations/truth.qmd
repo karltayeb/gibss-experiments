@@ -72,10 +72,24 @@ sf = T.scenario_frame(bins, reps)
 ```
 
 ```{python}
-#| label: fig-vs-cavi
+#| label: fig-vs-cavi-022
 #| echo: false
-#| fig-cap: "Each arm against CAVI-Q2, one point per scenario (filled L = 5, hollow L = 1, jittered); black bar: median over scenarios (geometric median for the size ratio). Dashed: no difference."
-T.vs_cavi_figure(sf);
+#| fig-cap: "Binary: each arm against CAVI-Q2, one point per scenario (jittered), L = 5 and L = 1 side by side; black bar: median over scenarios (geometric median for the size ratio). Dashed: no difference."
+T.vs_cavi_figure(sf, "022");
+```
+
+```{python}
+#| label: fig-vs-cavi-024
+#| echo: false
+#| fig-cap: "Binary-Block: each arm against CAVI-Q2, one point per scenario (jittered), L = 5 and L = 1 side by side; black bar: median over scenarios (geometric median for the size ratio). Dashed: no difference."
+T.vs_cavi_figure(sf, "024");
+```
+
+```{python}
+#| label: fig-vs-cavi-023
+#| echo: false
+#| fig-cap: "Gaussian: each arm against CAVI-Q2, one point per scenario (jittered), L = 5 and L = 1 side by side; black bar: median over scenarios (geometric median for the size ratio). Dashed: no difference."
+T.vs_cavi_figure(sf, "023");
 ```
 
 ```{python}
@@ -159,10 +173,24 @@ for t in (0.95, 0.5):
 ## Credible sets {#sec-cs}
 
 ```{python}
-#| label: fig-cs-dots
+#| label: fig-cs-dots-022
 #| echo: false
-#| fig-cap: "Declared 95% credible sets (component log BF ≥ 2). Rows: coverage (dashed: nominal 0.95), power and mean size (log axis) over signal fits, and declared CSs per null fit. Filled markers L = 5, hollow L = 1 (gIBSS-GO, Taylor2 and MacKay run at L = 5 only). Bars: 95% intervals from resampling replicates."
-T.cs_dot_figure(reps);
+#| fig-cap: "Binary: declared 95% credible sets (component log BF ≥ 2), L = 5 and L = 1 side by side. Rows: coverage (dashed: nominal 0.95), power and mean size (log axis) over signal fits, and declared CSs per null fit. Bars: 95% intervals from resampling replicates."
+T.cs_dot_figure(reps, "022");
+```
+
+```{python}
+#| label: fig-cs-dots-024
+#| echo: false
+#| fig-cap: "Binary-Block: declared 95% credible sets (component log BF ≥ 2), L = 5 and L = 1 side by side. Rows: coverage (dashed: nominal 0.95), power and mean size (log axis) over signal fits, and declared CSs per null fit. Bars: 95% intervals from resampling replicates."
+T.cs_dot_figure(reps, "024");
+```
+
+```{python}
+#| label: fig-cs-dots-023
+#| echo: false
+#| fig-cap: "Gaussian: declared 95% credible sets (component log BF ≥ 2), L = 5 and L = 1 side by side. Rows: coverage (dashed: nominal 0.95), power and mean size (log axis) over signal fits, and declared CSs per null fit. Bars: 95% intervals from resampling replicates."
+T.cs_dot_figure(reps, "023");
 ```
 
 ```{python}

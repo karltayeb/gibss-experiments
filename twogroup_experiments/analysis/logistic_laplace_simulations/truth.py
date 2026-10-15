@@ -359,53 +359,6 @@ def _boot(num: np.ndarray, den: np.ndarray | None, n_boot: int = 1000, seed: int
     return float(num.sum() / den.sum()), float(np.nanquantile(b, 0.025)), float(np.nanquantile(b, 0.975))
 
 
-def cs_dot_figure(reps: pl.DataFrame):
-    """Rows = coverage, power, mean size of declared 95% CSs (signal fits) and declared CSs per
-    null fit; columns = designs; x = arm. Filled marker L = 5, hollow L = 1; bars are 95%
-    intervals from resampling replicates."""
-    import matplotlib.pyplot as plt
-    ms = arms(reps)
-    fig, axes = plt.subplots(len(CS_DOTS), len(EXPS), figsize=(6.5, 7.6), sharex=True, sharey="row",
-                             squeeze=False)
-    for j, exp in enumerate(EXPS):
-        d = reps.filter(pl.col("exp") == exp)
-        for i, (key, label, (num, den), null) in enumerate(CS_DOTS):
-            ax = axes[i, j]
-            for k, m in enumerate(ms):
-                for L, dx, hollow in ((5, -0.17, False), (1, 0.17, True)):
-                    g = d.filter((pl.col("method") == m) & (pl.col("L") == L) & (pl.col("null") == null))
-                    if g.height == 0:
-                        continue
-                    est, lo, hi = _boot(g[num].to_numpy().astype(float),
-                                        None if den is None else g[den].to_numpy().astype(float))
-                    if np.isnan(est):
-                        continue
-                    c = R.METHOD_COLOR[m]
-                    ax.errorbar([k + dx], [est], yerr=[[est - lo], [hi - est]], fmt=R.METHOD_MARKER[m],
-                                ms=4, color=c, mfc="white" if hollow else c, mec=c, lw=0.9, capsize=0)
-            if key == "coverage":
-                ax.axhline(0.95, color="0.5", lw=0.7, ls="--")
-            if key == "size":
-                ax.set_yscale("log")
-                ax.set_ylim(bottom=1)
-            ax.grid(True, axis="y", alpha=0.25)
-            ax.tick_params(labelsize=6.5)
-            if i == 0:
-                ax.set_title(DESIGN[exp], fontsize=8)
-            if j == 0:
-                ax.set_ylabel(label, fontsize=7.5)
-    for a in axes[-1]:
-        a.set_xticks(range(len(ms)))
-        a.set_xticklabels([R.METHOD_LABEL[m] for m in ms], rotation=60, ha="right", fontsize=6.5)
-        a.set_xlim(-0.6, len(ms) - 0.4)
-    from matplotlib.lines import Line2D
-    h = [Line2D([], [], color="0.3", marker="o", ls="", ms=4, label="L = 5"),
-         Line2D([], [], color="0.3", marker="o", mfc="white", ls="", ms=4, label="L = 1")]
-    fig.legend(handles=h, loc="upper center", ncol=2, fontsize=7, frameon=False)
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
-    return fig
-
-
 # ------------------------------------------------------------------------------ vs CAVI-Q2, per scenario
 _SCEN = ["exp", "design", "L"] + [c for c in CELL if c != "null"]
 
@@ -449,52 +402,6 @@ VS_CAVI = [
 ]
 
 
-def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
-    """Rows = VS_CAVI metrics, columns = designs, x = arm: one small point per scenario (jittered;
-    filled L = 5, hollow L = 1) and a bar at the median over scenarios. Dashed: no difference."""
-    import matplotlib.pyplot as plt
-    rng = np.random.default_rng(seed)
-    ms = arms(sf)
-    fig, axes = plt.subplots(len(VS_CAVI), len(EXPS), figsize=(6.5, 7.6), sharex=True, sharey="row",
-                             squeeze=False)
-    for j, exp in enumerate(EXPS):
-        d = sf.filter(pl.col("exp") == exp)
-        for i, (col, label, ratio) in enumerate(VS_CAVI):
-            ax = axes[i, j]
-            ax.axhline(1.0 if ratio else 0.0, color="0.5", lw=0.7, ls="--", zorder=0)
-            for k, m in enumerate(ms):
-                c = R.METHOD_COLOR[m]
-                for L, dx, hollow in ((5, -0.17, False), (1, 0.17, True)):
-                    y = d.filter((pl.col("method") == m) & (pl.col("L") == L))[col].drop_nulls().to_numpy()
-                    y = y[np.isfinite(y)]
-                    if y.size == 0:
-                        continue
-                    x = k + dx + rng.uniform(-0.07, 0.07, y.size)
-                    ax.scatter(x, y, s=7, marker=R.METHOD_MARKER[m], facecolor="white" if hollow else c,
-                               edgecolor=c, linewidth=0.5, alpha=0.75, zorder=2)
-                    med = np.exp(np.median(np.log(y))) if ratio else np.median(y)
-                    ax.plot([k + dx - 0.13, k + dx + 0.13], [med, med], color="k", lw=1.4, zorder=3)
-            if ratio:
-                ax.set_yscale("log")
-            ax.grid(True, axis="y", alpha=0.25)
-            ax.tick_params(labelsize=6.5)
-            if i == 0:
-                ax.set_title(DESIGN[exp], fontsize=8)
-            if j == 0:
-                ax.set_ylabel(label, fontsize=7.5)
-    for a in axes[-1]:
-        a.set_xticks(range(len(ms)))
-        a.set_xticklabels([R.METHOD_LABEL[m] for m in ms], rotation=60, ha="right", fontsize=6.5)
-        a.set_xlim(-0.6, len(ms) - 0.4)
-    from matplotlib.lines import Line2D
-    h = [Line2D([], [], color="0.3", marker="o", ls="", ms=4, label="L = 5 scenario"),
-         Line2D([], [], color="0.3", marker="o", mfc="white", ls="", ms=4, label="L = 1 scenario"),
-         Line2D([], [], color="k", lw=1.4, label="median over scenarios")]
-    fig.legend(handles=h, loc="upper center", ncol=3, fontsize=7, frameon=False)
-    fig.tight_layout(rect=(0, 0, 1, 0.97))
-    return fig
-
-
 def vs_cavi_table(sf: pl.DataFrame, col: str, ratio: bool = False, digits: int = 3) -> pl.DataFrame:
     """Per (design, L, arm): 'median [min, max]' of `col` over scenarios."""
     f = f"{{:.{digits}f}}"
@@ -508,3 +415,99 @@ def vs_cavi_table(sf: pl.DataFrame, col: str, ratio: bool = False, digits: int =
         out.append({"design": design, "L": L, "method": m,
                     "cell": f"{f.format(med)} [{f.format(y.min())}, {f.format(y.max())}]"})
     return pl.DataFrame(out)
+
+
+def _log_axis(ax):
+    """Log y with plain tick labels at 1, 2, 5 x powers of ten."""
+    from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
+    ax.set_yscale("log")
+    ax.yaxis.set_major_locator(LogLocator(subs=(1.0, 2.0, 5.0)))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.yaxis.set_minor_formatter(NullFormatter())
+
+
+def _arm_grid(rows: list[tuple[str, bool]], ms_by_L: dict[int, list[str]], title: str):
+    """Figure with one row per (y label, log y) and two columns, L = 5 then L = 1, each as wide as
+    its arm count; x = arm. Returns (fig, axes)."""
+    import matplotlib.pyplot as plt
+    Ls = [L for L in (5, 1) if ms_by_L.get(L)]
+    fig, axes = plt.subplots(len(rows), len(Ls), figsize=(6.5, 1.75 * len(rows) + 1.2), sharey="row",
+                             squeeze=False,
+                             gridspec_kw={"width_ratios": [len(ms_by_L[L]) + 0.6 for L in Ls]})
+    for j, L in enumerate(Ls):
+        ms = ms_by_L[L]
+        for i, (label, log) in enumerate(rows):
+            ax = axes[i, j]
+            if log:
+                _log_axis(ax)
+            ax.grid(True, axis="y", alpha=0.25)
+            ax.tick_params(labelsize=6.5)
+            ax.set_xlim(-0.6, len(ms) - 0.4)
+            ax.set_xticks(range(len(ms)))
+            ax.set_xticklabels([R.METHOD_LABEL[m] for m in ms] if i == len(rows) - 1 else [],
+                               rotation=60, ha="right", fontsize=6.5)
+            if i == 0:
+                ax.set_title(f"L = {L}", fontsize=8)
+            if j == 0:
+                ax.set_ylabel(label, fontsize=7.5)
+    fig.suptitle(title, fontsize=8.5)
+    return fig, axes, Ls
+
+
+def cs_dot_figure(reps: pl.DataFrame, exp: str):
+    """One design. Rows = coverage, power, mean size of declared 95% CSs (signal fits) and
+    declared CSs per null fit; columns = L = 5 and L = 1; x = arm. Bars are 95% intervals from
+    resampling replicates."""
+    d = reps.filter(pl.col("exp") == exp)
+    ms_by_L = {L: arms(d.filter(pl.col("L") == L)) for L in (5, 1)}
+    fig, axes, Ls = _arm_grid([(label, key == "size") for key, label, _, _ in CS_DOTS], ms_by_L,
+                              DESIGN[exp])
+    size_hi = 1.0
+    for j, L in enumerate(Ls):
+        for i, (key, _label, (num, den), null) in enumerate(CS_DOTS):
+            ax = axes[i, j]
+            for k, m in enumerate(ms_by_L[L]):
+                g = d.filter((pl.col("method") == m) & (pl.col("L") == L) & (pl.col("null") == null))
+                if g.height == 0:
+                    continue
+                est, lo, hi = _boot(g[num].to_numpy().astype(float),
+                                    None if den is None else g[den].to_numpy().astype(float))
+                if np.isnan(est):
+                    continue
+                ax.errorbar([k], [est], yerr=[[est - lo], [hi - est]], fmt=R.METHOD_MARKER[m], ms=4.5,
+                            color=R.METHOD_COLOR[m], lw=0.9, capsize=0)
+                if key == "size":
+                    size_hi = max(size_hi, hi)
+            if key == "coverage":
+                ax.axhline(0.95, color="0.5", lw=0.7, ls="--")
+    for i, (key, *_r) in enumerate(CS_DOTS):
+        if key == "size":   # the row shares y across L
+            axes[i, 0].set_ylim(1, 1.15 * size_hi)
+    fig.tight_layout()
+    return fig
+
+
+def vs_cavi_figure(sf: pl.DataFrame, exp: str, seed: int = 0):
+    """One design. Rows = VS_CAVI metrics, columns = L = 5 and L = 1, x = arm: one point per
+    scenario (jittered) and a black bar at the median over scenarios (geometric for the size
+    ratio). Dashed: no difference from CAVI-Q2."""
+    rng = np.random.default_rng(seed)
+    d = sf.filter(pl.col("exp") == exp)
+    ms_by_L = {L: arms(d.filter(pl.col("L") == L)) for L in (5, 1)}
+    fig, axes, Ls = _arm_grid([(label, ratio) for _, label, ratio in VS_CAVI], ms_by_L, DESIGN[exp])
+    for j, L in enumerate(Ls):
+        for i, (col, _label, ratio) in enumerate(VS_CAVI):
+            ax = axes[i, j]
+            ax.axhline(1.0 if ratio else 0.0, color="0.5", lw=0.7, ls="--", zorder=0)
+            for k, m in enumerate(ms_by_L[L]):
+                y = d.filter((pl.col("method") == m) & (pl.col("L") == L))[col].drop_nulls().to_numpy()
+                y = y[np.isfinite(y)]
+                if y.size == 0:
+                    continue
+                c = R.METHOD_COLOR[m]
+                ax.scatter(k + rng.uniform(-0.18, 0.18, y.size), y, s=8, marker=R.METHOD_MARKER[m],
+                           color=c, linewidth=0, alpha=0.7, zorder=2)
+                med = np.exp(np.median(np.log(y))) if ratio else np.median(y)
+                ax.plot([k - 0.3, k + 0.3], [med, med], color="k", lw=1.4, zorder=3)
+    fig.tight_layout()
+    return fig
