@@ -73,7 +73,7 @@ Coverage, power, mean size and number per fit of declared 95% CSs, one point per
 
 ```{python}
 #| label: fig-vs-cavi
-#| fig-cap: "For L = 5 and then L = 1: CAVI-Q2's own coverage (dashed: nominal 0.95), power, mean CS size and declared CSs per fit, then each arm against CAVI-Q2 in the same scenario (dashed: no difference). One point per scenario; colour = arm, marker = design. The two CAVI-Q2 columns share y per row, as do the two arm columns."
+#| fig-cap: "For L = 5 and then L = 1: CAVI-Q2's own coverage (dashed: nominal 0.95), power, mean CS size and declared CSs per fit, then each arm against CAVI-Q2 in the same scenario (dashed: no difference). One point per scenario; colour = arm, marker = design. Within each column, points run left to right by lambda0 = 0.01, 0.1, 1, 10, 100, with a bar at each rate's median. The two CAVI-Q2 columns share y per row, as do the two arm columns."
 fig = RC.vs_cavi_figure(RC.scenario_frame()); plt.show()
 ```
 

@@ -338,8 +338,9 @@ def _log_axis(ax):
 def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
     """All designs pooled. For each L (5, then 1) two columns: CAVI-Q2's own coverage, power,
     mean CS size and declared CSs per fit per scenario, then each arm minus CAVI-Q2 (size: over).
-    One point per scenario; colour = arm, marker = design (offset, jittered). CAVI columns share
-    y per row, as do the arm columns (the analog of truth.vs_cavi_figure for 022-024)."""
+    One point per scenario; colour = arm, marker = design. Within each arm, scenarios sit left to
+    right by lambda0 (jittered), with a bar at each rate's median. CAVI columns share y per row,
+    as do the arm columns (the analog of truth.vs_cavi_figure for 022-024)."""
     rng = np.random.default_rng(seed)
     ms_by_L = {L: [m for m in ARMS if m in set(sf.filter(pl.col("L") == L)["method"].unique().to_list())]
                for L in (5, 1)}
@@ -352,16 +353,25 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
     for i in range(len(_REL)):
         for c in range(2, 2 * len(Ls)):
             axes[i, c].sharey(axes[i, c % 2])
-    offs = dict(zip(DESIGN_ORDER, (-0.24, 0.0, 0.24)))
+    lams = sorted(sf["lambda0"].unique().to_list())
+    offs = dict(zip(lams, np.linspace(-0.34, 0.34, len(lams))))
+    half = 0.34 / max(len(lams) - 1, 1)                 # half the spacing between rate slots
 
-    def strip(ax, x, ys_by_design, color):
-        for d, y in ys_by_design.items():
-            y = y[np.isfinite(y)]
-            ax.scatter(x + offs[d] + rng.uniform(-0.06, 0.06, y.size), y, s=9, marker=DESIGN_MARKER[d],
-                       facecolor="none", edgecolor=color, linewidth=0.6, alpha=0.8, zorder=2)
-
-    def col(df, c, d):
-        return df.filter(pl.col("design") == d)[c].drop_nulls().to_numpy().astype(float)
+    def strip(ax, x, df, c, color):
+        for lam in lams:
+            g = df.filter(pl.col("lambda0") == lam)
+            ys = []
+            for d in DESIGN_ORDER:
+                y = g.filter(pl.col("design") == d)[c].drop_nulls().to_numpy().astype(float)
+                y = y[np.isfinite(y)]
+                ys.append(y)
+                ax.scatter(x + offs[lam] + rng.uniform(-0.45, 0.45, y.size) * half, y, s=7,
+                           marker=DESIGN_MARKER[d], facecolor="none", edgecolor=color, linewidth=0.5,
+                           alpha=0.7, zorder=2)
+            y = np.concatenate(ys)
+            if y.size:
+                ax.plot([x + offs[lam] - 0.8 * half, x + offs[lam] + 0.8 * half], [np.median(y)] * 2,
+                        color=color, lw=1.6, solid_capstyle="butt", zorder=3)
 
     ref = sf.unique(subset=SCEN, keep="first")   # one row per scenario carries CAVI-Q2's values
     last = len(_REL) - 1
@@ -370,7 +380,7 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
         dref, d_L, ms = ref.filter(pl.col("L") == L), sf.filter(pl.col("L") == L), ms_by_L[L]
         for i, ((acol, alabel, alog), (rcol, rlabel, ratio)) in enumerate(zip(_ABS, _REL)):
             ax = axes[i, ca]
-            strip(ax, 0, {d: col(dref, f"{acol}_cavi", d) for d in DESIGN_ORDER}, CAVI_COLOR)
+            strip(ax, 0, dref, f"{acol}_cavi", CAVI_COLOR)
             if alog and b == 0:
                 _log_axis(ax)
             if acol == "coverage":
@@ -383,8 +393,7 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
             ax = axes[i, cr]
             ax.axhline(1.0 if ratio else 0.0, color="0.5", lw=0.7, ls="--", zorder=0)
             for k, m in enumerate(ms):
-                g = d_L.filter(pl.col("method") == m)
-                strip(ax, k, {d: col(g, rcol, d) for d in DESIGN_ORDER}, COLOR[m])
+                strip(ax, k, d_L.filter(pl.col("method") == m), rcol, COLOR[m])
             if ratio and b == 0:
                 _log_axis(ax)
             ax.set_xlim(-0.6, len(ms) - 0.4)
@@ -401,5 +410,7 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
     from matplotlib.lines import Line2D
     h = [Line2D([], [], color="0.3", marker=DESIGN_MARKER[d], mfc="none", ls="", ms=5, label=DESIGN_LABEL[d])
          for d in DESIGN_ORDER]
-    fig.legend(handles=h, loc="outside upper center", ncol=3, fontsize=7, frameon=False)
+    h.append(Line2D([], [], color="0.3", lw=1.6,
+                    label=r"median per $\lambda_0$; left to right $\lambda_0$ = " + ", ".join(f"{v:g}" for v in lams)))
+    fig.legend(handles=h, loc="outside upper center", ncol=4, fontsize=7, frameon=False)
     return fig
