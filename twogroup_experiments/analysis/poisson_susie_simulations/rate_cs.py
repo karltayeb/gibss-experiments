@@ -338,9 +338,11 @@ def _log_axis(ax):
 def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
     """All designs pooled. For each L (5, then 1) two columns: CAVI-Q2's own coverage, power,
     mean CS size and declared CSs per fit per scenario, then each arm minus CAVI-Q2 (size: over).
-    One point per scenario; colour = arm, marker = design. Within each arm, scenarios sit left to
-    right by lambda0 (jittered), with a bar at each rate's median. CAVI columns share y per row,
-    as do the arm columns (the analog of truth.vs_cavi_figure for 022-024)."""
+    One point per scenario; tinted band and tick label = arm, marker = design, colour = lambda0.
+    Within each band, scenarios sit left to right by lambda0 (jittered). CAVI columns share y per
+    row, as do the arm columns (the analog of truth.vs_cavi_figure for 022-024)."""
+    from matplotlib.colors import to_rgba
+    from matplotlib.lines import Line2D
     rng = np.random.default_rng(seed)
     ms_by_L = {L: [m for m in ARMS if m in set(sf.filter(pl.col("L") == L)["method"].unique().to_list())]
                for L in (5, 1)}
@@ -348,30 +350,32 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
     widths = []
     for L in Ls:
         widths += [1.25, len(ms_by_L[L]) + 0.6]
-    fig, axes = plt.subplots(len(_REL), 2 * len(Ls), figsize=(6.5, 1.7 * len(_REL) + 1.4),
+    fig, axes = plt.subplots(len(_REL), 2 * len(Ls), figsize=(6.5, 1.7 * len(_REL) + 1.5),
                              squeeze=False, layout="constrained", gridspec_kw={"width_ratios": widths})
     for i in range(len(_REL)):
         for c in range(2, 2 * len(Ls)):
             axes[i, c].sharey(axes[i, c % 2])
     lams = sorted(sf["lambda0"].unique().to_list())
-    offs = dict(zip(lams, np.linspace(-0.34, 0.34, len(lams))))
-    half = 0.34 / max(len(lams) - 1, 1)                 # half the spacing between rate slots
+    offs = dict(zip(lams, np.linspace(-0.32, 0.32, len(lams))))
+    half = 0.32 / max(len(lams) - 1, 1)                 # half the spacing between rate slots
+    lam_color = dict(zip(lams, plt.get_cmap("viridis")(np.linspace(0.0, 0.85, len(lams)))))
 
-    def strip(ax, x, df, c, color):
+    def band(ax, x, color):
+        ax.axvspan(x - 0.45, x + 0.45, color=to_rgba(color, 0.10), lw=0, zorder=0)
+
+    def strip(ax, x, df, c):
         for lam in lams:
             g = df.filter(pl.col("lambda0") == lam)
-            ys = []
             for d in DESIGN_ORDER:
                 y = g.filter(pl.col("design") == d)[c].drop_nulls().to_numpy().astype(float)
                 y = y[np.isfinite(y)]
-                ys.append(y)
-                ax.scatter(x + offs[lam] + rng.uniform(-0.45, 0.45, y.size) * half, y, s=7,
-                           marker=DESIGN_MARKER[d], facecolor="none", edgecolor=color, linewidth=0.5,
-                           alpha=0.7, zorder=2)
-            y = np.concatenate(ys)
-            if y.size:
-                ax.plot([x + offs[lam] - 0.8 * half, x + offs[lam] + 0.8 * half], [np.median(y)] * 2,
-                        color=color, lw=1.6, solid_capstyle="butt", zorder=3)
+                ax.scatter(x + offs[lam] + rng.uniform(-0.45, 0.45, y.size) * half, y, s=8,
+                           marker=DESIGN_MARKER[d], facecolor="none", edgecolor=lam_color[lam],
+                           linewidth=0.6, alpha=0.85, zorder=2)
+
+    def color_ticks(ax, colors):
+        for t, col in zip(ax.get_xticklabels(), colors):
+            t.set_color(col)
 
     ref = sf.unique(subset=SCEN, keep="first")   # one row per scenario carries CAVI-Q2's values
     last = len(_REL) - 1
@@ -380,26 +384,30 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
         dref, d_L, ms = ref.filter(pl.col("L") == L), sf.filter(pl.col("L") == L), ms_by_L[L]
         for i, ((acol, alabel, alog), (rcol, rlabel, ratio)) in enumerate(zip(_ABS, _REL)):
             ax = axes[i, ca]
-            strip(ax, 0, dref, f"{acol}_cavi", CAVI_COLOR)
+            band(ax, 0, CAVI_COLOR)
+            strip(ax, 0, dref, f"{acol}_cavi")
             if alog and b == 0:
                 _log_axis(ax)
             if acol == "coverage":
-                ax.axhline(0.95, color="0.5", lw=0.7, ls="--", zorder=0)
-            ax.set_xlim(-0.55, 0.55)
+                ax.axhline(0.95, color="0.5", lw=0.7, ls="--", zorder=1)
+            ax.set_xlim(-0.5, 0.5)
             ax.set_xticks([0])
             ax.set_xticklabels(["CAVI-Q2"] if i == last else [], rotation=60, ha="right", fontsize=6.5)
+            color_ticks(ax, [CAVI_COLOR])
             if i == 0:
                 ax.set_title("CAVI-Q2", fontsize=7.5, color=CAVI_COLOR)
             ax = axes[i, cr]
-            ax.axhline(1.0 if ratio else 0.0, color="0.5", lw=0.7, ls="--", zorder=0)
+            ax.axhline(1.0 if ratio else 0.0, color="0.5", lw=0.7, ls="--", zorder=1)
             for k, m in enumerate(ms):
-                strip(ax, k, d_L.filter(pl.col("method") == m), rcol, COLOR[m])
+                band(ax, k, COLOR[m])
+                strip(ax, k, d_L.filter(pl.col("method") == m), rcol)
             if ratio and b == 0:
                 _log_axis(ax)
-            ax.set_xlim(-0.6, len(ms) - 0.4)
+            ax.set_xlim(-0.5, len(ms) - 0.5)
             ax.set_xticks(range(len(ms)))
             ax.set_xticklabels([LABEL[m] for m in ms] if i == last else [], rotation=60, ha="right",
                                fontsize=6.5)
+            color_ticks(ax, [COLOR[m] for m in ms])
             if i == 0:
                 ax.set_title(f"L = {L}: arm vs CAVI-Q2", fontsize=7.5)
             for a_, lab in ((axes[i, ca], alabel), (axes[i, cr], rlabel)):
@@ -407,10 +415,10 @@ def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
                 a_.tick_params(labelsize=6.5, labelleft=True)
                 if b == 0:
                     a_.set_ylabel(lab, fontsize=7.5)
-    from matplotlib.lines import Line2D
     h = [Line2D([], [], color="0.3", marker=DESIGN_MARKER[d], mfc="none", ls="", ms=5, label=DESIGN_LABEL[d])
          for d in DESIGN_ORDER]
-    h.append(Line2D([], [], color="0.3", lw=1.6,
-                    label=r"median per $\lambda_0$; left to right $\lambda_0$ = " + ", ".join(f"{v:g}" for v in lams)))
-    fig.legend(handles=h, loc="outside upper center", ncol=4, fontsize=7, frameon=False)
+    h += [Line2D([], [], color=lam_color[v], marker="o", ls="", ms=5, label=rf"$\lambda_0$ = {v:g}")
+          for v in lams]
+    fig.legend(handles=h, loc="outside upper center", ncol=len(h), fontsize=6.5, frameon=False,
+               handletextpad=0.2, columnspacing=0.9)
     return fig
