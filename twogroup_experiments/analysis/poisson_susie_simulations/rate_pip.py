@@ -497,75 +497,100 @@ def dropped(design: str, L: int, quantity: str) -> pl.DataFrame:
     return df.filter(bad).group_by("method", "lambda0").len().sort("method", "lambda0")
 
 
+def _transform(v: np.ndarray, scale: str) -> np.ndarray:
+    if scale in ("log", "pv"):
+        return np.log10(v)
+    if scale == "slog":
+        return _slog(v)
+    return v
+
+
+def _limits(df: pl.DataFrame, col: str, scale: str) -> tuple[float, float]:
+    """Shared axis limits for one panel row: [0, 1] for unit scales, else the 0.05-99.95%
+    quantiles of both sides, padded."""
+    if scale == "unit":
+        return 0.0, 1.0
+    v = np.concatenate([df[f"{col}_ref"].to_numpy(), df[f"{col}_arm"].to_numpy()])
+    if scale in ("log", "pv"):
+        v = v[v > 0]
+    v = _transform(v, scale)
+    lo, hi = np.quantile(v, [0.0005, 0.9995]) if v.size else (0.0, 1.0)
+    pad = 0.08 * (hi - lo) or 0.5
+    return lo - pad, hi + pad
+
+
+def _hex_panel(ax, d: pl.DataFrame, col: str, scale: str, lo: float, hi: float, gridsize: int = 25,
+               sparse: bool = False):
+    """One hexbin (log counts) of arm against CAVI-Q2 with grey y = x, guides and ticks for
+    `scale` (see SCATTERS). `sparse` keeps fewer tick labels, for narrow panels side by side."""
+    from matplotlib.colors import LogNorm
+    from matplotlib.ticker import MaxNLocator
+    log = scale in ("log", "pv")
+    x, y = _transform(d[f"{col}_ref"].to_numpy(), scale), _transform(d[f"{col}_arm"].to_numpy(), scale)
+    ax.hexbin(x, y, gridsize=gridsize, extent=(lo, hi, lo, hi), norm=LogNorm(vmin=1, vmax=1e4),
+              cmap="Blues", mincnt=1, linewidths=0)
+    ax.plot([lo, hi], [lo, hi], color="0.5", lw=0.5)
+    if scale == "pv":
+        for g in (PV_FREEZE, PV_CAP):
+            if lo < np.log10(g) < hi:
+                ax.axvline(np.log10(g), color="0.6", lw=0.5, ls="--")
+                ax.axhline(np.log10(g), color="0.6", lw=0.5, ls="--")
+    if scale == "slog":
+        ax.axvline(_slog(MIN_LOG_BF), color="0.6", lw=0.5, ls="--")
+        ax.axhline(_slog(MIN_LOG_BF), color="0.6", lw=0.5, ls="--")
+    if scale == "unit":
+        ticks, labels = [0, 0.5, 1], ["0", "", "1"] if sparse else ["0", "0.5", "1"]
+    elif log:
+        ticks = list(range(int(np.ceil(lo)), int(np.floor(hi)) + 1))
+        if len(ticks) < 2:   # under a decade: half decades
+            ticks = list(np.arange(np.ceil(2 * lo), np.floor(2 * hi) + 1) / 2)
+        if len(ticks) > (2 if sparse else 4):
+            ticks = [ticks[0], ticks[-1]] if sparse else ticks[::2]
+        labels = [f"$10^{{{t:g}}}$" for t in ticks]
+    elif scale == "slog":
+        grid = (-100, 0, 10, 1000) if sparse else (-100, -10, 0, 2, 10, 100, 1000, 10000)
+        ticks = [t for t in grid if lo <= _slog(t) <= hi]
+        ticks, labels = [_slog(t) for t in ticks], [f"{t:g}" for t in ticks]
+    elif sparse:
+        ticks = [t for t in MaxNLocator(2).tick_values(lo, hi) if lo <= t <= hi]
+        labels = [f"{t:g}" for t in ticks]
+    else:
+        ticks = None
+        for axis in (ax.xaxis, ax.yaxis):
+            axis.set_major_locator(MaxNLocator(3))
+    if ticks is not None:
+        ax.set_xticks(ticks, labels)
+        ax.set_yticks(ticks, labels)
+    if sparse and ticks is not None and len(ticks) >= 2:   # end labels inward: no collisions
+        xt = ax.get_xticklabels()
+        xt[0].set_ha("left")
+        xt[-1].set_ha("right")
+    ax.set_xlim(lo, hi)
+    ax.set_ylim(lo, hi)
+    ax.set_aspect("equal")
+    ax.tick_params(labelsize=4.5, length=2, pad=1)
+
+
+def _finite(df: pl.DataFrame, col: str) -> pl.DataFrame:
+    return df.filter(pl.col(f"{col}_ref").is_finite() & pl.col(f"{col}_arm").is_finite())
+
+
 def scatter_figure(design: str, L: int, quantity: str):
     """Rows = lambda0, columns = arms: `quantity` (SCATTERS), arm against CAVI-Q2, as a hexbin
     with log counts; grey y = x."""
     import matplotlib.pyplot as plt
-    from matplotlib.colors import LogNorm
-    from matplotlib.ticker import MaxNLocator
     _, col, scale, label = SCATTERS[quantity]
-    df = _scatter_rows(design, L, quantity).filter(
-        pl.col(f"{col}_ref").is_finite() & pl.col(f"{col}_arm").is_finite())
+    df = _finite(_scatter_rows(design, L, quantity), col)
     arms = [m for m in ARMS if m in set(df["method"].unique().to_list())]
     lams = sorted(df["lambda0"].unique().to_list())
-    log = scale in ("log", "pv")
     fig, axes = plt.subplots(len(lams), len(arms), figsize=(6.5 * max(len(arms), 4) / 5, 1.2 * len(lams) + 0.4),
                              squeeze=False)
     for i, lam in enumerate(lams):
         row = df.filter(pl.col("lambda0") == lam)
-        x_all = np.concatenate([row[f"{col}_ref"].to_numpy(), row[f"{col}_arm"].to_numpy()])
-        if log:
-            x_all = np.log10(x_all[x_all > 0])
-        elif scale == "slog":
-            x_all = _slog(x_all)
-        if scale == "unit":
-            lo, hi = 0.0, 1.0
-        else:
-            lo, hi = np.quantile(x_all, [0.0005, 0.9995]) if x_all.size else (0.0, 1.0)
-            pad = 0.08 * (hi - lo) or 0.5
-            lo, hi = lo - pad, hi + pad
+        lo, hi = _limits(row, col, scale)
         for k, m in enumerate(arms):
             ax = axes[i, k]
-            d = row.filter(pl.col("method") == m)
-            x, y = d[f"{col}_ref"].to_numpy(), d[f"{col}_arm"].to_numpy()
-            if log:
-                x, y = np.log10(x), np.log10(y)
-            elif scale == "slog":
-                x, y = _slog(x), _slog(y)
-            ax.hexbin(x, y, gridsize=25, extent=(lo, hi, lo, hi), norm=LogNorm(vmin=1, vmax=1e4),
-                      cmap="Blues", mincnt=1, linewidths=0)
-            ax.plot([lo, hi], [lo, hi], color="0.5", lw=0.5)
-            if scale == "pv":
-                for g in (PV_FREEZE, PV_CAP):
-                    if lo < np.log10(g) < hi:
-                        ax.axvline(np.log10(g), color="0.6", lw=0.5, ls="--")
-                        ax.axhline(np.log10(g), color="0.6", lw=0.5, ls="--")
-            if scale == "slog":
-                ax.axvline(_slog(MIN_LOG_BF), color="0.6", lw=0.5, ls="--")
-                ax.axhline(_slog(MIN_LOG_BF), color="0.6", lw=0.5, ls="--")
-            if scale == "unit":
-                ticks, labels = [0, 0.5, 1], ["0", "0.5", "1"]
-            elif log:
-                ticks = list(range(int(np.ceil(lo)), int(np.floor(hi)) + 1))
-                if len(ticks) < 2:   # under a decade: half decades
-                    ticks = list(np.arange(np.ceil(2 * lo), np.floor(2 * hi) + 1) / 2)
-                if len(ticks) > 4:
-                    ticks = ticks[::2]
-                labels = [f"$10^{{{t:g}}}$" for t in ticks]
-            elif scale == "slog":
-                ticks = [t for t in (-100, -10, 0, 2, 10, 100, 1000, 10000) if lo <= _slog(t) <= hi]
-                ticks, labels = [_slog(t) for t in ticks], [f"{t:g}" for t in ticks]
-            else:
-                ticks = None
-                for axis in (ax.xaxis, ax.yaxis):
-                    axis.set_major_locator(MaxNLocator(3))
-            if ticks is not None:
-                ax.set_xticks(ticks, labels)
-                ax.set_yticks(ticks, labels)
-            ax.set_xlim(lo, hi)
-            ax.set_ylim(lo, hi)
-            ax.set_aspect("equal")
-            ax.tick_params(labelsize=4.5, length=2, pad=1)
+            _hex_panel(ax, row.filter(pl.col("method") == m), col, scale, lo, hi)
             if k:
                 ax.set_yticklabels([])
             if i < len(lams) - 1 and scale == "unit":
@@ -577,4 +602,52 @@ def scatter_figure(design: str, L: int, quantity: str):
     fig.tight_layout(rect=(0.025, 0.03, 1, 1), w_pad=0.2, h_pad=0.4)
     fig.text(0.5, 0.006, f"{label}, CAVI-Q2", ha="center", fontsize=7)
     fig.text(0.004, 0.5, f"{label}, arm", va="center", rotation="vertical", fontsize=7)
+    return fig
+
+
+RATE_SPLIT = 1.0   # summary_figure bins lambda0 into <= RATE_SPLIT (low rate) and > RATE_SPLIT
+
+
+def summary_figure(L: int, quantity: str):
+    """Rows = designs; columns = arms, each split into lambda0 <= 1 and lambda0 > 1: `quantity`
+    (SCATTERS), arm against CAVI-Q2, as a hexbin with log counts; grey y = x. Axis limits are
+    shared across arms within each (design, rate bin): beta and so the effect scale shrink as
+    the rate grows. The per-design scatter_figure has one row per lambda0."""
+    import matplotlib.pyplot as plt
+    _, col, scale, label = SCATTERS[quantity]
+    frames = {d: _finite(_scatter_rows(d, L, quantity), col) for d in DESIGN}
+    arms = [m for m in ARMS if any(m in set(f["method"].unique().to_list()) for f in frames.values())]
+    bins = [(r"$\lambda_0 \leq 1$", pl.col("lambda0") <= RATE_SPLIT), (r"$\lambda_0 > 1$", pl.col("lambda0") > RATE_SPLIT)]
+    n, gap = len(arms), 0.35                            # gap = spacer between arms, in panel widths
+    units = 2 * n + gap * (n - 1)
+    left, right, bottom, top = 0.55, 0.08, 0.42, 0.42   # inches
+    w = min(0.62, (6.5 - left - right) / units)        # square panel side, inches
+    W, H = left + right + w * units, bottom + top + w * len(DESIGN) * 1.3
+    fig = plt.figure(figsize=(W, H))
+    ratios = []
+    for k in range(n):
+        ratios += [1, 1] + ([gap] if k < n - 1 else [])
+    gs = fig.add_gridspec(len(DESIGN), len(ratios), width_ratios=ratios, wspace=0.12, hspace=0.3,
+                          left=left / W, right=1 - right / W, bottom=bottom / H, top=1 - top / H)
+    lims = {(d, j): _limits(f.filter(cond), col, scale) for d, f in frames.items()
+            for j, (_, cond) in enumerate(bins)}
+    for k, m in enumerate(arms):
+        for i, d in enumerate(DESIGN):
+            f = frames[d].filter(pl.col("method") == m)
+            for j, (blabel, cond) in enumerate(bins):
+                ax = fig.add_subplot(gs[i, 3 * k + j])
+                _hex_panel(ax, f.filter(cond), col, scale, *lims[d, j], gridsize=20, sparse=True)
+                if k or j:   # square panels about y = x: every panel's x ticks give its scale
+                    ax.set_yticklabels([])
+                if i == 0:
+                    ax.set_title(blabel, fontsize=5.5, pad=2)
+                    if j == 0:   # arm name centred over its pair of panels
+                        pos = ax.get_position()
+                        fig.text(pos.x1 + 0.03 * w / W, 1 - 0.1 / H, LABEL[m], ha="center", va="top",
+                                 fontsize=7, color=COLOR[m])
+                if j == 0 and k == 0:
+                    ax.set_ylabel(DESIGN[d], fontsize=6.5)
+    fig.text((left + w * units / 2) / W, 0.04 / H, f"{label}, CAVI-Q2", ha="center", va="bottom", fontsize=7)
+    fig.text(0.04 / W, (bottom + w * len(DESIGN) * 1.3 / 2) / H, f"{label}, arm", va="center",
+             rotation="vertical", fontsize=7)
     return fig

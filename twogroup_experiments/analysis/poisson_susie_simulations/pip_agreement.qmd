@@ -20,7 +20,7 @@ plt.rcParams["figure.dpi"] = 110
 import rate_pip as RP
 ```
 
-Every panel is a hexbin of arm against CAVI-Q2 (log counts) on the same replicates, pooled over $T$ and gap within each background rate $\lambda_0$, signal cells only. The design and arms are on [Poisson SuSiE across the background rate](rate.qmd).
+Every panel is a hexbin of arm against CAVI-Q2 (log counts) on the same replicates, pooled over $T$ and gap, signal cells only. Each quantity opens on an all-designs tab: rows = design, and each arm splits into a low-rate panel ($\lambda_0 \leq 1$) and a high-rate panel ($\lambda_0 > 1$), with axes shared across arms within each design and rate bin. The per-design tabs have one row per $\lambda_0$. The design and arms are on [Poisson SuSiE across the background rate](rate.qmd).
 
 - PIP: features with PIP $\geq$ 0.05 on either side.
 - $\psi_i = b_0 + \tilde x_i^\top b$, with $\tilde x$ the centered design: posterior mean and variance under each fit's mean-field posterior, 10 random observations per replicate (the same rows for every arm). No matching needed.
@@ -37,6 +37,14 @@ gIBSS-GO's runaway fits give a non-finite $\psi$ in 4 Binary replicates at $\lam
 ### PIP
 
 ::: {.panel-tabset}
+
+##### All designs
+
+```{python}
+#| label: fig-pip-summary-l5
+#| fig-cap: "L = 5: PIP, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(5, "pip"); plt.show()
+```
 
 ##### Binary
 
@@ -68,6 +76,14 @@ fig = RP.scatter_figure("gaussian", 5, "pip"); plt.show()
 
 ::: {.panel-tabset}
 
+##### All designs
+
+```{python}
+#| label: fig-etam-summary-l5
+#| fig-cap: "L = 5: posterior mean of ψ, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(5, "eta_m"); plt.show()
+```
+
 ##### Binary
 
 ```{python}
@@ -97,6 +113,14 @@ fig = RP.scatter_figure("gaussian", 5, "eta_m"); plt.show()
 ### Posterior variance of ψ
 
 ::: {.panel-tabset}
+
+##### All designs
+
+```{python}
+#| label: fig-etav-summary-l5
+#| fig-cap: "L = 5: posterior variance of ψ, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(5, "eta_v"); plt.show()
+```
 
 ##### Binary
 
@@ -130,6 +154,14 @@ fig = RP.scatter_figure("gaussian", 5, "eta_v"); plt.show()
 
 ::: {.panel-tabset}
 
+##### All designs
+
+```{python}
+#| label: fig-alpha-summary-l5
+#| fig-cap: "L = 5: α, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(5, "alpha"); plt.show()
+```
+
 ##### Binary
 
 ```{python}
@@ -159,6 +191,14 @@ fig = RP.scatter_figure("gaussian", 5, "alpha"); plt.show()
 #### Component log BF
 
 ::: {.panel-tabset}
+
+##### All designs
+
+```{python}
+#| label: fig-lbf-summary-l5
+#| fig-cap: "L = 5: component log BF, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(5, "lbf"); plt.show()
+```
 
 ##### Binary
 
@@ -190,6 +230,14 @@ fig = RP.scatter_figure("gaussian", 5, "lbf"); plt.show()
 
 ::: {.panel-tabset}
 
+##### All designs
+
+```{python}
+#| label: fig-mu-summary-l5
+#| fig-cap: "L = 5: conditional posterior mean, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(5, "mu"); plt.show()
+```
+
 ##### Binary
 
 ```{python}
@@ -220,6 +268,14 @@ fig = RP.scatter_figure("gaussian", 5, "mu"); plt.show()
 
 ::: {.panel-tabset}
 
+##### All designs
+
+```{python}
+#| label: fig-var-summary-l5
+#| fig-cap: "L = 5: conditional posterior variance, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(5, "var"); plt.show()
+```
+
 ##### Binary
 
 ```{python}
@@ -249,6 +305,14 @@ fig = RP.scatter_figure("gaussian", 5, "var"); plt.show()
 #### Prior variance
 
 ::: {.panel-tabset}
+
+##### All designs
+
+```{python}
+#| label: fig-pv-summary-l5
+#| fig-cap: "L = 5: prior variance, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(5, "pv"); plt.show()
+```
 
 ##### Binary
 
@@ -284,6 +348,14 @@ One component per fit, so $\alpha$ is the PIP vector and needs no matching; gIBS
 
 ::: {.panel-tabset}
 
+##### All designs
+
+```{python}
+#| label: fig-pip-summary-l1
+#| fig-cap: "L = 1: PIP, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(1, "pip"); plt.show()
+```
+
 ##### Binary
 
 ```{python}
@@ -314,6 +386,14 @@ fig = RP.scatter_figure("gaussian", 1, "pip"); plt.show()
 
 ::: {.panel-tabset}
 
+##### All designs
+
+```{python}
+#| label: fig-etam-summary-l1
+#| fig-cap: "L = 1: posterior mean of ψ, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(1, "eta_m"); plt.show()
+```
+
 ##### Binary
 
 ```{python}
@@ -343,6 +423,14 @@ fig = RP.scatter_figure("gaussian", 1, "eta_m"); plt.show()
 ### Posterior variance of ψ
 
 ::: {.panel-tabset}
+
+##### All designs
+
+```{python}
+#| label: fig-etav-summary-l1
+#| fig-cap: "L = 1: posterior variance of ψ, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(1, "eta_v"); plt.show()
+```
 
 ##### Binary
 
@@ -376,6 +464,14 @@ fig = RP.scatter_figure("gaussian", 1, "eta_v"); plt.show()
 
 ::: {.panel-tabset}
 
+##### All designs
+
+```{python}
+#| label: fig-lbf-summary-l1
+#| fig-cap: "L = 1: component log BF, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(1, "lbf"); plt.show()
+```
+
 ##### Binary
 
 ```{python}
@@ -405,6 +501,14 @@ fig = RP.scatter_figure("gaussian", 1, "lbf"); plt.show()
 #### Conditional posterior mean
 
 ::: {.panel-tabset}
+
+##### All designs
+
+```{python}
+#| label: fig-mu-summary-l1
+#| fig-cap: "L = 1: conditional posterior mean, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(1, "mu"); plt.show()
+```
 
 ##### Binary
 
@@ -436,6 +540,14 @@ fig = RP.scatter_figure("gaussian", 1, "mu"); plt.show()
 
 ::: {.panel-tabset}
 
+##### All designs
+
+```{python}
+#| label: fig-var-summary-l1
+#| fig-cap: "L = 1: conditional posterior variance, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(1, "var"); plt.show()
+```
+
 ##### Binary
 
 ```{python}
@@ -465,6 +577,14 @@ fig = RP.scatter_figure("gaussian", 1, "var"); plt.show()
 #### Prior variance
 
 ::: {.panel-tabset}
+
+##### All designs
+
+```{python}
+#| label: fig-pv-summary-l1
+#| fig-cap: "L = 1: prior variance, arm against CAVI-Q2. Rows = design; each arm splits into $\\lambda_0 \\leq 1$ and $\\lambda_0 > 1$."
+fig = RP.summary_figure(1, "pv"); plt.show()
+```
 
 ##### Binary
 
