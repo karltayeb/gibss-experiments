@@ -458,16 +458,22 @@ def _sc(design: str, L: int) -> str:
 
 # quantity -> (frame, column stem, scale, axis label). Scales: "unit" = linear on [0, 1];
 # "linear" / "log" = linear / log10 with limits from each row's data; "pv" = log10 like "log",
-# with dashed guides at the freeze threshold and the cap.
+# with dashed guides at the freeze threshold and the cap; "slog" = sign(x) log10(1 + |x|), with
+# dashed guides at the declaration bar.
 SCATTERS = {
     "pip": ("feat", "pip", "unit", "PIP"),
     "eta_m": ("eta", "eta_m", "linear", "posterior mean of ψ"),
     "eta_v": ("eta", "eta_v", "log", "posterior variance of ψ"),
     "alpha": ("alpha", "alpha", "unit", "α, matched component"),
+    "lbf": ("comp", "lbf", "slog", "component log BF"),
     "mu": ("comp", "mu", "linear", "conditional posterior mean"),
     "var": ("comp", "var", "log", "conditional posterior variance"),
     "pv": ("comp", "pv", "pv", "prior variance"),
 }
+
+
+def _slog(x):
+    return np.sign(x) * np.log10(1 + np.abs(x))
 
 
 def _scatter_rows(design: str, L: int, quantity: str) -> pl.DataFrame:
@@ -510,6 +516,8 @@ def scatter_figure(design: str, L: int, quantity: str):
         x_all = np.concatenate([row[f"{col}_ref"].to_numpy(), row[f"{col}_arm"].to_numpy()])
         if log:
             x_all = np.log10(x_all[x_all > 0])
+        elif scale == "slog":
+            x_all = _slog(x_all)
         if scale == "unit":
             lo, hi = 0.0, 1.0
         else:
@@ -522,6 +530,8 @@ def scatter_figure(design: str, L: int, quantity: str):
             x, y = d[f"{col}_ref"].to_numpy(), d[f"{col}_arm"].to_numpy()
             if log:
                 x, y = np.log10(x), np.log10(y)
+            elif scale == "slog":
+                x, y = _slog(x), _slog(y)
             ax.hexbin(x, y, gridsize=25, extent=(lo, hi, lo, hi), norm=LogNorm(vmin=1, vmax=1e4),
                       cmap="Blues", mincnt=1, linewidths=0)
             ax.plot([lo, hi], [lo, hi], color="0.5", lw=0.5)
@@ -530,6 +540,9 @@ def scatter_figure(design: str, L: int, quantity: str):
                     if lo < np.log10(g) < hi:
                         ax.axvline(np.log10(g), color="0.6", lw=0.5, ls="--")
                         ax.axhline(np.log10(g), color="0.6", lw=0.5, ls="--")
+            if scale == "slog":
+                ax.axvline(_slog(MIN_LOG_BF), color="0.6", lw=0.5, ls="--")
+                ax.axhline(_slog(MIN_LOG_BF), color="0.6", lw=0.5, ls="--")
             if scale == "unit":
                 ticks, labels = [0, 0.5, 1], ["0", "0.5", "1"]
             elif log:
@@ -539,6 +552,9 @@ def scatter_figure(design: str, L: int, quantity: str):
                 if len(ticks) > 4:
                     ticks = ticks[::2]
                 labels = [f"$10^{{{t:g}}}$" for t in ticks]
+            elif scale == "slog":
+                ticks = [t for t in (-100, -10, 0, 2, 10, 100, 1000, 10000) if lo <= _slog(t) <= hi]
+                ticks, labels = [_slog(t) for t in ticks], [f"{t:g}" for t in ticks]
             else:
                 ticks = None
                 for axis in (ax.xaxis, ax.yaxis):

@@ -27,6 +27,7 @@ Every panel is a hexbin of arm against CAVI-Q2 (log counts) on the same replicat
 - Matched components (L = 5): arm components are matched to CAVI-Q2's by minimum total TV between alphas (Hungarian).
   - $\alpha$: pairs either side declares (log BF $\geq$ 2), features with $\alpha \geq$ 0.05 on either side.
   - $\mu$ and variance: the conditional posterior $q(b \mid \gamma = j)$ at CAVI-Q2's top feature $j$, pairs both sides declare. Pairs where either side's top feature separates $y$ are dropped (all counts zero in the rows with $x_j \neq 0$, or in the rows with $x_j = 0$; the conditional moments are then set by the prior). This drops 29 both-declared pairs in Binary and 40 in Binary-Block, all at $\lambda_0 \leq 1$, and none in Gaussian.
+  - Log BF: every matched pair, axes $\operatorname{sign}(x)\log_{10}(1 + |x|)$; dashed lines at the declaration bar, log BF = 2.
   - Prior variance: every matched pair; dashed lines at the freeze threshold 0.01 (an effect stops updating once its prior variance drops below it) and the cap 100.
 
 gIBSS-GO's runaway fits give a non-finite $\psi$ in 4 Binary replicates at $\lambda_0 = 0.01$ (40 observations); the $\psi$ panels leave them out.
@@ -151,6 +152,36 @@ fig = RP.scatter_figure("block", 5, "alpha"); plt.show()
 #| label: fig-alpha-gaussian-l5
 #| fig-cap: "Gaussian, L = 5: α, arm against CAVI-Q2. Rows = $\\lambda_0$."
 fig = RP.scatter_figure("gaussian", 5, "alpha"); plt.show()
+```
+
+:::
+
+#### Component log BF
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-lbf-binary-l5
+#| fig-cap: "Binary, L = 5: component log BF, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 5, "lbf"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-lbf-block-l5
+#| fig-cap: "Binary-Block, L = 5: component log BF, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 5, "lbf"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-lbf-gaussian-l5
+#| fig-cap: "Gaussian, L = 5: component log BF, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 5, "lbf"); plt.show()
 ```
 
 :::
@@ -340,6 +371,36 @@ fig = RP.scatter_figure("gaussian", 1, "eta_v"); plt.show()
 :::
 
 ### Single effect
+
+#### Component log BF
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-lbf-binary-l1
+#| fig-cap: "Binary, L = 1: component log BF, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 1, "lbf"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-lbf-block-l1
+#| fig-cap: "Binary-Block, L = 1: component log BF, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 1, "lbf"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-lbf-gaussian-l1
+#| fig-cap: "Gaussian, L = 1: component log BF, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 1, "lbf"); plt.show()
+```
+
+:::
 
 #### Conditional posterior mean
 
