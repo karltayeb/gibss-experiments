@@ -286,3 +286,120 @@ def main(which: str = "all", ser: str = "") -> None:
 
 if __name__ == "__main__":
     main(*sys.argv[1:])
+
+
+# ------------------------------------------------------------------------------ per scenario
+SCEN = ["design", "L", "lambda0", "T", "gap"]
+DESIGN_ORDER = ["binary", "block", "gaussian"]
+DESIGN_LABEL = {"binary": "Binary", "block": "Binary-Block", "gaussian": "Gaussian"}
+DESIGN_MARKER = {"binary": "o", "block": "s", "gaussian": "^"}
+CAVI_COLOR = "#D55E00"
+_ABS = [("coverage", "coverage", False), ("power", "power", False), ("size", "mean CS size", True),
+        ("n_cs", "declared CSs per fit", False)]
+_REL = [("d_coverage", "− CAVI-Q2", False), ("d_power", "− CAVI-Q2", False), ("r_size", "÷ CAVI-Q2", True),
+        ("d_n_cs", "− CAVI-Q2", False)]
+
+
+def scenario_frame() -> pl.DataFrame:
+    """One row per (signal scenario, arm): coverage, power, mean size and number per fit of
+    declared 95% CSs, CAVI-Q2's values in the same scenario (`*_cavi`), and the arm's difference
+    from them (size as a ratio). A scenario is one cell (design, L, lambda0, T, gap); every arm
+    sees the same simulated replicates."""
+    frames = []
+    for d in DESIGN_ORDER:
+        for L, suffix in ((5, ""), (1, "-ser")):
+            frames.append(per_rep(f"025-rate-{d}{suffix}").with_columns(
+                pl.lit(d).alias("design"), pl.lit(L).alias("L")))
+    reps = pl.concat(frames, how="diagonal_relaxed").filter(~pl.col("null"))
+    df = (reps.group_by(SCEN + ["method"])
+          .agg((pl.col("n_cover").sum() / pl.col("n_decl").sum()).alias("coverage"),
+               (pl.col("n_detected").sum() / pl.col("Lstar").sum()).alias("power"),
+               (pl.col("size_sum").sum() / pl.col("n_decl").sum()).alias("size"),
+               pl.col("n_decl").mean().alias("n_cs"))
+          .with_columns(pl.col(c).fill_nan(None) for c in ("coverage", "size")))
+    ref = df.filter(pl.col("method") == REF).select(
+        SCEN + [pl.col(c).alias(f"{c}_cavi") for c, _, _ in _ABS])
+    return (df.filter(pl.col("method") != REF).join(ref, on=SCEN, how="inner", nulls_equal=True)
+            .with_columns((pl.col("coverage") - pl.col("coverage_cavi")).alias("d_coverage"),
+                          (pl.col("power") - pl.col("power_cavi")).alias("d_power"),
+                          (pl.col("size") / pl.col("size_cavi")).alias("r_size"),
+                          (pl.col("n_cs") - pl.col("n_cs_cavi")).alias("d_n_cs")))
+
+
+def _log_axis(ax):
+    """Log y with plain tick labels at 1, 2, 5 x powers of ten."""
+    from matplotlib.ticker import FuncFormatter, LogLocator, NullFormatter
+    ax.set_yscale("log")
+    ax.yaxis.set_major_locator(LogLocator(subs=(1.0, 2.0, 5.0)))
+    ax.yaxis.set_major_formatter(FuncFormatter(lambda v, _: f"{v:g}"))
+    ax.yaxis.set_minor_formatter(NullFormatter())
+
+
+def vs_cavi_figure(sf: pl.DataFrame, seed: int = 0):
+    """All designs pooled. For each L (5, then 1) two columns: CAVI-Q2's own coverage, power,
+    mean CS size and declared CSs per fit per scenario, then each arm minus CAVI-Q2 (size: over).
+    One point per scenario; colour = arm, marker = design (offset, jittered). CAVI columns share
+    y per row, as do the arm columns (the analog of truth.vs_cavi_figure for 022-024)."""
+    rng = np.random.default_rng(seed)
+    ms_by_L = {L: [m for m in ARMS if m in set(sf.filter(pl.col("L") == L)["method"].unique().to_list())]
+               for L in (5, 1)}
+    Ls = [L for L in (5, 1) if ms_by_L[L]]
+    widths = []
+    for L in Ls:
+        widths += [1.25, len(ms_by_L[L]) + 0.6]
+    fig, axes = plt.subplots(len(_REL), 2 * len(Ls), figsize=(6.5, 1.7 * len(_REL) + 1.4),
+                             squeeze=False, layout="constrained", gridspec_kw={"width_ratios": widths})
+    for i in range(len(_REL)):
+        for c in range(2, 2 * len(Ls)):
+            axes[i, c].sharey(axes[i, c % 2])
+    offs = dict(zip(DESIGN_ORDER, (-0.24, 0.0, 0.24)))
+
+    def strip(ax, x, ys_by_design, color):
+        for d, y in ys_by_design.items():
+            y = y[np.isfinite(y)]
+            ax.scatter(x + offs[d] + rng.uniform(-0.06, 0.06, y.size), y, s=9, marker=DESIGN_MARKER[d],
+                       facecolor="none", edgecolor=color, linewidth=0.6, alpha=0.8, zorder=2)
+
+    def col(df, c, d):
+        return df.filter(pl.col("design") == d)[c].drop_nulls().to_numpy().astype(float)
+
+    ref = sf.unique(subset=SCEN, keep="first")   # one row per scenario carries CAVI-Q2's values
+    last = len(_REL) - 1
+    for b, L in enumerate(Ls):
+        ca, cr = 2 * b, 2 * b + 1
+        dref, d_L, ms = ref.filter(pl.col("L") == L), sf.filter(pl.col("L") == L), ms_by_L[L]
+        for i, ((acol, alabel, alog), (rcol, rlabel, ratio)) in enumerate(zip(_ABS, _REL)):
+            ax = axes[i, ca]
+            strip(ax, 0, {d: col(dref, f"{acol}_cavi", d) for d in DESIGN_ORDER}, CAVI_COLOR)
+            if alog and b == 0:
+                _log_axis(ax)
+            if acol == "coverage":
+                ax.axhline(0.95, color="0.5", lw=0.7, ls="--", zorder=0)
+            ax.set_xlim(-0.55, 0.55)
+            ax.set_xticks([0])
+            ax.set_xticklabels(["CAVI-Q2"] if i == last else [], rotation=60, ha="right", fontsize=6.5)
+            if i == 0:
+                ax.set_title("CAVI-Q2", fontsize=7.5, color=CAVI_COLOR)
+            ax = axes[i, cr]
+            ax.axhline(1.0 if ratio else 0.0, color="0.5", lw=0.7, ls="--", zorder=0)
+            for k, m in enumerate(ms):
+                g = d_L.filter(pl.col("method") == m)
+                strip(ax, k, {d: col(g, rcol, d) for d in DESIGN_ORDER}, COLOR[m])
+            if ratio and b == 0:
+                _log_axis(ax)
+            ax.set_xlim(-0.6, len(ms) - 0.4)
+            ax.set_xticks(range(len(ms)))
+            ax.set_xticklabels([LABEL[m] for m in ms] if i == last else [], rotation=60, ha="right",
+                               fontsize=6.5)
+            if i == 0:
+                ax.set_title(f"L = {L}: arm vs CAVI-Q2", fontsize=7.5)
+            for a_, lab in ((axes[i, ca], alabel), (axes[i, cr], rlabel)):
+                a_.grid(True, axis="y", alpha=0.25)
+                a_.tick_params(labelsize=6.5, labelleft=True)
+                if b == 0:
+                    a_.set_ylabel(lab, fontsize=7.5)
+    from matplotlib.lines import Line2D
+    h = [Line2D([], [], color="0.3", marker=DESIGN_MARKER[d], mfc="none", ls="", ms=5, label=DESIGN_LABEL[d])
+         for d in DESIGN_ORDER]
+    fig.legend(handles=h, loc="outside upper center", ncol=3, fontsize=7, frameon=False)
+    return fig

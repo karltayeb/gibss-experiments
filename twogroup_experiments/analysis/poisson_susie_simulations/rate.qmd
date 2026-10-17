@@ -67,6 +67,16 @@ Table columns, CAVI-Q2's own values pooled over $T$:
 **declared CSs** = count over all reps;
 **reps** = replicate fits pooled.
 
+## All scenarios
+
+Coverage, power, mean size and number per fit of declared 95% CSs, one point per signal scenario (design, $\lambda_0$, $T$, gap): 150 scenarios per arm at $L = 5$, 75 at $L = 1$.
+
+```{python}
+#| label: fig-vs-cavi
+#| fig-cap: "For L = 5 and then L = 1: CAVI-Q2's own coverage (dashed: nominal 0.95), power, mean CS size and declared CSs per fit, then each arm against CAVI-Q2 in the same scenario (dashed: no difference). One point per scenario; colour = arm, marker = design. The two CAVI-Q2 columns share y per row, as do the two arm columns."
+fig = RC.vs_cavi_figure(RC.scenario_frame()); plt.show()
+```
+
 ## Gaussian design
 
 ```{python}
