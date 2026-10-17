@@ -29,7 +29,12 @@ import polars as pl
 from scipy.optimize import linear_sum_assignment
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, _HERE)
+_TG = os.path.dirname(os.path.dirname(_HERE))
+for _p in (_TG, _HERE, os.path.join(os.path.dirname(_HERE), "logistic_laplace_simulations")):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
+from experiments import loader
+
 import rate_cs as RC
 
 MIN_LOG_BF = RC.MIN_LOG_BF
@@ -64,59 +69,160 @@ def _cond(a: np.ndarray, mu: np.ndarray, var: np.ndarray, mu_b: np.ndarray, var_
     return {"dmu": float(np.sum(a * np.abs(mu_b - mu) / np.sqrt(var))), "lsd": lsd, "abs_lsd": abs(lsd)}
 
 
-def compare(ref_se: list[dict], arm_se: list[dict]) -> tuple[list[dict], dict]:
+PIP_FLOOR = 0.05   # feature frames keep features with PIP (alpha) >= this on either side
+ETA_ROWS = 10      # observations per replicate kept for the linear-predictor scatters (same rows for every arm)
+
+
+def separated(X: np.ndarray, y: np.ndarray) -> np.ndarray:
+    """Per feature: True when the counts are all zero over the rows with x_j != 0, or over the
+    (non-empty) rows with x_j == 0. The Poisson likelihood then has no maximum in b_j (it runs to
+    -inf or +inf), so the conditional moments are set by the prior. Never true for a dense
+    continuous column unless y is all zero."""
+    on = X != 0
+    y_on = y @ on
+    n_off, y_off = len(y) - on.sum(0), y.sum() - y_on
+    return (y_on == 0) | ((n_off > 0) & (y_off == 0))
+
+
+def predict(fit: dict, Xc: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Posterior mean and variance of each observation's linear predictor psi_i = b0 + x~_i . b,
+    x~ the centered design (the fits' center=True convention), under the mean-field posterior:
+    E = m0 + sum_l sum_j alpha_lj mu_lj x~_ij,
+    Var = v0 + sum_l (sum_j alpha_lj (mu_lj^2 + var_lj) x~_ij^2 - (sum_j alpha_lj mu_lj x~_ij)^2)."""
+    se, fs = fit["single_effects"], fit["family_state"]
+    A = np.array([e["alpha"] for e in se])
+    M = np.array([e["mu"] for e in se])
+    V = np.array([e["var"] for e in se])
+    Eb = A * M
+    m = fs["intercept_value"] + Xc @ Eb.sum(0)
+    v = fs["intercept_var"] + (Xc ** 2) @ (A * (M ** 2 + V)).sum(0) - ((Xc @ Eb.T) ** 2).sum(1)
+    return m, v
+
+
+def compare(ref_se: list[dict], arm_se: list[dict], sep: np.ndarray | None = None):
+    """(component pairs, per-fit summary, PIP vectors (reference, arm), matched alphas
+    (reference, arm) of the pairs either side declares at features with alpha >= PIP_FLOOR on
+    either side). Pairs carry the conditional moments at CAVI-Q2's top feature, both prior
+    variances and log BFs, and `sep` when either side's top feature separates y."""
     a, lbf_a = _components(ref_se)
     b, lbf_b = _components(arm_se)
     (mu_a, var_a), (mu_b, var_b) = _moments(ref_se), _moments(arm_se)
     pa, pb = 1 - np.prod(1 - a, axis=0), 1 - np.prod(1 - b, axis=0)
     tv = 0.5 * np.abs(a[:, None, :] - b[None, :, :]).sum(-1)
     _, cols = linear_sum_assignment(tv)
-    pairs = []
+    pairs, a_ref, a_arm = [], [], []
     for i, k in enumerate(cols):
+        dr, da = bool(lbf_a[i] >= MIN_LOG_BF), bool(lbf_b[k] >= MIN_LOG_BF)
+        if dr or da:
+            keep = np.maximum(a[i], b[k]) >= PIP_FLOOR
+            a_ref.append(a[i][keep])
+            a_arm.append(b[k][keep])
+        j, jb = int(a[i].argmax()), int(b[k].argmax())
         pairs.append({**_dist(a[i], b[k]), **_cond(a[i], mu_a[i], var_a[i], mu_b[k], var_b[k]),
-                      "declared_ref": bool(lbf_a[i] >= MIN_LOG_BF),
-                      "declared_arm": bool(lbf_b[k] >= MIN_LOG_BF),
+                      "declared_ref": dr, "declared_arm": da,
+                      "sep": bool(sep is not None and (sep[j] or sep[jb])),
+                      "mu_ref": float(mu_a[i, j]), "mu_arm": float(mu_b[k, j]),
+                      "var_ref": float(var_a[i, j]), "var_arm": float(var_b[k, j]),
+                      "pv_ref": float(ref_se[i]["prior_variance"]),
+                      "pv_arm": float(arm_se[k]["prior_variance"]),
+                      "lbf_ref": float(lbf_a[i]), "lbf_arm": float(lbf_b[k]),
                       "min_log_bf": float(min(lbf_a[i], lbf_b[k]))})
-    return pairs, {"max_pip": float(np.abs(pa - pb).max()),
-                   "n_decl_ref": int((lbf_a >= MIN_LOG_BF).sum()),
-                   "n_decl_arm": int((lbf_b >= MIN_LOG_BF).sum())}
+    fit = {"max_pip": float(np.abs(pa - pb).max()),
+           "n_decl_ref": int((lbf_a >= MIN_LOG_BF).sum()),
+           "n_decl_arm": int((lbf_b >= MIN_LOG_BF).sum())}
+    alphas = (np.concatenate(a_ref), np.concatenate(a_arm)) if a_ref else (np.empty(0), np.empty(0))
+    return pairs, fit, pa, pb, alphas
 
 
-def load(sc: str) -> tuple[pl.DataFrame, pl.DataFrame]:
-    """(component-pair frame, per-fit frame) for one 025 supercollection, cached on the number of
-    fits.parquet files present."""
-    pairs = list(RC._pairs(sc))   # (bh, mh, arm, meta); arm in cavi/gibss/laplace/score
-    present = [p for p in pairs if os.path.exists(f"{RC.RESULTS}/by_batch/{p[0]}/fits/{p[1]}/fits.parquet")]
-    stem = os.path.join(RC.CACHE, f"rate_pip_v3_{sc}_{len(present)}")
-    if os.path.exists(stem + "_fit.parquet"):
-        return pl.read_parquet(stem + "_comp.parquet"), pl.read_parquet(stem + "_fit.parquet")
+FRAMES = ("comp", "fit", "feat", "alpha", "eta")
+
+
+def _cells(sc: str):
+    """(batch hash, fit hash, arm, cell meta, simulation coord) per fit of a supercollection."""
+    design = sc.split("-")[2]
+    seen = set()
+    for coll in loader.collection_method_pairs(loader.load_config(), sc).values():
+        for bh, mh, mname, _mc, scoord in coll["pairs"]:
+            if (bh, mh) not in seen:
+                seen.add((bh, mh))
+                yield bh, mh, mname.rsplit("_", 1)[-1], RC._meta(design, scoord), scoord
+
+
+def load(sc: str) -> dict[str, pl.DataFrame]:
+    """Frames for one 025 supercollection, cached on the number of fits.parquet files present:
+
+    * comp: one row per matched component pair (all of them), distances and both sides' moments.
+    * fit: one row per (arm, replicate): max |dPIP|, declared counts, q2 ELBO difference, and
+      (signal cells) psi_dm / psi_lvar, the mean |dE psi_i| / sd_i and mean log variance ratio.
+    * feat: per (arm, replicate, feature) with PIP >= PIP_FLOOR on either side.
+    * alpha: per (arm, replicate, matched pair either side declares, feature) with alpha >=
+      PIP_FLOOR on either side.
+    * eta: ETA_ROWS observations per (arm, replicate), the same rows for every arm, with psi's
+      posterior mean (eta_m_*) and variance (eta_v_*). Signal cells only.
+
+    Signal cells re-run the pipeline's simulation per replicate for the design (separation
+    flags, psi)."""
+    import posterior_figure as PF
+    os.makedirs(RC.CACHE, exist_ok=True)
+    present = [c for c in _cells(sc)
+               if os.path.exists(f"{RC.RESULTS}/by_batch/{c[0]}/fits/{c[1]}/fits.parquet")]
+    stem = os.path.join(RC.CACHE, f"rate_pip_v4_{sc}_{len(present)}")
+    if all(os.path.exists(f"{stem}_{k}.parquet") for k in FRAMES):
+        return {k: pl.read_parquet(f"{stem}_{k}.parquet") for k in FRAMES}
     by_batch: dict[str, dict] = {}
-    for bh, mh, arm, meta in present:
-        cell = by_batch.setdefault(bh, {"meta": meta, "fits": {}})
+    for bh, mh, arm, meta, scoord in present:
+        cell = by_batch.setdefault(bh, {"meta": meta, "scoord": scoord, "fits": {}})
         cell["fits"][arm] = f"{RC.RESULTS}/by_batch/{bh}/fits/{mh}/fits.parquet"
-    comp_rows, fit_rows = [], []
-    cols = ["replicate", "single_effects", "q2_elbo"]
+    rows = {k: [] for k in FRAMES}
+    cols = ["replicate", "single_effects", "family_state", "q2_elbo"]
     for bh, cell in by_batch.items():
         if "cavi" not in cell["fits"]:
             continue
+        meta = cell["meta"]
         ref = {r["replicate"]: r for r in pl.read_parquet(cell["fits"]["cavi"], columns=cols).iter_rows(named=True)}
+        sep, xc, pref, obs = {}, {}, {}, {}
+        if not meta["null"]:
+            spec = loader.resolve_simulation_from_coord(cell["scoord"])
+            for rep, ref_fit in ref.items():
+                sim = PF.simulate_dense(spec, rep)
+                sep[rep] = separated(sim.X, np.asarray(sim.y_count, dtype=float))
+                xc[rep] = sim.X - sim.X.mean(0)
+                pref[rep] = predict(ref_fit, xc[rep])
+                obs[rep] = np.random.default_rng(rep).choice(len(xc[rep]), ETA_ROWS, replace=False)
         for arm, f in cell["fits"].items():
             if arm == "cavi":
                 continue
             for r in pl.read_parquet(f, columns=cols).iter_rows(named=True):
-                if r["replicate"] not in ref:
+                rep = r["replicate"]
+                if rep not in ref:
                     continue
-                cp, fit = compare(ref[r["replicate"]]["single_effects"], r["single_effects"])
-                key = {"method": arm, "batch_hash": bh, "rep": r["replicate"], **cell["meta"]}
-                e_ref, e_arm = ref[r["replicate"]]["q2_elbo"], r["q2_elbo"]
+                cp, fit, pa, pb, (ar, aa) = compare(ref[rep]["single_effects"], r["single_effects"], sep.get(rep))
+                key = {"method": arm, "batch_hash": bh, "rep": rep, **meta}
+                if rep in xc:
+                    (m0, v0), (m1, v1) = pref[rep], predict(r, xc[rep])
+                    fit["psi_dm"] = float(np.mean(np.abs(m1 - m0) / np.sqrt(v0)))
+                    fit["psi_lvar"] = float(np.mean(np.log(v1 / v0)))
+                    k = obs[rep]
+                    rows["eta"].append(pl.DataFrame({
+                        "method": arm, "lambda0": meta["lambda0"], "eta_m_ref": m0[k], "eta_m_arm": m1[k],
+                        "eta_v_ref": v0[k], "eta_v_arm": v1[k]}))
+                e_ref, e_arm = ref[rep]["q2_elbo"], r["q2_elbo"]
                 d_elbo = None if e_ref is None or e_arm is None else e_arm - e_ref
-                fit_rows.append({**key, **fit, "n_pairs": len(cp), "d_elbo": d_elbo})
-                comp_rows.extend({**key, **p} for p in cp)
-    comp = pl.DataFrame(comp_rows, infer_schema_length=None)
-    fits = pl.DataFrame(fit_rows, infer_schema_length=None)
-    comp.write_parquet(stem + "_comp.parquet")
-    fits.write_parquet(stem + "_fit.parquet")
-    return comp, fits
+                rows["fit"].append({**key, **fit, "n_pairs": len(cp), "d_elbo": d_elbo})
+                rows["comp"].extend({**key, **p} for p in cp)
+                keep = np.flatnonzero(np.maximum(pa, pb) >= PIP_FLOOR)
+                rows["feat"].append(pl.DataFrame({
+                    "method": arm, "lambda0": meta["lambda0"], "null": meta["null"],
+                    "pip_ref": pa[keep], "pip_arm": pb[keep]}))
+                rows["alpha"].append(pl.DataFrame({
+                    "method": arm, "lambda0": meta["lambda0"], "null": meta["null"],
+                    "alpha_ref": ar, "alpha_arm": aa}))
+    out = {"comp": pl.DataFrame(rows["comp"], infer_schema_length=None),
+           "fit": pl.DataFrame(rows["fit"], infer_schema_length=None),
+           **{k: pl.concat(rows[k], how="vertical_relaxed") for k in ("feat", "alpha", "eta")}}
+    for k, df in out.items():
+        df.write_parquet(f"{stem}_{k}.parquet")
+    return out
 
 
 def summarize(df: pl.DataFrame, value: str, by: list[str], n_boot: int = 2000, seed: int = 0) -> pl.DataFrame:
@@ -141,7 +247,7 @@ def by_rate_figure(L: int):
     import matplotlib.pyplot as plt
     fig, axes = plt.subplots(3, 3, figsize=(6.5, 6.0), sharex=True, sharey="row")
     for j, d in enumerate(DESIGNS):
-        comp, _ = load(f"025-rate-{d}" + ("" if L == 5 else "-ser"))
+        comp = load(f"025-rate-{d}" + ("" if L == 5 else "-ser"))["comp"]
         sub = comp.filter(~pl.col("null"))
         for i, (metric, label) in enumerate(METRICS.items()):
             ax = axes[i, j]
@@ -182,7 +288,7 @@ def survival_figure(floor: float = 1e-4):
     for i, L in enumerate([1, 5]):
         for j, d in enumerate(DESIGNS):
             ax = axes[i, j]
-            _, fits = load(f"025-rate-{d}" + ("" if L == 5 else "-ser"))
+            fits = load(f"025-rate-{d}" + ("" if L == 5 else "-ser"))["fit"]
             fits = fits.filter(~pl.col("null"))
             for m in ARMS:
                 for grp, filt in (("low", pl.col("lambda0") < 1), ("high", pl.col("lambda0") >= 1)):
@@ -219,7 +325,7 @@ def share_table() -> pl.DataFrame:
     rows = []
     for d in DESIGNS:
         for L in (1, 5):
-            _, fits = load(f"025-rate-{d}" + ("" if L == 5 else "-ser"))
+            fits = load(f"025-rate-{d}" + ("" if L == 5 else "-ser"))["fit"]
             fits = fits.filter(~pl.col("null")).with_columns(
                 pl.when(pl.col("lambda0") < 1).then(pl.lit("< 1")).otherwise(pl.lit(">= 1")).alias("lambda0"))
             for (m, g), h in fits.group_by("method", "lambda0"):
@@ -240,7 +346,7 @@ def tv_survival_figure(design: str, L: int = 5, bars=BARS, floor: float = 1e-4):
     columns = lambda0. Share of matched pairs with TV(arm, CAVI-Q2) > x, one line per arm,
     log-log, non-null cells pooled over T and gap. Values below `floor` are drawn at the floor."""
     import matplotlib.pyplot as plt
-    comp, _ = load(f"025-rate-{design}" + ("" if L == 5 else "-ser"))
+    comp = load(f"025-rate-{design}" + ("" if L == 5 else "-ser"))["comp"]
     comp = comp.filter(~pl.col("null"))
     lams = sorted(comp["lambda0"].unique().to_list())
     rows = [("all pairs", pl.lit(True))] + [(f"min log BF > {t:g}", pl.col("min_log_bf") > t) for t in bars]
@@ -295,7 +401,7 @@ def cond_survival_figure(design: str, L: int = 5, bar: float = 2.0, floor: float
     matched pairs whose smaller component log BF exceeds `bar` with the metric > x, one line per
     arm, log-log, non-null cells pooled over T and gap. Values below `floor` are drawn at it."""
     import matplotlib.pyplot as plt
-    comp, _ = load(f"025-rate-{design}" + ("" if L == 5 else "-ser"))
+    comp = load(f"025-rate-{design}" + ("" if L == 5 else "-ser"))["comp"]
     comp = comp.filter(~pl.col("null") & (pl.col("min_log_bf") > bar))
     lams = sorted(comp["lambda0"].unique().to_list())
     fig, axes = plt.subplots(len(COND), len(lams), figsize=(6.5, 1.55 * len(COND) + 0.7),
@@ -337,4 +443,122 @@ def cond_survival_figure(design: str, L: int = 5, bar: float = 2.0, floor: float
     top = max(ax.get_position().y1 for ax in axes[0])
     fig.suptitle(f"{DESIGN_SHORT[design]}, " + ("3 causals, L = 5" if L == 5 else "one causal, L = 1")
                  + f", min log BF > {bar:g}", fontsize=8, y=top + 0.25 / fig_h, va="bottom")
+    return fig
+
+
+# ------------------------------------------------------------------------------ scatters
+PV_FREEZE, PV_CAP = 0.01, 100.0   # freeze_prior_variance (an effect stops updating once its prior
+#                                   variance drops below it) and max_prior_variance, every arm
+DESIGN = {"binary": "Binary", "block": "Binary-Block", "gaussian": "Gaussian"}   # display order
+
+
+def _sc(design: str, L: int) -> str:
+    return f"025-rate-{design}" + ("" if L == 5 else "-ser")
+
+
+# quantity -> (frame, column stem, scale, axis label). Scales: "unit" = linear on [0, 1];
+# "linear" / "log" = linear / log10 with limits from each row's data; "pv" = log10 like "log",
+# with dashed guides at the freeze threshold and the cap.
+SCATTERS = {
+    "pip": ("feat", "pip", "unit", "PIP"),
+    "eta_m": ("eta", "eta_m", "linear", "posterior mean of ψ"),
+    "eta_v": ("eta", "eta_v", "log", "posterior variance of ψ"),
+    "alpha": ("alpha", "alpha", "unit", "α, matched component"),
+    "mu": ("comp", "mu", "linear", "conditional posterior mean"),
+    "var": ("comp", "var", "log", "conditional posterior variance"),
+    "pv": ("comp", "pv", "pv", "prior variance"),
+}
+
+
+def _scatter_rows(design: str, L: int, quantity: str) -> pl.DataFrame:
+    """The rows a scatter draws: non-null cells; conditional moments only for pairs both sides
+    declare and neither side's top feature separates y; prior variance for every matched pair."""
+    frame, _, _, _ = SCATTERS[quantity]
+    df = load(_sc(design, L))[frame]
+    if "null" in df.columns:
+        df = df.filter(~pl.col("null"))
+    if quantity in ("mu", "var"):
+        df = df.filter(pl.col("declared_ref") & pl.col("declared_arm") & ~pl.col("sep"))
+    return df
+
+
+def dropped(design: str, L: int, quantity: str) -> pl.DataFrame:
+    """The rows `scatter_figure` leaves out because a value is non-finite (gIBSS-GO's runaway
+    fits), per arm and lambda0."""
+    col = SCATTERS[quantity][1]
+    df = _scatter_rows(design, L, quantity)
+    bad = ~pl.col(f"{col}_ref").is_finite() | ~pl.col(f"{col}_arm").is_finite()
+    return df.filter(bad).group_by("method", "lambda0").len().sort("method", "lambda0")
+
+
+def scatter_figure(design: str, L: int, quantity: str):
+    """Rows = lambda0, columns = arms: `quantity` (SCATTERS), arm against CAVI-Q2, as a hexbin
+    with log counts; grey y = x."""
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm
+    from matplotlib.ticker import MaxNLocator
+    _, col, scale, label = SCATTERS[quantity]
+    df = _scatter_rows(design, L, quantity).filter(
+        pl.col(f"{col}_ref").is_finite() & pl.col(f"{col}_arm").is_finite())
+    arms = [m for m in ARMS if m in set(df["method"].unique().to_list())]
+    lams = sorted(df["lambda0"].unique().to_list())
+    log = scale in ("log", "pv")
+    fig, axes = plt.subplots(len(lams), len(arms), figsize=(6.5 * max(len(arms), 4) / 5, 1.2 * len(lams) + 0.4),
+                             squeeze=False)
+    for i, lam in enumerate(lams):
+        row = df.filter(pl.col("lambda0") == lam)
+        x_all = np.concatenate([row[f"{col}_ref"].to_numpy(), row[f"{col}_arm"].to_numpy()])
+        if log:
+            x_all = np.log10(x_all[x_all > 0])
+        if scale == "unit":
+            lo, hi = 0.0, 1.0
+        else:
+            lo, hi = np.quantile(x_all, [0.0005, 0.9995]) if x_all.size else (0.0, 1.0)
+            pad = 0.08 * (hi - lo) or 0.5
+            lo, hi = lo - pad, hi + pad
+        for k, m in enumerate(arms):
+            ax = axes[i, k]
+            d = row.filter(pl.col("method") == m)
+            x, y = d[f"{col}_ref"].to_numpy(), d[f"{col}_arm"].to_numpy()
+            if log:
+                x, y = np.log10(x), np.log10(y)
+            ax.hexbin(x, y, gridsize=25, extent=(lo, hi, lo, hi), norm=LogNorm(vmin=1, vmax=1e4),
+                      cmap="Blues", mincnt=1, linewidths=0)
+            ax.plot([lo, hi], [lo, hi], color="0.5", lw=0.5)
+            if scale == "pv":
+                for g in (PV_FREEZE, PV_CAP):
+                    if lo < np.log10(g) < hi:
+                        ax.axvline(np.log10(g), color="0.6", lw=0.5, ls="--")
+                        ax.axhline(np.log10(g), color="0.6", lw=0.5, ls="--")
+            if scale == "unit":
+                ticks, labels = [0, 0.5, 1], ["0", "0.5", "1"]
+            elif log:
+                ticks = list(range(int(np.ceil(lo)), int(np.floor(hi)) + 1))
+                if len(ticks) < 2:   # under a decade: half decades
+                    ticks = list(np.arange(np.ceil(2 * lo), np.floor(2 * hi) + 1) / 2)
+                if len(ticks) > 4:
+                    ticks = ticks[::2]
+                labels = [f"$10^{{{t:g}}}$" for t in ticks]
+            else:
+                ticks = None
+                for axis in (ax.xaxis, ax.yaxis):
+                    axis.set_major_locator(MaxNLocator(3))
+            if ticks is not None:
+                ax.set_xticks(ticks, labels)
+                ax.set_yticks(ticks, labels)
+            ax.set_xlim(lo, hi)
+            ax.set_ylim(lo, hi)
+            ax.set_aspect("equal")
+            ax.tick_params(labelsize=4.5, length=2, pad=1)
+            if k:
+                ax.set_yticklabels([])
+            if i < len(lams) - 1 and scale == "unit":
+                ax.set_xticklabels([])
+            if i == 0:
+                ax.set_title(LABEL[m], fontsize=6.5, color=COLOR[m])
+            if k == 0:
+                ax.set_ylabel(rf"$\lambda_0 = {lam:g}$", fontsize=6.5)
+    fig.tight_layout(rect=(0.025, 0.03, 1, 1), w_pad=0.2, h_pad=0.4)
+    fig.text(0.5, 0.006, f"{label}, CAVI-Q2", ha="center", fontsize=7)
+    fig.text(0.004, 0.5, f"{label}, arm", va="center", rotation="vertical", fontsize=7)
     return fig

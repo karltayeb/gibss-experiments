@@ -220,11 +220,11 @@ def load(sources=SOURCES, results_root: str = RESULTS
             sep, xc, pref, rows = {}, {}, {}, {}
             if not meta["null"]:
                 spec = loader.resolve_simulation_from_coord(cell["scoord"])
-                for rep in ref:
+                for rep, ref_fit in ref.items():
                     sim = PF.simulate_dense(spec, rep)
                     sep[rep] = separated(sim.X, np.asarray(sim.z, dtype=float))
                     xc[rep] = sim.X - sim.X.mean(0)
-                    pref[rep] = predict(ref[rep], xc[rep])
+                    pref[rep] = predict(ref_fit, xc[rep])
                     rows[rep] = np.random.default_rng(rep).choice(len(xc[rep]), ETA_ROWS, replace=False)
             for method, f in cell["fits"].items():
                 if method == "cavi":
@@ -534,7 +534,7 @@ def moment_scatter_figure(comp: pl.DataFrame, L: int = 5, moment: str = "mu", de
     sub_l = comp.filter(pl.col("L") == L)
     if declared:
         sub_l = sub_l.filter(~pl.col("null") & pl.col("declared_ref") & pl.col("declared_arm"))
-    log = moment.endswith("var") or moment.endswith("_v")
+    log = moment.endswith(("var", "_v"))
     fig, axes = plt.subplots(3, len(ARMS), figsize=(6.5, 3.0), squeeze=False)
     ref, arm = f"{moment}_ref", f"{moment}_arm"
     for i, exp in enumerate(exps):
@@ -624,15 +624,21 @@ def lbf_scatter_figure(comp: pl.DataFrame, L: int = 5):
     return _pair_scatter(comp, L, "lbf", _slog, (_slog(-10.0), hi), ticks, "log BF", [R.MIN_LOG_BF])
 
 
-PV_FLOOR, PV_CAP = 0.01, 100.0   # freeze_prior_variance and max_prior_variance of every L=5 arm
+# freeze_prior_variance (an effect stops updating once its prior variance drops below it, so the
+# last update can land under it) and max_prior_variance, every L=5 arm
+PV_FREEZE, PV_CAP = 0.01, 100.0
 
 
 def pv_scatter_figure(comp: pl.DataFrame, L: int = 5):
     """Estimated prior variance of every matched pair's component, arm against CAVI-Q2, log10
-    scale; dashed lines at the freeze floor (0.01) and the cap (100)."""
-    lo, hi = np.log10(PV_FLOOR) - 0.3, np.log10(PV_CAP) + 0.3
-    return _pair_scatter(comp, L, "pv", np.log10, (lo, hi), [0.01, 1, 100], "prior variance",
-                         [PV_FLOOR, PV_CAP])
+    scale down to the smallest estimate; dashed lines at the freeze threshold (0.01) and the cap
+    (100)."""
+    sub = comp.filter((pl.col("L") == L) & ~pl.col("null"))
+    low = float(min(sub["pv_ref"].min(), sub["pv_arm"].min(), PV_FREEZE))
+    lo, hi = np.log10(low) - 0.3, np.log10(PV_CAP) + 0.3
+    ticks = [t for t in (1e-4, 1e-2, 1, 100) if np.log10(t) >= lo]
+    return _pair_scatter(comp, L, "pv", np.log10, (lo, hi), ticks, "prior variance",
+                         [PV_FREEZE, PV_CAP])
 
 
 def _cs(alpha: np.ndarray, coverage: float = 0.95) -> np.ndarray:

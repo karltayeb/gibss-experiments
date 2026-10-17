@@ -1,0 +1,432 @@
+---
+title: "Poisson PIP agreement"
+subtitle: "Experiment 025: per-feature PIPs, the linear predictor, and matched single effects, each arm against CAVI-Q2 on the same replicate, by background rate."
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))   # analysis/poisson_susie_simulations -> analysis
+os.chdir("..")                                # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/poisson_susie_simulations")
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import rate_pip as RP
+```
+
+Every panel is a hexbin of arm against CAVI-Q2 (log counts) on the same replicates, pooled over $T$ and gap within each background rate $\lambda_0$, signal cells only. The design and arms are on [Poisson SuSiE across the background rate](rate.qmd).
+
+- PIP: features with PIP $\geq$ 0.05 on either side.
+- $\psi_i = b_0 + \tilde x_i^\top b$, with $\tilde x$ the centered design: posterior mean and variance under each fit's mean-field posterior, 10 random observations per replicate (the same rows for every arm). No matching needed.
+- Matched components (L = 5): arm components are matched to CAVI-Q2's by minimum total TV between alphas (Hungarian).
+  - $\alpha$: pairs either side declares (log BF $\geq$ 2), features with $\alpha \geq$ 0.05 on either side.
+  - $\mu$ and variance: the conditional posterior $q(b \mid \gamma = j)$ at CAVI-Q2's top feature $j$, pairs both sides declare. Pairs where either side's top feature separates $y$ are dropped (all counts zero in the rows with $x_j \neq 0$, or in the rows with $x_j = 0$; the conditional moments are then set by the prior). This drops 29 both-declared pairs in Binary and 40 in Binary-Block, all at $\lambda_0 \leq 1$, and none in Gaussian.
+  - Prior variance: every matched pair; dashed lines at the freeze threshold 0.01 (an effect stops updating once its prior variance drops below it) and the cap 100.
+
+gIBSS-GO's runaway fits give a non-finite $\psi$ in 4 Binary replicates at $\lambda_0 = 0.01$ (40 observations); the $\psi$ panels leave them out.
+
+## L = 5
+
+### PIP
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-pip-binary-l5
+#| fig-cap: "Binary, L = 5: PIP, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 5, "pip"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-pip-block-l5
+#| fig-cap: "Binary-Block, L = 5: PIP, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 5, "pip"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-pip-gaussian-l5
+#| fig-cap: "Gaussian, L = 5: PIP, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 5, "pip"); plt.show()
+```
+
+:::
+
+### Posterior mean of ψ
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-etam-binary-l5
+#| fig-cap: "Binary, L = 5: posterior mean of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 5, "eta_m"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-etam-block-l5
+#| fig-cap: "Binary-Block, L = 5: posterior mean of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 5, "eta_m"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-etam-gaussian-l5
+#| fig-cap: "Gaussian, L = 5: posterior mean of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 5, "eta_m"); plt.show()
+```
+
+:::
+
+### Posterior variance of ψ
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-etav-binary-l5
+#| fig-cap: "Binary, L = 5: posterior variance of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 5, "eta_v"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-etav-block-l5
+#| fig-cap: "Binary-Block, L = 5: posterior variance of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 5, "eta_v"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-etav-gaussian-l5
+#| fig-cap: "Gaussian, L = 5: posterior variance of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 5, "eta_v"); plt.show()
+```
+
+:::
+
+### Matched components
+
+#### α
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-alpha-binary-l5
+#| fig-cap: "Binary, L = 5: α, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 5, "alpha"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-alpha-block-l5
+#| fig-cap: "Binary-Block, L = 5: α, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 5, "alpha"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-alpha-gaussian-l5
+#| fig-cap: "Gaussian, L = 5: α, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 5, "alpha"); plt.show()
+```
+
+:::
+
+#### Conditional posterior mean
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-mu-binary-l5
+#| fig-cap: "Binary, L = 5: conditional posterior mean, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 5, "mu"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-mu-block-l5
+#| fig-cap: "Binary-Block, L = 5: conditional posterior mean, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 5, "mu"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-mu-gaussian-l5
+#| fig-cap: "Gaussian, L = 5: conditional posterior mean, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 5, "mu"); plt.show()
+```
+
+:::
+
+#### Conditional posterior variance
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-var-binary-l5
+#| fig-cap: "Binary, L = 5: conditional posterior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 5, "var"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-var-block-l5
+#| fig-cap: "Binary-Block, L = 5: conditional posterior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 5, "var"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-var-gaussian-l5
+#| fig-cap: "Gaussian, L = 5: conditional posterior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 5, "var"); plt.show()
+```
+
+:::
+
+#### Prior variance
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-pv-binary-l5
+#| fig-cap: "Binary, L = 5: prior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 5, "pv"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-pv-block-l5
+#| fig-cap: "Binary-Block, L = 5: prior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 5, "pv"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-pv-gaussian-l5
+#| fig-cap: "Gaussian, L = 5: prior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 5, "pv"); plt.show()
+```
+
+:::
+
+## L = 1
+
+One component per fit, so $\alpha$ is the PIP vector and needs no matching; gIBSS-GO and Taylor2 are not fit at L = 1.
+
+### PIP
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-pip-binary-l1
+#| fig-cap: "Binary, L = 1: PIP, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 1, "pip"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-pip-block-l1
+#| fig-cap: "Binary-Block, L = 1: PIP, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 1, "pip"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-pip-gaussian-l1
+#| fig-cap: "Gaussian, L = 1: PIP, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 1, "pip"); plt.show()
+```
+
+:::
+
+### Posterior mean of ψ
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-etam-binary-l1
+#| fig-cap: "Binary, L = 1: posterior mean of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 1, "eta_m"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-etam-block-l1
+#| fig-cap: "Binary-Block, L = 1: posterior mean of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 1, "eta_m"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-etam-gaussian-l1
+#| fig-cap: "Gaussian, L = 1: posterior mean of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 1, "eta_m"); plt.show()
+```
+
+:::
+
+### Posterior variance of ψ
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-etav-binary-l1
+#| fig-cap: "Binary, L = 1: posterior variance of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 1, "eta_v"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-etav-block-l1
+#| fig-cap: "Binary-Block, L = 1: posterior variance of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 1, "eta_v"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-etav-gaussian-l1
+#| fig-cap: "Gaussian, L = 1: posterior variance of ψ, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 1, "eta_v"); plt.show()
+```
+
+:::
+
+### Single effect
+
+#### Conditional posterior mean
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-mu-binary-l1
+#| fig-cap: "Binary, L = 1: conditional posterior mean, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 1, "mu"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-mu-block-l1
+#| fig-cap: "Binary-Block, L = 1: conditional posterior mean, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 1, "mu"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-mu-gaussian-l1
+#| fig-cap: "Gaussian, L = 1: conditional posterior mean, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 1, "mu"); plt.show()
+```
+
+:::
+
+#### Conditional posterior variance
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-var-binary-l1
+#| fig-cap: "Binary, L = 1: conditional posterior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 1, "var"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-var-block-l1
+#| fig-cap: "Binary-Block, L = 1: conditional posterior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 1, "var"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-var-gaussian-l1
+#| fig-cap: "Gaussian, L = 1: conditional posterior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 1, "var"); plt.show()
+```
+
+:::
+
+#### Prior variance
+
+::: {.panel-tabset}
+
+##### Binary
+
+```{python}
+#| label: fig-pv-binary-l1
+#| fig-cap: "Binary, L = 1: prior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("binary", 1, "pv"); plt.show()
+```
+
+##### Binary-Block
+
+```{python}
+#| label: fig-pv-block-l1
+#| fig-cap: "Binary-Block, L = 1: prior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("block", 1, "pv"); plt.show()
+```
+
+##### Gaussian
+
+```{python}
+#| label: fig-pv-gaussian-l1
+#| fig-cap: "Gaussian, L = 1: prior variance, arm against CAVI-Q2. Rows = $\\lambda_0$."
+fig = RP.scatter_figure("gaussian", 1, "pv"); plt.show()
+```
+
+:::
