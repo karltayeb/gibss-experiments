@@ -1,0 +1,211 @@
+---
+title: "Split component at L = 2"
+subtitle: "Three independent effects fit with two components: one component splits across two effects, and its two-point offset distorts the gIBSS and gIBSS-GO update of the other."
+engine: jupyter
+jupyter: python3
+execute:
+  fig-dpi: 110
+---
+
+```{python}
+#| label: setup
+#| include: false
+import os
+os.chdir(os.path.join(os.getcwd(), ".."))   # analysis/poisson_susie_simulations -> analysis
+os.chdir("..")                                # -> twogroup_experiments/
+import sys
+sys.path.insert(0, "analysis/poisson_susie_simulations")
+import warnings
+warnings.filterwarnings("ignore")
+import numpy as np
+import matplotlib.pyplot as plt
+plt.rcParams["figure.dpi"] = 110
+import polars as pl
+import split_component as sc
+
+pl.Config.set_tbl_hide_dataframe_shape(True)
+pl.Config.set_tbl_hide_column_data_types(True)
+pl.Config.set_float_precision(3)
+pl.Config.set_tbl_rows(20)
+```
+
+## Design
+
+Three independent causal columns $A, B, C$ with equal effect $\beta$, $p = 50$ standard Gaussian columns, and an $L = 2$ fit.
+One component sits on $A$ (the clean component); the other splits between $B$ and $C$ (the split component).
+
+On iid rows a strong $B, C$ pair rarely splits, because noise breaks the tie.
+So the design is swap-symmetric: draw $n/2$ rows, append the same rows with columns $B$ and $C$ swapped, and duplicate $y$.
+Then $\text{lbf}_B = \text{lbf}_C$ exactly and the split component has $\alpha_B = \alpha_C = 1/2$ in every arm.
+
+Arms, all `fit_glm_susie` with a Gaussian variational family, `center=True`, EB prior variance capped at 100:
+
+- CAVI-Q2: the other component's offset integrated exactly (`offset_integration="cf"`).
+- gIBSS-Q2: plug-in mean offset (`"none"`).
+- gIBSS-GO: moment-matched Gaussian offset (`"lognormal"` for Poisson, `"probit_mixture"` for logistic).
+
+Every fit runs a fixed `{python} sc.SWEEPS` sweeps.
+At this pin `fit_glm_susie` declares convergence on the alpha SKL alone, alpha saturates in the first sweep, and every arm stops after 2 sweeps.
+
+## The offset the clean component sees
+
+Write $\mu$ for the split component's mean on $B$ (equal to its mean on $C$) and ignore its posterior variance.
+Row $i$'s offset from the split component is $\mu x_{iB}$ or $\mu x_{iC}$ with probability $1/2$ each.
+With $m_i = \mu (x_{iB} + x_{iC})/2$ and $d_i = \mu (x_{iB} - x_{iC})$, the Poisson expected log-likelihood of the clean component needs
+
+$$
+E\big[e^{o_i}\big] = e^{m_i} \cosh(d_i / 2) \quad \text{(CAVI)}, \qquad
+e^{m_i} \quad \text{(gIBSS-Q2)}, \qquad
+e^{m_i + d_i^2/8} \quad \text{(gIBSS-GO)}.
+$$
+
+gIBSS-Q2 drops the factor $\cosh(d_i/2) \ge 1$.
+gIBSS-GO replaces it with $e^{d_i^2/8} \ge \cosh(d_i/2)$, a Gaussian with the right variance but the wrong tails.
+Both errors grow with $|d_i|$, so with $\beta$ and with the spread of the columns.
+
+## One replicate
+
+```{python}
+#| label: one-rep
+#| include: false
+FAM, N, P, B0, BETA, SEED = "poisson", 500, 50, 0.0, 1.0, 1100
+X, y = sc.simulate(np.random.default_rng(SEED), FAM, n=N, p=P, beta=BETA, b0=B0)
+one = {}
+for arm in sc.ARMS:
+    st, sts = sc.fit(arm, FAM, X, y)
+    one[arm] = dict(state=st, **sc.trace(X, y, sts))
+```
+
+Poisson, $\lambda_0 = e^{b_0} = 1$, $\beta = 1$, $n = 500$, seed `{python} SEED`.
+
+```{python}
+#| label: fig-one-trace
+#| fig-cap: "ELBO (Q2, shared intercept) and the clean component's posterior mean on A at the end of each sweep. Dashed line at sweep 2, where the default convergence check stops every arm. Both axes clip gIBSS-GO's excursions (its clean mean reaches about 150)."
+fig, axes = plt.subplots(1, 2, figsize=(6.5, 2.6))
+top = one["cavi"]["elbo"][-1]
+for arm in sc.ARMS:
+    e = one[arm]["elbo"]
+    s = np.arange(1, len(e) + 1)
+    axes[0].plot(s, e - top, color=sc.COLOR[arm], lw=1.2, label=sc.LABEL[arm])
+    axes[1].plot(s, one[arm]["mu_clean"], color=sc.COLOR[arm], lw=1.2)
+axes[0].set_ylim(-400, 20)
+fin = [one[a]["mu_clean"][-1] for a in ("cavi", "gibss")]
+axes[1].set_ylim(min(fin + [BETA]) - 0.3, max(fin) + 0.5)
+axes[0].set_ylabel("ELBO - CAVI final (nats)", fontsize=8)
+axes[1].axhline(BETA, color="0.6", lw=0.8, ls=":")
+axes[1].set_ylabel(r"clean $\mu_A$", fontsize=8)
+for ax in axes:
+    ax.axvline(2, color="0.5", lw=0.8, ls="--")
+    ax.set_xscale("log")
+    ax.set_xlabel("sweep", fontsize=8)
+    ax.tick_params(labelsize=7)
+axes[0].legend(fontsize=7, frameon=False)
+fig.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: tbl-one
+#| tbl-cap: "Final state of each arm. elbo = Q2 ELBO; d_elbo = elbo - CAVI's; mu, sd = clean component's posterior mean and sd on A; lbf = clean component's SER log BF; split_mu = split component's mean on B; alpha_B = split component's alpha on B; stable = ELBO range under 1 nat over the last 20 sweeps and final ELBO within 10% of its best in sweeps 1-10."
+def row(arm, st, e):
+    c = sc.components(st)
+    return dict(arm=sc.LABEL[arm], elbo=e[-1], d_elbo=e[-1] - one["cavi"]["elbo"][-1],
+                mu=c["clean"]["mu"], sd=c["clean"]["sd"], lbf=c["clean"]["lbf"],
+                split_mu=c["split"]["mu"], alpha_B=c["split"]["alpha_B"], stable=sc.stable(e, head=e[:10]))
+pl.DataFrame([row(a, one[a]["state"], one[a]["elbo"]) for a in sc.ARMS])
+```
+
+## Replicates
+
+```{python}
+#| label: reps
+#| include: false
+REPS = 20
+SETTINGS = [("poisson", 500, 0.0, b) for b in (0.5, 1.0, 1.5)] + \
+           [("logistic", 1000, -1.0, b) for b in (0.5, 1.0, 1.5)]
+rows = []
+for fam, n, b0, beta in SETTINGS:
+    for rep in range(REPS):
+        X, y = sc.simulate(np.random.default_rng(10_000 * rep + int(100 * beta)), fam,
+                           n=n, p=P, beta=beta, b0=b0)
+        for arm in sc.ARMS:
+            st, sts = sc.fit(arm, fam, X, y)
+            c = sc.components(st)
+            e = np.array([sc.elbo(X, y, s) for s in sts[-20:]])
+            head = np.array([sc.elbo(X, y, s) for s in sts[:10]])
+            rows.append(dict(family=fam, beta=beta, rep=rep, arm=arm, elbo=e[-1], stable=sc.stable(e, head=head),
+                             mu=c["clean"]["mu"], sd=c["clean"]["sd"], lbf=c["clean"]["lbf"],
+                             alpha_B=c["split"]["alpha_B"]))
+reps = pl.DataFrame(rows)
+ref = reps.filter(pl.col("arm") == "cavi").select("family", "beta", "rep",
+                                                 pl.col("elbo").alias("elbo_ref"), pl.col("mu").alias("mu_ref"),
+                                                 pl.col("sd").alias("sd_ref"), pl.col("lbf").alias("lbf_ref"))
+rel = (reps.join(ref, on=["family", "beta", "rep"])
+       .with_columns(d_elbo=pl.col("elbo") - pl.col("elbo_ref"),
+                     z_mu=(pl.col("mu") - pl.col("mu_ref")) / pl.col("sd_ref"),
+                     d_lbf=pl.col("lbf") - pl.col("lbf_ref")))
+```
+
+$20$ replicates per setting.
+Poisson: $n = 500$, $\lambda_0 = 1$.
+Logistic: $n = 1000$, $b_0 = -1$.
+
+```{python}
+#| label: fig-reps
+#| fig-cap: "Each arm against CAVI-Q2, per replicate. Rows: ELBO difference (symlog for Poisson), clean component's posterior mean shift in units of CAVI's posterior sd, clean component's SER log BF difference. Open circles at the panel edge: the arm's ELBO did not settle (range over 1 nat in the last 20 sweeps, or final ELBO more than 10% below its best in sweeps 1-10), so its last-sweep value is not shown."
+QS = [("d_elbo", "ELBO - CAVI\n(nats)"), ("z_mu", r"$(\mu_A - \mu_A^{\rm CAVI}) / \sigma_A^{\rm CAVI}$"),
+      ("d_lbf", "clean log BF\n- CAVI")]
+arms = [a for a in sc.ARMS if a != "cavi"]
+fams = ["poisson", "logistic"]
+fig, axes = plt.subplots(len(QS), 2, figsize=(6.5, 5.6), sharex=True)
+rng = np.random.default_rng(0)
+for j, fam in enumerate(fams):
+    betas = sorted(rel.filter(pl.col("family") == fam)["beta"].unique().to_list())
+    for i, (q, lab) in enumerate(QS):
+        ax = axes[i, j]
+        ax.axhline(0, color="0.6", lw=0.8)
+        v = rel.filter((pl.col("family") == fam) & (pl.col("arm") != "cavi") & pl.col("stable"))[q].to_numpy()
+        v = v[np.isfinite(v)]
+        lo, hi = min(v.min(), 0.0), max(v.max(), 0.0)
+        pad = 0.08 * (hi - lo) if q != "d_elbo" or fam != "poisson" else 0.0
+        lo, hi = (lo * 2 - 1, hi + 1) if pad == 0.0 else (lo - pad, hi + pad)
+        for k, arm in enumerate(arms):
+            for b_i, beta in enumerate(betas):
+                d = rel.filter((pl.col("family") == fam) & (pl.col("arm") == arm) & (pl.col("beta") == beta))
+                x = b_i + (k - 0.5) * 0.36 + rng.uniform(-0.08, 0.08, d.height)
+                v = d[q].to_numpy()
+                ok = d["stable"].to_numpy() & np.isfinite(v)
+                ax.scatter(x[ok], v[ok], s=9, color=sc.COLOR[arm], lw=0,
+                           label=sc.LABEL[arm] if (i == 0 and b_i == 0) else None)
+                # unstable fits: no meaningful value, drawn at the clipped panel edge
+                ax.scatter(x[~ok], np.where(v[~ok] > 0, hi, lo), s=16, marker="o",
+                           facecolor="none", edgecolor=sc.COLOR[arm], lw=0.8, clip_on=False)
+        if q == "d_elbo" and fam == "poisson":
+            ax.set_yscale("symlog", linthresh=1)
+        ax.set_ylim(lo, hi)
+        ax.set_xticks(range(len(betas)), [f"{b:g}" for b in betas])
+        ax.tick_params(labelsize=7)
+        if j == 0:
+            ax.set_ylabel(lab, fontsize=8)
+        if i == 0:
+            ax.set_title(fam.capitalize(), fontsize=9)
+        if i == len(QS) - 1:
+            ax.set_xlabel(r"$\beta$", fontsize=8)
+axes[0, 0].legend(fontsize=7, frameon=False, loc="lower left")
+fig.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: tbl-reps
+#| tbl-cap: "Medians over the settled replicates, per arm against CAVI-Q2. d_elbo = arm ELBO - CAVI ELBO (nats); z_mu = clean component's mean shift in CAVI posterior sds; d_lbf = clean component's SER log BF - CAVI's; unstable = replicates whose ELBO did not settle (same rule as the figure); split = replicates where CAVI's split component has alpha_B in [0.4, 0.6]."
+split = reps.filter(pl.col("arm") == "cavi").group_by("family", "beta").agg(
+    split=((pl.col("alpha_B") - 0.5).abs() < 0.1).sum())
+(rel.filter(pl.col("arm") != "cavi")
+ .group_by("family", "beta", "arm")
+ .agg(pl.col("d_elbo").filter(pl.col("stable")).median(), pl.col("z_mu").filter(pl.col("stable")).median(),
+      pl.col("d_lbf").filter(pl.col("stable")).median(), unstable=(~pl.col("stable")).sum())
+ .join(split, on=["family", "beta"])
+ .with_columns(pl.col("arm").replace_strict(sc.LABEL))
+ .sort("family", "beta", "arm", descending=[True, False, False]))
+```
