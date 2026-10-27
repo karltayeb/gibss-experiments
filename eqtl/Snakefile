@@ -1,0 +1,147 @@
+# eQTL NB fine-mapping pipeline. Run from this directory:
+#   uv run snakemake --cores 4 results/collections/pilot/fit.parquet
+#   uv run snakemake --profile <midway profile> results/collections/001-main/fit.parquet
+import json
+from pathlib import Path
+
+import polars as pl
+
+from eqtl.cells import collection_members, expand, load_config
+
+CONFIG = load_config("config.yaml")
+CELLS = expand(CONFIG)
+POPULATIONS = {c.population.hash: c.population for c in CELLS.values()}
+RESULTS = "results"
+
+
+wildcard_constraints:
+    population=r"[0-9a-f]{16}",
+    cell=r"[0-9a-f]{16}",
+    arm=r"[a-z_]+",
+    L=r"[0-9]+|auto",
+    start=r"[0-9]+",
+    stop=r"[0-9]+",
+    collection=r"[A-Za-z0-9_\-]+",
+
+
+rule all:
+    input:
+        expand_collections=[f"{RESULTS}/collections/{name}/fit.parquet" for name in CONFIG["collections"]],
+
+
+# ---------------------------------------------------------------------------
+# Population resource: one stdpopsim run per spec, cached; downstream treats it as ancient
+# ---------------------------------------------------------------------------
+rule population:
+    output:
+        trees=f"{RESULTS}/populations/{{population}}.trees",
+        sites=f"{RESULTS}/populations/{{population}}.sites.parquet",
+    resources:
+        runtime=60, mem_mb=8000,
+    run:
+        from eqtl.genotypes import write_population
+        write_population(POPULATIONS[wildcards.population], output.trees, output.sites)
+
+
+# ---------------------------------------------------------------------------
+# One batch of replicates: each replicate = one sampled cohort + one gene's counts,
+# seeded by (cell, rep) so a replicate is the same whichever batch holds it
+# ---------------------------------------------------------------------------
+rule simulate:
+    output:
+        sims=f"{RESULTS}/cells/{{cell}}/sims/reps_{{start}}_{{stop}}.npz",
+    input:
+        trees=lambda wc: ancient(f"{RESULTS}/populations/{CELLS[wc.cell].population.hash}.trees"),
+    resources:
+        runtime=lambda wc: 10 + (int(wc.stop) - int(wc.start)) // 4, mem_mb=4000,
+    run:
+        from eqtl.genotypes import load_population
+        from eqtl.simulate import rep_seed, save_batch, simulate_rep
+        cell = CELLS[wildcards.cell]
+        ts = load_population(input.trees)
+        reps = range(int(wildcards.start), int(wildcards.stop))
+        save_batch({r: simulate_rep(ts, cell.expression, rep_seed(wildcards.cell, r)) for r in reps}, output.sims)
+
+
+rule cell_meta:
+    output:
+        meta=f"{RESULTS}/cells/{{cell}}/cell.json",
+    run:
+        Path(output.meta).write_text(json.dumps(CELLS[wildcards.cell].coordinate(), indent=2))
+
+
+# ---------------------------------------------------------------------------
+# Fit one arm at one L over one batch of replicates of a cell
+# ---------------------------------------------------------------------------
+def _fit_resources(wc):
+    n = CELLS[wc.cell].expression.n
+    reps = int(wc.stop) - int(wc.start)
+    L = 5 if wc.L == "auto" else int(wc.L)
+    gibss = wc.arm in ("nb_true", "nb_est", "nb_polya_gamma", "nb_poisson_gamma", "poisson")
+    cavi = wc.arm.endswith("_cavi") or wc.arm.startswith("nb_cavi")
+    # per-rep minutes with ~2x margin over the laptop (n = 300, p ~ 670): spectral CAVI at
+    # L=5 runs 50-90 s/rep, the NB gIBSS arms ~20 s/rep, everything else under 2 s/rep
+    per_rep = (3.0 if L > 1 else 0.5) if cavi else (1.0 if L > 1 else 0.25) if gibss else 0.1
+    if n >= 500:
+        per_rep *= 2
+    return {"runtime": int(per_rep * reps) + 15, "mem_mb": 8000 if (gibss or cavi) else 4000}
+
+
+rule fit:
+    output:
+        pip=f"{RESULTS}/cells/{{cell}}/fits/{{arm}}_L{{L}}/reps_{{start}}_{{stop}}/pip.parquet",
+        cs=f"{RESULTS}/cells/{{cell}}/fits/{{arm}}_L{{L}}/reps_{{start}}_{{stop}}/cs.parquet",
+        fit=f"{RESULTS}/cells/{{cell}}/fits/{{arm}}_L{{L}}/reps_{{start}}_{{stop}}/fit.parquet",
+    input:
+        sims=ancient(f"{RESULTS}/cells/{{cell}}/sims/reps_{{start}}_{{stop}}.npz"),
+    resources:
+        runtime=lambda wc, input: _fit_resources(wc)["runtime"],
+        mem_mb=lambda wc, input: _fit_resources(wc)["mem_mb"],
+    run:
+        from eqtl.fits import fit_arm, rep_tables
+        from eqtl.simulate import load_batch
+        L = wildcards.L
+        pips, css, fits = [], [], []
+        for rep, sim in load_batch(input.sims).items():
+            f = fit_arm(wildcards.arm, sim, L=L)
+            a, b, c = rep_tables(f, sim, rep=rep, L=L)
+            pips.append(a); css.append(b); fits.append(c)
+        pl.concat(pips).write_parquet(output.pip)
+        pl.concat(css, how="diagonal_relaxed").write_parquet(output.cs)
+        pl.concat(fits, how="diagonal_relaxed").write_parquet(output.fit)
+
+
+# ---------------------------------------------------------------------------
+# Reduce a collection: concat every (cell, arm, L) table, join the cell coordinates
+# ---------------------------------------------------------------------------
+def _collection_inputs(wc, table):
+    return [
+        ancient(f"{RESULTS}/cells/{cell}/fits/{arm}_L{L}/reps_{start}_{stop}/{table}.parquet")
+        for cell, arm, L, start, stop in collection_members(CONFIG, CELLS, wc.collection)
+    ]
+
+
+rule reduce:
+    output:
+        pip=f"{RESULTS}/collections/{{collection}}/pip.parquet",
+        cs=f"{RESULTS}/collections/{{collection}}/cs.parquet",
+        fit=f"{RESULTS}/collections/{{collection}}/fit.parquet",
+    input:
+        pip=lambda wc: _collection_inputs(wc, "pip"),
+        cs=lambda wc: _collection_inputs(wc, "cs"),
+        fit=lambda wc: _collection_inputs(wc, "fit"),
+    resources:
+        runtime=30, mem_mb=8000,
+    run:
+        coords = pl.DataFrame([CELLS[h].coordinate() for h in CELLS])
+        def gather(paths):
+            frames = []
+            for p in paths:
+                cell = Path(p).parts[-5]
+                df = pl.read_parquet(p).with_columns(pl.col("L").cast(pl.Utf8))
+                df = df.drop([c for c in coords.columns if c in df.columns])
+                frames.append(df.with_columns(pl.lit(cell).alias("cell")))
+            return pl.concat(frames, how="diagonal_relaxed").join(coords, on="cell", how="left")
+        gather(input.pip).write_parquet(output.pip)
+        gather(input.cs).write_parquet(output.cs)
+        gather(input.fit).write_parquet(output.fit)

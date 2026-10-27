@@ -1,0 +1,175 @@
+---
+title: "NB SuSiE for cis-eQTL fine-mapping"
+subtitle: "transform-then-linear vs negative binomial, true vs estimated dispersion, vs summary statistics"
+date: today
+engine: jupyter
+jupyter: python3
+---
+
+```{python}
+#| tags: [parameters]
+#| echo: false
+collection = "pilot"
+```
+
+```{python}
+#| echo: false
+import sys
+from pathlib import Path
+import numpy as np
+import polars as pl
+import matplotlib.pyplot as plt
+from great_tables import GT
+sys.path.insert(0, str(Path("..").resolve() / "src"))
+from eqtl.evaluate import SCENARIO, cs_summary, declared, dispersion_summary, pip_auprc, pip_calibration, timing_summary
+root = Path("..") / "results" / "collections" / collection
+pip = pl.read_parquet(root / "pip.parquet")
+cs = pl.read_parquet(root / "cs.parquet")
+fit = pl.read_parquet(root / "fit.parquet")
+ARMS = ["linear_int", "linear_log", "nb_true", "nb_est", "nb_score_rss", "nb_score_rss_true", "nb_mle_rss", "nb_cavi", "nb_cavi_true", "nb_polya_gamma", "nb_poisson_gamma", "poisson", "poisson_cavi"]
+PALETTE = {"linear_int": "#0072B2", "linear_log": "#56B4E9", "nb_true": "#D55E00",
+           "nb_est": "#E69F00", "nb_score_rss": "#009E73", "nb_score_rss_true": "#CC79A7", "nb_mle_rss": "#117733", "nb_cavi": "#000000", "nb_cavi_true": "#999999",
+           "nb_polya_gamma": "#882255", "nb_poisson_gamma": "#44AA99",
+           "poisson": "#117733", "poisson_cavi": "#332288"}
+arms = [a for a in ARMS if a in set(fit["arm"])]
+Ls = sorted(set(fit["L"]))
+```
+
+Collection `{python} collection`: `{python} fit["cell"].n_unique()` cells, `{python} fit["rep"].n_unique()` reps, arms `{python} ", ".join(arms)`, L in `{python} Ls`.
+
+## Design
+
+```{python}
+#| echo: false
+cells = fit.select(["cell", *SCENARIO, "p"]).group_by(["cell", *SCENARIO]).agg(pl.col("p").mean().round(0).alias("mean_p")).sort(list(SCENARIO))
+GT(cells.to_pandas()).tab_header("Cells", "mean_p = SNPs after the MAF filter, averaged over reps")
+```
+
+## Runtime
+
+```{python}
+#| echo: false
+GT(timing_summary(fit).to_pandas()).fmt_number(["median_seconds", "max_seconds"], decimals=1).fmt_number("converged_rate", decimals=2).tab_header("Wall seconds per fit", "median / max over reps and cells; converged_rate = share of fits that stopped before the sweep cap")
+```
+
+## Dispersion estimate
+
+`nb_est`, `nb_score_rss` and `nb_mle_rss` use the null-model (intercept + offset) maximum-likelihood size r. The ratio to the simulated r, as log2(r_hat / r): negative = overdispersion overestimated (the null absorbs the causal variance; conservative). When the truth is Poisson (phi = 0, r infinite) the plot shows log2 r_hat itself against the 1e4 cap (dashed): a finite r_hat on Poisson counts is the causal variance read as overdispersion.
+
+```{python}
+#| echo: false
+poisson_truth = bool(fit.filter(pl.col("arm") == "nb_est")["r_true"].is_infinite().all()) if "nb_est" in arms else False
+if "nb_est" in arms:
+    ds = dispersion_summary(fit)
+    cols = ["median_log2_r_hat"] if poisson_truth else ["median_log2_ratio", "q10", "q90"]
+    display(GT(ds.select([*SCENARIO, *cols, "at_cap_rate", "n_reps"]).to_pandas()).fmt_number(cols, decimals=2).fmt_number("at_cap_rate", decimals=2).tab_header("log2 r_hat by scenario" if poisson_truth else "log2(r_hat / r_true) by scenario", "median (and 10-90%) over reps; at_cap_rate = share pinned at the Poisson cap r = 1e4"))
+```
+
+```{python}
+#| echo: false
+if "nb_est" in arms:
+    e = fit.filter(pl.col("arm") == "nb_est").with_columns((pl.col("r_used").log(2) if poisson_truth else (pl.col("r_used") / pl.col("r_true")).log(2)).alias("yval"))
+    fig, axes = plt.subplots(1, len(sorted(set(e["phi"]))), figsize=(6.5, 2.8), sharey=True, squeeze=False)
+    for ax, (phi, g) in zip(axes[0], e.group_by("phi", maintain_order=True)):
+        for beta, gg in g.group_by("beta_abs", maintain_order=True):
+            ax.scatter(gg["mu0"].to_numpy() * (1 + 0.15 * np.random.default_rng(0).standard_normal(gg.height)), gg["yval"].to_numpy(), s=10, alpha=0.7, label=f"|beta|={beta[0]}")
+        ax.axhline(np.log2(1e4) if poisson_truth else 0, color="k", lw=0.7, ls="--" if poisson_truth else "-"); ax.set_xscale("log"); ax.set_title(f"phi = {phi[0]}"); ax.set_xlabel("mu0")
+    axes[0][0].set_ylabel("log2 r_hat (cap dashed)" if poisson_truth else "log2(r_hat / r)"); axes[0][-1].legend(fontsize=7, frameon=False)
+    fig.tight_layout()
+```
+
+## Credible sets
+
+Declared sets: `ser_log_bf >= 2`. Coverage = share of declared sets holding a causal; power = share of causal sites inside a declared set; size = mean declared-set size; declared CSs per fit. One point per simulation scenario (a cell: n, mu0, phi, |beta|, k). Left column group: the reference arm's own values (`linear_int`, the GTEx / jaxQTL-linear pipeline, or `linear_log` on the Poisson collection where log-linear vs Poisson is the question; dashed = nominal 0.95). Right group: each arm minus the reference in the same scenario (size: arm over reference, log axis; dashed = no difference). Band and label colour = arm; point colour = |beta|, left to right within a band; marker = k_causal. L = 5 first, then L = 1.
+
+```{python}
+#| echo: false
+#| label: fig-vs-ref
+import vs_reference as VR
+ref = "linear_log" if collection.endswith("poisson") else "linear_int"
+sf = VR.scenario_frame(cs, fit, ref=ref)
+fig = VR.vs_reference_figure(sf, ref=ref); plt.show()
+```
+
+```{python}
+#| echo: false
+summ = cs_summary(cs, fit)
+for L in Ls:
+    t = summ.filter(pl.col("L") == L).select([*SCENARIO, "arm", "n_declared", "coverage", "power", "median_size", "median_purity", "false_sets_per_rep"]).sort([*SCENARIO, "arm"])
+    display(GT(t.to_pandas()).fmt_number(["coverage", "power", "median_purity", "false_sets_per_rep"], decimals=2).tab_header(f"95% credible sets, L = {L}", "pooled over reps; n_declared = sets with ser_log_bf >= 2; median_purity = median min |r| within a set; false_sets_per_rep = declared sets with no causal, per rep"))
+```
+
+## Three NB routes vs CAVI-Q2
+
+gibss fits the negative binomial three ways, named by the base regression problem each reduces to: the logistic cumulant at eta - log r (`nb_est` = gIBSS on the free-form Q1 kernel, `nb_cavi` = exact CAVI-Q2 on the same likelihood), the local Polya-Gamma augmentation (`nb_polya_gamma`, the JJ bound on the NB base, Gaussian base problem) and the local Poisson-Gamma augmentation (`nb_poisson_gamma`, Jensen on log(r + e^eta), Poisson base problem). `nb_cavi` maximizes the exact NB ELBO over Gaussian q, so it is the reference here; the two augmentations optimize certified lower bounds on that ELBO. Per rep: `fit.elbo` is the exact ELBO of each state, so `d_elbo` = arm minus reference in nats; `pip_max_diff` = max over SNPs of |PIP - PIP_ref|; `same_sets` = the declared sets (ser_log_bf >= 2) coincide member for member; `sd_ratio` = posterior sd of the top declared component, arm over reference (the Poisson-Gamma mean field predicts about sqrt(1 - s), s = mu0 / (mu0 + r)); `t_ratio` = wall seconds over the reference.
+
+```{python}
+#| echo: false
+#| label: fig-nb-routes
+import nb_routes as NR
+route_ref, route_arms = ("nb_cavi", None) if "nb_cavi" in arms else ("poisson_cavi", ["poisson"])
+rf = NR.route_frame(pip, cs, fit, ref=route_ref, arms=route_arms)
+if rf.height:
+    for L in Ls:
+        fig = NR.route_figure(rf, ref=route_ref, L=L); plt.show()
+    display(GT(NR.route_summary(rf).to_pandas()).fmt_number(["median_d_elbo", "min_d_elbo", "max_d_elbo"], decimals=1).fmt_number(["median_pip_max_diff", "max_pip_max_diff", "same_sets_rate", "median_sd_ratio", "median_t_ratio"], decimals=3).tab_header(f"routes vs {route_ref}, per rep then summarized", "fits = reps x cells; same_sets_rate = share of reps whose declared sets match the reference exactly"))
+else:
+    print("no CAVI reference fits in this collection")
+```
+
+Credible sets of the NB routes relative to `nb_cavi`, same layout as the headline figure:
+
+```{python}
+#| echo: false
+#| label: fig-vs-cavi
+if rf.height:
+    route_set = NR.NB_ARMS if route_ref == "nb_cavi" else ["poisson", "poisson_cavi"]
+    sf_nb = VR.scenario_frame(cs.filter(pl.col("arm").is_in(route_set)), fit.filter(pl.col("arm").is_in(route_set)), ref=route_ref)
+    fig = VR.vs_reference_figure(sf_nb, ref=route_ref); plt.show()
+```
+
+## PIPs
+
+```{python}
+#| echo: false
+#| fig-height: 3
+for L in Ls:
+    cal = pip_calibration(pip.filter(pl.col("L") == L), by=("arm",))
+    fig, axes = plt.subplots(1, len(arms), figsize=(6.5, 1.9), sharey=True, squeeze=False)
+    for ax, arm in zip(axes[0], arms):
+        g = cal.filter(pl.col("arm") == arm)
+        ax.plot([0, 1], [0, 1], color="k", lw=0.6, ls="--")
+        ax.scatter(g["mean_pip"].to_numpy(), g["causal_rate"].to_numpy(), s=4 + 40 * np.sqrt(g["n"].to_numpy() / g["n"].max()), color=PALETTE[arm])
+        ax.set_title(arm, fontsize=8); ax.set_xlabel("PIP", fontsize=8)
+    axes[0][0].set_ylabel("causal rate", fontsize=8)
+    fig.suptitle(f"PIP calibration, L = {L} (dot size = features in bin)", fontsize=9); fig.tight_layout(); plt.show()
+```
+
+```{python}
+#| echo: false
+au = pip_auprc(pip).pivot(on="arm", index=[*SCENARIO, "L"], values="auprc").sort([*SCENARIO, "L"])
+GT(au.to_pandas()).fmt_number(arms, decimals=3).tab_header("PIP area under the precision-recall curve", "per scenario x L, causal sites as positives")
+```
+
+## Effect recovery (individual-level NB arms, log scale)
+
+Top feature's posterior mean in declared covered sets, put on the standardized-genotype scale (times sqrt(2 p (1 - p)) at the top feature's MAF), against the simulated standardized |beta|. A tag at the top attenuates by its correlation with the causal. The RSS arms are left out: their coefficient is the z-scale noncentrality (z = R b), not a log fold change.
+
+```{python}
+#| echo: false
+topmaf = pip.select(["cell", "L", "rep", "arm", pl.col("feature").alias("top"), pl.col("maf").alias("top_maf")]).with_columns(pl.col("L").cast(pl.Utf8))
+d = (declared(cs).filter(pl.col("covered") & pl.col("arm").str.starts_with("nb_") & ~pl.col("arm").str.contains("rss")).with_columns(pl.col("L").cast(pl.Utf8))
+     .join(topmaf, on=["cell", "L", "rep", "arm", "top"], how="left")
+     .with_columns((pl.col("beta").abs() * (2 * pl.col("top_maf") * (1 - pl.col("top_maf"))).sqrt()).alias("beta_std")))
+nb_arms = [a for a in arms if a.startswith("nb_") and "rss" not in a]
+bmax = float(d["beta_abs"].max()) if d.height else 0.5
+fig, axes = plt.subplots(1, max(len(nb_arms), 1), figsize=(6.5, 2.2), sharey=True, squeeze=False)
+for ax, arm in zip(axes[0], nb_arms):
+    g = d.filter(pl.col("arm") == arm)
+    x = g["beta_abs"].to_numpy() * (1 + 0.03 * np.random.default_rng(2).standard_normal(g.height))
+    ax.scatter(x, g["beta_std"].to_numpy(), s=6, color=PALETTE[arm], alpha=0.6)
+    ax.plot([0, 1.1 * bmax], [0, 1.1 * bmax], color="k", lw=0.6, ls="--"); ax.set_title(arm, fontsize=8)
+axes[0][0].set_ylabel("|beta| posterior, standardized", fontsize=8)
+fig.supxlabel("|beta| true (standardized)", fontsize=8)
+fig.tight_layout()
+```

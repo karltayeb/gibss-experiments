@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+.snakemake/
+.pytest_cache/
+results/
+*.log
+analysis/_freeze/
+analysis/_site/
+analysis/*_files/
+resources/
+analysis/figures/

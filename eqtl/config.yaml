@@ -1,0 +1,114 @@
+# eQTL NB fine-mapping experiment grid. One population resource; collections are
+# Cartesian grids over ExpressionSpec fields (src/eqtl/simulate.py). Cells shared across
+# collections are simulated and fitted once (content-addressed on the specs).
+population:
+  species: HomSap
+  model: OutOfAfrica_3G09
+  population: CEU
+  chrom: chr22
+  left: 30000000
+  right: 30500000
+  genetic_map: HapMapII_GRCh38
+  n_diploids: 20000
+  seed: 1
+
+# Replicates: `reps` per cell, run in batches of `batch_size` (default: one batch of all
+# reps); each batch is one simulate job and one fit job per (arm, L).
+# Effect sizes: `beta` is the effect on the standardized genotype (alpha model with
+# alpha = -1, the ExpressionSpec default), so each causal explains beta^2 of log-scale
+# variance whatever its MAF and the expected marginal chi-square at the causal is
+# n beta^2 / (1 / mu0 + phi). With p ~ 670 SNPs a set is declared (log BF >= 2) from about
+# chi-square 25, so the ladder below (factor 2 per step) puts 2-3 points on the slope of
+# every (mu0, phi) cell at n = 300: e.g. mu0 = 1000, phi = 0.05 reaches 25 at beta ~ 0.065;
+# mu0 = 10, phi = 0.5 at beta ~ 0.22. Set `alpha: 0` for a frequency-independent log fold change.
+collections:
+  # sizing run: one n, the effect ladder on the 4 x 4 (mu0, phi) grid (2026-10-27)
+  pilot:
+    reps: 5
+    L: [1, 5]
+    arms: [linear_int, linear_log, poisson, nb_true, nb_est, nb_score_rss, nb_score_rss_true, nb_mle_rss, nb_cavi]
+    grid:
+      n: 300
+      mu0: [1, 10, 100, 1000]
+      phi: [0.05, 0.1, 0.3, 0.5]
+      libsize_sd: 0.3
+      k_causal: [1, 2]
+      beta: [0.05, 0.07, 0.1, 0.14, 0.2, 0.28, 0.4]
+      maf_min: 0.05
+
+  # the experiment (Midway, 2026-10-27): the pilot grid at 100 replicates per cell, one
+  # batch of 100 per (cell, arm, L) job. Replicates 0-4 are the pilot's own draws.
+  001-main:
+    reps: 100
+    batch_size: 100
+    L: [1, 5]
+    arms: [linear_int, linear_log, poisson, nb_true, nb_est, nb_score_rss, nb_score_rss_true, nb_mle_rss, nb_cavi]
+    grid:
+      n: 300
+      mu0: [1, 10, 100, 1000]
+      phi: [0.05, 0.1, 0.3, 0.5]
+      libsize_sd: 0.3
+      k_causal: [1, 2]
+      beta: [0.05, 0.07, 0.1, 0.14, 0.2, 0.28, 0.4]
+      maf_min: 0.05
+
+  # DRAFT: single-cell pseudobulk regime (OneK1K / jaxQTL). Same donor-level NB likelihood,
+  # pseudobulk parameters. Differences from 001-main, with the reason:
+  #   window   1.5 Mb (chr22 29.75-31.25 Mb). jaxQTL's cis window is +-500 kb at MAF > 0.05,
+  #            which holds ~2,000 SNPs in real European data; the stdpopsim CEU model gives
+  #            ~1,340 common SNPs per Mb (2,674 in a 2 Mb test window at n = 1000), so 1.5 Mb
+  #            lands at p ~ 2,000. A new population resource (content-addressed on the window).
+  #   n        1000 (982 OneK1K donors).
+  #   mu0      0.5-50: pseudobulk counts per donor for a cell type are UMIs/cell x cells/donor x
+  #            gene fraction, so most genes sit at single digits. mu0 = 0.5 and 2 are the zero-
+  #            heavy genes the paper's gains come from (20-60% zero donors at phi = 1).
+  #   phi      0.3 (jaxQTL's simulation default, alpha = 0.3) and 1.0 (low-count /
+  #            composition-driven overdispersion).
+  #   libsize  log sd 1.0: 62-3,501 cells per donor in OneK1K.
+  #   beta     0.05-0.4 on the standardized genotype (jaxQTL draws beta_g ~ N(0, 0.05) per
+  #            allele at MAF 0.2, i.e. ~0.13 standardized), plus null.
+  #   k        1 and 2 (1.15 credible sets per eGene after fine-mapping), plus k = 0 nulls.
+  # Generator is still the exact NB; jaxQTL's Poisson-mixed-effect generator (per-donor
+  # random intercept) is the misspecification follow-up and needs a simulate.py knob.
+  # Cost: nb_cavi at n = 1000, p ~ 2,000, L = 5 is the expensive arm (dense spectral path,
+  # est. 5-30 min/rep on a laptop); 4 x 2 x 3 x 2 + 4 x 2 nulls = 56 cells x 30 reps.
+  002-pseudobulk:
+    reps: 30
+    L: [1, 5]
+    arms: [linear_int, nb_cavi]
+    population:
+      left: 29750000
+      right: 31250000
+    grid:
+      - n: 1000
+        mu0: [0.5, 2, 10, 50]
+        phi: [0.3, 1.0]
+        libsize_sd: 1.0
+        k_causal: [1, 2]
+        beta: [0.05, 0.1, 0.2, 0.4]
+        maf_min: 0.05
+      - n: 1000
+        mu0: [0.5, 2, 10, 50]
+        phi: [0.3, 1.0]
+        libsize_sd: 1.0
+        k_causal: 0
+        beta: 0.0
+        maf_min: 0.05
+  # Poisson companion (phi = 0): the generator draws Poisson counts, so log-linear vs Poisson
+  # SuSiE isolates the log link and the count likelihood from the overdispersion question.
+  # nb_est at phi = 0 shows what the null-model dispersion does at the Poisson boundary
+  # (r_hat should run to the 1e4 cap). Pilot effect ladder; mu0 = 1 / 10 / 100 because the
+  # Poisson information is mu0 itself (chi-square = n mu0 beta^2: mu0 = 1000 is trivial at
+  # every beta >= 0.05, mu0 = 1 is the 60%-coverage regime where the likelihood matters).
+  003-poisson:
+    reps: 5
+    L: [1, 5]
+    arms: [linear_int, linear_log, poisson, poisson_cavi, nb_est]
+    grid:
+      n: 300
+      mu0: [1, 10, 100]
+      phi: 0
+      libsize_sd: 0.3
+      k_causal: [1, 2]
+      beta: [0.05, 0.07, 0.1, 0.14, 0.2, 0.28, 0.4]
+      maf_min: 0.05
